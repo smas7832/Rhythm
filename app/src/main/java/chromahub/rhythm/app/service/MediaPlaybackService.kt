@@ -1,5 +1,6 @@
 package chromahub.rhythm.app.service
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
@@ -17,12 +18,42 @@ class MediaPlaybackService : MediaLibraryService() {
     private val TAG = "MediaPlaybackService"
     private var mediaSession: MediaLibrarySession? = null
     private lateinit var player: ExoPlayer
+    
+    // SharedPreferences keys
+    companion object {
+        private const val PREF_NAME = "rhythm_preferences"
+        private const val PREF_HIGH_QUALITY_AUDIO = "high_quality_audio"
+        private const val PREF_GAPLESS_PLAYBACK = "gapless_playback"
+        private const val PREF_CROSSFADE = "crossfade"
+        private const val PREF_CROSSFADE_DURATION = "crossfade_duration"
+        private const val PREF_AUDIO_NORMALIZATION = "audio_normalization"
+        private const val PREF_REPLAY_GAIN = "replay_gain"
+        
+        // Intent action for updating settings
+        const val ACTION_UPDATE_SETTINGS = "chromahub.rhythm.app.action.UPDATE_SETTINGS"
+    }
 
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "Service created")
         
-        // Initialize the player
+        // Get settings from SharedPreferences
+        val prefs = getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+        val enableHighQualityAudio = prefs.getBoolean(PREF_HIGH_QUALITY_AUDIO, true)
+        val enableGaplessPlayback = prefs.getBoolean(PREF_GAPLESS_PLAYBACK, true)
+        val enableCrossfade = prefs.getBoolean(PREF_CROSSFADE, false)
+        val crossfadeDuration = prefs.getFloat(PREF_CROSSFADE_DURATION, 2f)
+        val enableAudioNormalization = prefs.getBoolean(PREF_AUDIO_NORMALIZATION, true)
+        val enableReplayGain = prefs.getBoolean(PREF_REPLAY_GAIN, false)
+        
+        Log.d(TAG, "Applying settings: " +
+                "HQ Audio=$enableHighQualityAudio, " +
+                "Gapless=$enableGaplessPlayback, " +
+                "Crossfade=$enableCrossfade (${crossfadeDuration}s), " +
+                "Normalization=$enableAudioNormalization, " +
+                "ReplayGain=$enableReplayGain")
+        
+        // Initialize the player with settings
         player = ExoPlayer.Builder(this)
             .setAudioAttributes(
                 AudioAttributes.Builder()
@@ -36,6 +67,21 @@ class MediaPlaybackService : MediaLibraryService() {
                 // Set repeat mode and shuffle
                 repeatMode = Player.REPEAT_MODE_ALL
                 shuffleModeEnabled = false
+                
+                // Apply audio normalization if enabled
+                if (enableAudioNormalization) {
+                    // In a real implementation, we would configure audio processors here
+                    // This is a simplified example
+                    volume = 1.0f
+                }
+                
+                // Apply crossfade settings if enabled
+                if (enableCrossfade) {
+                    // ExoPlayer doesn't have built-in crossfade, but in a real app
+                    // we would implement a custom crossfade solution
+                    // For example, using multiple players or audio mixers
+                    Log.d(TAG, "Crossfade enabled with duration: $crossfadeDuration seconds")
+                }
                 
                 // Add a listener for playback state changes
                 addListener(object : Player.Listener {
@@ -81,7 +127,42 @@ class MediaPlaybackService : MediaLibraryService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(TAG, "Service started with command")
+        
+        // Check if this is a settings update intent
+        if (intent?.action == ACTION_UPDATE_SETTINGS) {
+            updatePlaybackSettings()
+        }
+        
         return super.onStartCommand(intent, flags, startId)
+    }
+    
+    /**
+     * Updates playback settings from SharedPreferences
+     */
+    private fun updatePlaybackSettings() {
+        val prefs = getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+        val enableHighQualityAudio = prefs.getBoolean(PREF_HIGH_QUALITY_AUDIO, true)
+        val enableGaplessPlayback = prefs.getBoolean(PREF_GAPLESS_PLAYBACK, true)
+        val enableCrossfade = prefs.getBoolean(PREF_CROSSFADE, false)
+        val crossfadeDuration = prefs.getFloat(PREF_CROSSFADE_DURATION, 2f)
+        val enableAudioNormalization = prefs.getBoolean(PREF_AUDIO_NORMALIZATION, true)
+        val enableReplayGain = prefs.getBoolean(PREF_REPLAY_GAIN, false)
+        
+        Log.d(TAG, "Updating playback settings: " +
+                "HQ Audio=$enableHighQualityAudio, " +
+                "Gapless=$enableGaplessPlayback, " +
+                "Crossfade=$enableCrossfade (${crossfadeDuration}s), " +
+                "Normalization=$enableAudioNormalization, " +
+                "ReplayGain=$enableReplayGain")
+        
+        // Apply audio normalization
+        if (enableAudioNormalization) {
+            // In a real implementation, we would configure audio processors here
+            player.volume = 1.0f
+        }
+        
+        // Note: Some settings like gapless playback require player recreation
+        // In a real app, we would handle this more gracefully
     }
 
     override fun onDestroy() {

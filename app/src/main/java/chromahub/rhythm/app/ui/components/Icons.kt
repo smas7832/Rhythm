@@ -11,6 +11,7 @@ import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.automirrored.outlined.PlaylistAdd
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Audiotrack
+import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
@@ -18,6 +19,7 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
@@ -34,15 +36,19 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.Speaker
 import androidx.compose.material.icons.outlined.Album
 import androidx.compose.material.icons.outlined.Audiotrack
+import androidx.compose.material.icons.outlined.Bluetooth
 import androidx.compose.material.icons.outlined.Favorite
+import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.LibraryMusic
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Place
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Speaker
 
 /**
  * Icons for the Rhythm app
@@ -99,4 +105,12 @@ object RhythmIcons {
     // Location
     val Location = Icons.Outlined.Place
     val LocationFilled = Icons.Filled.Place
+    
+    // Audio devices
+    val Bluetooth = Icons.Outlined.Bluetooth
+    val BluetoothFilled = Icons.Filled.Bluetooth
+    val Headphones = Icons.Outlined.Headphones
+    val HeadphonesFilled = Icons.Filled.Headphones
+    val Speaker = Icons.Outlined.Speaker
+    val SpeakerFilled = Icons.Filled.Speaker
 } 

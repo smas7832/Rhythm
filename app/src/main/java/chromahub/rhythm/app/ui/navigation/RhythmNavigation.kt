@@ -43,6 +43,8 @@ import chromahub.rhythm.app.ui.components.MiniPlayer
 import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.ui.screens.HomeScreen
 import chromahub.rhythm.app.ui.screens.LibraryScreen
+import chromahub.rhythm.app.ui.screens.PlayerLocationsScreen
+import chromahub.rhythm.app.ui.screens.PlayerQueueScreen
 import chromahub.rhythm.app.ui.screens.PlayerScreen
 import chromahub.rhythm.app.ui.screens.PlaylistDetailScreen
 import chromahub.rhythm.app.ui.screens.SearchScreen
@@ -50,6 +52,7 @@ import chromahub.rhythm.app.ui.screens.SettingsScreen
 import chromahub.rhythm.app.viewmodel.MusicViewModel
 import chromahub.rhythm.app.viewmodel.ThemeViewModel
 import coil.compose.AsyncImage
+import kotlinx.coroutines.flow.collect
 
 sealed class Screen(val route: String) {
     object Home : Screen("home")
@@ -58,6 +61,8 @@ sealed class Screen(val route: String) {
     object Player : Screen("player")
     object Settings : Screen("settings")
     object AddToPlaylist : Screen("add_to_playlist")
+    object PlayerQueue : Screen("player_queue")
+    object PlayerLocations : Screen("player_locations")
     object PlaylistDetail : Screen("playlist/{playlistId}") {
         fun createRoute(playlistId: String) = "playlist/$playlistId"
     }
@@ -104,10 +109,23 @@ fun RhythmNavigation(
     val onToggleShuffle = { viewModel.toggleShuffle() }
     val onToggleRepeat = { viewModel.toggleRepeatMode() }
     val onToggleFavorite = { viewModel.toggleFavorite() }
+    
+    // Track current destination for hiding navigation bar on player screen
+    var currentRoute by remember { mutableStateOf(Screen.Home.route) }
+    
+    // Update current route when destination changes
+    LaunchedEffect(navController) {
+        navController.currentBackStackEntryFlow.collect { backStackEntry ->
+            currentRoute = backStackEntry.destination.route ?: Screen.Home.route
+        }
+    }
 
     Scaffold(
         bottomBar = {
-            if (navController.currentDestination?.route != Screen.Player.route) {
+            // Only show the navigation bar if we're not on the player screen or related screens
+            if (currentRoute != Screen.Player.route && 
+                currentRoute != Screen.PlayerQueue.route && 
+                currentRoute != Screen.PlayerLocations.route) {
                 NavigationBar {
                     NavigationBarItem(
                         selected = selectedTab == 0,
@@ -316,6 +334,34 @@ fun RhythmNavigation(
                     },
                     onDarkModeChange = { dark ->
                         themeViewModel.setDarkMode(dark)
+                    },
+                    onOpenSystemEqualizer = {
+                        viewModel.openSystemEqualizer()
+                    },
+                    // Add playback settings
+                    enableHighQualityAudio = viewModel.enableHighQualityAudio.collectAsState().value,
+                    enableGaplessPlayback = viewModel.enableGaplessPlayback.collectAsState().value,
+                    enableCrossfade = viewModel.enableCrossfade.collectAsState().value,
+                    crossfadeDuration = viewModel.crossfadeDuration.collectAsState().value,
+                    enableAudioNormalization = viewModel.enableAudioNormalization.collectAsState().value,
+                    enableReplayGain = viewModel.enableReplayGain.collectAsState().value,
+                    onHighQualityAudioChange = { enable ->
+                        viewModel.setHighQualityAudio(enable)
+                    },
+                    onGaplessPlaybackChange = { enable ->
+                        viewModel.setGaplessPlayback(enable)
+                    },
+                    onCrossfadeChange = { enable ->
+                        viewModel.setCrossfade(enable)
+                    },
+                    onCrossfadeDurationChange = { duration ->
+                        viewModel.setCrossfadeDuration(duration)
+                    },
+                    onAudioNormalizationChange = { enable ->
+                        viewModel.setAudioNormalization(enable)
+                    },
+                    onReplayGainChange = { enable ->
+                        viewModel.setReplayGain(enable)
                     }
                 )
             }
@@ -338,10 +384,12 @@ fun RhythmNavigation(
                         navController.popBackStack()
                     },
                     onLocationClick = {
-                        // Implement location selection
+                        // Navigate to locations screen
+                        navController.navigate(Screen.PlayerLocations.route)
                     },
                     onQueueClick = {
-                        // Implement queue view
+                        // Navigate to queue screen
+                        navController.navigate(Screen.PlayerQueue.route)
                     },
                     onToggleShuffle = {
                         viewModel.toggleShuffle()
@@ -375,6 +423,39 @@ fun RhythmNavigation(
                     },
                     onMaxVolume = {
                         viewModel.maxVolume()
+                    },
+                    playlists = playlists
+                )
+            }
+            
+            // Player Queue screen
+            composable(Screen.PlayerQueue.route) {
+                PlayerQueueScreen(
+                    currentSong = currentSong,
+                    queue = viewModel.currentQueue.collectAsState().value.songs,
+                    onSongClick = { song ->
+                        // Play the selected song from the queue
+                        viewModel.playSong(song)
+                        navController.popBackStack()
+                    },
+                    onBack = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+            
+            // Player Locations screen
+            composable(Screen.PlayerLocations.route) {
+                PlayerLocationsScreen(
+                    locations = viewModel.locations.collectAsState().value,
+                    currentLocation = currentLocation,
+                    onLocationSelect = { location ->
+                        // Set the selected location
+                        viewModel.setCurrentLocation(location)
+                        navController.popBackStack()
+                    },
+                    onBack = {
+                        navController.popBackStack()
                     }
                 )
             }

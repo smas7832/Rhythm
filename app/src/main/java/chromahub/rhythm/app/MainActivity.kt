@@ -14,6 +14,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -89,7 +90,7 @@ fun PermissionHandler(
     var isLoading by remember { mutableStateOf(true) }
     
     // For Android 13+, we need READ_MEDIA_AUDIO, for older versions we need READ_EXTERNAL_STORAGE
-    val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+    val storagePermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         listOf(
             Manifest.permission.READ_MEDIA_AUDIO,
             Manifest.permission.READ_MEDIA_IMAGES,
@@ -103,7 +104,25 @@ fun PermissionHandler(
         )
     }
     
-    val permissionsState = rememberMultiplePermissionsState(permissions)
+    // Bluetooth permissions based on Android version
+    val bluetoothPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        // Android 12+ requires BLUETOOTH_CONNECT and BLUETOOTH_SCAN
+        listOf(
+            Manifest.permission.BLUETOOTH_CONNECT,
+            Manifest.permission.BLUETOOTH_SCAN
+        )
+    } else {
+        // Older versions use BLUETOOTH and BLUETOOTH_ADMIN
+        listOf(
+            Manifest.permission.BLUETOOTH,
+            Manifest.permission.BLUETOOTH_ADMIN
+        )
+    }
+    
+    // Combine all required permissions
+    val allPermissions = storagePermissions + bluetoothPermissions
+    
+    val permissionsState = rememberMultiplePermissionsState(allPermissions)
     
     LaunchedEffect(Unit) {
         permissionsState.launchMultiplePermissionRequest()
@@ -120,9 +139,18 @@ fun PermissionHandler(
             CircularProgressIndicator()
         }
     } else {
-        val allPermissionsGranted = permissionsState.permissions.all { it.status.isGranted }
+        // Check if all storage permissions are granted (essential)
+        val storagePermissionsGranted = permissionsState.permissions
+            .filter { it.permission in storagePermissions }
+            .all { it.status.isGranted }
         
-        if (allPermissionsGranted) {
+        // Check if any Bluetooth permissions are granted (optional but preferred)
+        val bluetoothPermissionsGranted = permissionsState.permissions
+            .filter { it.permission in bluetoothPermissions }
+            .any { it.status.isGranted }
+        
+        if (storagePermissionsGranted) {
+            // We can proceed even without Bluetooth permissions
             onPermissionsGranted()
         } else {
             PermissionDeniedScreen(
@@ -146,15 +174,30 @@ fun PermissionDeniedScreen(
     ) {
         Surface(
             color = MaterialTheme.colorScheme.surfaceVariant,
-            shape = MaterialTheme.shapes.medium
+            shape = MaterialTheme.shapes.medium,
+            modifier = Modifier.padding(16.dp)
         ) {
-            Text(
-                text = "Storage permission is required to access music files on your device. " +
-                       "Please grant the permission to continue.",
-                style = MaterialTheme.typography.bodyLarge,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(24.dp)
-            )
+            Box(
+                modifier = Modifier.padding(24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Storage permission is required to access music files on your device. " +
+                           "Bluetooth permissions are needed to detect and use Bluetooth audio devices. " +
+                           "Please grant the permissions to continue.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    textAlign = TextAlign.Center
+                )
+                
+                TextButton(
+                    onClick = onRequestAgain,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(top = 16.dp)
+                ) {
+                    Text("Grant Permissions")
+                }
+            }
         }
     }
 }

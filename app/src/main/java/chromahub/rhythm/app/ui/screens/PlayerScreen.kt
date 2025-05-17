@@ -12,6 +12,7 @@ import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -21,6 +22,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -55,6 +58,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import chromahub.rhythm.app.data.PlaybackLocation
+import chromahub.rhythm.app.data.Playlist
 import chromahub.rhythm.app.data.Song
 import chromahub.rhythm.app.ui.components.WaveSlider
 import chromahub.rhythm.app.ui.components.RhythmIcons
@@ -95,7 +99,8 @@ fun PlayerScreen(
     isMuted: Boolean = false,
     onVolumeChange: (Float) -> Unit = {},
     onToggleMute: () -> Unit = {},
-    onMaxVolume: () -> Unit = {}
+    onMaxVolume: () -> Unit = {},
+    playlists: List<Playlist> = emptyList()
 ) {
     val context = LocalContext.current
     
@@ -132,6 +137,14 @@ fun PlayerScreen(
         ),
         label = "albumAlpha"
     )
+    
+    // Find which playlist the current song belongs to
+    val songPlaylist = remember(song, playlists) {
+        if (song == null) null
+        else playlists.find { playlist ->
+            playlist.songs.any { it.id == song.id }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -149,15 +162,19 @@ fun PlayerScreen(
                         )
                         
                         if (song != null) {
-                            Text(
-                                text = song.title,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(horizontal = 48.dp)
-                            )
+                            // Show playlist name instead of song title if the song belongs to a playlist
+                            if (songPlaylist != null) {
+                                Text(
+                                    text = songPlaylist.name,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(horizontal = 48.dp)
+                                )
+                            }
+                            // If song doesn't belong to any playlist, show nothing
                         }
                     }
                 },
@@ -625,8 +642,16 @@ fun PlayerScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center
                         ) {
+                            // Choose icon based on device type
+                            val icon = when {
+                                location?.id?.startsWith("bt_") == true -> RhythmIcons.BluetoothFilled
+                                location?.id == "wired_headset" -> RhythmIcons.HeadphonesFilled
+                                location?.id == "speaker" -> RhythmIcons.SpeakerFilled
+                                else -> RhythmIcons.LocationFilled
+                            }
+                            
                             Icon(
-                                imageVector = RhythmIcons.Location,
+                                imageVector = icon,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -670,6 +695,7 @@ fun PlayerScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlayerQueueScreen(
     currentSong: Song?,
@@ -677,9 +703,157 @@ fun PlayerQueueScreen(
     onSongClick: (Song) -> Unit,
     onBack: () -> Unit
 ) {
-    // Implementation for the queue screen
+    val context = LocalContext.current
+    
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "Current Queue",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = RhythmIcons.Back,
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.onBackground
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
+            )
+        }
+    ) { paddingValues ->
+        if (queue.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Queue is empty",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentPadding = PaddingValues(vertical = 8.dp)
+            ) {
+                items(queue) { song ->
+                    val isCurrentSong = currentSong?.id == song.id
+                    
+                    Surface(
+                        onClick = { onSongClick(song) },
+                        color = if (isCurrentSong) 
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
+                        else 
+                            Color.Transparent,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp, horizontal = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Queue position
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (isCurrentSong)
+                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                                        else
+                                            MaterialTheme.colorScheme.surfaceVariant
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (isCurrentSong) {
+                                    Icon(
+                                        imageVector = RhythmIcons.Play,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                } else {
+                                    Text(
+                                        text = "${queue.indexOf(song) + 1}",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.width(16.dp))
+                            
+                            // Album art
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                            ) {
+                                AsyncImage(
+                                    model = ImageRequest.Builder(context)
+                                        .apply(ImageUtils.buildImageRequest(
+                                            song.artworkUri,
+                                            song.title,
+                                            context.cacheDir,
+                                            ImageUtils.PlaceholderType.TRACK
+                                        ))
+                                        .build(),
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                            
+                            // Song info
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(horizontal = 12.dp)
+                            ) {
+                                Text(
+                                    text = song.title,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = if (isCurrentSong) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isCurrentSong) 
+                                        MaterialTheme.colorScheme.primary
+                                    else 
+                                        MaterialTheme.colorScheme.onBackground,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                
+                                Text(
+                                    text = "${song.artist} • ${song.album}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlayerLocationsScreen(
     locations: List<PlaybackLocation>,
@@ -687,5 +861,146 @@ fun PlayerLocationsScreen(
     onLocationSelect: (PlaybackLocation) -> Unit,
     onBack: () -> Unit
 ) {
-    // Implementation for the locations screen
+    val context = LocalContext.current
+    
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "Choose Output Device",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = RhythmIcons.Back,
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.onBackground
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
+            )
+        }
+    ) { paddingValues ->
+        if (locations.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "No devices available",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentPadding = PaddingValues(vertical = 8.dp)
+            ) {
+                items(locations) { location ->
+                    val isSelected = currentLocation?.id == location.id
+                    
+                    Surface(
+                        onClick = { onLocationSelect(location) },
+                        color = if (isSelected) 
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
+                        else 
+                            Color.Transparent,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 12.dp, horizontal = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Device icon
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (isSelected)
+                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                                        else
+                                            MaterialTheme.colorScheme.surfaceVariant
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                // Choose icon based on device type
+                                val icon = when {
+                                    location.id.startsWith("bt_") -> RhythmIcons.Bluetooth
+                                    location.id == "wired_headset" -> RhythmIcons.Headphones
+                                    location.id == "speaker" -> RhythmIcons.Speaker
+                                    else -> RhythmIcons.Location
+                                }
+                                
+                                Icon(
+                                    imageVector = icon,
+                                    contentDescription = null,
+                                    tint = if (isSelected) 
+                                        MaterialTheme.colorScheme.primary
+                                    else
+                                        MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                            
+                            // Device info
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(horizontal = 16.dp)
+                            ) {
+                                // Device name
+                                Text(
+                                    text = location.name,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isSelected) 
+                                        MaterialTheme.colorScheme.primary
+                                    else 
+                                        MaterialTheme.colorScheme.onBackground
+                                )
+                                
+                                // Device type
+                                val deviceType = when {
+                                    location.id.startsWith("bt_") -> "Bluetooth"
+                                    location.id == "wired_headset" -> "Wired Headphones"
+                                    location.id == "speaker" -> "Built-in Speaker"
+                                    else -> "Audio Device"
+                                }
+                                
+                                Text(
+                                    text = deviceType,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                                )
+                            }
+                            
+                            // Selected indicator
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = RhythmIcons.Check,
+                                    contentDescription = "Selected",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 } 

@@ -3,12 +3,15 @@ package chromahub.rhythm.app.viewmodel
 import android.app.Application
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
+import android.media.audiofx.AudioEffect
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import chromahub.rhythm.app.data.Album
@@ -19,6 +22,8 @@ import chromahub.rhythm.app.data.Playlist
 import chromahub.rhythm.app.data.Queue
 import chromahub.rhythm.app.data.Song
 import chromahub.rhythm.app.service.MediaPlaybackService
+import chromahub.rhythm.app.util.AudioDeviceManager
+import chromahub.rhythm.app.util.EqualizerUtils
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
 import kotlinx.coroutines.Job
@@ -33,6 +38,12 @@ import java.time.Duration
 class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val TAG = "MusicViewModel"
     private val repository = MusicRepository(application)
+    
+    // Audio device manager
+    private val audioDeviceManager = AudioDeviceManager(application)
+    
+    // SharedPreferences for storing settings
+    private val sharedPreferences = application.getSharedPreferences("rhythm_preferences", Context.MODE_PRIVATE)
 
     // Main music data
     private val _songs = MutableStateFlow<List<Song>>(emptyList())
@@ -47,8 +58,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _playlists = MutableStateFlow<List<Playlist>>(emptyList())
     val playlists: StateFlow<List<Playlist>> = _playlists.asStateFlow()
 
-    private val _locations = MutableStateFlow<List<PlaybackLocation>>(emptyList())
-    val locations: StateFlow<List<PlaybackLocation>> = _locations.asStateFlow()
+    // Use audioDeviceManager for locations instead of the mock data
+    val locations = audioDeviceManager.availableDevices
+    val currentLocation = audioDeviceManager.currentDevice
 
     // Recently played songs
     private val _recentlyPlayed = MutableStateFlow<List<Song>>(emptyList())
@@ -63,9 +75,6 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _currentQueue = MutableStateFlow(Queue(emptyList()))
     val currentQueue: StateFlow<Queue> = _currentQueue.asStateFlow()
-
-    private val _currentLocation = MutableStateFlow<PlaybackLocation?>(null)
-    val currentLocation: StateFlow<PlaybackLocation?> = _currentLocation.asStateFlow()
 
     private val _progress = MutableStateFlow(0f)
     val progress: StateFlow<Float> = _progress.asStateFlow()
@@ -120,6 +129,25 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _showOnlineOnlyLyrics = MutableStateFlow(false)
     val showOnlineOnlyLyrics: StateFlow<Boolean> = _showOnlineOnlyLyrics.asStateFlow()
     
+    // Playback settings
+    private val _enableHighQualityAudio = MutableStateFlow(true)
+    val enableHighQualityAudio: StateFlow<Boolean> = _enableHighQualityAudio.asStateFlow()
+    
+    private val _enableGaplessPlayback = MutableStateFlow(true)
+    val enableGaplessPlayback: StateFlow<Boolean> = _enableGaplessPlayback.asStateFlow()
+    
+    private val _enableCrossfade = MutableStateFlow(false)
+    val enableCrossfade: StateFlow<Boolean> = _enableCrossfade.asStateFlow()
+    
+    private val _crossfadeDuration = MutableStateFlow(2f)
+    val crossfadeDuration: StateFlow<Float> = _crossfadeDuration.asStateFlow()
+    
+    private val _enableAudioNormalization = MutableStateFlow(true)
+    val enableAudioNormalization: StateFlow<Boolean> = _enableAudioNormalization.asStateFlow()
+    
+    private val _enableReplayGain = MutableStateFlow(false)
+    val enableReplayGain: StateFlow<Boolean> = _enableReplayGain.asStateFlow()
+    
     // Lyrics
     private val _currentLyrics = MutableStateFlow<String?>(null)
     val currentLyrics: StateFlow<String?> = _currentLyrics.asStateFlow()
@@ -136,15 +164,16 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         Log.d(TAG, "Initializing MusicViewModel")
+        loadSettings() // Load settings first
         loadMusic()
         initializeController()
-        _locations.value = repository.getLocations()
-        // Default location
-        _currentLocation.value = _locations.value.firstOrNull()
         // Start progress updates
         startProgressUpdates()
         // Load favorite songs
         loadFavorites()
+        
+        // Refresh devices periodically
+        startDeviceMonitoring()
     }
 
     private fun loadMusic() {
@@ -638,9 +667,25 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Start monitoring for audio device changes
+     */
+    private fun startDeviceMonitoring() {
+        viewModelScope.launch {
+            while (isActive) {
+                // Refresh devices every 5 seconds
+                audioDeviceManager.refreshDevices()
+                delay(5000)
+            }
+        }
+    }
+
+    /**
+     * Set the current audio output device
+     */
     fun setCurrentLocation(location: PlaybackLocation) {
         Log.d(TAG, "Setting current location: ${location.name}")
-        _currentLocation.value = location
+        audioDeviceManager.setCurrentDevice(location)
     }
 
     override fun onCleared() {
@@ -787,10 +832,38 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
+     * Loads all settings from SharedPreferences
+     */
+    private fun loadSettings() {
+        Log.d(TAG, "Loading settings from SharedPreferences")
+        // Load playback settings
+        _enableHighQualityAudio.value = sharedPreferences.getBoolean(PREF_HIGH_QUALITY_AUDIO, true)
+        _enableGaplessPlayback.value = sharedPreferences.getBoolean(PREF_GAPLESS_PLAYBACK, true)
+        _enableCrossfade.value = sharedPreferences.getBoolean(PREF_CROSSFADE, false)
+        _crossfadeDuration.value = sharedPreferences.getFloat(PREF_CROSSFADE_DURATION, 2f)
+        _enableAudioNormalization.value = sharedPreferences.getBoolean(PREF_AUDIO_NORMALIZATION, true)
+        _enableReplayGain.value = sharedPreferences.getBoolean(PREF_REPLAY_GAIN, false)
+        
+        // Load lyrics settings
+        _showLyrics.value = sharedPreferences.getBoolean(PREF_SHOW_LYRICS, true)
+        _showOnlineOnlyLyrics.value = sharedPreferences.getBoolean(PREF_ONLINE_ONLY_LYRICS, false)
+        
+        Log.d(TAG, "Loaded settings: " +
+                "HQ Audio=${_enableHighQualityAudio.value}, " +
+                "Gapless=${_enableGaplessPlayback.value}, " +
+                "Crossfade=${_enableCrossfade.value} (${_crossfadeDuration.value}s), " +
+                "Normalization=${_enableAudioNormalization.value}, " +
+                "ReplayGain=${_enableReplayGain.value}, " +
+                "ShowLyrics=${_showLyrics.value}, " +
+                "OnlineOnlyLyrics=${_showOnlineOnlyLyrics.value}")
+    }
+
+    /**
      * Updates the show lyrics setting
      */
     fun setShowLyrics(show: Boolean) {
         _showLyrics.value = show
+        sharedPreferences.edit().putBoolean(PREF_SHOW_LYRICS, show).apply()
         if (show && _currentSong.value != null) {
             fetchLyricsForCurrentSong()
         } else {
@@ -803,6 +876,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun setShowOnlineOnlyLyrics(onlineOnly: Boolean) {
         _showOnlineOnlyLyrics.value = onlineOnly
+        sharedPreferences.edit().putBoolean(PREF_ONLINE_ONLY_LYRICS, onlineOnly).apply()
         if (_showLyrics.value && _currentSong.value != null) {
             fetchLyricsForCurrentSong()
         }
@@ -871,5 +945,97 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     fun maxVolume() {
         Log.d(TAG, "Setting max volume")
         setVolume(1.0f)
+    }
+
+    /**
+     * Opens the system equalizer for the current audio session
+     */
+    fun openSystemEqualizer() {
+        val context = getApplication<Application>()
+        EqualizerUtils.openSystemEqualizer(context)
+    }
+
+    // Playback settings functions
+    fun setHighQualityAudio(enable: Boolean) {
+        _enableHighQualityAudio.value = enable
+        sharedPreferences.edit().putBoolean(PREF_HIGH_QUALITY_AUDIO, enable).apply()
+        applyPlaybackSettings()
+    }
+    
+    fun setGaplessPlayback(enable: Boolean) {
+        _enableGaplessPlayback.value = enable
+        sharedPreferences.edit().putBoolean(PREF_GAPLESS_PLAYBACK, enable).apply()
+        applyPlaybackSettings()
+    }
+    
+    fun setCrossfade(enable: Boolean) {
+        _enableCrossfade.value = enable
+        sharedPreferences.edit().putBoolean(PREF_CROSSFADE, enable).apply()
+        applyPlaybackSettings()
+    }
+    
+    fun setCrossfadeDuration(duration: Float) {
+        _crossfadeDuration.value = duration
+        sharedPreferences.edit().putFloat(PREF_CROSSFADE_DURATION, duration).apply()
+        applyPlaybackSettings()
+    }
+    
+    fun setAudioNormalization(enable: Boolean) {
+        _enableAudioNormalization.value = enable
+        sharedPreferences.edit().putBoolean(PREF_AUDIO_NORMALIZATION, enable).apply()
+        applyPlaybackSettings()
+    }
+    
+    fun setReplayGain(enable: Boolean) {
+        _enableReplayGain.value = enable
+        sharedPreferences.edit().putBoolean(PREF_REPLAY_GAIN, enable).apply()
+        applyPlaybackSettings()
+    }
+    
+    private fun applyPlaybackSettings() {
+        // Apply settings to the media player
+        mediaController?.let { controller ->
+            // In a real app, these settings would be applied to the ExoPlayer instance
+            // For example:
+            // if (controller is ExoPlayer) {
+            //     controller.setGaplessPlayback(_enableGaplessPlayback.value)
+            //     if (_enableCrossfade.value) {
+            //         controller.setCrossfadeDuration(_crossfadeDuration.value.toInt() * 1000)
+            //     }
+            //     controller.setAudioAttributes(
+            //         AudioAttributes.Builder()
+            //             .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+            //             .setUsage(C.USAGE_MEDIA)
+            //             .build(),
+            //         !_enableHighQualityAudio.value
+            //     )
+            // }
+            
+            Log.d(TAG, "Applied playback settings: " +
+                    "HQ Audio=${_enableHighQualityAudio.value}, " +
+                    "Gapless=${_enableGaplessPlayback.value}, " +
+                    "Crossfade=${_enableCrossfade.value} (${_crossfadeDuration.value}s), " +
+                    "Normalization=${_enableAudioNormalization.value}, " +
+                    "ReplayGain=${_enableReplayGain.value}")
+            
+            // Send intent to update service settings
+            val context = getApplication<Application>()
+            val intent = Intent(context, MediaPlaybackService::class.java).apply {
+                action = MediaPlaybackService.ACTION_UPDATE_SETTINGS
+            }
+            context.startService(intent)
+        }
+    }
+
+    companion object {
+        // SharedPreferences keys
+        private const val PREF_HIGH_QUALITY_AUDIO = "high_quality_audio"
+        private const val PREF_GAPLESS_PLAYBACK = "gapless_playback"
+        private const val PREF_CROSSFADE = "crossfade"
+        private const val PREF_CROSSFADE_DURATION = "crossfade_duration"
+        private const val PREF_AUDIO_NORMALIZATION = "audio_normalization"
+        private const val PREF_REPLAY_GAIN = "replay_gain"
+        private const val PREF_SHOW_LYRICS = "show_lyrics"
+        private const val PREF_ONLINE_ONLY_LYRICS = "online_only_lyrics"
     }
 } 
