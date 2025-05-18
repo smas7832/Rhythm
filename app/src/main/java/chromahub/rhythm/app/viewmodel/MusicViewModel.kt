@@ -1027,6 +1027,37 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun addSongToQueue(song: Song) {
+        Log.d(TAG, "Adding song to queue: ${song.title}")
+        mediaController?.let { controller ->
+            val mediaItem = MediaItem.Builder()
+                .setMediaId(song.id)
+                .setUri(song.uri)
+                .setMediaMetadata(
+                    MediaMetadata.Builder()
+                        .setTitle(song.title)
+                        .setArtist(song.artist)
+                        .setAlbumTitle(song.album)
+                        .setArtworkUri(song.artworkUri)
+                        .build()
+                )
+                .build()
+            
+            controller.addMediaItem(mediaItem)
+            
+            // If nothing is currently playing, start playback
+            if (controller.playbackState == Player.STATE_IDLE || controller.playbackState == Player.STATE_ENDED) {
+                controller.prepare()
+                controller.play()
+            }
+            
+            // Update the queue in our state
+            val currentQueueSongs = _currentQueue.value.songs.toMutableList()
+            currentQueueSongs.add(song)
+            _currentQueue.value = Queue(currentQueueSongs)
+        }
+    }
+
     companion object {
         // SharedPreferences keys
         private const val PREF_HIGH_QUALITY_AUDIO = "high_quality_audio"

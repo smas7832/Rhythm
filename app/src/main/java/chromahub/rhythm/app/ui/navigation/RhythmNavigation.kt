@@ -305,7 +305,11 @@ fun RhythmNavigation(
                         viewModel.createPlaylist(name)
                     },
                     sortOrder = sortOrder,
-                    onSkipNext = onSkipNext
+                    onSkipNext = onSkipNext,
+                    onAddToQueue = { song ->
+                        // Add song to queue
+                        viewModel.addSongToQueue(song)
+                    }
                 )
             }
             

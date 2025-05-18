@@ -87,7 +87,8 @@ fun LibraryScreen(
     onAddSongToPlaylist: (Song, String) -> Unit = { _, _ -> },
     onCreatePlaylist: (String) -> Unit = { _ -> },
     sortOrder: MusicViewModel.SortOrder = MusicViewModel.SortOrder.TITLE_ASC,
-    onSkipNext: () -> Unit = {}
+    onSkipNext: () -> Unit = {},
+    onAddToQueue: (Song) -> Unit
 ) {
     val tabs = listOf("Songs", "Playlists")
     var selectedTabIndex by remember { mutableStateOf(0) }
@@ -248,7 +249,8 @@ fun LibraryScreen(
                         onAddToPlaylist = { song ->
                             selectedSong = song
                             showAddToPlaylistDialog = true
-                        }
+                        },
+                        onAddToQueue = onAddToQueue
                     )
                     1 -> PlaylistsTab(
                         playlists = playlists,
@@ -266,7 +268,8 @@ fun LibraryScreen(
 fun SongsTab(
     songs: List<Song>,
     onSongClick: (Song) -> Unit,
-    onAddToPlaylist: (Song) -> Unit
+    onAddToPlaylist: (Song) -> Unit,
+    onAddToQueue: (Song) -> Unit
 ) {
     if (songs.isEmpty()) {
         EmptyState(
@@ -281,7 +284,8 @@ fun SongsTab(
                 LibrarySongItem(
                     song = song,
                     onClick = { onSongClick(song) },
-                    onMoreClick = { onAddToPlaylist(song) }
+                    onMoreClick = { onAddToPlaylist(song) },
+                    onAddToQueue = { onAddToQueue(song) }
                 )
             }
         }
@@ -349,16 +353,16 @@ fun PlaylistsTab(
 fun LibrarySongItem(
     song: Song,
     onClick: () -> Unit,
-    onMoreClick: () -> Unit = {},
-    modifier: Modifier = Modifier
+    onMoreClick: () -> Unit,
+    onAddToQueue: () -> Unit
 ) {
-    var showDropdown by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    var showDropdown by remember { mutableStateOf(false) }
     
     Surface(
         onClick = onClick,
         color = Color.Transparent,
-        modifier = modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier
@@ -426,6 +430,20 @@ fun LibrarySongItem(
                     expanded = showDropdown,
                     onDismissRequest = { showDropdown = false }
                 ) {
+                    DropdownMenuItem(
+                        text = { Text("Add to queue") },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = RhythmIcons.Queue,
+                                contentDescription = null
+                            )
+                        },
+                        onClick = {
+                            showDropdown = false
+                            onAddToQueue()
+                        }
+                    )
+                    
                     DropdownMenuItem(
                         text = { Text("Add to playlist") },
                         leadingIcon = {
