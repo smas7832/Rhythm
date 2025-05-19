@@ -33,10 +33,25 @@ object ImageUtils {
      * @param cacheDir The directory to cache the generated image
      * @return Uri to the generated image or null if generation failed
      */
-    fun generatePlaceholderImage(name: String, size: Int = 300, cacheDir: File): Uri? {
+    fun generatePlaceholderImage(name: String?, size: Int = 300, cacheDir: File): Uri? {
+        // Handle null or empty name
+        val safeName = if (name.isNullOrBlank()) "?" else name
+        
         return try {
-            val letter = name.firstOrNull()?.uppercase() ?: "?"
-            val color = getColorForName(name)
+            // Ensure cache directory exists
+            if (!cacheDir.exists()) {
+                if (!cacheDir.mkdirs() && !cacheDir.exists()) {
+                    Log.e(TAG, "Failed to create cache directory")
+                    // Try to use app-specific cache as fallback
+                    if (cacheDir.parentFile == null || !cacheDir.parentFile!!.exists()) {
+                        Log.e(TAG, "Parent cache directory doesn't exist")
+                        return null
+                    }
+                }
+            }
+            
+            val letter = safeName.firstOrNull()?.uppercase() ?: "?"
+            val color = getColorForName(safeName)
             
             val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bitmap)
@@ -65,15 +80,24 @@ object ImageUtils {
             
             canvas.drawText(letter, x, y, paint)
             
+            // Create a unique filename based on name and size
+            val filename = "placeholder_${safeName.hashCode()}_${size}.png"
+            val file = File(cacheDir, filename)
+            
+            // Check if file already exists
+            if (file.exists()) {
+                return file.toUri()
+            }
+            
             // Save to cache
-            val file = File(cacheDir, "placeholder_${name.hashCode()}.png")
             FileOutputStream(file).use { out ->
                 bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                out.flush()
             }
             
             file.toUri()
         } catch (e: Exception) {
-            Log.e(TAG, "Error generating placeholder image", e)
+            Log.e(TAG, "Error generating placeholder image for '$safeName': ${e.message}", e)
             null
         }
     }
@@ -105,8 +129,9 @@ object ImageUtils {
         // Set the main data source
         data(data)
         
-        // Enable crossfade animation
+        // Enable crossfade animation with a reasonable duration
         crossfade(true)
+        crossfade(300)
         
         // Set Material 3 placeholder based on content type
         val placeholderResId = when (type) {
@@ -116,8 +141,18 @@ object ImageUtils {
             PlaceholderType.PLAYLIST -> R.drawable.ic_playlist_placeholder
             PlaceholderType.GENERAL -> R.drawable.ic_audio_placeholder
         }
+        
+        // Always use resource placeholder for consistency
         placeholder(placeholderResId)
         error(placeholderResId)
+        
+        // Add memory caching with a safe key
+        val safeKey = when {
+            data != null -> try { data.toString() } catch (e: Exception) { "default_key" }
+            !name.isNullOrBlank() -> name
+            else -> "default_key"
+        }
+        memoryCacheKey(safeKey)
         
         // Add a listener to handle the result
         listener(
@@ -130,10 +165,15 @@ object ImageUtils {
             onError = { _, result ->
                 // Image failed to load
                 if (result is ErrorResult) {
-                    Log.e(TAG, "Error loading image", result.throwable)
+                    Log.e(TAG, "Error loading image: ${result.throwable.message}", result.throwable)
                 }
             }
         )
+        
+        // Set reasonable timeouts
+        networkCachePolicy(coil.request.CachePolicy.ENABLED)
+        diskCachePolicy(coil.request.CachePolicy.ENABLED)
+        memoryCachePolicy(coil.request.CachePolicy.ENABLED)
     }
     
     /**

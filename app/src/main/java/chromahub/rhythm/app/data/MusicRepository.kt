@@ -556,6 +556,11 @@ class MusicRepository(private val context: Context) {
      * @return The lyrics as a String, or null if not found or error occurred
      */
     suspend fun fetchLyrics(artist: String, title: String): String? = withContext(Dispatchers.IO) {
+        if (artist.isBlank() || title.isBlank()) {
+            Log.d(TAG, "Cannot fetch lyrics: artist or title is blank")
+            return@withContext null
+        }
+        
         val cacheKey = "$artist:$title".lowercase()
         
         // Check cache first
@@ -564,26 +569,63 @@ class MusicRepository(private val context: Context) {
             return@withContext it 
         }
         
+        // Check network connectivity
+        if (!isNetworkAvailable()) {
+            Log.d(TAG, "Network unavailable for lyrics fetch")
+            return@withContext null
+        }
+        
         try {
             Log.d(TAG, "Fetching lyrics for $artist - $title")
             
-            // Clean up the artist and title to improve matching
-            val cleanArtist = artist.replace(Regex("\\(.*?\\)"), "").trim()
-            val cleanTitle = title.replace(Regex("\\(.*?\\)"), "").trim()
+            // Clean up artist and title for better matching
+            val cleanArtist = artist.trim().replace(Regex("\\(.*?\\)"), "").trim()
+            val cleanTitle = title.trim().replace(Regex("\\(.*?\\)"), "").trim()
             
-            val response = lyricsApiService.getLyrics(cleanArtist, cleanTitle)
+            // Try with primary artist/title
+            val response = try {
+                lyricsApiService.getLyrics(cleanArtist, cleanTitle)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error in primary lyrics request: ${e.message}", e)
+                null
+            }
             
-            if (response.isSuccessful && !response.lyrics.isNullOrBlank()) {
-                Log.d(TAG, "Successfully fetched lyrics for $artist - $title")
-                // Cache the lyrics
+            if (response != null && response.isSuccessful && !response.lyrics.isNullOrBlank()) {
+                Log.d(TAG, "Lyrics found for $artist - $title")
+                
+                // Cache the result
                 lyricsCache[cacheKey] = response.lyrics
                 return@withContext response.lyrics
-            } else {
-                Log.d(TAG, "No lyrics found for $artist - $title: ${response.error ?: "Unknown error"}")
-                return@withContext null
             }
+            
+            // Try with additional fallback cleanups
+            val fallbackArtist = cleanArtist.split(" feat.").first().trim()
+            val fallbackTitle = cleanTitle.split(" - ").first().trim()
+            
+            if (fallbackArtist != cleanArtist || fallbackTitle != cleanTitle) {
+                Log.d(TAG, "Trying fallback lyrics search for $fallbackArtist - $fallbackTitle")
+                
+                val fallbackResponse = try {
+                    lyricsApiService.getLyrics(fallbackArtist, fallbackTitle)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error in fallback lyrics request: ${e.message}", e)
+                    null
+                }
+                
+                if (fallbackResponse != null && fallbackResponse.isSuccessful && 
+                    !fallbackResponse.lyrics.isNullOrBlank()) {
+                    Log.d(TAG, "Fallback lyrics found for $artist - $title")
+                    
+                    // Cache the result
+                    lyricsCache[cacheKey] = fallbackResponse.lyrics
+                    return@withContext fallbackResponse.lyrics
+                }
+            }
+            
+            Log.d(TAG, "No lyrics found for $artist - $title")
+            return@withContext null
         } catch (e: Exception) {
-            Log.e(TAG, "Error fetching lyrics for $artist - $title", e)
+            Log.e(TAG, "Error fetching lyrics for $artist - $title: ${e.message}", e)
             return@withContext null
         }
     }

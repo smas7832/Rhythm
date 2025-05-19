@@ -7,6 +7,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -24,6 +25,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -41,6 +44,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -52,13 +56,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import chromahub.rhythm.app.data.Song
 import chromahub.rhythm.app.ui.components.MiniPlayer
 import chromahub.rhythm.app.ui.components.RhythmIcons
+import chromahub.rhythm.app.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -77,32 +84,9 @@ fun SettingsScreen(
     darkMode: Boolean = true,
     onUseSystemThemeChange: (Boolean) -> Unit = {},
     onDarkModeChange: (Boolean) -> Unit = {},
-    onOpenSystemEqualizer: () -> Unit = {},
-    enableHighQualityAudio: Boolean = true,
-    enableGaplessPlayback: Boolean = true,
-    enableCrossfade: Boolean = false,
-    crossfadeDuration: Float = 2f,
-    enableAudioNormalization: Boolean = true,
-    enableReplayGain: Boolean = false,
-    onHighQualityAudioChange: (Boolean) -> Unit = {},
-    onGaplessPlaybackChange: (Boolean) -> Unit = {},
-    onCrossfadeChange: (Boolean) -> Unit = {},
-    onCrossfadeDurationChange: (Float) -> Unit = {},
-    onAudioNormalizationChange: (Boolean) -> Unit = {},
-    onReplayGainChange: (Boolean) -> Unit = {}
+    onOpenSystemEqualizer: () -> Unit = {}
 ) {
     var showAboutDialog by remember { mutableStateOf(false) }
-    
-    // New settings state variables
-    var enableEqualizer by remember { mutableStateOf(false) }
-    var enableDataSaver by remember { mutableStateOf(false) }
-    var autoDownloadOnWifi by remember { mutableStateOf(true) }
-    var showNotifications by remember { mutableStateOf(true) }
-    var enableSleepTimer by remember { mutableStateOf(false) }
-    var sleepTimerDuration by remember { mutableIntStateOf(30) }
-    var showSleepTimerOptions by remember { mutableStateOf(false) }
-    var showEqualizerPresetOptions by remember { mutableStateOf(false) }
-    var selectedEqualizerPreset by remember { mutableStateOf("Normal") }
     
     if (showAboutDialog) {
         AboutDialog(onDismiss = { showAboutDialog = false })
@@ -110,16 +94,18 @@ fun SettingsScreen(
     
     Scaffold(
         topBar = {
-            TopAppBar(
+            LargeTopAppBar(
                 title = {
                     Text(
                         text = "Settings",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
                     )
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                colors = TopAppBarDefaults.largeTopAppBarColors(
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = Color.Transparent
                 )
             )
         },
@@ -148,7 +134,7 @@ fun SettingsScreen(
                 
                 SettingsToggleItem(
                     title = "Use system theme",
-                    description = "Switch between app default and system color theme",
+                    description = "Use Android's Monet theme colors when on, app's colors when off",
                     icon = RhythmIcons.Settings,
                     checked = useSystemTheme,
                     onCheckedChange = onUseSystemThemeChange
@@ -171,75 +157,9 @@ fun SettingsScreen(
                 SettingsDivider()
             }
             
-            // Playback section
+            // Playback section (only lyrics and equalizer)
             item {
                 SettingsSectionHeader(title = "Playback")
-                
-                SettingsToggleItem(
-                    title = "High quality audio",
-                    description = "Stream and download music in higher quality (uses more data)",
-                    icon = RhythmIcons.VolumeUp,
-                    checked = enableHighQualityAudio,
-                    onCheckedChange = onHighQualityAudioChange
-                )
-                
-                SettingsToggleItem(
-                    title = "Gapless playback",
-                    description = "Eliminate gaps between tracks for seamless listening",
-                    icon = RhythmIcons.SkipNext,
-                    checked = enableGaplessPlayback,
-                    onCheckedChange = onGaplessPlaybackChange
-                )
-                
-                SettingsToggleItem(
-                    title = "Crossfade",
-                    description = "Smoothly transition between songs",
-                    icon = RhythmIcons.Shuffle,
-                    checked = enableCrossfade,
-                    onCheckedChange = onCrossfadeChange
-                )
-                
-                AnimatedVisibility(
-                    visible = enableCrossfade,
-                    enter = fadeIn() + expandVertically(),
-                    exit = fadeOut() + shrinkVertically()
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
-                    ) {
-                        Text(
-                            text = "Crossfade duration: ${crossfadeDuration.toInt()} seconds",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                        )
-                        
-                        Slider(
-                            value = crossfadeDuration,
-                            onValueChange = onCrossfadeDurationChange,
-                            valueRange = 1f..12f,
-                            steps = 11,
-                            modifier = Modifier.padding(vertical = 8.dp)
-                        )
-                    }
-                }
-                
-                SettingsToggleItem(
-                    title = "Audio normalization",
-                    description = "Balance volume levels between tracks",
-                    icon = RhythmIcons.VolumeDown,
-                    checked = enableAudioNormalization,
-                    onCheckedChange = onAudioNormalizationChange
-                )
-                
-                SettingsToggleItem(
-                    title = "ReplayGain",
-                    description = "Use track metadata for volume normalization",
-                    icon = RhythmIcons.Refresh,
-                    checked = enableReplayGain,
-                    onCheckedChange = onReplayGainChange
-                )
                 
                 SettingsToggleItem(
                     title = "Show lyrics",
@@ -273,108 +193,64 @@ fun SettingsScreen(
                 SettingsDivider()
             }
             
-            // Data & Storage section
-            item {
-                SettingsSectionHeader(title = "Data & Storage")
-                
-                SettingsToggleItem(
-                    title = "Data saver",
-                    description = "Reduce data usage when streaming music",
-                    icon = RhythmIcons.Download,
-                    checked = enableDataSaver,
-                    onCheckedChange = { enableDataSaver = it }
-                )
-                
-                SettingsToggleItem(
-                    title = "Auto-download on Wi-Fi",
-                    description = "Download played songs when connected to Wi-Fi",
-                    icon = RhythmIcons.Download,
-                    checked = autoDownloadOnWifi,
-                    onCheckedChange = { autoDownloadOnWifi = it }
-                )
-                
-                SettingsClickableItem(
-                    title = "Clear cache",
-                    description = "Delete temporary files to free up space",
-                    icon = RhythmIcons.Delete,
-                    onClick = { /* Implement cache clearing */ }
-                )
-                
-                SettingsDivider()
-            }
-            
-            // Notifications & Controls section
-            item {
-                SettingsSectionHeader(title = "Notifications & Controls")
-                
-                SettingsToggleItem(
-                    title = "Show notifications",
-                    description = "Display playback controls in notification area",
-                    icon = RhythmIcons.Queue,
-                    checked = showNotifications,
-                    onCheckedChange = { showNotifications = it }
-                )
-                
-                SettingsToggleItem(
-                    title = "Sleep timer",
-                    description = "Stop playback after a set time",
-                    icon = RhythmIcons.Pause,
-                    checked = enableSleepTimer,
-                    onCheckedChange = { enableSleepTimer = it }
-                )
-                
-                AnimatedVisibility(
-                    visible = enableSleepTimer,
-                    enter = fadeIn() + expandVertically(),
-                    exit = fadeOut() + shrinkVertically()
-                ) {
-                    Column {
-                        SettingsClickableItem(
-                            title = "Timer duration",
-                            description = "$sleepTimerDuration minutes",
-                            icon = RhythmIcons.List,
-                            onClick = { showSleepTimerOptions = true }
-                        )
-                        
-                        if (showSleepTimerOptions) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp)
-                            ) {
-                                DropdownMenu(
-                                    expanded = showSleepTimerOptions,
-                                    onDismissRequest = { showSleepTimerOptions = false },
-                                    modifier = Modifier.fillMaxWidth(0.8f)
-                                ) {
-                                    listOf(5, 10, 15, 30, 45, 60, 90).forEach { minutes ->
-                                        DropdownMenuItem(
-                                            text = { Text("$minutes minutes") },
-                                            onClick = {
-                                                sleepTimerDuration = minutes
-                                                showSleepTimerOptions = false
-                                            }
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                SettingsDivider()
-            }
-            
             // About section
             item {
                 SettingsSectionHeader(title = "About")
                 
-                SettingsClickableItem(
-                    title = "About Rhythm",
-                    description = "Version 1.0.0 Alpha | ChromaHub",
-                    icon = RhythmIcons.Settings,
-                    onClick = { showAboutDialog = true }
-                )
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    ),
+                    elevation = CardDefaults.cardElevation(
+                        defaultElevation = 1.dp
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 6.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .clickable { showAboutDialog = true }
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.rhythm_logo),
+                            contentDescription = null,
+                            modifier = Modifier.size(80.dp)
+                        )
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        Text(
+                            text = "Rhythm Music Player",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        
+                        Text(
+                            text = "Version 1.0.0 Alpha | ChromaHub",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Button(
+                            onClick = { showAboutDialog = true },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            ),
+                            modifier = Modifier.padding(top = 8.dp)
+                        ) {
+                            Text("About")
+                        }
+                    }
+                }
                 
                 Spacer(modifier = Modifier.height(16.dp))
             }
@@ -389,13 +265,37 @@ fun SettingsScreen(
 
 @Composable
 fun SettingsSectionHeader(title: String) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.titleMedium,
-        fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(vertical = 16.dp)
-    )
+    Surface(
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            
+            Spacer(modifier = Modifier.weight(1f))
+            
+            Box(
+                modifier = Modifier
+                    .height(2.dp)
+                    .weight(1f)
+                    .background(
+                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f),
+                        shape = RoundedCornerShape(1.dp)
+                    )
+            )
+        }
+    }
 }
 
 @Composable
@@ -415,60 +315,80 @@ fun SettingsToggleItem(
         label = "toggleAnimation"
     )
     
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 1.dp
+        ),
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .padding(vertical = 6.dp)
+            .clip(RoundedCornerShape(16.dp))
             .clickable { onCheckedChange(!checked) }
-            .padding(vertical = 12.dp, horizontal = 8.dp)
     ) {
-        // Icon
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
-            contentAlignment = Alignment.Center
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp)
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
-            )
-        }
-        
-        // Text
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .padding(horizontal = 16.dp)
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold
-            )
+            // Icon
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (checked) 
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                        else 
+                            MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = if (checked) 
+                        MaterialTheme.colorScheme.primary 
+                    else 
+                        MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
             
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            // Text
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 16.dp)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+                
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
+            // Switch
+            Switch(
+                checked = checked,
+                onCheckedChange = onCheckedChange,
+                modifier = Modifier.scale(scaleAnim),
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = MaterialTheme.colorScheme.primary,
+                    checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                )
             )
         }
-        
-        // Switch
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            modifier = Modifier.scale(scaleAnim),
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = MaterialTheme.colorScheme.primary,
-                checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
-                uncheckedThumbColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
-            )
-        )
     }
 }
 
@@ -479,123 +399,211 @@ fun SettingsClickableItem(
     icon: ImageVector,
     onClick: () -> Unit
 ) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 1.dp
+        ),
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .padding(vertical = 6.dp)
+            .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
-            .padding(vertical = 12.dp, horizontal = 8.dp)
     ) {
-        // Icon
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
-            contentAlignment = Alignment.Center
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp)
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
-            )
-        }
-        
-        // Text
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .padding(horizontal = 16.dp)
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold
-            )
+            // Icon
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
             
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            // Text
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 16.dp)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+                
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
+            // Arrow icon
+            Icon(
+                imageVector = RhythmIcons.Forward,
+                contentDescription = "Open",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        
-        // Arrow icon
-        Icon(
-            imageVector = RhythmIcons.Forward,
-            contentDescription = "Open",
-            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-        )
     }
 }
 
 @Composable
 fun SettingsDivider() {
-    HorizontalDivider(
-        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
-        modifier = Modifier.padding(vertical = 8.dp)
-    )
+    Spacer(modifier = Modifier.height(8.dp))
 }
 
 @Composable
 fun AboutDialog(onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = "About Rhythm",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-            }
-        },
+        icon = null,
+        title = null,
         text = {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.fillMaxWidth()
             ) {
+                // Use the splash logo for a more impressive visual
+                Image(
+                    painter = painterResource(id = R.drawable.rhythm_splash_logo),
+                    contentDescription = null,
+                    modifier = Modifier.size(140.dp)
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
                 Text(
-                    text = "Rhythm Music Player",
-                    style = MaterialTheme.typography.bodyLarge,
+                    text = "Rhythm",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+                
+                Text(
+                    text = "Music Player",
+                    style = MaterialTheme.typography.titleMedium,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                Surface(
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.padding(vertical = 8.dp)
+                ) {
+                    Text(
+                        text = "Version 1.0.0 Alpha",
+                        style = MaterialTheme.typography.bodyMedium,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                HorizontalDivider(
+                    thickness = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+                
+                Text(
+                    text = "By Anjishnu Nandi",
+                    style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                     textAlign = TextAlign.Center
                 )
                 
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                Text(
-                    text = "Version 1.0.0 Alpha | ChromaHub",
-                    style = MaterialTheme.typography.bodyMedium,
-                    textAlign = TextAlign.Center
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                Text(
-                    text = "By Anjishnu Nandi ;)",
-                    style = MaterialTheme.typography.bodyMedium,
-                    textAlign = TextAlign.Center
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp))
                 
                 Text(
                     text = "A modern music player showcasing Material 3 Expressive design with physics-based animations.",
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center
                 )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        shape = CircleShape,
+                        modifier = Modifier.padding(horizontal = 4.dp)
+                    ) {
+                        Icon(
+                            imageVector = RhythmIcons.Song,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier
+                                .padding(8.dp)
+                                .size(20.dp)
+                        )
+                    }
+                    
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        shape = CircleShape,
+                        modifier = Modifier.padding(horizontal = 4.dp)
+                    ) {
+                        Icon(
+                            imageVector = RhythmIcons.Playlist,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier
+                                .padding(8.dp)
+                                .size(20.dp)
+                        )
+                    }
+                    
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        shape = CircleShape,
+                        modifier = Modifier.padding(horizontal = 4.dp)
+                    ) {
+                        Icon(
+                            imageVector = RhythmIcons.Album,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier
+                                .padding(8.dp)
+                                .size(20.dp)
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("OK")
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Close")
             }
-        }
+        },
+        shape = RoundedCornerShape(24.dp)
     )
 }

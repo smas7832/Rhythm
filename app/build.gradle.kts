@@ -77,6 +77,12 @@ dependencies {
     // Permissions
     implementation("com.google.accompanist:accompanist-permissions:0.32.0")
     
+    // Fragment
+    implementation("androidx.fragment:fragment-ktx:1.6.2")
+    
+    // MediaRouter
+    implementation("androidx.mediarouter:mediarouter:1.6.0")
+    
     // Coil for image loading
     implementation("io.coil-kt:coil-compose:2.5.0")
     
@@ -86,6 +92,9 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
     implementation("com.google.code.gson:gson:2.10.1")
+    
+    // Reorderable library for drag-and-drop functionality
+    implementation("org.burnoutcrew.composereorderable:reorderable:0.9.6")
     
     // Testing
     testImplementation(libs.junit)

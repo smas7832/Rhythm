@@ -8,7 +8,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -20,8 +22,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import chromahub.rhythm.app.data.Song
+import chromahub.rhythm.app.ui.components.RhythmIcons
 
 @Composable
 fun CreatePlaylistDialog(
@@ -36,7 +40,20 @@ fun CreatePlaylistDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Create Playlist") },
+        icon = {
+            Icon(
+                imageVector = RhythmIcons.AddToPlaylist,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+        },
+        title = {
+            Text(
+                text = "Create Playlist",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+        },
         text = {
             Column(modifier = Modifier.padding(top = 8.dp)) {
                 OutlinedTextField(
@@ -49,9 +66,14 @@ fun CreatePlaylistDialog(
                     isError = isError,
                     supportingText = {
                         if (isError) {
-                            Text("Playlist name cannot be empty")
+                            Text(
+                                text = "Playlist name cannot be empty",
+                                color = MaterialTheme.colorScheme.error
+                            )
                         }
                     },
+                    singleLine = true,
+                    shape = MaterialTheme.shapes.medium,
                     modifier = Modifier.fillMaxWidth()
                 )
                 
@@ -86,7 +108,10 @@ fun CreatePlaylistDialog(
                             onConfirm(playlistName)
                         }
                     }
-                }
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                )
             ) {
                 Text("Create")
             }

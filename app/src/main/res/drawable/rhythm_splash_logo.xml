@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+    
+    <!-- Outer glow effect -->
+    <path
+        android:pathData="M100,100m-95,0a95,95 0,1 1,190 0a95,95 0,1 1,-190 0"
+        android:fillAlpha="0.1">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="100"
+                android:centerY="100"
+                android:gradientRadius="95"
+                android:startColor="#7C4DFF"
+                android:endColor="#00FFFFFF" />
+        </aapt:attr>
+    </path>
+    
+    <!-- Background circle with gradient -->
+    <path
+        android:pathData="M100,100m-80,0a80,80 0,1 1,160 0a80,80 0,1 1,-160 0">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="100"
+                android:centerY="100"
+                android:gradientRadius="80"
+                android:startColor="#6200EA"
+                android:endColor="#3700B3" />
+        </aapt:attr>
+    </path>
+    
+    <!-- Inner circle for depth -->
+    <path
+        android:pathData="M100,100m-65,0a65,65 0,1 1,130 0a65,65 0,1 1,-130 0">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="100"
+                android:centerY="100"
+                android:gradientRadius="65"
+                android:startColor="#7C4DFF"
+                android:endColor="#6200EA" />
+        </aapt:attr>
+    </path>
+    
+    <!-- Music note stem -->
+    <path
+        android:pathData="M80,60L80,110C80,110 80,125 65,125C50,125 50,110 50,110C50,110 50,95 65,95C70,95 75,97 80,100L80,60L130,70L130,110C130,110 130,125 115,125C100,125 100,110 100,110C100,110 100,95 115,95C120,95 125,97 130,100L130,70L80,60Z"
+        android:fillColor="#FFFFFF" />
+    
+    <!-- Sound waves -->
+    <path
+        android:pathData="M145,75C152,85 155,92 155,100C155,108 152,115 145,125"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="5"
+        android:strokeLineCap="round" />
+    
+    <path
+        android:pathData="M160,60C170,75 175,87 175,100C175,113 170,125 160,140"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="5"
+        android:strokeLineCap="round" />
+</vector> 

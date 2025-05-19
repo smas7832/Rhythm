@@ -32,19 +32,23 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -65,12 +69,14 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import chromahub.rhythm.app.data.Album
 import chromahub.rhythm.app.data.Artist
 import chromahub.rhythm.app.data.Playlist
 import chromahub.rhythm.app.data.Song
 import chromahub.rhythm.app.ui.components.MiniPlayer
 import chromahub.rhythm.app.ui.components.RhythmIcons
+import chromahub.rhythm.app.viewmodel.MusicViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import chromahub.rhythm.app.util.ImageUtils
@@ -94,10 +100,14 @@ fun SearchScreen(
     onSkipNext: () -> Unit,
     onAddSongToPlaylist: (Song) -> Unit = {}
 ) {
+    val viewModel: MusicViewModel = viewModel()
     var searchQuery by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     var isSearchActive by remember { mutableStateOf(false) }
+    
+    // Collect search history from ViewModel
+    val searchHistory by viewModel.searchHistory.collectAsState()
     
     // Filter results based on search query
     val filteredSongs by remember(searchQuery, songs) {
@@ -163,9 +173,14 @@ fun SearchScreen(
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
             // Search bar
-            Surface(
+            Card(
                 shape = RoundedCornerShape(28.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+                ),
+                elevation = CardDefaults.cardElevation(
+                    defaultElevation = 2.dp
+                ),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 TextField(
@@ -177,7 +192,12 @@ fun SearchScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .focusRequester(focusRequester),
-                    placeholder = { Text("Search songs, albums, artists...") },
+                    placeholder = { 
+                        Text(
+                            "Search songs, albums, artists...",
+                            style = MaterialTheme.typography.bodyLarge
+                        ) 
+                    },
                     singleLine = true,
                     leadingIcon = {
                         Icon(
@@ -205,11 +225,17 @@ fun SearchScreen(
                     },
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                     keyboardActions = KeyboardActions(
-                        onSearch = { focusManager.clearFocus() }
+                        onSearch = { 
+                            focusManager.clearFocus() 
+                            if (searchQuery.isNotEmpty()) {
+                                viewModel.addSearchQuery(searchQuery)
+                            }
+                        }
                     ),
                     colors = TextFieldDefaults.colors(
                         focusedContainerColor = Color.Transparent,
                         unfocusedContainerColor = Color.Transparent,
+                        disabledContainerColor = Color.Transparent,
                         cursorColor = MaterialTheme.colorScheme.primary,
                         focusedIndicatorColor = Color.Transparent,
                         unfocusedIndicatorColor = Color.Transparent
@@ -287,7 +313,15 @@ fun SearchScreen(
                         albums = albums,
                         artists = artists,
                         onAlbumClick = onAlbumClick,
-                        onArtistClick = onArtistClick
+                        onArtistClick = onArtistClick,
+                        searchHistory = searchHistory,
+                        onSearchHistoryClick = { query ->
+                            searchQuery = query
+                            isSearchActive = true
+                        },
+                        onClearSearchHistory = {
+                            viewModel.clearSearchHistory()
+                        }
                     )
                 }
             } else {
@@ -296,7 +330,15 @@ fun SearchScreen(
                     albums = albums,
                     artists = artists,
                     onAlbumClick = onAlbumClick,
-                    onArtistClick = onArtistClick
+                    onArtistClick = onArtistClick,
+                    searchHistory = searchHistory,
+                    onSearchHistoryClick = { query ->
+                        searchQuery = query
+                        isSearchActive = true
+                    },
+                    onClearSearchHistory = {
+                        viewModel.clearSearchHistory()
+                    }
                 )
             }
         }
@@ -321,12 +363,32 @@ fun SearchResults(
         // Songs section
         if (songs.isNotEmpty()) {
             item {
-                Text(
-                    text = "Songs",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(vertical = 8.dp)
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Songs",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    
+                    if (songs.size > 3) {
+                        TextButton(
+                            onClick = { /* Navigate to all songs */ },
+                            contentPadding = PaddingValues(horizontal = 8.dp)
+                        ) {
+                            Text(
+                                text = "See all (${songs.size})",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
             }
             
             items(songs.take(3)) { song ->
@@ -336,30 +398,37 @@ fun SearchResults(
                     onAddToPlaylist = { onAddSongToPlaylist(song) }
                 )
             }
-            
-            if (songs.size > 3) {
-                item {
-                    Text(
-                        text = "See all ${songs.size} songs",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier
-                            .padding(vertical = 8.dp)
-                            .clickable { /* Navigate to all songs */ }
-                    )
-                }
-            }
         }
         
         // Albums section
         if (albums.isNotEmpty()) {
             item {
-                Text(
-                    text = "Albums",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp, bottom = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Albums",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    
+                    if (albums.size > 5) {
+                        TextButton(
+                            onClick = { /* Navigate to all albums */ },
+                            contentPadding = PaddingValues(horizontal = 8.dp)
+                        ) {
+                            Text(
+                                text = "See all",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
             }
             
             item {
@@ -436,95 +505,169 @@ fun SearchBrowseContent(
     albums: List<Album>,
     artists: List<Artist>,
     onAlbumClick: (Album) -> Unit,
-    onArtistClick: (Artist) -> Unit
+    onArtistClick: (Artist) -> Unit,
+    searchHistory: List<String> = emptyList(),
+    onSearchHistoryClick: (String) -> Unit = {},
+    onClearSearchHistory: () -> Unit = {}
 ) {
-    val genreList = listOf("Pop", "Rock", "Hip Hop", "Electronic", "Jazz", "Classical", "R&B", "Country")
-    
-    LazyColumn {
-        item {
-            Text(
-                text = "Browse All",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-        }
+    Column(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        Text(
+            text = "Search",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 24.dp)
+        )
         
-        // Genres grid
-        item {
+        // Recently searched section
+        if (searchHistory.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Recently Searched",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                
+                FilledTonalButton(
+                    onClick = onClearSearchHistory,
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)
+                    ),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        text = "Clear",
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+            }
+            
+            // Use Column instead of LazyColumn to avoid nested scrollable containers
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+            ) {
+                searchHistory.forEach { searchTerm ->
+                    RecentSearchItem(
+                        searchTerm = searchTerm,
+                        onClick = { onSearchHistoryClick(searchTerm) }
+                    )
+                }
+            }
+        } else {
+            // No search history
             Text(
-                text = "Genres",
+                text = "Recently Searched",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = 12.dp)
             )
             
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.height(220.dp)
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                ),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp)
             ) {
-                items(genreList) { genre ->
-                    GenreCard(
-                        genre = genre,
-                        onClick = { /* Navigate to genre */ }
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = RhythmIcons.Search,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        modifier = Modifier
+                            .size(48.dp)
+                            .padding(bottom = 16.dp)
+                    )
+                    Text(
+                        text = "No recent searches",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
                 }
             }
         }
         
-        // Top albums
-        if (albums.isNotEmpty()) {
-            item {
-                Text(
-                    text = "Popular Albums",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(top = 24.dp, bottom = 12.dp)
-                )
-                
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    items(albums.take(6)) { album ->
-                        SearchAlbumItem(
-                            album = album,
-                            onClick = { onAlbumClick(album) }
-                        )
-                    }
-                }
-            }
-        }
-        
-        // Top artists
-        if (artists.isNotEmpty()) {
-            item {
-                Text(
-                    text = "Popular Artists",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(top = 24.dp, bottom = 12.dp)
-                )
-                
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    items(artists.take(6)) { artist ->
-                        SearchArtistItem(
-                            artist = artist,
-                            onClick = { onArtistClick(artist) }
-                        )
-                    }
-                }
-            }
-        }
-        
         // Add bottom spacing
-        item { Spacer(modifier = Modifier.height(80.dp)) }
+        Spacer(modifier = Modifier.height(80.dp))
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun RecentSearchItem(
+    searchTerm: String,
+    onClick: () -> Unit
+) {
+    Card(
+        onClick = onClick,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+        ),
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Search icon in a circular container
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = RhythmIcons.Search,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            
+            // Search term
+            Text(
+                text = searchTerm,
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 16.dp)
+            )
+            
+            Icon(
+                imageVector = RhythmIcons.Forward,
+                contentDescription = "Search",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                modifier = Modifier.size(16.dp)
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchSongItem(
     song: Song,
@@ -533,21 +676,24 @@ fun SearchSongItem(
 ) {
     val context = LocalContext.current
     
-    Surface(
+    Card(
         onClick = onClick,
-        color = Color.Transparent,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        ),
+        shape = RoundedCornerShape(12.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 8.dp),
+                .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Album art
             Box(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(56.dp)
                     .clip(RoundedCornerShape(8.dp))
             ) {
                 AsyncImage(
@@ -595,7 +741,7 @@ fun SearchSongItem(
                 Icon(
                     imageVector = RhythmIcons.AddToPlaylist,
                     contentDescription = "Add to playlist",
-                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
                 )
             }
         }
@@ -609,74 +755,85 @@ fun SearchAlbumItem(
 ) {
     val context = LocalContext.current
     
-    Column(
+    Card(
         modifier = Modifier
-            .width(140.dp)
-            .clickable(onClick = onClick)
+            .width(150.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 2.dp
+        )
     ) {
-        // Album cover with spring-based scale animation
-        val scale by animateFloatAsState(
-            targetValue = 1f,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessLow
-            ),
-            label = "albumScale"
-        )
-        
-        val albumAlpha by animateFloatAsState(
-            targetValue = 1f,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessLow
-            ),
-            label = "albumAlpha"
-        )
-        
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(1f)
-                .clip(RoundedCornerShape(16.dp))
-                .graphicsLayer {
-                    scaleX = scale
-                    scaleY = scale
-                    alpha = albumAlpha
-                }
+        Column(
+            modifier = Modifier.padding(8.dp)
         ) {
-            AsyncImage(
-                model = ImageRequest.Builder(context)
-                    .apply(ImageUtils.buildImageRequest(
-                        album.artworkUri,
-                        album.title,
-                        context.cacheDir,
-                        ImageUtils.PlaceholderType.ALBUM
-                    ))
-                    .build(),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
+            // Album cover with spring-based scale animation
+            val scale by animateFloatAsState(
+                targetValue = 1f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessLow
+                ),
+                label = "albumScale"
+            )
+            
+            val albumAlpha by animateFloatAsState(
+                targetValue = 1f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessLow
+                ),
+                label = "albumAlpha"
+            )
+            
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f)
+                    .clip(RoundedCornerShape(8.dp))
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                        alpha = albumAlpha
+                    }
+            ) {
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .apply(ImageUtils.buildImageRequest(
+                            album.artworkUri,
+                            album.title,
+                            context.cacheDir,
+                            ImageUtils.PlaceholderType.ALBUM
+                        ))
+                        .build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Album info
+            Text(
+                text = album.title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            
+            Text(
+                text = album.artist,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
-        
-        Spacer(modifier = Modifier.height(8.dp))
-        
-        // Album info
-        Text(
-            text = album.title,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        
-        Text(
-            text = album.artist,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
     }
 }
 
@@ -687,42 +844,59 @@ fun SearchArtistItem(
 ) {
     val context = LocalContext.current
     
-    Column(
+    Card(
         modifier = Modifier
-            .width(100.dp)
+            .width(120.dp)
+            .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick),
-        horizontalAlignment = Alignment.CenterHorizontally
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 2.dp
+        )
     ) {
-        Surface(
-            shape = RoundedCornerShape(percent = 50),
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            modifier = Modifier.size(100.dp)
+        Column(
+            modifier = Modifier.padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            AsyncImage(
-                model = ImageRequest.Builder(context)
-                    .apply(ImageUtils.buildImageRequest(
-                        artist.artworkUri,
-                        artist.name,
-                        context.cacheDir,
-                        ImageUtils.PlaceholderType.ARTIST
-                    ))
-                    .build(),
-                contentDescription = "Artist image",
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
+            // Artist image with elevation
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                modifier = Modifier
+                    .size(96.dp)
+                    .padding(4.dp),
+                shadowElevation = 4.dp
+            ) {
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .apply(ImageUtils.buildImageRequest(
+                            artist.artworkUri,
+                            artist.name,
+                            context.cacheDir,
+                            ImageUtils.PlaceholderType.ARTIST
+                        ))
+                        .build(),
+                    contentDescription = "Artist image",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(CircleShape)
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Text(
+                text = artist.name,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center
             )
         }
-        
-        Spacer(modifier = Modifier.height(8.dp))
-        
-        Text(
-            text = artist.name,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center
-        )
     }
 }
 
@@ -764,66 +938,88 @@ fun SearchPlaylistItem(
 ) {
     val context = LocalContext.current
     
-    Column(
+    Card(
         modifier = Modifier
-            .width(140.dp)
+            .width(150.dp)
             .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
-            .padding(8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 2.dp
+        )
     ) {
-        // Playlist artwork
-        Box(
-            modifier = Modifier
-                .size(120.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
-            contentAlignment = Alignment.Center
+        Column(
+            modifier = Modifier.padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            if (playlist.artworkUri != null) {
-                AsyncImage(
-                    model = ImageRequest.Builder(context)
-                        .apply(ImageUtils.buildImageRequest(
-                            playlist.artworkUri,
-                            playlist.name,
-                            context.cacheDir,
-                            ImageUtils.PlaceholderType.PLAYLIST
-                        ))
-                        .build(),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            } else {
-                Icon(
-                    imageVector = RhythmIcons.Playlist,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(36.dp)
-                )
+            // Playlist artwork
+            Box(
+                modifier = Modifier
+                    .size(126.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(
+                        if (playlist.artworkUri == null)
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                        else
+                            MaterialTheme.colorScheme.surface
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                if (playlist.artworkUri != null) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .apply(ImageUtils.buildImageRequest(
+                                playlist.artworkUri,
+                                playlist.name,
+                                context.cacheDir,
+                                ImageUtils.PlaceholderType.PLAYLIST
+                            ))
+                            .build(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                        modifier = Modifier.size(80.dp)
+                    ) {
+                        Icon(
+                            imageVector = RhythmIcons.Playlist,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .padding(16.dp)
+                                .fillMaxSize()
+                        )
+                    }
+                }
             }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Text(
+                text = playlist.name,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+            
+            Text(
+                text = "${playlist.songs.size} songs",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
-        
-        Spacer(modifier = Modifier.height(8.dp))
-        
-        Text(
-            text = playlist.name,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
-        )
-        
-        Text(
-            text = "${playlist.songs.size} songs",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
-        )
     }
 } 

@@ -2,6 +2,7 @@ package chromahub.rhythm.app.ui.navigation
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -12,8 +13,10 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -29,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
@@ -37,14 +41,13 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import chromahub.rhythm.app.ui.components.AddToPlaylistDialog
+import chromahub.rhythm.app.ui.screens.AddToPlaylistBottomSheet
 import chromahub.rhythm.app.ui.components.CreatePlaylistDialog
 import chromahub.rhythm.app.ui.components.MiniPlayer
 import chromahub.rhythm.app.ui.components.RhythmIcons
-import chromahub.rhythm.app.ui.screens.HomeScreen
 import chromahub.rhythm.app.ui.screens.LibraryScreen
+import chromahub.rhythm.app.ui.screens.NewHomeScreen
 import chromahub.rhythm.app.ui.screens.PlayerLocationsScreen
-import chromahub.rhythm.app.ui.screens.PlayerQueueScreen
 import chromahub.rhythm.app.ui.screens.PlayerScreen
 import chromahub.rhythm.app.ui.screens.PlaylistDetailScreen
 import chromahub.rhythm.app.ui.screens.SearchScreen
@@ -53,6 +56,17 @@ import chromahub.rhythm.app.viewmodel.MusicViewModel
 import chromahub.rhythm.app.viewmodel.ThemeViewModel
 import coil.compose.AsyncImage
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavGraph.Companion.findStartDestination
 
 sealed class Screen(val route: String) {
     object Home : Screen("home")
@@ -61,7 +75,6 @@ sealed class Screen(val route: String) {
     object Player : Screen("player")
     object Settings : Screen("settings")
     object AddToPlaylist : Screen("add_to_playlist")
-    object PlayerQueue : Screen("player_queue")
     object PlayerLocations : Screen("player_locations")
     object PlaylistDetail : Screen("playlist/{playlistId}") {
         fun createRoute(playlistId: String) = "playlist/$playlistId"
@@ -74,14 +87,14 @@ fun RhythmNavigation(
     viewModel: MusicViewModel = viewModel(),
     themeViewModel: ThemeViewModel = viewModel()
 ) {
-    val currentSong by viewModel.currentSong.collectAsState()
-    val isPlaying by viewModel.isPlaying.collectAsState()
-    val progress by viewModel.progress.collectAsState()
-    val currentLocation by viewModel.currentLocation.collectAsState()
+    // Collect state from ViewModel
     val songs by viewModel.songs.collectAsState()
     val albums by viewModel.albums.collectAsState()
     val artists by viewModel.artists.collectAsState()
     val playlists by viewModel.playlists.collectAsState()
+    val currentSong by viewModel.currentSong.collectAsState()
+    val isPlaying by viewModel.isPlaying.collectAsState()
+    val progress by viewModel.progress.collectAsState()
     val isShuffleEnabled by viewModel.isShuffleEnabled.collectAsState()
     val repeatMode by viewModel.repeatMode.collectAsState()
     val isFavorite by viewModel.isFavorite.collectAsState()
@@ -91,6 +104,7 @@ fun RhythmNavigation(
     val lyrics by viewModel.currentLyrics.collectAsState()
     val isLoadingLyrics by viewModel.isLoadingLyrics.collectAsState()
     val recentlyPlayed by viewModel.recentlyPlayed.collectAsState()
+    val currentDevice by viewModel.currentDevice.collectAsState()
     
     // Theme state
     val useSystemTheme by themeViewModel.useSystemTheme.collectAsState()
@@ -117,6 +131,13 @@ fun RhythmNavigation(
     LaunchedEffect(navController) {
         navController.currentBackStackEntryFlow.collect { backStackEntry ->
             currentRoute = backStackEntry.destination.route ?: Screen.Home.route
+            // Update selectedTab based on current route
+            when (currentRoute) {
+                Screen.Home.route -> selectedTab = 0
+                Screen.Search.route -> selectedTab = 1
+                Screen.Library.route -> selectedTab = 2
+                Screen.Settings.route -> selectedTab = 3
+            }
         }
     }
 
@@ -124,76 +145,78 @@ fun RhythmNavigation(
         bottomBar = {
             // Only show the navigation bar if we're not on the player screen or related screens
             if (currentRoute != Screen.Player.route && 
-                currentRoute != Screen.PlayerQueue.route && 
                 currentRoute != Screen.PlayerLocations.route) {
-                NavigationBar {
-                    NavigationBarItem(
-                        selected = selectedTab == 0,
-                        onClick = {
-                            selectedTab = 0
-                            navController.navigate(Screen.Home.route) {
-                                popUpTo(Screen.Home.route) { inclusive = true }
-                            }
-                        },
-                        icon = {
-                            Icon(
-                                imageVector = if (selectedTab == 0) RhythmIcons.HomeFilled else RhythmIcons.Home,
-                                contentDescription = "Home"
-                            )
-                        },
-                        label = { Text("Home") }
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    tonalElevation = 8.dp,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    val items = listOf(
+                        Triple(Screen.Home.route, "Home", 
+                            Pair(RhythmIcons.HomeFilled, RhythmIcons.Home)),
+                        Triple(Screen.Search.route, "Search", 
+                            Pair(RhythmIcons.SearchFilled, RhythmIcons.Search)),
+                        Triple(Screen.Library.route, "Library", 
+                            Pair(RhythmIcons.Library, RhythmIcons.Library)),
+                        Triple(Screen.Settings.route, "Settings", 
+                            Pair(RhythmIcons.SettingsFilled, RhythmIcons.Settings))
                     )
                     
-                    NavigationBarItem(
-                        selected = selectedTab == 1,
-                        onClick = {
-                            selectedTab = 1
-                            navController.navigate(Screen.Search.route) {
-                                popUpTo(Screen.Home.route)
-                            }
-                        },
-                        icon = {
-                            Icon(
-                                imageVector = if (selectedTab == 1) RhythmIcons.SearchFilled else RhythmIcons.Search,
-                                contentDescription = "Search"
+                    items.forEachIndexed { index, (route, title, icons) ->
+                        val selected = currentRoute == route
+                        val (selectedIcon, unselectedIcon) = icons
+                        
+                        NavigationBarItem(
+                            selected = selected,
+                            onClick = {
+                                selectedTab = index
+                                navController.navigate(route) {
+                                    // Pop up to the start destination of the graph to
+                                    // avoid building up a large stack of destinations
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    // Avoid multiple copies of the same destination
+                                    launchSingleTop = true
+                                    // Restore state when reselecting a previously selected item
+                                    restoreState = true
+                                }
+                            },
+                            icon = {
+                                AnimatedContent(
+                                    targetState = selected,
+                                    transitionSpec = {
+                                        fadeIn(animationSpec = tween(150)) togetherWith
+                                        fadeOut(animationSpec = tween(150))
+                                    },
+                                    label = "IconAnimation"
+                                ) { isSelected ->
+                                    Icon(
+                                        imageVector = if (isSelected) selectedIcon else unselectedIcon,
+                                        contentDescription = title,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                            },
+                            label = {
+                                Text(
+                                    text = title,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            },
+                            alwaysShowLabel = true,
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                selectedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                indicatorColor = MaterialTheme.colorScheme.primaryContainer
                             )
-                        },
-                        label = { Text("Search") }
-                    )
-                    
-                    NavigationBarItem(
-                        selected = selectedTab == 2,
-                        onClick = {
-                            selectedTab = 2
-                            navController.navigate(Screen.Library.route) {
-                                popUpTo(Screen.Home.route)
-                            }
-                        },
-                        icon = {
-                            Icon(
-                                imageVector = RhythmIcons.Library,
-                                contentDescription = "Library"
-                            )
-                        },
-                        label = { Text("Library") }
-                    )
-                    
-                    NavigationBarItem(
-                        selected = selectedTab == 3,
-                        onClick = {
-                            selectedTab = 3
-                            navController.navigate(Screen.Settings.route) {
-                                popUpTo(Screen.Home.route)
-                            }
-                        },
-                        icon = {
-                            Icon(
-                                imageVector = if (selectedTab == 3) RhythmIcons.SettingsFilled else RhythmIcons.Settings,
-                                contentDescription = "Settings"
-                            )
-                        },
-                        label = { Text("Settings") }
-                    )
+                        )
+                    }
                 }
             }
         }
@@ -203,8 +226,26 @@ fun RhythmNavigation(
             startDestination = Screen.Home.route,
             modifier = Modifier.padding(paddingValues)
         ) {
-            composable(Screen.Home.route) {
-                HomeScreen(
+            composable(
+                route = Screen.Home.route,
+                enterTransition = {
+                    fadeIn(animationSpec = tween(300)) +
+                    slideInVertically(
+                        initialOffsetY = { -40 },
+                        animationSpec = tween(300)
+                    )
+                },
+                exitTransition = {
+                    fadeOut(animationSpec = tween(300))
+                },
+                popEnterTransition = {
+                    fadeIn(animationSpec = tween(300))
+                },
+                popExitTransition = {
+                    fadeOut(animationSpec = tween(300))
+                }
+            ) {
+                NewHomeScreen(
                     songs = songs,
                     albums = albums,
                     artists = artists,
@@ -341,41 +382,67 @@ fun RhythmNavigation(
                     },
                     onOpenSystemEqualizer = {
                         viewModel.openSystemEqualizer()
-                    },
-                    // Add playback settings
-                    enableHighQualityAudio = viewModel.enableHighQualityAudio.collectAsState().value,
-                    enableGaplessPlayback = viewModel.enableGaplessPlayback.collectAsState().value,
-                    enableCrossfade = viewModel.enableCrossfade.collectAsState().value,
-                    crossfadeDuration = viewModel.crossfadeDuration.collectAsState().value,
-                    enableAudioNormalization = viewModel.enableAudioNormalization.collectAsState().value,
-                    enableReplayGain = viewModel.enableReplayGain.collectAsState().value,
-                    onHighQualityAudioChange = { enable ->
-                        viewModel.setHighQualityAudio(enable)
-                    },
-                    onGaplessPlaybackChange = { enable ->
-                        viewModel.setGaplessPlayback(enable)
-                    },
-                    onCrossfadeChange = { enable ->
-                        viewModel.setCrossfade(enable)
-                    },
-                    onCrossfadeDurationChange = { duration ->
-                        viewModel.setCrossfadeDuration(duration)
-                    },
-                    onAudioNormalizationChange = { enable ->
-                        viewModel.setAudioNormalization(enable)
-                    },
-                    onReplayGainChange = { enable ->
-                        viewModel.setReplayGain(enable)
                     }
                 )
             }
             
-            composable(Screen.Player.route) {
+            composable(
+                route = Screen.Player.route,
+                enterTransition = {
+                    slideInVertically(
+                        initialOffsetY = { it },  // slide in from bottom (full height)
+                        animationSpec = tween(durationMillis = 300)
+                    )
+                },
+                exitTransition = {
+                    slideOutVertically(
+                        targetOffsetY = { it },  // slide out to bottom (full height)
+                        animationSpec = tween(durationMillis = 250)
+                    )
+                }
+            ) {
+                val showAddToPlaylistSheet = remember { mutableStateOf(false) }
+                val showCreatePlaylistDialog = remember { mutableStateOf(false) }
+                
+                // If we're returning from AddToPlaylist route with a song to add, show the bottom sheet
+                LaunchedEffect(viewModel.selectedSongForPlaylist.collectAsState().value) {
+                    if (viewModel.selectedSongForPlaylist.value != null) {
+                        showAddToPlaylistSheet.value = true
+                    }
+                }
+                
+                // Show create playlist dialog if needed
+                if (showCreatePlaylistDialog.value) {
+                    // Get the non-delegated value of currentSong
+                    val songForDialog = currentSong
+                    if (songForDialog != null) {
+                        CreatePlaylistDialog(
+                            onDismiss = { 
+                                showCreatePlaylistDialog.value = false 
+                            },
+                            onConfirm = { name ->
+                                viewModel.createPlaylist(name)
+                                showCreatePlaylistDialog.value = false
+                            },
+                            song = songForDialog,
+                            onConfirmWithSong = { name ->
+                                viewModel.createPlaylist(name)
+                                // The new playlist will be at the end of the list
+                                val newPlaylist = viewModel.playlists.value.last()
+                                viewModel.addSongToPlaylist(songForDialog, newPlaylist.id)
+                                showCreatePlaylistDialog.value = false
+                            }
+                        )
+                    }
+                }
+                
                 PlayerScreen(
                     song = currentSong,
                     isPlaying = isPlaying,
                     progress = progress,
-                    location = currentLocation,
+                    location = currentDevice,
+                    queuePosition = viewModel.currentQueue.collectAsState().value.currentIndex + 1,
+                    queueTotal = viewModel.currentQueue.collectAsState().value.songs.size,
                     onPlayPause = onPlayPause,
                     onSkipNext = onSkipNext,
                     onSkipPrevious = onSkipPrevious,
@@ -388,12 +455,12 @@ fun RhythmNavigation(
                         navController.popBackStack()
                     },
                     onLocationClick = {
-                        // Navigate to locations screen
-                        navController.navigate(Screen.PlayerLocations.route)
+                        // Show the system output switcher dialog directly
+                        viewModel.showOutputSwitcherDialog()
                     },
                     onQueueClick = {
-                        // Navigate to queue screen
-                        navController.navigate(Screen.PlayerQueue.route)
+                        // Show queue bottom sheet directly in PlayerScreen
+                        // No need to navigate to a separate screen
                     },
                     onToggleShuffle = {
                         viewModel.toggleShuffle()
@@ -407,7 +474,7 @@ fun RhythmNavigation(
                     onAddToPlaylist = {
                         currentSong?.let { song ->
                             viewModel.setSelectedSongForPlaylist(song)
-                            navController.navigate(Screen.AddToPlaylist.route)
+                            showAddToPlaylistSheet.value = true
                         }
                     },
                     isShuffleEnabled = isShuffleEnabled,
@@ -428,22 +495,34 @@ fun RhythmNavigation(
                     onMaxVolume = {
                         viewModel.maxVolume()
                     },
-                    playlists = playlists
-                )
-            }
-            
-            // Player Queue screen
-            composable(Screen.PlayerQueue.route) {
-                PlayerQueueScreen(
-                    currentSong = currentSong,
+                    playlists = playlists,
                     queue = viewModel.currentQueue.collectAsState().value.songs,
                     onSongClick = { song ->
                         // Play the selected song from the queue
                         viewModel.playSong(song)
-                        navController.popBackStack()
                     },
-                    onBack = {
-                        navController.popBackStack()
+                    onRemoveFromQueue = { song ->
+                        viewModel.removeFromQueue(song)
+                    },
+                    onMoveQueueItem = { fromIndex, toIndex ->
+                        viewModel.moveQueueItem(fromIndex, toIndex)
+                    },
+                    onAddSongsToQueue = {
+                        viewModel.addSongsToQueue()
+                    },
+                    showAddToPlaylistSheet = showAddToPlaylistSheet.value,
+                    onAddToPlaylistSheetDismiss = {
+                        showAddToPlaylistSheet.value = false
+                        viewModel.clearSelectedSongForPlaylist()
+                    },
+                    onAddSongToPlaylist = { song, playlistId ->
+                        viewModel.addSongToPlaylist(song, playlistId)
+                    },
+                    onCreatePlaylist = { name ->
+                        viewModel.createPlaylist(name)
+                    },
+                    onShowCreatePlaylistDialog = {
+                        showCreatePlaylistDialog.value = true
                     }
                 )
             }
@@ -452,10 +531,10 @@ fun RhythmNavigation(
             composable(Screen.PlayerLocations.route) {
                 PlayerLocationsScreen(
                     locations = viewModel.locations.collectAsState().value,
-                    currentLocation = currentLocation,
+                    currentLocation = currentDevice,
                     onLocationSelect = { location ->
                         // Set the selected location
-                        viewModel.setCurrentLocation(location)
+                        viewModel.setCurrentDevice(location)
                         navController.popBackStack()
                     },
                     onBack = {
@@ -465,6 +544,7 @@ fun RhythmNavigation(
             }
             
             // Add playlist detail screen
+            @OptIn(ExperimentalMaterial3Api::class)
             composable(
                 route = Screen.PlaylistDetail.route,
                 arguments = listOf(
@@ -518,7 +598,6 @@ fun RhythmNavigation(
             composable(Screen.AddToPlaylist.route) {
                 val songToAdd = viewModel.selectedSongForPlaylist.collectAsState().value
                 val targetPlaylistId = viewModel.targetPlaylistId.collectAsState().value
-                var showCreatePlaylistDialog by remember { mutableStateOf(false) }
                 
                 // If we have a target playlist ID, we're adding songs to that playlist
                 if (targetPlaylistId != null) {
@@ -615,6 +694,9 @@ fun RhythmNavigation(
                 }
                 // If we have a song to add (from Player or Search), we're adding it to a playlist
                 else if (songToAdd != null) {
+                    // Use a simpler approach without the bottom sheet state
+                    var showCreatePlaylistDialog by remember { mutableStateOf(false) }
+                    
                     if (showCreatePlaylistDialog) {
                         CreatePlaylistDialog(
                             onDismiss = {
@@ -635,22 +717,10 @@ fun RhythmNavigation(
                             }
                         )
                     } else {
-                        AddToPlaylistDialog(
-                            playlists = playlists,
-                            song = songToAdd,
-                            onDismiss = {
-                                viewModel.clearSelectedSongForPlaylist()
-                                navController.popBackStack()
-                            },
-                            onAddToPlaylist = { playlist ->
-                                viewModel.addSongToPlaylist(songToAdd, playlist.id)
-                                viewModel.clearSelectedSongForPlaylist()
-                                navController.popBackStack()
-                            },
-                            onCreateNewPlaylist = {
-                                showCreatePlaylistDialog = true
-                            }
-                        )
+                        // Navigate back to the player screen and show the bottom sheet there
+                        LaunchedEffect(Unit) {
+                            navController.popBackStack()
+                        }
                     }
                 } else {
                     // No song selected and no target playlist, go back
