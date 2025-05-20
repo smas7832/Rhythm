@@ -32,7 +32,7 @@ Rhythm is a premium music player for Android that delivers a seamless audio expe
 - 50MB+ free storage space
 
 ### Installation
-Download the latest release APK from the [Releases](https://github.com/chromahub/rhythm/releases) page.
+Download the latest release APK from the [Releases](https://github.com/cromaguy/Rhythm/releases) page.
 
 ## 🛠️ Development
 
