@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp" width="120" height="120" alt="Rhythm Logo"/>
+  <img src="app\rhythm_logo.png" width="120" height="120" alt="Rhythm Logo"/>
   
   # RHYTHM
   
@@ -43,28 +43,14 @@ This project is built with:
 - Kotlin Coroutines
 - Material3
 
-### Building from Source
-```bash
-# Clone the repository
-git clone https://github.com/chromahub/rhythm.git
-
-# Navigate to project directory
-cd rhythm
-
-# Build the APK
-./gradlew assembleDebug
-```
 
 ## 📄 License
 
 Rhythm is available under the MIT license. See the [LICENSE](LICENSE) file for more info.
 
-## 👥 Contributors
-
-- ChromaHub Team
 
 ---
 
 <div align="center">
-  <sub>Made with ❤️ by ChromaHub</sub>
+  <sub>Made with ❤️ by Anjishnu</sub>
 </div>
