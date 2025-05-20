@@ -1,10 +1,13 @@
 package chromahub.rhythm.app.ui.screens
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -47,15 +50,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.platform.LocalContext
+import chromahub.rhythm.app.R
 import chromahub.rhythm.app.data.Song
 import chromahub.rhythm.app.ui.components.MiniPlayer
 import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.viewmodel.AppUpdaterViewModel
 import chromahub.rhythm.app.viewmodel.AppVersion
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Public
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,6 +87,9 @@ fun AppUpdaterScreen(
     val isDownloading by updaterViewModel.isDownloading.collectAsState()
     val downloadProgress by updaterViewModel.downloadProgress.collectAsState()
     val downloadedFile by updaterViewModel.downloadedFile.collectAsState()
+    
+    // Get the context for intent operations
+    val context = LocalContext.current
     
     // Check for updates when the screen is first shown
     LaunchedEffect(Unit) {
@@ -105,7 +116,7 @@ fun AppUpdaterScreen(
                     }
                 },
                 actions = {
-                    // Settings button
+                    // Developer website button
                     IconButton(onClick = onSettingsClick) {
                         Icon(
                             imageVector = RhythmIcons.Settings,
@@ -155,8 +166,32 @@ fun AppUpdaterScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(16.dp),
-                        horizontalAlignment = Alignment.Start
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
+                        // Add Rhythm logo and name on the same horizontal line
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Image(
+                                painter = painterResource(id = R.drawable.rhythm_splash_logo),
+                                contentDescription = "Rhythm Logo",
+                                modifier = Modifier.size(48.dp)
+                            )
+                            
+                            Spacer(modifier = Modifier.width(16.dp))
+                            
+                            Text(
+                                text = "Rhythm",
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(24.dp))
+                        
                         Text(
                             text = "Current Version",
                             style = MaterialTheme.typography.titleMedium,
@@ -168,6 +203,7 @@ fun AppUpdaterScreen(
                         
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Surface(
@@ -191,6 +227,40 @@ fun AppUpdaterScreen(
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        // Developer website button
+                        Button(
+                            onClick = {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://anjishnunandi.vercel.app/"))
+                                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                context.startActivity(intent)
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary
+                            ),
+                            modifier = Modifier.fillMaxWidth(0.8f)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Public,
+                                    contentDescription = "Developer Website",
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                
+                                Spacer(modifier = Modifier.width(8.dp))
+                                
+                                Text(
+                                    text = "Visit Developer",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
                         }
                     }
                 }

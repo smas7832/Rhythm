@@ -426,10 +426,8 @@ fun RhythmNavigation(
                         navController.navigate(Screen.Search.route)
                     },
                     onSettingsClick = {
-                        // When clicked from NewHomeScreen, it could be either for settings or update
-                        // The AppUpdaterViewModel in NewHomeScreen will determine whether to show the update card or not
-                        // UpdateAvailableSection will use this to navigate to app updater
-                        navController.navigate(Screen.AppUpdater.route)
+                        // Navigate to the settings screen
+                        navController.navigate(Screen.Settings.route)
                     }
                 )
             }

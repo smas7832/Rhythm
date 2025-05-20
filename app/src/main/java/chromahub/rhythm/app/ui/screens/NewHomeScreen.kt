@@ -8,6 +8,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -75,11 +76,13 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
 import androidx.compose.ui.text.style.TextAlign
+import chromahub.rhythm.app.R
 import chromahub.rhythm.app.data.Album
 import chromahub.rhythm.app.data.Artist
 import chromahub.rhythm.app.data.Song
@@ -1472,8 +1475,28 @@ private fun UpdateAvailableSection(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 24.dp, horizontal = 20.dp)
+                .padding(vertical = 24.dp, horizontal = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Add Rhythm logo
+            Image(
+                painter = painterResource(id = R.drawable.rhythm_splash_logo),
+                contentDescription = "Rhythm Logo",
+                modifier = Modifier
+                    .size(60.dp)
+                    .padding(bottom = 8.dp)
+            )
+            
+            // Add app name
+            Text(
+                text = "Rhythm",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
