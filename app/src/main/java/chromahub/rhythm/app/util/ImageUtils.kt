@@ -15,6 +15,7 @@ import coil.request.ErrorResult
 import coil.request.ImageRequest
 import coil.request.SuccessResult
 import chromahub.rhythm.app.R
+import chromahub.rhythm.app.ui.components.M3PlaceholderType
 import java.io.File
 import java.io.FileOutputStream
 import kotlin.random.Random
@@ -119,6 +120,9 @@ object ImageUtils {
     
     /**
      * Builds an image request with a placeholder
+     * 
+     * NOTE: For Compose UI, use M3ImageUtils instead which provides Material 3
+     * placeholders directly in Compose.
      */
     fun buildImageRequest(
         data: Any?,
@@ -133,18 +137,16 @@ object ImageUtils {
         crossfade(true)
         crossfade(300)
         
-        // Set Material 3 placeholder based on content type
-        val placeholderResId = when (type) {
-            PlaceholderType.ALBUM -> R.drawable.ic_album_placeholder
-            PlaceholderType.ARTIST -> R.drawable.ic_artist_placeholder
-            PlaceholderType.TRACK -> R.drawable.ic_track_placeholder
-            PlaceholderType.PLAYLIST -> R.drawable.ic_playlist_placeholder
-            PlaceholderType.GENERAL -> R.drawable.ic_audio_placeholder
-        }
+        // For backwards compatibility, generate a placeholder image
+        val placeholderUri = generatePlaceholderImage(name, 300, cacheDir)
         
-        // Always use resource placeholder for consistency
-        placeholder(placeholderResId)
-        error(placeholderResId)
+        // Use generated placeholder if available, or rely on Coil's default placeholder
+        if (placeholderUri != null) {
+            // Convert Uri to drawable resource ID for compatibility
+            // or use a default placeholder from resources
+            placeholder(R.drawable.rhythm_logo)
+            error(R.drawable.rhythm_logo)
+        }
         
         // Add memory caching with a safe key
         val safeKey = when {
@@ -178,7 +180,11 @@ object ImageUtils {
     
     /**
      * Enum defining the type of placeholder to use
+     * 
+     * @deprecated Use M3PlaceholderType instead for new Compose components
      */
+    @Deprecated("Use M3PlaceholderType instead for new Compose components", 
+                ReplaceWith("M3PlaceholderType", "chromahub.rhythm.app.ui.components.M3PlaceholderType"))
     enum class PlaceholderType {
         ALBUM,
         ARTIST,

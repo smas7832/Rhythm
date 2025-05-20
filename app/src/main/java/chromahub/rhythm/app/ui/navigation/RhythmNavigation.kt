@@ -3,10 +3,14 @@ package chromahub.rhythm.app.ui.navigation
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -18,6 +22,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -29,6 +34,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -59,6 +65,9 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -67,6 +76,19 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.layout.width
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.EaseOutQuint
+import androidx.compose.animation.core.EaseInOutQuart
+import androidx.compose.animation.core.EaseInBack
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 
 sealed class Screen(val route: String) {
     object Home : Screen("home")
@@ -134,9 +156,7 @@ fun RhythmNavigation(
             // Update selectedTab based on current route
             when (currentRoute) {
                 Screen.Home.route -> selectedTab = 0
-                Screen.Search.route -> selectedTab = 1
-                Screen.Library.route -> selectedTab = 2
-                Screen.Settings.route -> selectedTab = 3
+                Screen.Library.route -> selectedTab = 1
             }
         }
     }
@@ -146,76 +166,152 @@ fun RhythmNavigation(
             // Only show the navigation bar if we're not on the player screen or related screens
             if (currentRoute != Screen.Player.route && 
                 currentRoute != Screen.PlayerLocations.route) {
-                NavigationBar(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                    tonalElevation = 8.dp,
-                    modifier = Modifier.fillMaxWidth()
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 0.dp)
+                        .padding(top = 0.dp, bottom = 16.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    val items = listOf(
-                        Triple(Screen.Home.route, "Home", 
-                            Pair(RhythmIcons.HomeFilled, RhythmIcons.Home)),
-                        Triple(Screen.Search.route, "Search", 
-                            Pair(RhythmIcons.SearchFilled, RhythmIcons.Search)),
-                        Triple(Screen.Library.route, "Library", 
-                            Pair(RhythmIcons.Library, RhythmIcons.Library)),
-                        Triple(Screen.Settings.route, "Settings", 
-                            Pair(RhythmIcons.SettingsFilled, RhythmIcons.Settings))
-                    )
-                    
-                    items.forEachIndexed { index, (route, title, icons) ->
-                        val selected = currentRoute == route
-                        val (selectedIcon, unselectedIcon) = icons
-                        
-                        NavigationBarItem(
-                            selected = selected,
-                            onClick = {
-                                selectedTab = index
-                                navController.navigate(route) {
-                                    // Pop up to the start destination of the graph to
-                                    // avoid building up a large stack of destinations
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
-                                    }
-                                    // Avoid multiple copies of the same destination
-                                    launchSingleTop = true
-                                    // Restore state when reselecting a previously selected item
-                                    restoreState = true
-                                }
-                            },
-                            icon = {
-                                AnimatedContent(
-                                    targetState = selected,
-                                    transitionSpec = {
-                                        fadeIn(animationSpec = tween(150)) togetherWith
-                                        fadeOut(animationSpec = tween(150))
-                                    },
-                                    label = "IconAnimation"
-                                ) { isSelected ->
-                                    Icon(
-                                        imageVector = if (isSelected) selectedIcon else unselectedIcon,
-                                        contentDescription = title,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
-                            },
-                            label = {
-                                Text(
-                                    text = title,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            },
-                            alwaysShowLabel = true,
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                selectedTextColor = MaterialTheme.colorScheme.onSurface,
-                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        shape = RoundedCornerShape(28.dp),
+                        tonalElevation = 3.dp,
+                        modifier = Modifier
+                            .height(64.dp)
+                            .fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val items = listOf(
+                                Triple(Screen.Home.route, "Home", 
+                                    Pair(RhythmIcons.HomeFilled, RhythmIcons.Home)),
+                                Triple(Screen.Library.route, "Library", 
+                                    Pair(RhythmIcons.Library, RhythmIcons.Library))
                             )
-                        )
+                            
+                            items.forEachIndexed { index, (route, title, icons) ->
+                                val isSelected = 
+                                    // Check if the current route matches or if we're on settings/search 
+                                    // (which should still show Home as active)
+                                    when {
+                                        currentRoute == route -> true
+                                        // If we're on settings or search, and this is Home tab
+                                        (currentRoute == Screen.Settings.route || currentRoute == Screen.Search.route) 
+                                            && route == Screen.Home.route -> true
+                                        else -> false
+                                    }
+                                    
+                                val (selectedIcon, unselectedIcon) = icons
+                                
+                                // Animation values
+                                val animatedScale by animateFloatAsState(
+                                    targetValue = if (isSelected) 1.1f else 1.0f,
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                        stiffness = Spring.StiffnessLow
+                                    ),
+                                    label = "scale"
+                                )
+                                
+                                val animatedAlpha by animateFloatAsState(
+                                    targetValue = if (isSelected) 1f else 0.7f,
+                                    animationSpec = tween(300),
+                                    label = "alpha"
+                                )
+                                
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight()
+                                        .clickable {
+                                            // Check if we're already at Home and trying to go to Settings/Search
+                                            if (currentRoute == Screen.Settings.route || currentRoute == Screen.Search.route) {
+                                                if (route == Screen.Home.route) {
+                                                    // Go back to home if we're in Settings/Search
+                                                    navController.navigate(Screen.Home.route) {
+                                                        popUpTo(navController.graph.findStartDestination().id) {
+                                                            saveState = true
+                                                        }
+                                                        launchSingleTop = true
+                                                        restoreState = true
+                                                    }
+                                                } else {
+                                                    // Navigate normally for other cases
+                                                    navController.navigate(route) {
+                                                        popUpTo(navController.graph.findStartDestination().id) {
+                                                            saveState = true 
+                                                        }
+                                                        launchSingleTop = true
+                                                        restoreState = true
+                                                    }
+                                                }
+                                            } else {
+                                                // Standard navigation if we're not on special pages
+                                                selectedTab = index
+                                                navController.navigate(route) {
+                                                    popUpTo(navController.graph.findStartDestination().id) {
+                                                        saveState = true
+                                                    }
+                                                    launchSingleTop = true
+                                                    restoreState = true
+                                                }
+                                            }
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    // Background indicator
+                                    if (isSelected) {
+                                        Surface(
+                                            color = MaterialTheme.colorScheme.primaryContainer,
+                                            shape = RoundedCornerShape(16.dp),
+                                            modifier = Modifier
+                                                .fillMaxWidth(0.8f)
+                                                .height(48.dp)
+                                        ) {}
+                                    }
+                                    
+                                    // Horizontal layout for icon and text
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center,
+                                        modifier = Modifier
+                                            .graphicsLayer {
+                                                scaleX = animatedScale
+                                                scaleY = animatedScale
+                                                alpha = animatedAlpha
+                                            }
+                                            .padding(horizontal = 16.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isSelected) selectedIcon else unselectedIcon,
+                                            contentDescription = title,
+                                            tint = if (isSelected) 
+                                                MaterialTheme.colorScheme.onPrimaryContainer 
+                                            else 
+                                                MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                        
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        
+                                        Text(
+                                            text = title,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = if (isSelected) 
+                                                MaterialTheme.colorScheme.onPrimaryContainer 
+                                            else 
+                                                MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -224,25 +320,67 @@ fun RhythmNavigation(
         NavHost(
             navController = navController,
             startDestination = Screen.Home.route,
-            modifier = Modifier.padding(paddingValues)
+            modifier = Modifier
+                .padding(
+                    // Add bottom padding only if the nav bar is showing (reduced from 80.dp to 96.dp)
+                    // Increased padding to prevent mini player from overlapping with navigation bar
+                    bottom = if (currentRoute != Screen.Player.route && 
+                               currentRoute != Screen.PlayerLocations.route) 96.dp else 0.dp
+                )
         ) {
             composable(
                 route = Screen.Home.route,
                 enterTransition = {
-                    fadeIn(animationSpec = tween(300)) +
-                    slideInVertically(
-                        initialOffsetY = { -40 },
-                        animationSpec = tween(300)
-                    )
+                    when (initialState.destination.route) {
+                        Screen.Library.route -> {
+                            // Horizontal slide animation when coming from Library
+                            fadeIn(animationSpec = tween(300)) +
+                            slideInHorizontally(
+                                initialOffsetX = { -it },
+                                animationSpec = tween(350, easing = EaseInOutQuart)
+                            )
+                        }
+                        else -> {
+                            // Default animation for other sources
+                            fadeIn(animationSpec = tween(300))
+                        }
+                    }
                 },
                 exitTransition = {
-                    fadeOut(animationSpec = tween(300))
+                    when (targetState.destination.route) {
+                        Screen.Library.route -> {
+                            // Horizontal slide animation when going to Library
+                            fadeOut(animationSpec = tween(300)) +
+                            slideOutHorizontally(
+                                targetOffsetX = { -it },
+                                animationSpec = tween(350, easing = EaseInOutQuart)
+                            )
+                        }
+                        else -> {
+                            // Default animation for other destinations
+                            fadeOut(animationSpec = tween(300))
+                        }
+                    }
                 },
                 popEnterTransition = {
-                    fadeIn(animationSpec = tween(300))
+                    when (initialState.destination.route) {
+                        Screen.Library.route -> {
+                            // Restore horizontal slide animation when popping back from Library
+                            fadeIn(animationSpec = tween(300)) +
+                            slideInHorizontally(
+                                initialOffsetX = { -it },
+                                animationSpec = tween(350, easing = EaseInOutQuart)
+                            )
+                        }
+                        else -> {
+                            // Simple faster fade animation when popping back from other screens
+                            fadeIn(animationSpec = tween(200))
+                        }
+                    }
                 },
                 popExitTransition = {
-                    fadeOut(animationSpec = tween(300))
+                    // Simple faster fade animation when being popped from
+                    fadeOut(animationSpec = tween(200))
                 }
             ) {
                 NewHomeScreen(
@@ -263,27 +401,45 @@ fun RhythmNavigation(
                     onViewAllSongs = {
                         // Navigate to songs screen
                         navController.navigate(Screen.Library.route)
-                        selectedTab = 2
+                        selectedTab = 1
                     },
                     onViewAllAlbums = {
                         // Navigate to albums screen
                         navController.navigate(Screen.Library.route)
-                        selectedTab = 2
+                        selectedTab = 1
                     },
                     onViewAllArtists = {
                         // Navigate to artists screen
                         navController.navigate(Screen.Library.route)
-                        selectedTab = 2
+                        selectedTab = 1
                     },
                     onSkipNext = onSkipNext,
                     onSearchClick = {
                         navController.navigate(Screen.Search.route)
-                        selectedTab = 1
+                    },
+                    onSettingsClick = {
+                        navController.navigate(Screen.Settings.route)
                     }
                 )
             }
             
-            composable(Screen.Search.route) {
+            composable(
+                Screen.Search.route,
+                enterTransition = {
+                    fadeIn(animationSpec = tween(350)) +
+                    slideInVertically(
+                        initialOffsetY = { -it },
+                        animationSpec = tween(400, easing = EaseOutQuint)
+                    )
+                },
+                exitTransition = {
+                    fadeOut(animationSpec = tween(350)) +
+                    slideOutVertically(
+                        targetOffsetY = { -it },
+                        animationSpec = tween(300, easing = EaseInOutQuart)
+                    )
+                }
+            ) {
                 SearchScreen(
                     songs = songs,
                     albums = albums,
@@ -308,11 +464,131 @@ fun RhythmNavigation(
                         viewModel.setSelectedSongForPlaylist(song)
                         navController.navigate(Screen.AddToPlaylist.route)
                     },
-                    onSkipNext = onSkipNext
+                    onSkipNext = onSkipNext,
+                    onBack = {
+                        navController.popBackStack()
+                    }
                 )
             }
             
-            composable(Screen.Library.route) {
+            composable(
+                Screen.Settings.route,
+                enterTransition = {
+                    fadeIn(animationSpec = tween(350)) +
+                    slideInVertically(
+                        initialOffsetY = { -it },
+                        animationSpec = tween(400, easing = EaseOutQuint)
+                    )
+                },
+                exitTransition = {
+                    fadeOut(animationSpec = tween(350)) +
+                    slideOutVertically(
+                        targetOffsetY = { -it },
+                        animationSpec = tween(300, easing = EaseInOutQuart)
+                    )
+                }
+            ) {
+                SettingsScreen(
+                    currentSong = currentSong,
+                    isPlaying = isPlaying,
+                    progress = progress,
+                    onPlayPause = onPlayPause,
+                    onPlayerClick = {
+                        navController.navigate(Screen.Player.route)
+                    },
+                    onSkipNext = onSkipNext,
+                    showLyrics = showLyrics,
+                    showOnlineOnlyLyrics = showOnlineOnlyLyrics,
+                    onShowLyricsChange = { show ->
+                        viewModel.setShowLyrics(show)
+                    },
+                    onShowOnlineOnlyLyricsChange = { onlineOnly ->
+                        viewModel.setShowOnlineOnlyLyrics(onlineOnly)
+                    },
+                    useSystemTheme = useSystemTheme,
+                    darkMode = darkMode,
+                    onUseSystemThemeChange = { use ->
+                        themeViewModel.setUseSystemTheme(use)
+                    },
+                    onDarkModeChange = { dark ->
+                        themeViewModel.setDarkMode(dark)
+                    },
+                    onOpenSystemEqualizer = {
+                        viewModel.openSystemEqualizer()
+                    },
+                    onBack = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+            
+            composable(
+                Screen.Library.route,
+                enterTransition = {
+                    when (initialState.destination.route) {
+                        Screen.Home.route -> {
+                            // Horizontal slide animation when coming from Home
+                            fadeIn(animationSpec = tween(300)) +
+                            slideInHorizontally(
+                                initialOffsetX = { it },
+                                animationSpec = tween(350, easing = EaseInOutQuart)
+                            )
+                        }
+                        else -> {
+                            // Default animation for other sources
+                            fadeIn(animationSpec = tween(300))
+                        }
+                    }
+                },
+                exitTransition = {
+                    when (targetState.destination.route) {
+                        Screen.Home.route -> {
+                            // Horizontal slide animation when going to Home
+                            fadeOut(animationSpec = tween(300)) +
+                            slideOutHorizontally(
+                                targetOffsetX = { it },
+                                animationSpec = tween(350, easing = EaseInOutQuart)
+                            )
+                        }
+                        else -> {
+                            // Default animation for other destinations
+                            fadeOut(animationSpec = tween(300))
+                        }
+                    }
+                },
+                popEnterTransition = {
+                    when (initialState.destination.route) {
+                        Screen.Home.route -> {
+                            // Restore horizontal slide animation when popping back from Home
+                            fadeIn(animationSpec = tween(300)) +
+                            slideInHorizontally(
+                                initialOffsetX = { it },
+                                animationSpec = tween(350, easing = EaseInOutQuart)
+                            )
+                        }
+                        else -> {
+                            // Simple faster fade animation when popping back from other screens
+                            fadeIn(animationSpec = tween(200))
+                        }
+                    }
+                },
+                popExitTransition = {
+                    when (targetState.destination.route) {
+                        Screen.Home.route -> {
+                            // Restore horizontal slide animation when popping back to Home
+                            fadeOut(animationSpec = tween(300)) +
+                            slideOutHorizontally(
+                                targetOffsetX = { it },
+                                animationSpec = tween(350, easing = EaseInOutQuart)
+                            )
+                        }
+                        else -> {
+                            // Simple faster fade animation when being popped from for other destinations
+                            fadeOut(animationSpec = tween(200))
+                        }
+                    }
+                }
+            ) {
                 LibraryScreen(
                     songs = songs,
                     albums = albums,
@@ -354,50 +630,33 @@ fun RhythmNavigation(
                 )
             }
             
-            composable(Screen.Settings.route) {
-                SettingsScreen(
-                    currentSong = currentSong,
-                    isPlaying = isPlaying,
-                    progress = progress,
-                    onPlayPause = onPlayPause,
-                    onPlayerClick = {
-                        navController.navigate(Screen.Player.route)
-                    },
-                    onSkipNext = onSkipNext,
-                    showLyrics = showLyrics,
-                    showOnlineOnlyLyrics = showOnlineOnlyLyrics,
-                    onShowLyricsChange = { show ->
-                        viewModel.setShowLyrics(show)
-                    },
-                    onShowOnlineOnlyLyricsChange = { onlineOnly ->
-                        viewModel.setShowOnlineOnlyLyrics(onlineOnly)
-                    },
-                    useSystemTheme = useSystemTheme,
-                    darkMode = darkMode,
-                    onUseSystemThemeChange = { use ->
-                        themeViewModel.setUseSystemTheme(use)
-                    },
-                    onDarkModeChange = { dark ->
-                        themeViewModel.setDarkMode(dark)
-                    },
-                    onOpenSystemEqualizer = {
-                        viewModel.openSystemEqualizer()
-                    }
-                )
-            }
-            
             composable(
                 route = Screen.Player.route,
                 enterTransition = {
                     slideInVertically(
-                        initialOffsetY = { it },  // slide in from bottom (full height)
-                        animationSpec = tween(durationMillis = 300)
+                        initialOffsetY = { it / 3 },  // slide in from 1/3 of the way down for smoother effect
+                        animationSpec = tween(
+                            durationMillis = 350, // slightly longer for more floaty effect
+                            easing = EaseOutQuint // smooth acceleration for floaty feel
+                        )
+                    ) + fadeIn(
+                        animationSpec = tween(
+                            durationMillis = 300,
+                            easing = EaseOutQuint
+                        )
                     )
                 },
                 exitTransition = {
                     slideOutVertically(
-                        targetOffsetY = { it },  // slide out to bottom (full height)
-                        animationSpec = tween(durationMillis = 250)
+                        targetOffsetY = { it / 2 },
+                        animationSpec = tween(
+                            durationMillis = 250,
+                            easing = EaseInOutQuart // smoother exit animation
+                        )
+                    ) + fadeOut(
+                        animationSpec = tween(
+                            durationMillis = 200
+                        )
                     )
                 }
             ) {

@@ -212,7 +212,7 @@ class MainActivity : ComponentActivity() {
                     if (!musicViewModel.isServiceConnected()) {
                         // Wait for the service to connect
                         musicViewModel.connectToMediaService()
-                        delay(800)  // Give service time to connect
+                        delay(1500)  // Give service time to connect
                     }
                     
                     // Play the external file
@@ -220,7 +220,7 @@ class MainActivity : ComponentActivity() {
                     
                     // If playback doesn't start, try sending the intent directly to the service as a fallback
                     if (!musicViewModel.isPlaying()) {
-                        delay(1000)
+                        delay(2000)
                         if (!musicViewModel.isPlaying()) {
                             Log.d(TAG, "Using direct service intent as fallback")
                             val playIntent = Intent(this@MainActivity, chromahub.rhythm.app.service.MediaPlaybackService::class.java)
@@ -354,7 +354,7 @@ fun PermissionHandler(
     LaunchedEffect(Unit) {
         permissionsState.launchMultiplePermissionRequest()
         // Add a small delay to show loading indicator
-        delay(1500)
+        delay(2500)
         isLoading = false
         permissionsChecked = true
         
@@ -371,6 +371,9 @@ fun PermissionHandler(
             } else {
                 context.startService(intent)
             }
+            
+            // Give the service additional time to fully initialize
+            delay(1000)
         }
     }
     

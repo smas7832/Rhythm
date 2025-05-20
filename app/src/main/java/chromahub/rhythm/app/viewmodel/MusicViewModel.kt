@@ -1539,8 +1539,11 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             // Create a delayed job to retry playback once connected
             viewModelScope.launch {
                 var attempts = 0
-                val maxAttempts = 10  // Increased from 5 to 10 attempts
-                val delayMs = 500L    // Increased from 300 to 500ms
+                val maxAttempts = 15  // Increased from 10 to 15 attempts for cold starts
+                val delayMs = 800L    // Increased from 500ms to 800ms between attempts
+                
+                // Add initial delay to give service more time to fully initialize
+                delay(1000)
                 
                 while (mediaController == null && attempts < maxAttempts) {
                     delay(delayMs)
@@ -1599,12 +1602,22 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             // Mark the service as connected
             _serviceConnected.value = true
             
-            // Double-check if playback actually started
+            // Double-check if playback actually started with multiple retries
             viewModelScope.launch {
-                delay(500)
-                if (!controller.isPlaying) {
-                    Log.d(TAG, "Playback didn't start immediately, trying again")
-                    controller.play()
+                var retryCount = 0
+                val maxRetries = 5
+                
+                while (retryCount < maxRetries) {
+                    delay(500)
+                    if (!controller.isPlaying) {
+                        Log.d(TAG, "Playback didn't start, retry #${retryCount + 1}")
+                        controller.play()
+                        retryCount++
+                    } else {
+                        // Playback started successfully
+                        Log.d(TAG, "Playback confirmed as started")
+                        break
+                    }
                 }
             }
         } catch (e: Exception) {
@@ -1615,6 +1628,34 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             _currentSong.value = song
             _currentQueue.value = Queue(listOf(song), 0)
         }
+    }
+
+    /**
+     * Shuffles all available songs and plays them as a queue
+     */
+    fun playShuffledSongs() {
+        val allSongs = _songs.value
+        if (allSongs.isEmpty()) return
+        
+        // Shuffle the songs
+        val shuffledSongs = allSongs.shuffled()
+        
+        // Start with the first song
+        val firstSong = shuffledSongs.first()
+        Log.d(TAG, "Playing shuffled songs starting with: ${firstSong.title}")
+        
+        // Set shuffle mode to enabled
+        mediaController?.shuffleModeEnabled = true
+        _isShuffleEnabled.value = true
+        
+        // Create a new queue with the shuffled songs
+        _currentQueue.value = Queue(shuffledSongs, 0)
+        
+        // Play the first song
+        playSong(firstSong)
+        
+        // Add to recently played
+        updateRecentlyPlayed(firstSong)
     }
 
     companion object {

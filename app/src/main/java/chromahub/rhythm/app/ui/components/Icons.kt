@@ -223,6 +223,14 @@ object RhythmIcons {
     val Settings = Navigation.SettingsOutlined
     val SettingsFilled = Navigation.Settings
     
+    // Mood & moments icons (using appropriate Material icons as substitutes)
+    val Energy = Icons.Rounded.Speed
+    val Relax = Icons.Rounded.Headphones
+    val Focus = Icons.Rounded.Timer
+    
+    // System icons
+    val Notifications = Icons.Rounded.Refresh
+    
     // Music items
     val Song = Music.SongOutlined
     val SongFilled = Music.Song

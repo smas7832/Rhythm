@@ -62,6 +62,7 @@ import chromahub.rhythm.app.data.Song
 import chromahub.rhythm.app.ui.theme.PlayerButtonColor
 import chromahub.rhythm.app.ui.theme.PlayerProgressColor
 import chromahub.rhythm.app.util.ImageUtils
+import chromahub.rhythm.app.util.M3ImageUtils
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import java.util.concurrent.TimeUnit
@@ -75,9 +76,11 @@ import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.Spring.StiffnessMediumLow
 import androidx.compose.ui.input.pointer.consumeAllChanges
 import androidx.compose.ui.unit.IntOffset
+import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import chromahub.rhythm.app.ui.components.M3LinearLoader
+import androidx.compose.material3.HorizontalDivider
 
 /**
  * Main player screen with album art, progress bar, and controls
@@ -122,7 +125,7 @@ fun Player(
                         offsetY = 0f
                     },
                     onVerticalDrag = { change, dragAmount ->
-                        change.consumeAllChanges()
+                        change.consume()
                         // Update offset (only care about downward movement - positive dragAmount)
                         offsetY += dragAmount
                         
@@ -142,7 +145,7 @@ fun Player(
                 .padding(vertical = 8.dp),
             contentAlignment = Alignment.Center
         ) {
-            Divider(
+            HorizontalDivider(
                 modifier = Modifier
                     .width(48.dp)
                     .height(4.dp)
@@ -173,10 +176,9 @@ fun Player(
                 .clip(RoundedCornerShape(16.dp))
         ) {
             if (song != null) {
-                AsyncImage(
-                    model = song.artworkUri,
-                    contentDescription = "Album art for ${song.title}",
-                    contentScale = ContentScale.Crop,
+                M3ImageUtils.TrackImage(
+                    imageUrl = song.artworkUri,
+                    trackName = song.title,
                     modifier = Modifier.fillMaxWidth()
                 )
             } else {
@@ -437,6 +439,9 @@ fun MiniPlayer(
     val swipeUpThreshold = 100f // Minimum distance to trigger player open
     val swipeDownThreshold = 100f // Minimum distance to trigger dismissal
     
+    // Track last offset for haptic feedback at intervals
+    var lastHapticOffset by remember { mutableStateOf(0f) }
+    
     // Animation for translation during swipe
     val translationOffset by animateFloatAsState(
         targetValue = if (offsetY > 0) offsetY.coerceAtMost(200f) else 0f,
@@ -463,10 +468,15 @@ fun MiniPlayer(
     
     // If dismissing, animate out and stop playback
     LaunchedEffect(isDismissingPlayer) {
-        if (isDismissingPlayer && isPlaying) {
+        if (isDismissingPlayer) {
             // Stop playback when dismissing
-            onPlayPause()
-            delay(200) // Wait for animation to start before resetting
+            if (isPlaying) {
+                onPlayPause()
+            }
+            delay(300) // Wait for animation to complete
+            // We should actually hide the player when dismissed
+            // In a real app, this would communicate back to parent that player should be hidden
+            // For now, just reset the state
             isDismissingPlayer = false
             offsetY = 0f
         }
@@ -475,6 +485,7 @@ fun MiniPlayer(
     Card(
         onClick = {
             if (!isDismissingPlayer) {
+                // Enhanced haptic feedback for click
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 onPlayerClick()
             }
@@ -494,24 +505,34 @@ fun MiniPlayer(
         ),
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .padding(horizontal = 16.dp, vertical = 8.dp)
             .scale(scale)
             .graphicsLayer { 
                 // Apply translation based on swipe gesture
-                translationY = if (isDismissingPlayer) 200f else translationOffset
+                translationY = if (isDismissingPlayer) 300f else translationOffset
                 alpha = alphaValue
             }
             .pointerInput(Unit) {
                 detectVerticalDragGestures(
+                    onDragStart = { 
+                        // Reset the last haptic offset on new drag
+                        lastHapticOffset = 0f
+                        
+                        // Initial feedback when starting to drag
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    },
                     onDragEnd = {
                         if (offsetY < -swipeUpThreshold) {
-                            // Swipe up detected, open player
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            // Swipe up detected, open player with stronger feedback
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             onPlayerClick()
                         } else if (offsetY > swipeDownThreshold) {
-                            // Swipe down detected, dismiss mini player
+                            // Swipe down detected, dismiss mini player with stronger feedback
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             isDismissingPlayer = true
+                        } else {
+                            // Snap-back haptic when releasing before threshold
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         }
                         // Reset offset if not dismissing
                         if (!isDismissingPlayer) {
@@ -519,15 +540,29 @@ fun MiniPlayer(
                         }
                     },
                     onDragCancel = {
+                        // Feedback when drag canceled
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         // Reset offset if not dismissing
                         if (!isDismissingPlayer) {
                             offsetY = 0f
                         }
                     },
                     onVerticalDrag = { change, dragAmount ->
-                        change.consumeAllChanges()
+                        change.consume()
                         // Update offset for both up and down gestures
                         offsetY += dragAmount
+                        
+                        // Provide interval haptic feedback during drag
+                        // For swipe up (negative offsetY)
+                        if (offsetY < 0 && abs(offsetY) - abs(lastHapticOffset) > swipeUpThreshold / 3) {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            lastHapticOffset = offsetY
+                        }
+                        // For swipe down (positive offsetY)
+                        else if (offsetY > 0 && abs(offsetY) - abs(lastHapticOffset) > swipeDownThreshold / 3) {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            lastHapticOffset = offsetY
+                        }
                     }
                 )
             },
@@ -545,7 +580,7 @@ fun MiniPlayer(
                     .padding(top = 12.dp, bottom = 8.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Divider(
+                HorizontalDivider(
                     modifier = Modifier
                         .width(32.dp)
                         .height(4.dp)
@@ -605,17 +640,9 @@ fun MiniPlayer(
                 ) {
                     Box {
                         if (song != null) {
-                            AsyncImage(
-                                model = ImageRequest.Builder(context)
-                                    .apply(ImageUtils.buildImageRequest(
-                                        song.artworkUri,
-                                        song.title,
-                                        context.cacheDir,
-                                        ImageUtils.PlaceholderType.TRACK
-                                    ))
-                                    .build(),
-                                contentDescription = "Album art for ${song.title}",
-                                contentScale = ContentScale.Crop,
+                            M3ImageUtils.TrackImage(
+                                imageUrl = song.artworkUri,
+                                trackName = song.title,
                                 modifier = Modifier.fillMaxSize()
                             )
                         } else {
@@ -698,7 +725,8 @@ fun MiniPlayer(
                     // Play/pause button
                     FilledIconButton(
                         onClick = { 
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            // Enhanced haptic feedback for primary action
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             onPlayPause() 
                         },
                         modifier = Modifier.size(48.dp),
@@ -717,7 +745,8 @@ fun MiniPlayer(
                     // Next track button
                     FilledTonalIconButton(
                         onClick = { 
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            // Strong haptic feedback for next track
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             onSkipNext() 
                         },
                         modifier = Modifier.size(40.dp),
@@ -789,7 +818,7 @@ fun PlayerControls(
                         offsetY = 0f
                     },
                     onVerticalDrag = { change, dragAmount ->
-                        change.consumeAllChanges()
+                        change.consume()
                         // Update offset (only care about downward movement - positive dragAmount)
                         offsetY += dragAmount
                         
@@ -809,7 +838,7 @@ fun PlayerControls(
                 .padding(vertical = 8.dp),
             contentAlignment = Alignment.Center
         ) {
-            Divider(
+            HorizontalDivider(
                 modifier = Modifier
                     .width(48.dp)
                     .height(4.dp)
@@ -840,17 +869,9 @@ fun PlayerControls(
                 .clip(RoundedCornerShape(16.dp))
         ) {
             if (song != null) {
-                AsyncImage(
-                    model = ImageRequest.Builder(context)
-                        .apply(ImageUtils.buildImageRequest(
-                            song.artworkUri,
-                            song.title,
-                            context.cacheDir,
-                            ImageUtils.PlaceholderType.TRACK
-                        ))
-                        .build(),
-                    contentDescription = "Album art for ${song.title}",
-                    contentScale = ContentScale.Crop,
+                M3ImageUtils.TrackImage(
+                    imageUrl = song.artworkUri,
+                    trackName = song.title,
                     modifier = Modifier.fillMaxWidth()
                 )
             } else {

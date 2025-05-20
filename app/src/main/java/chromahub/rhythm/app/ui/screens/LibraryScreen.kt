@@ -78,6 +78,7 @@ import chromahub.rhythm.app.ui.components.CreatePlaylistDialog
 import chromahub.rhythm.app.ui.components.MiniPlayer
 import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.util.ImageUtils
+import chromahub.rhythm.app.util.M3ImageUtils
 import chromahub.rhythm.app.viewmodel.MusicViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -343,7 +344,7 @@ fun SongsTab(
         )
     } else {
         LazyColumn(
-            contentPadding = PaddingValues(bottom = 16.dp),
+            contentPadding = PaddingValues(bottom = 0.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             item {
@@ -529,17 +530,9 @@ fun LibrarySongItem(
                     shadowElevation = 1.dp,
                     modifier = Modifier.size(56.dp)
                 ) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .apply(ImageUtils.buildImageRequest(
-                                song.artworkUri,
-                                song.title,
-                                context.cacheDir,
-                                ImageUtils.PlaceholderType.TRACK
-                            ))
-                            .build(),
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
+                    M3ImageUtils.TrackImage(
+                        imageUrl = song.artworkUri,
+                        trackName = song.title,
                         modifier = Modifier.fillMaxSize()
                     )
                 }
@@ -640,17 +633,9 @@ fun PlaylistItem(
                     contentAlignment = Alignment.Center
                 ) {
                     if (playlist.artworkUri != null) {
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .apply(ImageUtils.buildImageRequest(
-                                    playlist.artworkUri,
-                                    playlist.name,
-                                    context.cacheDir,
-                                    ImageUtils.PlaceholderType.PLAYLIST
-                                ))
-                                .build(),
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
+                        M3ImageUtils.PlaylistImage(
+                            imageUrl = playlist.artworkUri,
+                            playlistName = playlist.name,
                             modifier = Modifier.fillMaxSize()
                         )
                     } else {
@@ -713,17 +698,9 @@ fun LibraryAlbumItem(
                         .clip(RoundedCornerShape(12.dp))
                 ) {
                     if (album.artworkUri != null) {
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .apply(ImageUtils.buildImageRequest(
-                                    album.artworkUri,
-                                    album.title,
-                                    context.cacheDir,
-                                    ImageUtils.PlaceholderType.ALBUM
-                                ))
-                                .build(),
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
+                        M3ImageUtils.AlbumArt(
+                            imageUrl = album.artworkUri,
+                            albumName = album.title,
                             modifier = Modifier.fillMaxSize()
                         )
                     } else {

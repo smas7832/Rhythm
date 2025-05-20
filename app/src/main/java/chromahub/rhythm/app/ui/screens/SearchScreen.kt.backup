@@ -109,8 +109,7 @@ fun SearchScreen(
     onPlayPause: () -> Unit,
     onPlayerClick: () -> Unit,
     onSkipNext: () -> Unit,
-    onAddSongToPlaylist: (Song) -> Unit = {},
-    onBack: () -> Unit = {}
+    onAddSongToPlaylist: (Song) -> Unit = {}
 ) {
     val viewModel: MusicViewModel = viewModel()
     var searchQuery by remember { mutableStateOf("") }
@@ -213,21 +212,11 @@ fun SearchScreen(
                     ) 
                 },
                 leadingIcon = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = onBack) {
-                            Icon(
-                                imageVector = RhythmIcons.Back,
-                                contentDescription = "Back",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        
-                        Icon(
-                            imageVector = RhythmIcons.Search,
-                            contentDescription = "Search",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    Icon(
+                        imageVector = RhythmIcons.Search,
+                        contentDescription = "Search",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 },
                 trailingIcon = {
                     Row {
@@ -245,6 +234,20 @@ fun SearchScreen(
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
+                        }
+                        
+                        // Filter icon (no voice icon anymore)
+                        IconButton(
+                            onClick = { showFilterOptions = !showFilterOptions }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.FilterList,
+                                contentDescription = "Filters",
+                                tint = if (showFilterOptions) 
+                                    MaterialTheme.colorScheme.primary 
+                                else 
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 },
@@ -267,6 +270,41 @@ fun SearchScreen(
                     .padding(top = 16.dp, start = 16.dp, end = 16.dp, bottom = 8.dp)
                     .focusRequester(focusRequester),
             ) { }
+            
+            // Filter options (only show when filter button is clicked)
+            AnimatedVisibility(
+                visible = showFilterOptions,
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        label = "Songs",
+                        selected = filterSongs,
+                        onClick = { filterSongs = !filterSongs }
+                    )
+                    FilterChip(
+                        label = "Albums",
+                        selected = filterAlbums,
+                        onClick = { filterAlbums = !filterAlbums }
+                    )
+                    FilterChip(
+                        label = "Artists",
+                        selected = filterArtists,
+                        onClick = { filterArtists = !filterArtists }
+                    )
+                    FilterChip(
+                        label = "Playlists",
+                        selected = filterPlaylists,
+                        onClick = { filterPlaylists = !filterPlaylists }
+                    )
+                }
+            }
             
             Spacer(modifier = Modifier.height(if (showFilterOptions) 8.dp else 16.dp))
             
@@ -347,6 +385,37 @@ fun SearchScreen(
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FilterChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    enabled: Boolean = true
+) {
+    androidx.compose.material3.FilterChip(
+        selected = selected,
+        onClick = onClick,
+        enabled = enabled,
+        label = { 
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge
+            ) 
+        },
+        colors = FilterChipDefaults.filterChipColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+            labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+        ),
+        border = FilterChipDefaults.filterChipBorder(
+            borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+            selectedBorderColor = MaterialTheme.colorScheme.primary,
+            borderWidth = 1.dp,
+            selectedBorderWidth = 1.dp
+        )
+    )
+}
 
 @Composable
 fun SearchResults(
@@ -361,8 +430,7 @@ fun SearchResults(
     onAddSongToPlaylist: (Song) -> Unit
 ) {
     LazyColumn(
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding = PaddingValues(horizontal = 16.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // Songs section
         if (songs.isNotEmpty()) {
@@ -437,8 +505,7 @@ fun SearchResults(
             
             item {
                 LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    contentPadding = PaddingValues(end = 16.dp)
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     items(albums) { album ->
                         SearchAlbumItem(
@@ -463,8 +530,7 @@ fun SearchResults(
             
             item {
                 LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    contentPadding = PaddingValues(end = 16.dp)
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     items(artists) { artist ->
                         SearchArtistItem(
@@ -489,8 +555,7 @@ fun SearchResults(
             
             item {
                 LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    contentPadding = PaddingValues(end = 16.dp)
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     items(playlists) { playlist ->
                         SearchPlaylistItem(
@@ -503,7 +568,7 @@ fun SearchResults(
         }
         
         // Add bottom spacing
-        item { Spacer(modifier = Modifier.height(88.dp)) }
+        item { Spacer(modifier = Modifier.height(80.dp)) }
     }
 }
 
@@ -832,13 +897,13 @@ fun SearchSongItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 8.dp, horizontal = 12.dp),
+                .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Album art
             Box(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(56.dp)
                     .clip(RoundedCornerShape(8.dp))
             ) {
                 M3ImageUtils.TrackImage(
@@ -852,7 +917,7 @@ fun SearchSongItem(
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(horizontal = 16.dp)
+                    .padding(horizontal = 12.dp)
             ) {
                 Text(
                     text = song.title,
@@ -873,13 +938,12 @@ fun SearchSongItem(
             // Add to playlist button
             IconButton(
                 onClick = onAddToPlaylist,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(40.dp)
             ) {
                 Icon(
                     imageVector = RhythmIcons.AddToPlaylist,
                     contentDescription = "Add to playlist",
-                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-                    modifier = Modifier.size(20.dp)
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
                 )
             }
         }
@@ -895,7 +959,7 @@ fun SearchAlbumItem(
     
     Card(
         modifier = Modifier
-            .width(140.dp)
+            .width(150.dp)
             .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(
@@ -908,12 +972,35 @@ fun SearchAlbumItem(
         Column(
             modifier = Modifier.padding(8.dp)
         ) {
-            // Album cover
+            // Album cover with spring-based scale animation
+            val scale by animateFloatAsState(
+                targetValue = 1f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessLow
+                ),
+                label = "albumScale"
+            )
+            
+            val albumAlpha by animateFloatAsState(
+                targetValue = 1f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessLow
+                ),
+                label = "albumAlpha"
+            )
+            
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f)
                     .clip(RoundedCornerShape(8.dp))
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                        alpha = albumAlpha
+                    }
             ) {
                 M3ImageUtils.AlbumArt(
                     imageUrl = album.artworkUri,
@@ -922,7 +1009,7 @@ fun SearchAlbumItem(
                 )
             }
             
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             
             // Album info
             Text(
