@@ -1,130 +1,70 @@
-<p align="center">
-  <img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp" width="150" alt="Rhythm Logo">
-</p>
+<div align="center">
+  <img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp" width="120" height="120" alt="Rhythm Logo"/>
+  
+  # RHYTHM
+  
+  [![Android](https://img.shields.io/badge/Platform-Android-3DDC84?style=flat-square&logo=android&logoColor=white)](https://www.android.com)
+  [![Kotlin](https://img.shields.io/badge/Kotlin-1.8-7F52FF?style=flat-square&logo=kotlin&logoColor=white)](https://kotlinlang.org)
+  [![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
+</div>
 
-<h1 align="center">Rhythm</h1>
-<p align="center">
-  A modern, feature-rich music player for Android
-</p>
+## ✨ Overview
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Platform-Android-brightgreen" alt="Platform Android">
-  <img src="https://img.shields.io/badge/License-MIT-blue" alt="License MIT">
-</p>
+Rhythm is a premium music player for Android that delivers a seamless audio experience with a beautiful Material You design. Enjoy your music collection with advanced playback features, intuitive controls, and comprehensive audio format support.
 
-## About
+## 🎵 Key Features
 
-Rhythm is a powerful music player application designed to provide a seamless audio experience on Android devices. With a sleek, modern interface and comprehensive audio format support, Rhythm makes enjoying your music collection easier than ever.
+- **Elegant UI**: Modern design with fluid animations and Material You theming
+- **Format Support**: Plays MP3, FLAC, AAC, OGG, WAV and more
+- **Smart Playlists**: Organize your music with customizable playlists
+- **Bluetooth Integration**: Seamless connection with Bluetooth devices
+- **Background Playback**: Continuous music experience with efficient background service
+- **Media Browsing**: Easy navigation through your music library
 
-## Features
-
-- 🎵 Support for various audio formats (MP3, AAC, FLAC, OGG, WAV)
-- 📱 Modern Material You design
-- 🔄 Seamless background playback<p align="center">
-  <img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp" width="150" alt="Rhythm Logo">
-</p>
-
-<h1 align="center">Rhythm</h1>
-<p align="center">
-  A modern, feature-rich music player for Android
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/Platform-Android-brightgreen" alt="Platform Android">
-  <img src="https://img.shields.io/badge/License-MIT-blue" alt="License MIT">
-</p>
-
-## About
-
-Rhythm is a powerful music player application designed to provide a seamless audio experience on Android devices. With a sleek, modern interface and comprehensive audio format support, Rhythm makes enjoying your music collection easier than ever.
-
-## Features
-
-- 🎵 Support for various audio formats (MP3, AAC, FLAC, OGG, WAV)
-- 📱 Modern Material You design
-- 🔄 Seamless background playback
-- 📋 Playlist management
-- 🎚️ Advanced audio controls
-- 🔊 Bluetooth device support
-- 🌐 Internet radio capabilities
-- 📲 File sharing functionality
-
-## Screenshots
+## 📱 Screenshots
 
 *Coming soon*
 
-## Installation
+## 🚀 Getting Started
 
-Download the latest release from the Releases section or clone this repository to build from source:
+### Requirements
+- Android 5.0 (API level 21) or higher
+- 50MB+ free storage space
 
+### Installation
+Download the latest release APK from the [Releases](https://github.com/chromahub/rhythm/releases) page.
+
+## 🛠️ Development
+
+This project is built with:
+- Kotlin
+- Jetpack Compose
+- Media3
+- Kotlin Coroutines
+- Material3
+
+### Building from Source
 ```bash
-git clone https://github.com/yourusername/rhythm.git
+# Clone the repository
+git clone https://github.com/chromahub/rhythm.git
+
+# Navigate to project directory
 cd rhythm
+
+# Build the APK
 ./gradlew assembleDebug
 ```
 
-## Development
+## 📄 License
 
-### Prerequisites
+Rhythm is available under the MIT license. See the [LICENSE](LICENSE) file for more info.
 
-- Android Studio Arctic Fox or newer
-- Minimum SDK: 21 (Android 5.0)
-- Target SDK: 33+
+## 👥 Contributors
 
-### Building
+- ChromaHub Team
 
-1. Clone the repository
-2. Open in Android Studio
-3. Sync Gradle files
-4. Build and run
+---
 
-## License
-
-[MIT License](LICENSE)
-
-## Credits
-
-Developed by ChromaHub
-- 📋 Playlist management
-- 🎚️ Advanced audio controls
-- 🔊 Bluetooth device support
-- 🌐 Internet radio capabilities
-- 📲 File sharing functionality
-
-## Screenshots
-
-*Coming soon*
-
-## Installation
-
-Download the latest release from the Releases section or clone this repository to build from source:
-
-```bash
-git clone https://github.com/yourusername/rhythm.git
-cd rhythm
-./gradlew assembleDebug
-```
-
-## Development
-
-### Prerequisites
-
-- Android Studio Arctic Fox or newer
-- Minimum SDK: 21 (Android 5.0)
-- Target SDK: 33+
-
-### Building
-
-1. Clone the repository
-2. Open in Android Studio
-3. Sync Gradle files
-4. Build and run
-
-## License
-
-[MIT License](LICENSE)
-
-## Credits
-
-Developed by ChromaHub
-
+<div align="center">
+  <sub>Made with ❤️ by ChromaHub</sub>
+</div>
