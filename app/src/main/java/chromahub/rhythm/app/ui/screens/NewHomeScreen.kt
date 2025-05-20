@@ -57,6 +57,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -85,6 +86,9 @@ import chromahub.rhythm.app.data.Song
 import chromahub.rhythm.app.ui.components.MiniPlayer
 import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.util.ImageUtils
+import chromahub.rhythm.app.viewmodel.AppUpdaterViewModel
+import chromahub.rhythm.app.viewmodel.AppVersion
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import kotlinx.coroutines.delay
@@ -112,7 +116,8 @@ fun NewHomeScreen(
     onViewAllArtists: () -> Unit,
     onSkipNext: () -> Unit = {},
     onSearchClick: () -> Unit = {},
-    onSettingsClick: () -> Unit = {}
+    onSettingsClick: () -> Unit = {},
+    updaterViewModel: AppUpdaterViewModel = viewModel()
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val scope = rememberCoroutineScope()
@@ -210,7 +215,8 @@ fun NewHomeScreen(
             onViewAllAlbums = onViewAllAlbums,
             onViewAllArtists = onViewAllArtists,
             onSearchClick = onSearchClick,
-            onSettingsClick = onSettingsClick
+            onSettingsClick = onSettingsClick,
+            updaterViewModel = updaterViewModel
         )
     }
 }
@@ -234,7 +240,8 @@ private fun EnhancedScrollableContent(
     onViewAllAlbums: () -> Unit,
     onViewAllArtists: () -> Unit,
     onSearchClick: () -> Unit,
-    onSettingsClick: () -> Unit = {}
+    onSettingsClick: () -> Unit = {},
+    updaterViewModel: AppUpdaterViewModel = viewModel()
 ) {
     val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
@@ -247,6 +254,17 @@ private fun EnhancedScrollableContent(
         hour < 12 -> "Good morning"
         hour < 18 -> "Good afternoon"
         else -> "Good evening"
+    }
+    
+    // Collect update information
+    val isCheckingForUpdates by updaterViewModel.isCheckingForUpdates.collectAsState()
+    val updateAvailable by updaterViewModel.updateAvailable.collectAsState()
+    val latestVersion by updaterViewModel.latestVersion.collectAsState()
+    val error by updaterViewModel.error.collectAsState()
+    
+    // Check for updates when screen is shown
+    LaunchedEffect(Unit) {
+        updaterViewModel.checkForUpdates()
     }
     
     // Auto-scroll featured content
@@ -270,8 +288,18 @@ private fun EnhancedScrollableContent(
                 .padding(bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            // Personalized Welcome Section
-            WelcomeSection(greeting = greeting, onSearchClick = onSearchClick)
+            // Show update card or welcome section based on update availability
+            if (updateAvailable && latestVersion != null && !isCheckingForUpdates && error == null) {
+                latestVersion?.let { version ->
+                    UpdateAvailableSection(
+                        latestVersion = version,
+                        onUpdateClick = onSettingsClick
+                    )
+                }
+            } else {
+                // Personalized Welcome Section
+                WelcomeSection(greeting = greeting, onSearchClick = onSearchClick)
+            }
             
             // Quick Actions Section
             QuickActionsSection()
@@ -1425,5 +1453,117 @@ private fun RecommendedSongItem(
             modifier = Modifier.padding(vertical = 8.dp),
             color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.1f)
         )
+    }
+}
+
+@Composable
+private fun UpdateAvailableSection(
+    latestVersion: AppVersion,
+    onUpdateClick: () -> Unit
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.primaryContainer,
+        shape = RoundedCornerShape(24.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .clickable(onClick = onUpdateClick)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 24.dp, horizontal = 20.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Update icon
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = RhythmIcons.Download,
+                        contentDescription = "Update available",
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                
+                Spacer(modifier = Modifier.width(16.dp))
+                
+                Text(
+                    text = "Update Available",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Text(
+                text = "Version ${latestVersion.versionName}",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Show first changelog item or release notes if available
+            if (latestVersion.changelog.isNotEmpty()) {
+                Text(
+                    text = latestVersion.changelog.first(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+            } else if (latestVersion.releaseNotes.isNotEmpty()) {
+                Text(
+                    text = latestVersion.releaseNotes,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+            }
+            
+            // Update button
+            Surface(
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 16.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = RhythmIcons.Download,
+                        contentDescription = "Download update",
+                        tint = MaterialTheme.colorScheme.primaryContainer
+                    )
+                    
+                    Spacer(modifier = Modifier.width(8.dp))
+                    
+                    Text(
+                        text = "Update Now",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    )
+                }
+            }
+        }
     }
 } 

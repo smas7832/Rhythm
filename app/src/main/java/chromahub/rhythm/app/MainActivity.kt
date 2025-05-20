@@ -323,6 +323,12 @@ fun PermissionHandler(
             Manifest.permission.FOREGROUND_SERVICE,
             Manifest.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK
         )
+    } else if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) { // Android 10 (Q) and below need WRITE_EXTERNAL_STORAGE
+        listOf(
+            Manifest.permission.READ_EXTERNAL_STORAGE,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE,
+            Manifest.permission.FOREGROUND_SERVICE
+        )
     } else {
         listOf(
             Manifest.permission.READ_EXTERNAL_STORAGE,

@@ -51,6 +51,7 @@ import chromahub.rhythm.app.ui.screens.AddToPlaylistBottomSheet
 import chromahub.rhythm.app.ui.components.CreatePlaylistDialog
 import chromahub.rhythm.app.ui.components.MiniPlayer
 import chromahub.rhythm.app.ui.components.RhythmIcons
+import chromahub.rhythm.app.ui.screens.AppUpdaterScreen
 import chromahub.rhythm.app.ui.screens.LibraryScreen
 import chromahub.rhythm.app.ui.screens.NewHomeScreen
 import chromahub.rhythm.app.ui.screens.PlayerLocationsScreen
@@ -71,6 +72,8 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
@@ -98,6 +101,7 @@ sealed class Screen(val route: String) {
     object Settings : Screen("settings")
     object AddToPlaylist : Screen("add_to_playlist")
     object PlayerLocations : Screen("player_locations")
+    object AppUpdater : Screen("app_updater")
     object PlaylistDetail : Screen("playlist/{playlistId}") {
         fun createRoute(playlistId: String) = "playlist/$playlistId"
     }
@@ -164,8 +168,12 @@ fun RhythmNavigation(
     Scaffold(
         bottomBar = {
             // Only show the navigation bar if we're not on the player screen or related screens
+            // Also hide it on search, settings, and updater screens as requested
             if (currentRoute != Screen.Player.route && 
-                currentRoute != Screen.PlayerLocations.route) {
+                currentRoute != Screen.PlayerLocations.route &&
+                currentRoute != Screen.Search.route &&
+                currentRoute != Screen.Settings.route &&
+                currentRoute != Screen.AppUpdater.route) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -418,7 +426,10 @@ fun RhythmNavigation(
                         navController.navigate(Screen.Search.route)
                     },
                     onSettingsClick = {
-                        navController.navigate(Screen.Settings.route)
+                        // When clicked from NewHomeScreen, it could be either for settings or update
+                        // The AppUpdaterViewModel in NewHomeScreen will determine whether to show the update card or not
+                        // UpdateAvailableSection will use this to navigate to app updater
+                        navController.navigate(Screen.AppUpdater.route)
                     }
                 )
             }
@@ -427,15 +438,29 @@ fun RhythmNavigation(
                 Screen.Search.route,
                 enterTransition = {
                     fadeIn(animationSpec = tween(350)) +
-                    slideInVertically(
-                        initialOffsetY = { -it },
+                    scaleIn(
+                        initialScale = 0.85f,
                         animationSpec = tween(400, easing = EaseOutQuint)
                     )
                 },
                 exitTransition = {
                     fadeOut(animationSpec = tween(350)) +
-                    slideOutVertically(
-                        targetOffsetY = { -it },
+                    scaleOut(
+                        targetScale = 0.85f,
+                        animationSpec = tween(300, easing = EaseInOutQuart)
+                    )
+                },
+                popEnterTransition = {
+                    fadeIn(animationSpec = tween(350)) +
+                    scaleIn(
+                        initialScale = 0.85f,
+                        animationSpec = tween(400, easing = EaseOutQuint)
+                    )
+                },
+                popExitTransition = {
+                    fadeOut(animationSpec = tween(350)) +
+                    scaleOut(
+                        targetScale = 0.85f,
                         animationSpec = tween(300, easing = EaseInOutQuart)
                     )
                 }
@@ -475,15 +500,29 @@ fun RhythmNavigation(
                 Screen.Settings.route,
                 enterTransition = {
                     fadeIn(animationSpec = tween(350)) +
-                    slideInVertically(
-                        initialOffsetY = { -it },
+                    scaleIn(
+                        initialScale = 0.85f,
                         animationSpec = tween(400, easing = EaseOutQuint)
                     )
                 },
                 exitTransition = {
                     fadeOut(animationSpec = tween(350)) +
-                    slideOutVertically(
-                        targetOffsetY = { -it },
+                    scaleOut(
+                        targetScale = 0.85f,
+                        animationSpec = tween(300, easing = EaseInOutQuart)
+                    )
+                },
+                popEnterTransition = {
+                    fadeIn(animationSpec = tween(350)) +
+                    scaleIn(
+                        initialScale = 0.85f,
+                        animationSpec = tween(400, easing = EaseOutQuint)
+                    )
+                },
+                popExitTransition = {
+                    fadeOut(animationSpec = tween(350)) +
+                    scaleOut(
+                        targetScale = 0.85f,
                         animationSpec = tween(300, easing = EaseInOutQuart)
                     )
                 }
@@ -518,6 +557,10 @@ fun RhythmNavigation(
                     },
                     onBack = {
                         navController.popBackStack()
+                    },
+                    onCheckForUpdates = {
+                        // Navigate to the app updater screen
+                        navController.navigate(Screen.AppUpdater.route)
                     }
                 )
             }
@@ -989,6 +1032,56 @@ fun RhythmNavigation(
                         navController.popBackStack()
                     }
                 }
+            }
+            
+            // Add App Updater screen
+            composable(
+                Screen.AppUpdater.route,
+                enterTransition = {
+                    fadeIn(animationSpec = tween(350)) +
+                    scaleIn(
+                        initialScale = 0.85f,
+                        animationSpec = tween(400, easing = EaseOutQuint)
+                    )
+                },
+                exitTransition = {
+                    fadeOut(animationSpec = tween(350)) +
+                    scaleOut(
+                        targetScale = 0.85f,
+                        animationSpec = tween(300, easing = EaseInOutQuart)
+                    )
+                },
+                popEnterTransition = {
+                    fadeIn(animationSpec = tween(350)) +
+                    scaleIn(
+                        initialScale = 0.85f,
+                        animationSpec = tween(400, easing = EaseOutQuint)
+                    )
+                },
+                popExitTransition = {
+                    fadeOut(animationSpec = tween(350)) +
+                    scaleOut(
+                        targetScale = 0.85f,
+                        animationSpec = tween(300, easing = EaseInOutQuart)
+                    )
+                }
+            ) {
+                AppUpdaterScreen(
+                    currentSong = currentSong,
+                    isPlaying = isPlaying,
+                    progress = progress,
+                    onPlayPause = onPlayPause,
+                    onPlayerClick = {
+                        navController.navigate(Screen.Player.route)
+                    },
+                    onSkipNext = onSkipNext,
+                    onBack = {
+                        navController.popBackStack()
+                    },
+                    onSettingsClick = {
+                        navController.navigate(Screen.Settings.route)
+                    }
+                )
             }
         }
     }

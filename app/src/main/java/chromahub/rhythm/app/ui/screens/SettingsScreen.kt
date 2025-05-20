@@ -86,12 +86,16 @@ fun SettingsScreen(
     onUseSystemThemeChange: (Boolean) -> Unit = {},
     onDarkModeChange: (Boolean) -> Unit = {},
     onOpenSystemEqualizer: () -> Unit = {},
-    onBack: () -> Unit = {}
+    onBack: () -> Unit = {},
+    onCheckForUpdates: () -> Unit = {}
 ) {
     var showAboutDialog by remember { mutableStateOf(false) }
     
     if (showAboutDialog) {
-        AboutDialog(onDismiss = { showAboutDialog = false })
+        AboutDialog(
+            onDismiss = { showAboutDialog = false },
+            onCheckForUpdates = onCheckForUpdates
+        )
     }
     
     Scaffold(
@@ -249,15 +253,46 @@ fun SettingsScreen(
                         
                         Spacer(modifier = Modifier.height(8.dp))
                         
-                        Button(
-                            onClick = { showAboutDialog = true },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                            ),
-                            modifier = Modifier.padding(top = 8.dp)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text("About")
+                            Button(
+                                onClick = { showAboutDialog = true },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                ),
+                                modifier = Modifier
+                                    .padding(top = 8.dp)
+                                    .weight(1f)
+                            ) {
+                                Text("About")
+                            }
+                            
+                            Button(
+                                onClick = onCheckForUpdates,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                ),
+                                modifier = Modifier
+                                    .padding(top = 8.dp)
+                                    .weight(1f)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(
+                                        imageVector = RhythmIcons.Download,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Updates")
+                                }
+                            }
                         }
                     }
                 }
@@ -478,7 +513,10 @@ fun SettingsDivider() {
 }
 
 @Composable
-fun AboutDialog(onDismiss: () -> Unit) {
+fun AboutDialog(
+    onDismiss: () -> Unit,
+    onCheckForUpdates: () -> Unit = {}
+) {
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = null,
@@ -525,6 +563,34 @@ fun AboutDialog(onDismiss: () -> Unit) {
                         color = MaterialTheme.colorScheme.onSecondaryContainer,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                     )
+                }
+                
+                // Add a check for updates button
+                Button(
+                    onClick = {
+                        onDismiss()  // Close the dialog first
+                        onCheckForUpdates()  // Then navigate to updates screen
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    ),
+                    modifier = Modifier
+                        .padding(top = 12.dp)
+                        .fillMaxWidth()
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = RhythmIcons.Download,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Check for Updates")
+                    }
                 }
                 
                 Spacer(modifier = Modifier.height(12.dp))
