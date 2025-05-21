@@ -246,7 +246,7 @@ fun SettingsScreen(
                         )
                         
                         Text(
-                            text = "Version 1.0.0 Alpha | ChromaHub",
+                            text = "Version 1.5 Alpha | ChromaHub",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -557,7 +557,7 @@ fun AboutDialog(
                     modifier = Modifier.padding(vertical = 8.dp)
                 ) {
                     Text(
-                        text = "Version 1.0.0 Alpha",
+                        text = "Version 1.5.0 Alpha",
                         style = MaterialTheme.typography.bodyMedium,
                         textAlign = TextAlign.Center,
                         color = MaterialTheme.colorScheme.onSecondaryContainer,

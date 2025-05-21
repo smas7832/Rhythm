@@ -98,6 +98,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.absoluteValue
 import java.util.Calendar
+import kotlin.random.Random
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -120,16 +121,37 @@ fun NewHomeScreen(
     onSkipNext: () -> Unit = {},
     onSearchClick: () -> Unit = {},
     onSettingsClick: () -> Unit = {},
+    onAppUpdateClick: (autoDownload: Boolean) -> Unit = { onSettingsClick() },
+    onNavigateToLibrary: () -> Unit = {},
+    onNavigateToPlaylist: (String) -> Unit = {},
     updaterViewModel: AppUpdaterViewModel = viewModel()
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val scope = rememberCoroutineScope()
     
-    // Content to display in separate sections
-    val featuredContent = albums.take(5)
+    // Select featured content randomly from all albums
+    // Use remember with albums as key to recompute when albums change
+    val featuredContent = remember(albums) {
+        if (albums.size <= 5) {
+            albums
+        } else {
+            albums.shuffled().take(5)
+        }
+    }
+    
     val quickPicks = songs.take(6)
     val topArtists = artists.take(6)
-    val newReleases = albums.takeLast(4)
+    
+    // Filter new releases to only show albums from the current year
+    val currentYear = Calendar.getInstance().get(Calendar.YEAR)
+    val currentYearReleases = remember(albums, currentYear) {
+        albums.filter { it.year == currentYear }
+            .ifEmpty { 
+                // Fallback to most recent albums if no current year albums are available
+                albums.sortedByDescending { it.year }.take(4) 
+            }
+            .take(4)
+    }
     
     // Generate mood-based playlists - in a real app you'd have actual logic for this
     val moodBasedSongs = songs.takeLast(12).shuffled()
@@ -204,9 +226,10 @@ fun NewHomeScreen(
                 .padding(paddingValues)
                 .padding(bottom = if (currentSong != null) 0.dp else 0.dp),
             featuredContent = featuredContent,
+            albums = albums,
             quickPicks = quickPicks,
             topArtists = topArtists,
-            newReleases = newReleases,
+            newReleases = currentYearReleases,
             recentlyPlayed = recentlyPlayed,
             moodBasedSongs = moodBasedSongs,
             energeticSongs = energeticSongs,
@@ -219,6 +242,9 @@ fun NewHomeScreen(
             onViewAllArtists = onViewAllArtists,
             onSearchClick = onSearchClick,
             onSettingsClick = onSettingsClick,
+            onAppUpdateClick = onAppUpdateClick,
+            onNavigateToLibrary = onNavigateToLibrary,
+            onNavigateToPlaylist = onNavigateToPlaylist,
             updaterViewModel = updaterViewModel
         )
     }
@@ -229,6 +255,7 @@ fun NewHomeScreen(
 private fun EnhancedScrollableContent(
     modifier: Modifier = Modifier,
     featuredContent: List<Album>,
+    albums: List<Album>,
     quickPicks: List<Song>,
     topArtists: List<Artist>,
     newReleases: List<Album>,
@@ -244,11 +271,86 @@ private fun EnhancedScrollableContent(
     onViewAllArtists: () -> Unit,
     onSearchClick: () -> Unit,
     onSettingsClick: () -> Unit = {},
+    onAppUpdateClick: (Boolean) -> Unit = { onSettingsClick() },
+    onNavigateToLibrary: () -> Unit = {},
+    onNavigateToPlaylist: (String) -> Unit = {},
     updaterViewModel: AppUpdaterViewModel = viewModel()
 ) {
     val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
-    val featuredPagerState = rememberPagerState { featuredContent.size }
+    val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
+    val allSongs by viewModel.songs.collectAsState()
+    
+    // Get current year for New Releases section
+    val currentYear = Calendar.getInstance().get(Calendar.YEAR)
+    
+    // Create a dynamic featured content that changes periodically
+    var currentFeaturedAlbums by remember(featuredContent) { 
+        mutableStateOf(
+            if (featuredContent.isEmpty()) emptyList()
+            else featuredContent
+        ) 
+    }
+    val featuredPagerState = rememberPagerState { currentFeaturedAlbums.size }
+    
+    // Function to refresh featured content with new random albums
+    val refreshFeaturedContent = {
+        if (albums.size > 5) {
+            currentFeaturedAlbums = albums.shuffled().take(5)
+        }
+    }
+    
+    // Ensure featured content is populated on initial launch
+    LaunchedEffect(albums) {
+        if (currentFeaturedAlbums.isEmpty() && albums.isNotEmpty()) {
+            if (albums.size <= 5) {
+                currentFeaturedAlbums = albums
+            } else {
+                currentFeaturedAlbums = albums.shuffled().take(5)
+            }
+        }
+    }
+    
+    // Generate better mood-based playlists using song characteristics
+    val betterMoodBasedSongs = remember(allSongs) {
+        // In a real app, this would use audio features like tempo, energy, etc.
+        // For this example, we'll use simple heuristics
+        
+        // Focus playlist: songs with longer duration (assuming they're less distracting)
+        val focusSongs = allSongs
+            .filter { it.duration > 3 * 60 * 1000 } // Songs longer than 3 minutes
+            .shuffled()
+            .take(12)
+            .ifEmpty { moodBasedSongs }
+        
+        // Energetic playlist: songs with "rock", "dance", "pop" in the title/artist
+        val energeticKeywords = listOf("rock", "dance", "pop", "party", "beat", "energy")
+        val betterEnergeticSongs = allSongs
+            .filter { song ->
+                energeticKeywords.any { keyword ->
+                    song.title.contains(keyword, ignoreCase = true) || 
+                    song.artist.contains(keyword, ignoreCase = true)
+                }
+            }
+            .shuffled()
+            .take(10)
+            .ifEmpty { energeticSongs }
+        
+        // Relaxing playlist: songs with "chill", "relax", "ambient", "piano" in the title/artist
+        val relaxingKeywords = listOf("chill", "relax", "ambient", "piano", "sleep", "calm")
+        val betterRelaxingSongs = allSongs
+            .filter { song ->
+                relaxingKeywords.any { keyword ->
+                    song.title.contains(keyword, ignoreCase = true) || 
+                    song.artist.contains(keyword, ignoreCase = true)
+                }
+            }
+            .shuffled()
+            .take(10)
+            .ifEmpty { relaxingSongs }
+        
+        Triple(focusSongs, betterEnergeticSongs, betterRelaxingSongs)
+    }
     
     // Get current time to display appropriate greeting
     val calendar = Calendar.getInstance()
@@ -270,13 +372,18 @@ private fun EnhancedScrollableContent(
         updaterViewModel.checkForUpdates()
     }
     
-    // Auto-scroll featured content
+    // Auto-scroll featured content and refresh content periodically
     LaunchedEffect(Unit) {
         while(true) {
             delay(5000)
             if (featuredPagerState.pageCount > 0) {
                 val nextPage = (featuredPagerState.currentPage + 1) % featuredPagerState.pageCount
                 featuredPagerState.animateScrollToPage(nextPage)
+                
+                // Every 3 cycles (15 seconds), refresh the featured content
+                if (nextPage == 0) {
+                    refreshFeaturedContent()
+                }
             }
         }
     }
@@ -296,7 +403,7 @@ private fun EnhancedScrollableContent(
                 latestVersion?.let { version ->
                     UpdateAvailableSection(
                         latestVersion = version,
-                        onUpdateClick = onSettingsClick
+                        onUpdateClick = { autoDownload -> onAppUpdateClick(autoDownload) }
                     )
                 }
             } else {
@@ -305,15 +412,52 @@ private fun EnhancedScrollableContent(
             }
             
             // Quick Actions Section
-            QuickActionsSection()
+            QuickActionsSection(
+                onNavigateToLibrary = onNavigateToLibrary, 
+                onNavigateToPlaylist = onNavigateToPlaylist
+            )
             
-            // Featured Content Carousel
-            if (featuredContent.isNotEmpty()) {
-                FeaturedContentSection(
-                    albums = featuredContent,
-                    pagerState = featuredPagerState,
-                    onAlbumClick = onAlbumClick
-                )
+            // Featured Content Carousel with enhanced design
+            if (currentFeaturedAlbums.isNotEmpty()) {
+                Column(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Featured Albums",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        
+                        Surface(
+                            onClick = onViewAllAlbums,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            shape = RoundedCornerShape(20.dp),
+                            modifier = Modifier.padding(4.dp)
+                        ) {
+                            Text(
+                                text = "View All",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
+                    
+                    FeaturedContentSection(
+                        albums = currentFeaturedAlbums,
+                        pagerState = featuredPagerState,
+                        onAlbumClick = onAlbumClick
+                    )
+                }
             }
             
             // Listening Statistics
@@ -327,17 +471,23 @@ private fun EnhancedScrollableContent(
                 )
             }
             
-            // Recommended For You Section
+            // Recommended For You Section with stable recommendations that don't change during playback
+            val stableRecommendations = remember(quickPicks) {
+                // Use a fixed seed for the random shuffle to ensure stability
+                val random = Random(42)
+                quickPicks.shuffled(random).take(4)
+            }
+            
             RecommendedForYouSection(
-                songs = quickPicks.shuffled().take(4),
+                songs = stableRecommendations,
                 onSongClick = onSongClick
             )
             
-            // Mood-based playlists section
+            // Mood-based playlists section with better playlists
             MoodBasedPlaylistsSection(
-                moodBasedSongs = moodBasedSongs,
-                energeticSongs = energeticSongs,
-                relaxingSongs = relaxingSongs,
+                moodBasedSongs = betterMoodBasedSongs.first,
+                energeticSongs = betterMoodBasedSongs.second,
+                relaxingSongs = betterMoodBasedSongs.third,
                 onSongClick = onSongClick
             )
             
@@ -364,7 +514,7 @@ private fun EnhancedScrollableContent(
             // New Releases Section with improved cards
             if (newReleases.isNotEmpty()) {
                 SectionTitle(
-                    title = "New Releases",
+                    title = "New Releases ($currentYear)",
                     viewAllAction = onViewAllAlbums
                 )
                 
@@ -392,6 +542,25 @@ private fun WelcomeSection(
     greeting: String,
     onSearchClick: () -> Unit
 ) {
+    val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
+    val recentlyPlayed by viewModel.recentlyPlayed.collectAsState()
+    
+    // Personalize the welcome message based on recent listening
+    val personalizedMessage = remember(recentlyPlayed) {
+        if (recentlyPlayed.isNotEmpty()) {
+            // Get most recent artist
+            val recentArtist = recentlyPlayed.firstOrNull()?.artist
+            
+            if (!recentArtist.isNullOrBlank() && recentArtist != "Unknown") {
+                "How about more music from $recentArtist?"
+            } else {
+                "What would you like to listen to today?"
+            }
+        } else {
+            "What would you like to listen to today?"
+        }
+    }
+    
     Surface(
         color = MaterialTheme.colorScheme.primaryContainer,
         shape = RoundedCornerShape(24.dp),
@@ -412,7 +581,7 @@ private fun WelcomeSection(
             )
             
             Text(
-                text = "What would you like to listen to today?",
+                text = personalizedMessage,
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
                 modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
@@ -451,7 +620,12 @@ private fun WelcomeSection(
 }
 
 @Composable
-private fun QuickActionsSection() {
+private fun QuickActionsSection(
+    onNavigateToLibrary: () -> Unit,
+    onNavigateToPlaylist: (String) -> Unit
+) {
+    val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
+    
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -476,28 +650,32 @@ private fun QuickActionsSection() {
                     .padding(8.dp),
                 horizontalArrangement = Arrangement.SpaceAround
             ) {
+                // Equalizer button - opens system equalizer
                 QuickActionButton(
-                    icon = RhythmIcons.Download,
-                    text = "Downloads",
-                    onClick = { /* Action */ }
+                    icon = RhythmIcons.Player.Equalizer,
+                    text = "Equalizer",
+                    onClick = { viewModel.openSystemEqualizer() }
                 )
                 
+                // Playlists button - would navigate to playlists screen in library
                 QuickActionButton(
                     icon = RhythmIcons.Playlist,
                     text = "Playlists",
-                    onClick = { /* Action */ }
+                    onClick = { onNavigateToLibrary() }
                 )
                 
+                // Favorites button - would navigate to favorites playlist
                 QuickActionButton(
-                    icon = RhythmIcons.Favorite,
+                    icon = RhythmIcons.FavoriteFilled,
                     text = "Favorites",
-                    onClick = { /* Action */ }
+                    onClick = { onNavigateToPlaylist("favorites") }
                 )
                 
+                // Shuffle button - plays all songs in shuffle mode
                 QuickActionButton(
                     icon = RhythmIcons.Shuffle,
                     text = "Shuffle",
-                    onClick = { /* Action */ }
+                    onClick = { viewModel.playShuffledSongs() }
                 )
             }
         }
@@ -549,6 +727,29 @@ private fun QuickActionButton(
 
 @Composable
 private fun ListeningStatsSection() {
+    val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
+    val songs by viewModel.songs.collectAsState()
+    val artists by viewModel.artists.collectAsState()
+    val recentlyPlayed by viewModel.recentlyPlayed.collectAsState()
+    
+    // Calculate total listening time in hours (for a real app, this would come from actual playback history)
+    // Here we're estimating based on recently played songs
+    val listeningTimeHours = remember(recentlyPlayed) {
+        val totalMillis = recentlyPlayed.sumOf { it.duration }
+        val hours = totalMillis / (1000 * 60 * 60)
+        if (hours < 1) "< 1h" else "${hours}h"
+    }
+    
+    // Calculate number of songs played (using recently played as an approximation)
+    val songsPlayed = remember(recentlyPlayed) {
+        recentlyPlayed.size.toString()
+    }
+    
+    // Get unique artists count
+    val uniqueArtists = remember(recentlyPlayed) {
+        recentlyPlayed.map { it.artist }.distinct().size.toString()
+    }
+    
     Surface(
         color = MaterialTheme.colorScheme.secondaryContainer,
         shape = RoundedCornerShape(16.dp),
@@ -563,7 +764,7 @@ private fun ListeningStatsSection() {
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             StatCard(
-                value = "12h",
+                value = listeningTimeHours,
                 label = "This Week",
                 icon = RhythmIcons.Player.Timer
             )
@@ -577,7 +778,7 @@ private fun ListeningStatsSection() {
             )
             
             StatCard(
-                value = "147",
+                value = songsPlayed,
                 label = "Songs Played",
                 icon = RhythmIcons.Music.MusicNote
             )
@@ -591,7 +792,7 @@ private fun ListeningStatsSection() {
             )
             
             StatCard(
-                value = "28",
+                value = uniqueArtists,
                 label = "Artists",
                 icon = RhythmIcons.Artist
             )
@@ -637,6 +838,8 @@ private fun MoodBasedPlaylistsSection(
     relaxingSongs: List<Song>,
     onSongClick: (Song) -> Unit
 ) {
+    val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
+    
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -661,7 +864,7 @@ private fun MoodBasedPlaylistsSection(
                     backgroundColor = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                     icon = RhythmIcons.Energy,
-                    onPlayClick = { onSongClick(energeticSongs.first()) }
+                    onPlayClick = { viewModel.playQueue(energeticSongs) }
                 )
             }
             
@@ -673,7 +876,7 @@ private fun MoodBasedPlaylistsSection(
                     backgroundColor = MaterialTheme.colorScheme.secondaryContainer,
                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                     icon = RhythmIcons.Relax,
-                    onPlayClick = { onSongClick(relaxingSongs.first()) }
+                    onPlayClick = { viewModel.playQueue(relaxingSongs) }
                 )
             }
             
@@ -685,7 +888,7 @@ private fun MoodBasedPlaylistsSection(
                     backgroundColor = MaterialTheme.colorScheme.tertiaryContainer,
                     contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                     icon = RhythmIcons.Focus,
-                    onPlayClick = { onSongClick(moodBasedSongs.first()) }
+                    onPlayClick = { viewModel.playQueue(moodBasedSongs) }
                 )
             }
         }
@@ -808,13 +1011,14 @@ private fun FeaturedContentSection(
     Column(
         modifier = Modifier.fillMaxWidth()
     ) {
+        // Enhanced pager with larger cards and better animations
         HorizontalPager(
             state = pagerState,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(220.dp)
+                .height(260.dp)
                 .padding(horizontal = 16.dp),
-            pageSpacing = 8.dp
+            pageSpacing = 16.dp
         ) { page ->
             val album = albums[page]
             FeaturedCard(
@@ -824,32 +1028,47 @@ private fun FeaturedContentSection(
             )
         }
         
-        // Pager indicators
+        // Enhanced pager indicators with animations
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 12.dp),
+                .padding(top = 16.dp),
             horizontalArrangement = Arrangement.Center
         ) {
             repeat(pagerState.pageCount) { index ->
                 val isSelected = index == pagerState.currentPage
+                
+                // Animate size only
                 val size by animateFloatAsState(
                     targetValue = if (isSelected) 10f else 6f,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessLow
+                    ),
                     label = "indicator_size"
                 )
+                
+                // Use direct color values without animation
+                val color = if (isSelected) 
+                    MaterialTheme.colorScheme.primary 
+                else 
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                 
                 Box(
                     modifier = Modifier
                         .padding(horizontal = 4.dp)
                         .size(size.dp)
                         .clip(CircleShape)
-                        .background(
-                            if (isSelected) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.surfaceVariant
-                        )
+                        .background(color)
                         .clickable { 
                             scope.launch {
-                                pagerState.animateScrollToPage(index)
+                                pagerState.animateScrollToPage(
+                                    page = index,
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioLowBouncy,
+                                        stiffness = Spring.StiffnessMediumLow
+                                    )
+                                )
                             }
                         }
                 )
@@ -904,9 +1123,10 @@ private fun EnhancedRecentChip(
     onClick: () -> Unit
 ) {
     val context = LocalContext.current
+    val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
     
     ElevatedCard(
-        onClick = onClick,
+        onClick = { viewModel.playSong(song) },
         colors = CardDefaults.elevatedCardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         ),
@@ -1059,18 +1279,26 @@ private fun FeaturedCard(
     pageOffset: Float = 0f
 ) {
     val context = LocalContext.current
+    val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
     
-    // Animate based on offset
+    // Enhanced animations based on offset
     val scale = lerp(
         start = 0.85f,
         stop = 1f,
-        fraction = 1f - (pageOffset * 0.25f).coerceIn(0f, 0.25f)
+        fraction = 1f - (pageOffset * 0.35f).coerceIn(0f, 0.35f)
     )
     
     val alpha = lerp(
         start = 0.5f,
         stop = 1f,
         fraction = 1f - pageOffset.coerceIn(0f, 1f)
+    )
+    
+    // Rotation effect for 3D-like carousel
+    val rotation = lerp(
+        start = 0f,
+        stop = -12f,
+        fraction = pageOffset.coerceIn(0f, 1f)
     )
     
     ElevatedCard(
@@ -1081,9 +1309,16 @@ private fun FeaturedCard(
                 scaleX = scale
                 scaleY = scale
                 this.alpha = alpha
+                rotationY = rotation
+                cameraDistance = 16f * density
             },
         shape = RoundedCornerShape(28.dp),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 6.dp),
+        elevation = CardDefaults.elevatedCardElevation(
+            defaultElevation = 8.dp,
+            pressedElevation = 12.dp,
+            focusedElevation = 10.dp,
+            hoveredElevation = 10.dp
+        ),
         colors = CardDefaults.elevatedCardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer
         )
@@ -1106,7 +1341,7 @@ private fun FeaturedCard(
                 modifier = Modifier.fillMaxSize()
             )
             
-            // Enhanced gradient overlay for better text visibility
+            // Enhanced gradient overlay with multiple layers for better text visibility
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -1114,11 +1349,28 @@ private fun FeaturedCard(
                         Brush.verticalGradient(
                             colors = listOf(
                                 Color.Transparent,
-                                Color.Black.copy(alpha = 0.4f),
-                                Color.Black.copy(alpha = 0.75f)
+                                Color.Black.copy(alpha = 0.2f),
+                                Color.Black.copy(alpha = 0.5f),
+                                Color.Black.copy(alpha = 0.8f)
                             ),
                             startY = 0f,
                             endY = Float.POSITIVE_INFINITY
+                        )
+                    )
+            )
+            
+            // Horizontal gradient for more depth
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                Color.Black.copy(alpha = 0.4f),
+                                Color.Transparent,
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.2f)
+                            )
                         )
                     )
             )
@@ -1162,7 +1414,7 @@ private fun FeaturedCard(
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Play button
+                    // Play button - play the album directly
                     FilledIconButton(
                         onClick = onClick,
                         modifier = Modifier.size(48.dp),
@@ -1180,9 +1432,9 @@ private fun FeaturedCard(
                     
                     Spacer(modifier = Modifier.width(16.dp))
                     
-                    // Add to library button - transparent style
+                    // Add to library button - would add to a user's collection
                     IconButton(
-                        onClick = { /* Add to library */ },
+                        onClick = { /* In a real app, this would add the album to the user's library */ },
                         modifier = Modifier
                             .size(48.dp)
                             .background(
@@ -1197,7 +1449,40 @@ private fun FeaturedCard(
                             modifier = Modifier.size(28.dp)
                         )
                     }
+                    
+                    Spacer(modifier = Modifier.weight(1f))
+                    
+                    // Year badge
+                    if (album.year > 0) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Text(
+                                text = album.year.toString(),
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
                 }
+            }
+            
+            // Album badge in top right corner
+            Surface(
+                color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.8f),
+                shape = RoundedCornerShape(topEnd = 28.dp, bottomStart = 16.dp),
+                modifier = Modifier.align(Alignment.TopEnd)
+            ) {
+                Text(
+                    text = "FEATURED",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onTertiary,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                )
             }
         }
     }
@@ -1211,6 +1496,7 @@ private fun NewAlbumCard(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
     
     Surface(
         onClick = onClick,
@@ -1247,7 +1533,7 @@ private fun NewAlbumCard(
                         .padding(12.dp)
                 ) {
                     FilledIconButton(
-                        onClick = onClick,
+                        onClick = { viewModel.playAlbum(album) },
                         modifier = Modifier.size(42.dp),
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = MaterialTheme.colorScheme.primary,
@@ -1297,6 +1583,7 @@ private fun NewArtistCard(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
     
     Column(
         modifier = modifier
@@ -1304,26 +1591,47 @@ private fun NewArtistCard(
             .clickable { onClick() },
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Artist image
-        Surface(
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            modifier = Modifier.size(110.dp),
-            shadowElevation = 0.dp
-        ) {
-            AsyncImage(
-                model = ImageRequest.Builder(context)
-                    .apply(ImageUtils.buildImageRequest(
-                        artist.artworkUri,
-                        artist.name,
-                        context.cacheDir,
-                        ImageUtils.PlaceholderType.ARTIST
-                    ))
-                    .build(),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
+        // Artist image with play overlay
+        Box {
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                modifier = Modifier.size(110.dp),
+                shadowElevation = 0.dp
+            ) {
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .apply(ImageUtils.buildImageRequest(
+                            artist.artworkUri,
+                            artist.name,
+                            context.cacheDir,
+                            ImageUtils.PlaceholderType.ARTIST
+                        ))
+                        .build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+            
+            // Add play button overlay
+            FilledIconButton(
+                onClick = { viewModel.playArtist(artist) },
+                modifier = Modifier
+                    .size(36.dp)
+                    .align(Alignment.BottomEnd)
+                    .padding(4.dp),
+                colors = IconButtonDefaults.filledIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
+            ) {
+                Icon(
+                    imageVector = RhythmIcons.Play,
+                    contentDescription = "Play artist",
+                    modifier = Modifier.size(18.dp)
+                )
+            }
         }
         
         Spacer(modifier = Modifier.height(12.dp))
@@ -1350,12 +1658,20 @@ private fun RecommendedForYouSection(
         modifier = Modifier
             .fillMaxWidth()
     ) {
-        Text(
-            text = "Recommended For You",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Recommended For You",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+        }
         
         Surface(
             color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f),
@@ -1379,6 +1695,13 @@ private fun RecommendedForYouSection(
                         song = song,
                         onClick = { onSongClick(song) }
                     )
+                    
+                    if (song != songs.last()) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 8.dp),
+                            color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.1f)
+                        )
+                    }
                 }
             }
         }
@@ -1449,28 +1772,23 @@ private fun RecommendedSongItem(
             containerColor = Color.Transparent
         )
     )
-    
-    // Only add divider between items, not after the last one
-    if (song != song) { // This condition is never true, just a placeholder
-        HorizontalDivider(
-            modifier = Modifier.padding(vertical = 8.dp),
-            color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.1f)
-        )
-    }
 }
 
 @Composable
 private fun UpdateAvailableSection(
     latestVersion: AppVersion,
-    onUpdateClick: () -> Unit
+    onUpdateClick: (Boolean) -> Unit
 ) {
+    val context = LocalContext.current
+    var isDownloading by remember { mutableStateOf(false) }
+    
     Surface(
         color = MaterialTheme.colorScheme.primaryContainer,
         shape = RoundedCornerShape(24.dp),
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
-            .clickable(onClick = onUpdateClick)
+            .clickable(onClick = { if (!isDownloading) onUpdateClick(false) })
     ) {
         Column(
             modifier = Modifier
@@ -1478,24 +1796,27 @@ private fun UpdateAvailableSection(
                 .padding(vertical = 24.dp, horizontal = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Add Rhythm logo
-            Image(
-                painter = painterResource(id = R.drawable.rhythm_splash_logo),
-                contentDescription = "Rhythm Logo",
-                modifier = Modifier
-                    .size(60.dp)
-                    .padding(bottom = 8.dp)
-            )
-            
-            // Add app name
-            Text(
-                text = "Rhythm",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
+            // Logo and app name in a horizontal row
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(bottom = 16.dp)
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.rhythm_splash_logo),
+                    contentDescription = "Rhythm Logo",
+                    modifier = Modifier.size(36.dp)
+                )
+                
+                Spacer(modifier = Modifier.width(12.dp))
+                
+                Text(
+                    text = "Rhythm",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
             
             Row(
                 verticalAlignment = Alignment.CenterVertically
@@ -1558,11 +1879,18 @@ private fun UpdateAvailableSection(
                 )
             }
             
-            // Update button
+            // Update button - use clickable modifier to prevent click propagation
             Surface(
                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                 shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        if (!isDownloading) {
+                            isDownloading = true
+                            onUpdateClick(true)
+                        }
+                    }
             ) {
                 Row(
                     modifier = Modifier
@@ -1571,16 +1899,24 @@ private fun UpdateAvailableSection(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = RhythmIcons.Download,
-                        contentDescription = "Download update",
-                        tint = MaterialTheme.colorScheme.primaryContainer
-                    )
+                    if (isDownloading) {
+                        androidx.compose.material3.CircularProgressIndicator(
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(
+                            imageVector = RhythmIcons.Download,
+                            contentDescription = "Download update",
+                            tint = MaterialTheme.colorScheme.primaryContainer
+                        )
+                    }
                     
                     Spacer(modifier = Modifier.width(8.dp))
                     
                     Text(
-                        text = "Update Now",
+                        text = if (isDownloading) "Downloading..." else "Update Now",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primaryContainer

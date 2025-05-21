@@ -81,6 +81,10 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import chromahub.rhythm.app.ui.components.M3LinearLoader
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.windowInsetsPadding
 
 /**
  * Main player screen with album art, progress bar, and controls
@@ -482,6 +486,9 @@ fun MiniPlayer(
         }
     }
 
+    // Get the navigation bar insets
+    val navigationBarPadding = WindowInsets.navigationBars.asPaddingValues()
+
     Card(
         onClick = {
             if (!isDismissingPlayer) {
@@ -506,6 +513,8 @@ fun MiniPlayer(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
+            // Add padding for navigation bar to prevent overlap
+            .windowInsetsPadding(WindowInsets.navigationBars)
             .scale(scale)
             .graphicsLayer { 
                 // Apply translation based on swipe gesture

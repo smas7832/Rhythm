@@ -92,6 +92,14 @@ import androidx.compose.animation.core.EaseInOutQuart
 import androidx.compose.animation.core.EaseInBack
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
 
 sealed class Screen(val route: String) {
     object Home : Screen("home")
@@ -101,7 +109,9 @@ sealed class Screen(val route: String) {
     object Settings : Screen("settings")
     object AddToPlaylist : Screen("add_to_playlist")
     object PlayerLocations : Screen("player_locations")
-    object AppUpdater : Screen("app_updater")
+    object AppUpdater : Screen("app_updater?autoDownload={autoDownload}") {
+        fun createRoute(autoDownload: Boolean = false) = "app_updater?autoDownload=$autoDownload"
+    }
     object PlaylistDetail : Screen("playlist/{playlistId}") {
         fun createRoute(playlistId: String) = "playlist/$playlistId"
     }
@@ -174,153 +184,158 @@ fun RhythmNavigation(
                 currentRoute != Screen.Search.route &&
                 currentRoute != Screen.Settings.route &&
                 currentRoute != Screen.AppUpdater.route) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 0.dp)
-                        .padding(top = 0.dp, bottom = 16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceContainerLow,
-                        shape = RoundedCornerShape(28.dp),
-                        tonalElevation = 3.dp,
+                Column {
+                    Box(
                         modifier = Modifier
-                            .height(64.dp)
                             .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 0.dp)
+                            .padding(top = 0.dp, bottom = 16.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxSize(),
-                            horizontalArrangement = Arrangement.SpaceEvenly,
-                            verticalAlignment = Alignment.CenterVertically
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceContainerLow,
+                            shape = RoundedCornerShape(28.dp),
+                            tonalElevation = 3.dp,
+                            modifier = Modifier
+                                .height(64.dp)
+                                .fillMaxWidth()
                         ) {
-                            val items = listOf(
-                                Triple(Screen.Home.route, "Home", 
-                                    Pair(RhythmIcons.HomeFilled, RhythmIcons.Home)),
-                                Triple(Screen.Library.route, "Library", 
-                                    Pair(RhythmIcons.Library, RhythmIcons.Library))
-                            )
-                            
-                            items.forEachIndexed { index, (route, title, icons) ->
-                                val isSelected = 
-                                    // Check if the current route matches or if we're on settings/search 
-                                    // (which should still show Home as active)
-                                    when {
-                                        currentRoute == route -> true
-                                        // If we're on settings or search, and this is Home tab
-                                        (currentRoute == Screen.Settings.route || currentRoute == Screen.Search.route) 
-                                            && route == Screen.Home.route -> true
-                                        else -> false
-                                    }
+                            Row(
+                                modifier = Modifier.fillMaxSize(),
+                                horizontalArrangement = Arrangement.SpaceEvenly,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                val items = listOf(
+                                    Triple(Screen.Home.route, "Home", 
+                                        Pair(RhythmIcons.HomeFilled, RhythmIcons.Home)),
+                                    Triple(Screen.Library.route, "Library", 
+                                        Pair(RhythmIcons.Library, RhythmIcons.Library))
+                                )
+                                
+                                items.forEachIndexed { index, (route, title, icons) ->
+                                    val isSelected = 
+                                        // Check if the current route matches or if we're on settings/search 
+                                        // (which should still show Home as active)
+                                        when {
+                                            currentRoute == route -> true
+                                            // If we're on settings or search, and this is Home tab
+                                            (currentRoute == Screen.Settings.route || currentRoute == Screen.Search.route) 
+                                                && route == Screen.Home.route -> true
+                                            else -> false
+                                        }
+                                        
+                                    val (selectedIcon, unselectedIcon) = icons
                                     
-                                val (selectedIcon, unselectedIcon) = icons
-                                
-                                // Animation values
-                                val animatedScale by animateFloatAsState(
-                                    targetValue = if (isSelected) 1.1f else 1.0f,
-                                    animationSpec = spring(
-                                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                                        stiffness = Spring.StiffnessLow
-                                    ),
-                                    label = "scale"
-                                )
-                                
-                                val animatedAlpha by animateFloatAsState(
-                                    targetValue = if (isSelected) 1f else 0.7f,
-                                    animationSpec = tween(300),
-                                    label = "alpha"
-                                )
-                                
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .fillMaxHeight()
-                                        .clickable {
-                                            // Check if we're already at Home and trying to go to Settings/Search
-                                            if (currentRoute == Screen.Settings.route || currentRoute == Screen.Search.route) {
-                                                if (route == Screen.Home.route) {
-                                                    // Go back to home if we're in Settings/Search
-                                                    navController.navigate(Screen.Home.route) {
+                                    // Animation values
+                                    val animatedScale by animateFloatAsState(
+                                        targetValue = if (isSelected) 1.1f else 1.0f,
+                                        animationSpec = spring(
+                                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                                            stiffness = Spring.StiffnessLow
+                                        ),
+                                        label = "scale"
+                                    )
+                                    
+                                    val animatedAlpha by animateFloatAsState(
+                                        targetValue = if (isSelected) 1f else 0.7f,
+                                        animationSpec = tween(300),
+                                        label = "alpha"
+                                    )
+                                    
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxHeight()
+                                            .clickable {
+                                                // Check if we're already at Home and trying to go to Settings/Search
+                                                if (currentRoute == Screen.Settings.route || currentRoute == Screen.Search.route) {
+                                                    if (route == Screen.Home.route) {
+                                                        // Go back to home if we're in Settings/Search
+                                                        navController.navigate(Screen.Home.route) {
+                                                            popUpTo(navController.graph.findStartDestination().id) {
+                                                                saveState = true
+                                                            }
+                                                            launchSingleTop = true
+                                                            restoreState = true
+                                                        }
+                                                    } else {
+                                                        // Navigate normally for other cases
+                                                        navController.navigate(route) {
+                                                            popUpTo(navController.graph.findStartDestination().id) {
+                                                                saveState = true 
+                                                            }
+                                                            launchSingleTop = true
+                                                            restoreState = true
+                                                        }
+                                                    }
+                                                } else {
+                                                    // Standard navigation if we're not on special pages
+                                                    selectedTab = index
+                                                    navController.navigate(route) {
                                                         popUpTo(navController.graph.findStartDestination().id) {
                                                             saveState = true
                                                         }
                                                         launchSingleTop = true
                                                         restoreState = true
                                                     }
-                                                } else {
-                                                    // Navigate normally for other cases
-                                                    navController.navigate(route) {
-                                                        popUpTo(navController.graph.findStartDestination().id) {
-                                                            saveState = true 
-                                                        }
-                                                        launchSingleTop = true
-                                                        restoreState = true
-                                                    }
                                                 }
-                                            } else {
-                                                // Standard navigation if we're not on special pages
-                                                selectedTab = index
-                                                navController.navigate(route) {
-                                                    popUpTo(navController.graph.findStartDestination().id) {
-                                                        saveState = true
-                                                    }
-                                                    launchSingleTop = true
-                                                    restoreState = true
-                                                }
-                                            }
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    // Background indicator
-                                    if (isSelected) {
-                                        Surface(
-                                            color = MaterialTheme.colorScheme.primaryContainer,
-                                            shape = RoundedCornerShape(16.dp),
-                                            modifier = Modifier
-                                                .fillMaxWidth(0.8f)
-                                                .height(48.dp)
-                                        ) {}
-                                    }
-                                    
-                                    // Horizontal layout for icon and text
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.Center,
-                                        modifier = Modifier
-                                            .graphicsLayer {
-                                                scaleX = animatedScale
-                                                scaleY = animatedScale
-                                                alpha = animatedAlpha
-                                            }
-                                            .padding(horizontal = 16.dp)
+                                            },
+                                        contentAlignment = Alignment.Center
                                     ) {
-                                        Icon(
-                                            imageVector = if (isSelected) selectedIcon else unselectedIcon,
-                                            contentDescription = title,
-                                            tint = if (isSelected) 
-                                                MaterialTheme.colorScheme.onPrimaryContainer 
-                                            else 
-                                                MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(24.dp)
-                                        )
+                                        // Background indicator
+                                        if (isSelected) {
+                                            Surface(
+                                                color = MaterialTheme.colorScheme.primaryContainer,
+                                                shape = RoundedCornerShape(16.dp),
+                                                modifier = Modifier
+                                                    .fillMaxWidth(0.8f)
+                                                    .height(48.dp)
+                                            ) {}
+                                        }
                                         
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        
-                                        Text(
-                                            text = title,
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = if (isSelected) 
-                                                MaterialTheme.colorScheme.onPrimaryContainer 
-                                            else 
-                                                MaterialTheme.colorScheme.onSurfaceVariant,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
+                                        // Horizontal layout for icon and text
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.Center,
+                                            modifier = Modifier
+                                                .graphicsLayer {
+                                                    scaleX = animatedScale
+                                                    scaleY = animatedScale
+                                                    alpha = animatedAlpha
+                                                }
+                                                .padding(horizontal = 16.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = if (isSelected) selectedIcon else unselectedIcon,
+                                                contentDescription = title,
+                                                tint = if (isSelected) 
+                                                    MaterialTheme.colorScheme.onPrimaryContainer 
+                                                else 
+                                                    MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                            
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            
+                                            Text(
+                                                text = title,
+                                                style = MaterialTheme.typography.labelMedium,
+                                                color = if (isSelected) 
+                                                    MaterialTheme.colorScheme.onPrimaryContainer 
+                                                else 
+                                                    MaterialTheme.colorScheme.onSurfaceVariant,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
                     }
+                    
+                    // Add spacer that takes up the navigation bar height
+                    Spacer(modifier = Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
                 }
             }
         }
@@ -330,8 +345,7 @@ fun RhythmNavigation(
             startDestination = Screen.Home.route,
             modifier = Modifier
                 .padding(
-                    // Add bottom padding only if the nav bar is showing (reduced from 80.dp to 96.dp)
-                    // Increased padding to prevent mini player from overlapping with navigation bar
+                    // Add bottom padding only if the nav bar is showing
                     bottom = if (currentRoute != Screen.Player.route && 
                                currentRoute != Screen.PlayerLocations.route) 96.dp else 0.dp
                 )
@@ -428,6 +442,21 @@ fun RhythmNavigation(
                     onSettingsClick = {
                         // Navigate to the settings screen
                         navController.navigate(Screen.Settings.route)
+                    },
+                    onAppUpdateClick = { autoDownload ->
+                        // Navigate to app updater with autoDownload parameter
+                        navController.navigate(Screen.AppUpdater.createRoute(autoDownload))
+                    },
+                    onNavigateToLibrary = {
+                        // Navigate to library with playlists tab selected
+                        navController.navigate(Screen.Library.route)
+                        selectedTab = 0 // Assuming tab 0 is playlists
+                    },
+                    onNavigateToPlaylist = { playlistId ->
+                        // Navigate to the specified playlist
+                        // For "favorites", we'll use the ID "1" which is the favorites playlist
+                        val id = if (playlistId == "favorites") "1" else playlistId
+                        navController.navigate(Screen.PlaylistDetail.createRoute(id))
                     }
                 )
             }
@@ -558,7 +587,7 @@ fun RhythmNavigation(
                     },
                     onCheckForUpdates = {
                         // Navigate to the app updater screen
-                        navController.navigate(Screen.AppUpdater.route)
+                        navController.navigate(Screen.AppUpdater.createRoute(true))
                     }
                 )
             }
@@ -1035,6 +1064,12 @@ fun RhythmNavigation(
             // Add App Updater screen
             composable(
                 Screen.AppUpdater.route,
+                arguments = listOf(
+                    navArgument("autoDownload") {
+                        type = NavType.BoolType
+                        defaultValue = false
+                    }
+                ),
                 enterTransition = {
                     fadeIn(animationSpec = tween(350)) +
                     scaleIn(
@@ -1064,6 +1099,8 @@ fun RhythmNavigation(
                     )
                 }
             ) {
+                val autoDownload = it.arguments?.getBoolean("autoDownload") ?: false
+                
                 AppUpdaterScreen(
                     currentSong = currentSong,
                     isPlaying = isPlaying,
@@ -1078,7 +1115,8 @@ fun RhythmNavigation(
                     },
                     onSettingsClick = {
                         navController.navigate(Screen.Settings.route)
-                    }
+                    },
+                    autoDownload = autoDownload
                 )
             }
         }

@@ -76,7 +76,8 @@ fun AppUpdaterScreen(
     onSkipNext: () -> Unit,
     onBack: () -> Unit,
     onSettingsClick: () -> Unit = {},
-    updaterViewModel: AppUpdaterViewModel = viewModel()
+    updaterViewModel: AppUpdaterViewModel = viewModel(),
+    autoDownload: Boolean = false
 ) {
     // Collect state from ViewModel
     val currentVersion by updaterViewModel.currentVersion.collectAsState()
@@ -94,6 +95,13 @@ fun AppUpdaterScreen(
     // Check for updates when the screen is first shown
     LaunchedEffect(Unit) {
         updaterViewModel.checkForUpdates()
+    }
+    
+    // Auto-download update when screen is opened with autoDownload flag
+    LaunchedEffect(updateAvailable, isCheckingForUpdates, autoDownload) {
+        if (autoDownload && updateAvailable && !isCheckingForUpdates && latestVersion != null && !isDownloading && downloadedFile == null) {
+            updaterViewModel.downloadUpdate()
+        }
     }
     
     Scaffold(
@@ -497,7 +505,7 @@ fun AppUpdaterScreen(
                                         
                                         Text(
                                             text = if (latestVersion?.apkAssetName?.isNotEmpty() == true) 
-                                                     "Download APK" 
+                                                     "Download Update" 
                                                    else 
                                                      "View Release"
                                         )
