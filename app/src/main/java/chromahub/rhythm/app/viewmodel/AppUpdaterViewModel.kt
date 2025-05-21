@@ -49,7 +49,7 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
     
     // GitHub repository information
     private val GITHUB_OWNER = "cromaguy"
-    private val GITHUB_REPO = "RhythmM3Ex"
+    private val GITHUB_REPO = "Rhythm"
     
     // API service
     private val gitHubApiService = NetworkManager.createGitHubApiService()
@@ -57,9 +57,9 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
     // Current app version info
     private val _currentVersion = MutableStateFlow(
         AppVersion(
-            versionName = "1.0.0 Alpha", // Matches the About dialog version display
-            versionCode = 100,           // From build.gradle.kts
-            releaseDate = "",            // We don't store release date in the app
+            versionName = "1.5.100.2 b-127 Alpha", // Matches the version in the screenshot
+            versionCode = 15010020, // Using our new version code calculation: 1*1000000 + 5*10000 + 100*100 + 2*10 + (127/100)
+            releaseDate = "2025-05-21",            // Updated to match the format in the screenshot
             changelog = emptyList(),
             downloadUrl = ""
         )
@@ -168,6 +168,9 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
         val currentVersionCode = _currentVersion.value.versionCode
         val newVersionCode = appVersion.versionCode
         
+        // Add debug logs
+        Log.d(TAG, "Version comparison: current=${_currentVersion.value.versionName} (code: $currentVersionCode) vs latest=${appVersion.versionName} (code: $newVersionCode)")
+        
         _updateAvailable.value = newVersionCode > currentVersionCode
         _isCheckingForUpdates.value = false
     }
@@ -201,23 +204,41 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
      */
     private fun convertReleaseToAppVersion(release: GitHubRelease): AppVersion {
         // Parse version code from tag name
-        // Assumes tag format is like "v1.2.3" or "1.2.3"
+        // Assumes tag format is like "v1.2.3" or "1.2.3" or "v1.5.100.2-alpha"
         val versionCodeString = release.tag_name.replace(Regex("^v"), "")
-        val versionParts = versionCodeString.split(".")
+        val versionBase = versionCodeString.split("-")[0] // Remove any suffix like -alpha
+        val versionParts = versionBase.split(".")
+        
+        // Extract build number if present (format like "b-127")
+        val buildNumber = if (release.name.contains("b-")) {
+            try {
+                val buildMatch = Regex("b-(\\d+)").find(release.name)
+                buildMatch?.groupValues?.get(1)?.toInt() ?: 0
+            } catch (e: Exception) {
+                0
+            }
+        } else {
+            0
+        }
+        
         val versionCode = if (versionParts.size >= 3) {
             try {
                 val major = versionParts[0].toInt()
                 val minor = versionParts[1].toInt()
                 val patch = versionParts[2].toInt()
+                val subpatch = if (versionParts.size >= 4) versionParts[3].toInt() else 0
                 
                 // Create a numeric version code similar to how Android typically does it
-                major * 10000 + minor * 100 + patch
+                // Include build number in calculation to ensure newer builds have higher version codes
+                major * 1000000 + minor * 10000 + patch * 100 + subpatch * 10 + (buildNumber / 100)
             } catch (e: NumberFormatException) {
                 // Fallback if parsing fails
+                Log.e(TAG, "Failed to parse version: ${release.tag_name}", e)
                 100
             }
         } else {
             // Fallback if tag format is unexpected
+            Log.e(TAG, "Unexpected version format: ${release.tag_name}")
             100
         }
         
