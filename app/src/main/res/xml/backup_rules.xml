@@ -6,8 +6,9 @@
    See https://developer.android.com/about/versions/12/backup-restore
 -->
 <full-backup-content>
-    <!--
-   <include domain="sharedpref" path="."/>
-   <exclude domain="sharedpref" path="device.xml"/>
--->
+    <!-- Include our app's shared preferences -->
+    <include domain="sharedpref" path="rhythm_preferences.xml"/>
+    
+    <!-- Exclude any sensitive data if needed -->
+    <!-- <exclude domain="sharedpref" path="sensitive_data.xml"/> -->
 </full-backup-content>

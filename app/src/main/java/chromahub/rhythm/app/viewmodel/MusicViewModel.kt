@@ -15,6 +15,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import chromahub.rhythm.app.data.Album
+import chromahub.rhythm.app.data.AppSettings
 import chromahub.rhythm.app.data.Artist
 import chromahub.rhythm.app.data.MusicRepository
 import chromahub.rhythm.app.data.PlaybackLocation
@@ -36,6 +37,7 @@ import kotlinx.coroutines.launch
 import java.time.Duration
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import java.util.Calendar
 
 class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val TAG = "MusicViewModel"
@@ -44,8 +46,40 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     // Audio device manager
     private val audioDeviceManager = AudioDeviceManager(application)
     
-    // SharedPreferences for storing settings
-    private val sharedPreferences = application.getSharedPreferences("rhythm_preferences", Context.MODE_PRIVATE)
+    // Settings manager
+    private val appSettings = AppSettings.getInstance(application)
+    
+    // Settings
+    val showLyrics = appSettings.showLyrics
+    val showOnlineOnlyLyrics = appSettings.onlineOnlyLyrics
+    val useSystemTheme = appSettings.useSystemTheme
+    val darkMode = appSettings.darkMode
+    val autoConnectDevice = appSettings.autoConnectDevice
+    val maxCacheSize = appSettings.maxCacheSize
+    val clearCacheOnExit = appSettings.clearCacheOnExit
+    
+    // Playback settings
+    val enableHighQualityAudio = appSettings.highQualityAudio
+    val enableGaplessPlayback = appSettings.gaplessPlayback
+    val enableCrossfade = appSettings.crossfade
+    val crossfadeDuration = appSettings.crossfadeDuration
+    val enableAudioNormalization = appSettings.audioNormalization
+    val enableReplayGain = appSettings.replayGain
+    
+    // Search history
+    private val _searchHistory = MutableStateFlow<List<String>>(emptyList())
+    val searchHistory: StateFlow<List<String>> = _searchHistory.asStateFlow()
+    
+    // Lyrics
+    private val _currentLyrics = MutableStateFlow<String?>(null)
+    val currentLyrics: StateFlow<String?> = _currentLyrics.asStateFlow()
+
+    private val _isLoadingLyrics = MutableStateFlow(false)
+    val isLoadingLyrics: StateFlow<Boolean> = _isLoadingLyrics.asStateFlow()
+
+    // New helper methods
+    private val _serviceConnected = MutableStateFlow(false)
+    val serviceConnected: StateFlow<Boolean> = _serviceConnected.asStateFlow()
 
     // Main music data
     private val _songs = MutableStateFlow<List<Song>>(emptyList())
@@ -124,46 +158,25 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _sortOrder = MutableStateFlow(SortOrder.TITLE_ASC)
     val sortOrder: StateFlow<SortOrder> = _sortOrder.asStateFlow()
 
-    // Settings
-    private val _showLyrics = MutableStateFlow(true)
-    val showLyrics: StateFlow<Boolean> = _showLyrics.asStateFlow()
+    // User preferences and statistics
+    private val _listeningTime = MutableStateFlow(appSettings.listeningTime.value)
+    val listeningTime: StateFlow<Long> = _listeningTime.asStateFlow()
     
-    private val _showOnlineOnlyLyrics = MutableStateFlow(false)
-    val showOnlineOnlyLyrics: StateFlow<Boolean> = _showOnlineOnlyLyrics.asStateFlow()
+    private val _songsPlayed = MutableStateFlow(appSettings.songsPlayed.value)
+    val songsPlayed: StateFlow<Int> = _songsPlayed.asStateFlow()
     
-    // Playback settings
-    private val _enableHighQualityAudio = MutableStateFlow(true)
-    val enableHighQualityAudio: StateFlow<Boolean> = _enableHighQualityAudio.asStateFlow()
+    private val _uniqueArtists = MutableStateFlow(appSettings.uniqueArtists.value)
+    val uniqueArtists: StateFlow<Int> = _uniqueArtists.asStateFlow()
     
-    private val _enableGaplessPlayback = MutableStateFlow(true)
-    val enableGaplessPlayback: StateFlow<Boolean> = _enableGaplessPlayback.asStateFlow()
+    private val _genrePreferences = MutableStateFlow<Map<String, Int>>(appSettings.genrePreferences.value)
+    val genrePreferences: StateFlow<Map<String, Int>> = _genrePreferences.asStateFlow()
     
-    private val _enableCrossfade = MutableStateFlow(false)
-    val enableCrossfade: StateFlow<Boolean> = _enableCrossfade.asStateFlow()
-    
-    private val _crossfadeDuration = MutableStateFlow(2f)
-    val crossfadeDuration: StateFlow<Float> = _crossfadeDuration.asStateFlow()
-    
-    private val _enableAudioNormalization = MutableStateFlow(true)
-    val enableAudioNormalization: StateFlow<Boolean> = _enableAudioNormalization.asStateFlow()
-    
-    private val _enableReplayGain = MutableStateFlow(false)
-    val enableReplayGain: StateFlow<Boolean> = _enableReplayGain.asStateFlow()
-    
-    // Search history
-    private val _searchHistory = MutableStateFlow<List<String>>(emptyList())
-    val searchHistory: StateFlow<List<String>> = _searchHistory.asStateFlow()
-    
-    // Lyrics
-    private val _currentLyrics = MutableStateFlow<String?>(null)
-    val currentLyrics: StateFlow<String?> = _currentLyrics.asStateFlow()
-    
-    private val _isLoadingLyrics = MutableStateFlow(false)
-    val isLoadingLyrics: StateFlow<Boolean> = _isLoadingLyrics.asStateFlow()
+    private val _timeBasedPreferences = MutableStateFlow<Map<Int, List<String>>>(appSettings.timeBasedPreferences.value)
+    val timeBasedPreferences: StateFlow<Map<Int, List<String>>> = _timeBasedPreferences.asStateFlow()
 
-    // New helper methods
-    private val _serviceConnected = MutableStateFlow(false)
-    val serviceConnected: StateFlow<Boolean> = _serviceConnected.asStateFlow()
+    // Add initialization state tracking
+    private val _isInitialized = MutableStateFlow(false)
+    val isInitialized: StateFlow<Boolean> = _isInitialized.asStateFlow()
 
     enum class SortOrder {
         TITLE_ASC,
@@ -174,7 +187,6 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         Log.d(TAG, "Initializing MusicViewModel")
-        loadSettings() // Load settings first
         loadMusic()
         initializeController()
         // Start progress updates
@@ -183,9 +195,27 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         loadFavorites()
         // Load search history
         loadSearchHistory()
+        // Load all settings
+        loadSettings()
         
         // Refresh devices periodically
         startDeviceMonitoring()
+        
+        // Start tracking session
+        viewModelScope.launch {
+            while (true) {
+                if (isPlaying.value) {
+                    // Update listening time every minute
+                    delay(60000) // 1 minute
+                    val newTime = _listeningTime.value + 60000
+                    _listeningTime.value = newTime
+                    appSettings.setListeningTime(newTime)
+                } else {
+                    delay(1000) // Check every second when not playing
+                }
+            }
+        }
+        initializeFromPersistence()
     }
 
     private fun loadMusic() {
@@ -195,12 +225,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             _albums.value = repository.loadAlbums()
             _artists.value = repository.loadArtists()
             
-            // Initialize with a few playlists for demo
-            _playlists.value = listOf(
-                Playlist("1", "Favorites"),
-                Playlist("2", "Recently Added"),
-                Playlist("3", "Most Played")
-            )
+            // Load saved playlists
+            loadSavedPlaylists()
+            
             Log.d(TAG, "Loaded ${_songs.value.size} songs")
             
             // Fetch artist images and album artwork from internet
@@ -208,6 +235,61 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
+    private fun loadSavedPlaylists() {
+        try {
+            // Load playlists
+            val playlistsJson = appSettings.playlists.value
+            val playlists = if (playlistsJson != null) {
+                val type = object : TypeToken<List<Playlist>>() {}.type
+                Gson().fromJson<List<Playlist>>(playlistsJson, type)
+            } else {
+                // Initialize with default playlists if none exist
+                listOf(
+                    Playlist("1", "Favorites"),
+                    Playlist("2", "Recently Added"),
+                    Playlist("3", "Most Played")
+                )
+            }
+            _playlists.value = playlists
+            
+            // Load favorite songs
+            val favoriteSongsJson = appSettings.favoriteSongs.value
+            if (favoriteSongsJson != null) {
+                val type = object : TypeToken<Set<String>>() {}.type
+                _favoriteSongs.value = Gson().fromJson(favoriteSongsJson, type)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error loading saved playlists", e)
+            // Initialize with default playlists on error
+            _playlists.value = listOf(
+                Playlist("1", "Favorites"),
+                Playlist("2", "Recently Added"),
+                Playlist("3", "Most Played")
+            )
+            _favoriteSongs.value = emptySet()
+        }
+    }
+
+    private fun savePlaylists() {
+        try {
+            val playlistsJson = Gson().toJson(_playlists.value)
+            appSettings.setPlaylists(playlistsJson)
+            Log.d(TAG, "Saved ${_playlists.value.size} playlists")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving playlists", e)
+        }
+    }
+
+    private fun saveFavoriteSongs() {
+        try {
+            val favoriteSongsJson = Gson().toJson(_favoriteSongs.value)
+            appSettings.setFavoriteSongs(favoriteSongsJson)
+            Log.d(TAG, "Saved ${_favoriteSongs.value.size} favorite songs")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving favorite songs", e)
+        }
+    }
+
     /**
      * Fetches artist images and album artwork from the internet for items that don't have them
      */
@@ -569,6 +651,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         // Add to recently played list
         updateRecentlyPlayed(song)
         
+        // Track song play statistics
+        trackSongPlay(song)
+        
         // Check if the song is in the current queue
         val currentQueueSongs = _currentQueue.value.songs
         val songIndexInQueue = currentQueueSongs.indexOfFirst { it.id == song.id }
@@ -619,15 +704,75 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun updateRecentlyPlayed(song: Song) {
-        // Remove the song if it already exists in the list to avoid duplicates
-        val currentList = _recentlyPlayed.value.toMutableList()
-        currentList.removeIf { it.id == song.id }
+        viewModelScope.launch {
+            try {
+                val currentList = _recentlyPlayed.value.toMutableList()
+                currentList.removeIf { it.id == song.id }
+                currentList.add(0, song)
+                if (currentList.size > 50) {
+                    currentList.removeAt(currentList.size - 1)
+                }
+                
+                // Update both the StateFlow and persistence
+                _recentlyPlayed.value = currentList
+                appSettings.updateRecentlyPlayed(currentList.map { it.id })
+                appSettings.updateLastPlayedTimestamp(System.currentTimeMillis())
+                
+                // Log the update
+                Log.d(TAG, "Updated recently played: ${currentList.size} songs, latest: ${song.title}")
+                
+                // Update other stats
+                updateListeningStats(song)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error updating recently played", e)
+            }
+        }
+    }
+
+    private fun updateListeningStats(song: Song) {
+        viewModelScope.launch {
+            try {
+                // Update daily listening stats
+                val today = java.time.LocalDate.now().toString()
+                val dailyStats = appSettings.dailyListeningStats.value.toMutableMap()
+                dailyStats[today] = (dailyStats[today] ?: 0L) + 1
+                appSettings.updateDailyListeningStats(dailyStats)
+                
+                // Update weekly top artists
+                val currentArtists = appSettings.weeklyTopArtists.value.toMutableMap()
+                currentArtists[song.artist] = (currentArtists[song.artist] ?: 0) + 1
+                appSettings.updateWeeklyTopArtists(currentArtists)
+                
+                // Update favorite genres
+                song.genre?.let { genre ->
+                    val genres = appSettings.favoriteGenres.value.toMutableMap()
+                    genres[genre] = (genres[genre] ?: 0) + 1
+                    appSettings.updateFavoriteGenres(genres)
+                }
+                
+                // Update mood preferences
+                updateMoodPreferences(song)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error updating listening stats", e)
+            }
+        }
+    }
+
+    private fun updateMoodPreferences(song: Song) {
+        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        val mood = when (hour) {
+            in 5..11 -> "morning"
+            in 12..17 -> "afternoon"
+            in 18..22 -> "evening"
+            else -> "night"
+        }
         
-        // Add the song at the beginning of the list
-        currentList.add(0, song)
-        
-        // Keep only the last 10 songs
-        _recentlyPlayed.value = currentList.take(10)
+        val moodPrefs = appSettings.moodPreferences.value.toMutableMap()
+        val songList = moodPrefs.getOrDefault(mood, emptyList()).toMutableList()
+        if (songList.size >= 20) songList.removeAt(0)
+        songList.add(song.id)
+        moodPrefs[mood] = songList
+        appSettings.updateMoodPreferences(moodPrefs)
     }
 
     fun playAlbum(album: Album) {
@@ -953,9 +1098,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             }
             
             _favoriteSongs.value = currentFavorites
-            
-            // In a real app, save this to a database or preferences
-            // For this example, we'll just keep it in memory
+            saveFavoriteSongs()
+            savePlaylists()
         }
     }
 
@@ -1003,6 +1147,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             val newPlaylist = repository.createPlaylist(name)
             _playlists.value = _playlists.value + newPlaylist
             Log.d(TAG, "Created new playlist: ${newPlaylist.name}")
+            savePlaylists()
         }
     }
 
@@ -1024,6 +1169,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         Log.d(TAG, "Added song to playlist: ${song.title}")
+        savePlaylists()
     }
 
     fun removeSongFromPlaylist(song: Song, playlistId: String) {
@@ -1038,6 +1184,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         Log.d(TAG, "Removed song from playlist: ${song.title}")
+        savePlaylists()
     }
 
     fun deletePlaylist(playlistId: String) {
@@ -1049,6 +1196,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         
         _playlists.value = _playlists.value.filter { it.id != playlistId }
         Log.d(TAG, "Deleted playlist: $playlistId")
+        savePlaylists()
     }
 
     fun renamePlaylist(playlistId: String, newName: String) {
@@ -1063,6 +1211,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         Log.d(TAG, "Renamed playlist to: $newName")
+        savePlaylists()
     }
 
     fun setSelectedSongForPlaylist(song: Song) {
@@ -1137,35 +1286,28 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
      */
     private fun loadSettings() {
         Log.d(TAG, "Loading settings from SharedPreferences")
-        // Load playback settings
-        _enableHighQualityAudio.value = sharedPreferences.getBoolean(PREF_HIGH_QUALITY_AUDIO, true)
-        _enableGaplessPlayback.value = sharedPreferences.getBoolean(PREF_GAPLESS_PLAYBACK, true)
-        _enableCrossfade.value = sharedPreferences.getBoolean(PREF_CROSSFADE, false)
-        _crossfadeDuration.value = sharedPreferences.getFloat(PREF_CROSSFADE_DURATION, 2f)
-        _enableAudioNormalization.value = sharedPreferences.getBoolean(PREF_AUDIO_NORMALIZATION, true)
-        _enableReplayGain.value = sharedPreferences.getBoolean(PREF_REPLAY_GAIN, false)
-        
-        // Load lyrics settings
-        _showLyrics.value = sharedPreferences.getBoolean(PREF_SHOW_LYRICS, true)
-        _showOnlineOnlyLyrics.value = sharedPreferences.getBoolean(PREF_ONLINE_ONLY_LYRICS, false)
-        
+        // Settings are now handled by AppSettings, verify they are loaded
         Log.d(TAG, "Loaded settings: " +
-                "HQ Audio=${_enableHighQualityAudio.value}, " +
-                "Gapless=${_enableGaplessPlayback.value}, " +
-                "Crossfade=${_enableCrossfade.value} (${_crossfadeDuration.value}s), " +
-                "Normalization=${_enableAudioNormalization.value}, " +
-                "ReplayGain=${_enableReplayGain.value}, " +
-                "ShowLyrics=${_showLyrics.value}, " +
-                "OnlineOnlyLyrics=${_showOnlineOnlyLyrics.value}")
+                "HQ Audio=${enableHighQualityAudio.value}, " +
+                "Gapless=${enableGaplessPlayback.value}, " +
+                "Crossfade=${enableCrossfade.value} (${crossfadeDuration.value}s), " +
+                "Normalization=${enableAudioNormalization.value}, " +
+                "ReplayGain=${enableReplayGain.value}, " +
+                "ShowLyrics=${showLyrics.value}, " +
+                "OnlineOnlyLyrics=${showOnlineOnlyLyrics.value}, " +
+                "UseSystemTheme=${useSystemTheme.value}, " +
+                "DarkMode=${darkMode.value}, " +
+                "AutoConnectDevice=${autoConnectDevice.value}, " +
+                "MaxCacheSize=${maxCacheSize.value}, " +
+                "ClearCacheOnExit=${clearCacheOnExit.value}")
     }
 
     /**
      * Updates the show lyrics setting
      */
     fun setShowLyrics(show: Boolean) {
-        _showLyrics.value = show
-        sharedPreferences.edit().putBoolean(PREF_SHOW_LYRICS, show).apply()
-        if (show && _currentSong.value != null) {
+        appSettings.setShowLyrics(show)
+        if (show && currentSong.value != null) {
             fetchLyricsForCurrentSong()
         } else {
             _currentLyrics.value = null
@@ -1176,9 +1318,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
      * Updates the online-only lyrics setting
      */
     fun setShowOnlineOnlyLyrics(onlineOnly: Boolean) {
-        _showOnlineOnlyLyrics.value = onlineOnly
-        sharedPreferences.edit().putBoolean(PREF_ONLINE_ONLY_LYRICS, onlineOnly).apply()
-        if (_showLyrics.value && _currentSong.value != null) {
+        appSettings.setOnlineOnlyLyrics(onlineOnly)
+        if (showLyrics.value && currentSong.value != null) {
             fetchLyricsForCurrentSong()
         }
     }
@@ -1187,18 +1328,18 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
      * Fetches lyrics for the current song if settings allow
      */
     private fun fetchLyricsForCurrentSong() {
-        val song = _currentSong.value ?: return
+        val song = currentSong.value ?: return
         
         // Clear current lyrics first
         _currentLyrics.value = null
         
         // Check if lyrics are enabled
-        if (!_showLyrics.value) {
+        if (!showLyrics.value) {
             return
         }
         
         // Check if we should only fetch lyrics when online
-        if (_showOnlineOnlyLyrics.value && !repository.isNetworkAvailable()) {
+        if (showOnlineOnlyLyrics.value && !repository.isNetworkAvailable()) {
             Log.d(TAG, "Online-only lyrics enabled but device is offline")
             return
         }
@@ -1258,66 +1399,44 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     // Playback settings functions
     fun setHighQualityAudio(enable: Boolean) {
-        _enableHighQualityAudio.value = enable
-        sharedPreferences.edit().putBoolean(PREF_HIGH_QUALITY_AUDIO, enable).apply()
+        appSettings.setHighQualityAudio(enable)
         applyPlaybackSettings()
     }
     
     fun setGaplessPlayback(enable: Boolean) {
-        _enableGaplessPlayback.value = enable
-        sharedPreferences.edit().putBoolean(PREF_GAPLESS_PLAYBACK, enable).apply()
+        appSettings.setGaplessPlayback(enable)
         applyPlaybackSettings()
     }
     
     fun setCrossfade(enable: Boolean) {
-        _enableCrossfade.value = enable
-        sharedPreferences.edit().putBoolean(PREF_CROSSFADE, enable).apply()
+        appSettings.setCrossfade(enable)
         applyPlaybackSettings()
     }
     
     fun setCrossfadeDuration(duration: Float) {
-        _crossfadeDuration.value = duration
-        sharedPreferences.edit().putFloat(PREF_CROSSFADE_DURATION, duration).apply()
+        appSettings.setCrossfadeDuration(duration)
         applyPlaybackSettings()
     }
     
     fun setAudioNormalization(enable: Boolean) {
-        _enableAudioNormalization.value = enable
-        sharedPreferences.edit().putBoolean(PREF_AUDIO_NORMALIZATION, enable).apply()
+        appSettings.setAudioNormalization(enable)
         applyPlaybackSettings()
     }
     
     fun setReplayGain(enable: Boolean) {
-        _enableReplayGain.value = enable
-        sharedPreferences.edit().putBoolean(PREF_REPLAY_GAIN, enable).apply()
+        appSettings.setReplayGain(enable)
         applyPlaybackSettings()
     }
     
     private fun applyPlaybackSettings() {
         // Apply settings to the media player
         mediaController?.let { controller ->
-            // In a real app, these settings would be applied to the ExoPlayer instance
-            // For example:
-            // if (controller is ExoPlayer) {
-            //     controller.setGaplessPlayback(_enableGaplessPlayback.value)
-            //     if (_enableCrossfade.value) {
-            //         controller.setCrossfadeDuration(_crossfadeDuration.value.toInt() * 1000)
-            //     }
-            //     controller.setAudioAttributes(
-            //         AudioAttributes.Builder()
-            //             .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-            //             .setUsage(C.USAGE_MEDIA)
-            //             .build(),
-            //         !_enableHighQualityAudio.value
-            //     )
-            // }
-            
             Log.d(TAG, "Applied playback settings: " +
-                    "HQ Audio=${_enableHighQualityAudio.value}, " +
-                    "Gapless=${_enableGaplessPlayback.value}, " +
-                    "Crossfade=${_enableCrossfade.value} (${_crossfadeDuration.value}s), " +
-                    "Normalization=${_enableAudioNormalization.value}, " +
-                    "ReplayGain=${_enableReplayGain.value}")
+                    "HQ Audio=${enableHighQualityAudio.value}, " +
+                    "Gapless=${enableGaplessPlayback.value}, " +
+                    "Crossfade=${enableCrossfade.value} (${crossfadeDuration.value}s), " +
+                    "Normalization=${enableAudioNormalization.value}, " +
+                    "ReplayGain=${enableReplayGain.value}")
             
             // Send intent to update service settings
             val context = getApplication<Application>()
@@ -1488,7 +1607,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     // Search history methods
     private fun loadSearchHistory() {
-        val searchHistoryJson = sharedPreferences.getString("search_history", null)
+        val searchHistoryJson = appSettings.searchHistory.value
         if (searchHistoryJson != null) {
             try {
                 val type = object : TypeToken<List<String>>() {}.type
@@ -1501,37 +1620,14 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
-    fun addSearchQuery(query: String) {
-        if (query.isBlank()) return
-        
-        viewModelScope.launch {
-            val currentHistory = _searchHistory.value.toMutableList()
-            
-            // Remove the query if it already exists to avoid duplicates
-            currentHistory.remove(query)
-            
-            // Add the new query at the beginning
-            currentHistory.add(0, query)
-            
-            // Limit history to 10 items
-            val limitedHistory = currentHistory.take(10)
-            
-            // Update the state
-            _searchHistory.value = limitedHistory
-            
-            // Save to SharedPreferences
-            saveSearchHistory()
-        }
-    }
-    
     private fun saveSearchHistory() {
         val searchHistoryJson = Gson().toJson(_searchHistory.value)
-        sharedPreferences.edit().putString("search_history", searchHistoryJson).apply()
+        appSettings.setSearchHistory(searchHistoryJson)
     }
     
     fun clearSearchHistory() {
         _searchHistory.value = emptyList()
-        sharedPreferences.edit().remove("search_history").apply()
+        appSettings.setSearchHistory(null)
     }
 
     /**
@@ -1697,6 +1793,202 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         
         // Add to recently played
         updateRecentlyPlayed(firstSong)
+    }
+
+    // Search history methods
+    fun addSearchQuery(query: String) {
+        if (query.isBlank()) return
+        
+        viewModelScope.launch {
+            val currentHistory = _searchHistory.value.toMutableList()
+            
+            // Remove the query if it already exists to avoid duplicates
+            currentHistory.remove(query)
+            
+            // Add the new query at the beginning
+            currentHistory.add(0, query)
+            
+            // Limit history to 10 items
+            val limitedHistory = currentHistory.take(10)
+            
+            // Update the state
+            _searchHistory.value = limitedHistory
+            
+            // Save to SharedPreferences
+            saveSearchHistory()
+        }
+    }
+
+    // Theme Settings Methods
+    fun setUseSystemTheme(use: Boolean) {
+        appSettings.setUseSystemTheme(use)
+    }
+    
+    fun setDarkMode(dark: Boolean) {
+        appSettings.setDarkMode(dark)
+    }
+    
+    // Cache Settings Methods
+    fun setMaxCacheSize(size: Long) {
+        appSettings.setMaxCacheSize(size)
+    }
+    
+    fun setClearCacheOnExit(clear: Boolean) {
+        appSettings.setClearCacheOnExit(clear)
+    }
+    
+    // Audio Device Settings Methods
+    fun setAutoConnectDevice(enable: Boolean) {
+        appSettings.setAutoConnectDevice(enable)
+    }
+
+    // Enhanced play tracking with user preferences
+    private fun trackSongPlay(song: Song) {
+        viewModelScope.launch {
+            // Update songs played count
+            val newCount = _songsPlayed.value + 1
+            _songsPlayed.value = newCount
+            appSettings.setSongsPlayed(newCount)
+            
+            // Update unique artists
+            val currentArtists = _uniqueArtists.value
+            if (!_recentlyPlayed.value.any { it.artist == song.artist }) {
+                _uniqueArtists.value = currentArtists + 1
+                appSettings.setUniqueArtists(currentArtists + 1)
+            }
+            
+            // Update genre preferences
+            val currentGenrePrefs = _genrePreferences.value.toMutableMap()
+            song.genre?.let { genre ->
+                val count = currentGenrePrefs.getOrDefault(genre, 0) + 1
+                currentGenrePrefs[genre] = count
+                _genrePreferences.value = currentGenrePrefs
+                appSettings.setGenrePreferences(currentGenrePrefs)
+            }
+            
+            // Update time-based preferences
+            val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+            val currentTimePrefs = _timeBasedPreferences.value.toMutableMap()
+            val timeSlot = (hour / 3) * 3 // Group into 3-hour slots
+            val songs = currentTimePrefs.getOrDefault(timeSlot, emptyList()).toMutableList()
+            if (songs.size >= 20) songs.removeAt(0) // Keep last 20 songs
+            songs.add(song.id)
+            currentTimePrefs[timeSlot] = songs
+            _timeBasedPreferences.value = currentTimePrefs
+            appSettings.setTimeBasedPreferences(currentTimePrefs)
+        }
+    }
+
+    // Enhanced recommendation algorithms
+    fun getRecommendedSongs(): List<Song> {
+        val currentHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        val timeSlot = (currentHour / 3) * 3
+        
+        // Get songs frequently played in this time slot
+        val timeBasedSongs = _timeBasedPreferences.value[timeSlot]?.mapNotNull { id ->
+            _songs.value.find { it.id == id }
+        } ?: emptyList()
+        
+        // Get songs from preferred genres
+        val preferredGenres = _genrePreferences.value.entries
+            .sortedByDescending { it.value }
+            .take(3)
+            .map { it.key }
+        
+        val genreBasedSongs = _songs.value.filter { song ->
+            song.genre in preferredGenres
+        }
+        
+        // Combine and shuffle recommendations
+        return (timeBasedSongs + genreBasedSongs)
+            .distinct()
+            .shuffled()
+            .take(10)
+    }
+
+    // Enhanced mood-based playlists
+    fun getMoodBasedPlaylists(): List<Song> {
+        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        val mood = when (hour) {
+            in 5..11 -> "morning"
+            in 12..17 -> "afternoon"
+            in 18..22 -> "evening"
+            else -> "night"
+        }
+        
+        val moodPrefs = appSettings.moodPreferences.value
+        val songIds = moodPrefs[mood] ?: emptyList()
+        
+        return songIds.mapNotNull { id ->
+            _songs.value.find { it.id == id }
+        }
+    }
+
+    // Enhanced recommendation methods
+    fun getPersonalizedRecommendations(): List<Song> {
+        val recentArtists = _recentlyPlayed.value
+            .map { it.artist }
+            .distinct()
+            .take(3)
+        
+        return _songs.value
+            .filter { song -> 
+                recentArtists.contains(song.artist) && 
+                !_recentlyPlayed.value.contains(song)
+            }
+            .shuffled()
+            .take(10)
+    }
+
+    fun getListeningStats(): String {
+        val listeningTime = appSettings.listeningTime.value
+        val hours = listeningTime / (1000 * 60 * 60)
+        return if (hours < 1) "< 1h" else "${hours}h"
+    }
+
+    // Initialize from persistence
+    private fun initializeFromPersistence() {
+        viewModelScope.launch {
+            try {
+                // Restore recently played
+                val recentIds = appSettings.recentlyPlayed.value
+                val recentSongs = recentIds.mapNotNull { id ->
+                    _songs.value.find { it.id == id }
+                }
+                _recentlyPlayed.value = recentSongs
+                
+                // Clean up old daily stats (keep only last 30 days)
+                val thirtyDaysAgo = java.time.LocalDate.now().minusDays(30)
+                val cleanedDailyStats = appSettings.dailyListeningStats.value.filterKeys { date ->
+                    java.time.LocalDate.parse(date).isAfter(thirtyDaysAgo)
+                }
+                appSettings.updateDailyListeningStats(cleanedDailyStats)
+                
+                // Clean up weekly top artists (reset every week)
+                val lastPlayed = appSettings.lastPlayedTimestamp.value
+                if (System.currentTimeMillis() - lastPlayed > 7 * 24 * 60 * 60 * 1000) {
+                    appSettings.updateWeeklyTopArtists(emptyMap())
+                }
+
+                // Initialize mood-based preferences if empty
+                if (appSettings.moodPreferences.value.isEmpty()) {
+                    val initialMoodPrefs = mapOf(
+                        "morning" to emptyList<String>(),
+                        "afternoon" to emptyList(),
+                        "evening" to emptyList(),
+                        "night" to emptyList()
+                    )
+                    appSettings.updateMoodPreferences(initialMoodPrefs)
+                }
+
+                // Log initialization status
+                Log.d(TAG, "Initialized from persistence: ${recentSongs.size} recent songs loaded")
+                Log.d(TAG, "Daily stats entries: ${cleanedDailyStats.size}")
+                Log.d(TAG, "Weekly top artists: ${appSettings.weeklyTopArtists.value.size}")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error initializing from persistence", e)
+            }
+        }
     }
 
     companion object {

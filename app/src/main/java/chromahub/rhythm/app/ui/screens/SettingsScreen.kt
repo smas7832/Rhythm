@@ -77,17 +77,17 @@ fun SettingsScreen(
     onPlayPause: () -> Unit,
     onPlayerClick: () -> Unit,
     onSkipNext: () -> Unit,
-    showLyrics: Boolean = true,
-    showOnlineOnlyLyrics: Boolean = false,
-    onShowLyricsChange: (Boolean) -> Unit = {},
-    onShowOnlineOnlyLyricsChange: (Boolean) -> Unit = {},
-    useSystemTheme: Boolean = false,
-    darkMode: Boolean = true,
-    onUseSystemThemeChange: (Boolean) -> Unit = {},
-    onDarkModeChange: (Boolean) -> Unit = {},
-    onOpenSystemEqualizer: () -> Unit = {},
-    onBack: () -> Unit = {},
-    onCheckForUpdates: () -> Unit = {}
+    showLyrics: Boolean,
+    showOnlineOnlyLyrics: Boolean,
+    onShowLyricsChange: (Boolean) -> Unit,
+    onShowOnlineOnlyLyricsChange: (Boolean) -> Unit,
+    useSystemTheme: Boolean,
+    darkMode: Boolean,
+    onUseSystemThemeChange: (Boolean) -> Unit,
+    onDarkModeChange: (Boolean) -> Unit,
+    onOpenSystemEqualizer: () -> Unit,
+    onBack: () -> Unit,
+    onCheckForUpdates: () -> Unit
 ) {
     var showAboutDialog by remember { mutableStateOf(false) }
     
@@ -151,7 +151,9 @@ fun SettingsScreen(
                     description = "Use Android's Monet theme colors when on, app's colors when off",
                     icon = RhythmIcons.Settings,
                     checked = useSystemTheme,
-                    onCheckedChange = onUseSystemThemeChange
+                    onCheckedChange = { 
+                        onUseSystemThemeChange(it)
+                    }
                 )
                 
                 AnimatedVisibility(
@@ -164,7 +166,9 @@ fun SettingsScreen(
                         description = "Enable dark theme",
                         icon = RhythmIcons.LocationFilled,
                         checked = darkMode,
-                        onCheckedChange = onDarkModeChange
+                        onCheckedChange = { 
+                            onDarkModeChange(it)
+                        }
                     )
                 }
                 
@@ -180,7 +184,9 @@ fun SettingsScreen(
                     description = "Display lyrics when available",
                     icon = RhythmIcons.Queue,
                     checked = showLyrics,
-                    onCheckedChange = onShowLyricsChange
+                    onCheckedChange = { 
+                        onShowLyricsChange(it)
+                    }
                 )
                 
                 AnimatedVisibility(
@@ -193,7 +199,9 @@ fun SettingsScreen(
                         description = "Only fetch and display lyrics when connected to internet",
                         icon = RhythmIcons.LocationFilled,
                         checked = showOnlineOnlyLyrics,
-                        onCheckedChange = onShowOnlineOnlyLyricsChange
+                        onCheckedChange = { 
+                            onShowOnlineOnlyLyricsChange(it)
+                        }
                     )
                 }
                 

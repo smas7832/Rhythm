@@ -1,5 +1,9 @@
 package chromahub.rhythm.app.service
 
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
@@ -14,7 +18,8 @@ import android.support.v4.media.session.MediaControllerCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
 import android.util.Log
-import androidx.media3.common.AudioAttributes as ExoPlayerAudioAttributes
+import androidx.core.app.NotificationCompat
+import androidx.media3.common.AudioAttributes as ExoAudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -23,9 +28,13 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
+import androidx.media3.session.MediaSessionService
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import chromahub.rhythm.app.R
+import chromahub.rhythm.app.data.AppSettings
+import chromahub.rhythm.app.data.Song
 import java.util.concurrent.ConcurrentHashMap
 
 class MediaPlaybackService : MediaLibraryService() {
@@ -40,6 +49,9 @@ class MediaPlaybackService : MediaLibraryService() {
     private var audioFocusRequest: AudioFocusRequest? = null
     private var audioManager: AudioManager? = null
     private var playOnAudioFocusGain = false
+    
+    // Settings manager
+    private lateinit var appSettings: AppSettings
     
     // SharedPreferences keys
     companion object {
@@ -96,203 +108,99 @@ class MediaPlaybackService : MediaLibraryService() {
         super.onCreate()
         Log.d(TAG, "Service created")
         
+        // Initialize settings manager
+        appSettings = AppSettings.getInstance(applicationContext)
+        
         // Initialize AudioManager for audio focus
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         
         try {
-            // Get settings from SharedPreferences
-            val prefs = getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
-            val enableHighQualityAudio = prefs.getBoolean(PREF_HIGH_QUALITY_AUDIO, true)
-            val enableGaplessPlayback = prefs.getBoolean(PREF_GAPLESS_PLAYBACK, true)
-            val enableCrossfade = prefs.getBoolean(PREF_CROSSFADE, false)
-            val crossfadeDuration = prefs.getFloat(PREF_CROSSFADE_DURATION, 2f)
-            val enableAudioNormalization = prefs.getBoolean(PREF_AUDIO_NORMALIZATION, true)
-            val enableReplayGain = prefs.getBoolean(PREF_REPLAY_GAIN, false)
-            
-            Log.d(TAG, "Applying settings: " +
-                    "HQ Audio=$enableHighQualityAudio, " +
-                    "Gapless=$enableGaplessPlayback, " +
-                    "Crossfade=$enableCrossfade (${crossfadeDuration}s), " +
-                    "Normalization=$enableAudioNormalization, " +
-                    "ReplayGain=$enableReplayGain")
-            
             // Initialize the player with settings
-            try {
-                player = ExoPlayer.Builder(this)
-                    .setAudioAttributes(
-                        ExoPlayerAudioAttributes.Builder()
-                            .setUsage(C.USAGE_MEDIA)
-                            .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-                            .build(),
-                        /* handleAudioFocus= */ false // We'll handle audio focus manually
-                    )
-                    .setHandleAudioBecomingNoisy(true) // Pause when headphones disconnected
-                    .build()
-                    .apply {
-                        // Set repeat mode and shuffle
-                        repeatMode = Player.REPEAT_MODE_OFF
-                        shuffleModeEnabled = false
-                        
-                        // Apply audio normalization if enabled
-                        if (enableAudioNormalization) {
-                            // In a real implementation, we would configure audio processors here
-                            // This is a simplified example
-                            volume = 1.0f
-                        }
-                        
-                        // Apply crossfade settings if enabled
-                        if (enableCrossfade) {
-                            // ExoPlayer doesn't have built-in crossfade, but in a real app
-                            // we would implement a custom crossfade solution
-                            // For example, using multiple players or audio mixers
-                            Log.d(TAG, "Crossfade enabled with duration: $crossfadeDuration seconds")
-                        }
-                        
-                        // Add a listener for playback state changes
-                        addListener(object : Player.Listener {
-                            override fun onPlaybackStateChanged(playbackState: Int) {
-                                when (playbackState) {
-                                    Player.STATE_READY -> {
-                                        Log.d(TAG, "Playback ready")
-                                        if (player.playWhenReady) {
-                                            Log.d(TAG, "Starting playback")
-                                            requestAudioFocus()
-                                        }
-                                    }
-                                    Player.STATE_ENDED -> {
-                                        Log.d(TAG, "Playback ended")
-                                        abandonAudioFocus()
-                                    }
-                                    Player.STATE_BUFFERING -> {
-                                        Log.d(TAG, "Playback buffering")
-                                    }
-                                    Player.STATE_IDLE -> {
-                                        Log.d(TAG, "Playback idle")
-                                    }
-                                }
-                            }
-                            
-                            override fun onIsPlayingChanged(isPlaying: Boolean) {
-                                Log.d(TAG, "isPlaying changed to: $isPlaying")
-                                if (isPlaying) {
-                                    requestAudioFocus()
-                                }
-                            }
-                            
-                            override fun onRepeatModeChanged(repeatMode: Int) {
-                                Log.d(TAG, "Repeat mode changed in service to: $repeatMode (${
-                                    when(repeatMode) {
-                                        Player.REPEAT_MODE_OFF -> "OFF"
-                                        Player.REPEAT_MODE_ONE -> "ONE"
-                                        Player.REPEAT_MODE_ALL -> "ALL"
-                                        else -> "UNKNOWN"
-                                    }
-                                })")
-                            }
-                            
-                            override fun onPlayerError(error: PlaybackException) {
-                                Log.e(TAG, "Player error: ${error.message} (code: ${error.errorCode})", error)
-                                
-                                // Try to recover from the error
-                                when (error.errorCode) {
-                                    PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
-                                    PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> {
-                                        Log.d(TAG, "Network error, attempting to retry")
-                                        player.prepare()
-                                    }
-                                    PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND -> {
-                                        Log.e(TAG, "Media file not found")
-                                        // Skip to next if current item causes error
-                                        if (player.hasNextMediaItem()) {
-                                            player.seekToNext()
-                                        }
-                                    }
-                                    else -> {
-                                        // For other errors, try to reset the player
-                                        Log.d(TAG, "Attempting to recover from error")
-                                        try {
-                                            player.stop()
-                                            player.clearMediaItems()
-                                            player.prepare()
-                                        } catch (e: Exception) {
-                                            Log.e(TAG, "Failed to recover from player error", e)
-                                        }
-                                    }
-                                }
-                            }
-                            
-                            override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) {
-                                // Cache the media item if it's from an external URI
-                                player.currentMediaItem?.let { mediaItem ->
-                                    if (mediaItem.localConfiguration?.uri?.scheme == "content" || 
-                                        mediaItem.localConfiguration?.uri?.scheme == "file") {
-                                        val uri = mediaItem.localConfiguration?.uri?.toString() ?: return
-                                        if (!uri.contains("media/external/audio/media")) {
-                                            // This is likely an external file, cache it
-                                            externalUriCache[uri] = mediaItem
-                                            Log.d(TAG, "Cached external media item: $uri")
-                                        }
-                                    }
-                                }
-                            }
-                        })
-                    }
-                
-                Log.d(TAG, "ExoPlayer initialized successfully")
-            } catch (e: Exception) {
-                Log.e(TAG, "Error initializing ExoPlayer", e)
-                // Create a minimal player as fallback
-                player = ExoPlayer.Builder(this).build()
-            }
-
+            initializePlayer()
+            
             // Create the media session
-            try {
-                mediaSession = MediaLibrarySession.Builder(
-                    this,
-                    player,
-                    MediaSessionCallback()
-                ).build()
-                
-                Log.d(TAG, "Media session created")
-            } catch (e: Exception) {
-                Log.e(TAG, "Error creating media session", e)
-                // Try with a simpler configuration
-                try {
-                    mediaSession = MediaLibrarySession.Builder(
-                        this,
-                        player,
-                        MediaSessionCallback()
-                    ).build()
-                } catch (e2: Exception) {
-                    Log.e(TAG, "Fatal error creating media session", e2)
-                    stopSelf()
-                }
-            }
+            mediaSession = createMediaSession()
+            
+            Log.d(TAG, "Service initialized successfully")
         } catch (e: Exception) {
-            Log.e(TAG, "Error creating media playback service", e)
-            // Try to recover by creating a minimal player
-            try {
-                player = ExoPlayer.Builder(this).build()
-                mediaSession = MediaLibrarySession.Builder(
-                    this,
-                    player,
-                    MediaSessionCallback()
-                ).build()
-                Log.d(TAG, "Created fallback player after error")
-            } catch (e2: Exception) {
-                Log.e(TAG, "Fatal error creating media playback service", e2)
-                stopSelf()
+            Log.e(TAG, "Error initializing service", e)
+        }
+    }
+    
+    private fun initializePlayer() {
+        // Build the player with current settings
+        player = ExoPlayer.Builder(this)
+            .setAudioAttributes(
+                ExoAudioAttributes.Builder()
+                    .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                    .setUsage(C.USAGE_MEDIA)
+                    .build(),
+                !appSettings.highQualityAudio.value
+            )
+            .setHandleAudioBecomingNoisy(true)
+            .build()
+            
+        // Apply current settings
+        applyPlayerSettings()
+    }
+    
+    private fun createMediaSession(): MediaLibrarySession {
+        return MediaLibrarySession.Builder(
+            this,
+            player,
+            MediaSessionCallback()
+        ).build()
+    }
+    
+    private fun applyPlayerSettings() {
+        player.apply {
+            // Apply gapless playback
+            if (appSettings.gaplessPlayback.value) {
+                // ExoPlayer doesn't have a direct setGaplessPlayback method
+                // Instead, we configure it through the audio renderer
+                setAudioAttributes(
+                    ExoAudioAttributes.Builder()
+                        .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                        .setUsage(C.USAGE_MEDIA)
+                        .build(),
+                    /* handleAudioFocus= */ !appSettings.highQualityAudio.value
+                )
+            }
+            
+            // Apply crossfade if enabled
+            if (appSettings.crossfade.value) {
+                // Note: This is a placeholder. In a real implementation,
+                // you would configure the actual crossfade duration
+                // using the appSettings.crossfadeDuration.value
+            }
+            
+            // Apply audio normalization
+            if (appSettings.audioNormalization.value) {
+                volume = 1.0f
+            }
+            
+            // Apply replay gain if enabled
+            if (appSettings.replayGain.value) {
+                // Note: This is a placeholder. In a real implementation,
+                // you would configure replay gain processing
             }
         }
+        
+        Log.d(TAG, "Applied player settings: " +
+                "HQ Audio=${appSettings.highQualityAudio.value}, " +
+                "Gapless=${appSettings.gaplessPlayback.value}, " +
+                "Crossfade=${appSettings.crossfade.value} (${appSettings.crossfadeDuration.value}s), " +
+                "Normalization=${appSettings.audioNormalization.value}, " +
+                "ReplayGain=${appSettings.replayGain.value}")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(TAG, "Service started with command: ${intent?.action}")
         
-        // Check if this is a settings update intent
         when (intent?.action) {
             ACTION_UPDATE_SETTINGS -> {
-                updatePlaybackSettings()
+                Log.d(TAG, "Updating service settings")
+                applyPlayerSettings()
             }
             ACTION_PLAY_EXTERNAL_FILE -> {
                 intent.data?.let { uri ->
@@ -301,7 +209,8 @@ class MediaPlaybackService : MediaLibraryService() {
             }
             ACTION_INIT_SERVICE -> {
                 Log.d(TAG, "Service initialization requested")
-                // Nothing specific to do, just keeping the service alive
+                // Load and apply settings when service starts
+                applyPlayerSettings()
             }
         }
         
@@ -424,35 +333,6 @@ class MediaPlaybackService : MediaLibraryService() {
             // Cache the media item
             externalUriCache[uri.toString()] = mediaItem
         }
-    }
-    
-    /**
-     * Updates playback settings from SharedPreferences
-     */
-    private fun updatePlaybackSettings() {
-        val prefs = getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
-        val enableHighQualityAudio = prefs.getBoolean(PREF_HIGH_QUALITY_AUDIO, true)
-        val enableGaplessPlayback = prefs.getBoolean(PREF_GAPLESS_PLAYBACK, true)
-        val enableCrossfade = prefs.getBoolean(PREF_CROSSFADE, false)
-        val crossfadeDuration = prefs.getFloat(PREF_CROSSFADE_DURATION, 2f)
-        val enableAudioNormalization = prefs.getBoolean(PREF_AUDIO_NORMALIZATION, true)
-        val enableReplayGain = prefs.getBoolean(PREF_REPLAY_GAIN, false)
-        
-        Log.d(TAG, "Updating playback settings: " +
-                "HQ Audio=$enableHighQualityAudio, " +
-                "Gapless=$enableGaplessPlayback, " +
-                "Crossfade=$enableCrossfade (${crossfadeDuration}s), " +
-                "Normalization=$enableAudioNormalization, " +
-                "ReplayGain=$enableReplayGain")
-        
-        // Apply audio normalization
-        if (enableAudioNormalization) {
-            // In a real implementation, we would configure audio processors here
-            player.volume = 1.0f
-        }
-        
-        // Note: Some settings like gapless playback require player recreation
-        // In a real app, we would handle this more gracefully
     }
 
     override fun onDestroy() {

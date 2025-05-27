@@ -7,21 +7,41 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import chromahub.rhythm.app.data.AppSettings
 
 class ThemeViewModel(application: Application) : AndroidViewModel(application) {
-    // Theme state
-    private val _useSystemTheme = MutableStateFlow(false)
+    private val appSettings = AppSettings.getInstance(application)
+    
+    // Theme state - initialize from AppSettings
+    private val _useSystemTheme = MutableStateFlow(appSettings.useSystemTheme.value)
     val useSystemTheme: StateFlow<Boolean> = _useSystemTheme.asStateFlow()
     
-    private val _darkMode = MutableStateFlow(true)
+    private val _darkMode = MutableStateFlow(appSettings.darkMode.value)
     val darkMode: StateFlow<Boolean> = _darkMode.asStateFlow()
     
     // Dynamic color state (for Monet theme)
-    private val _useDynamicColors = MutableStateFlow(false)
+    private val _useDynamicColors = MutableStateFlow(appSettings.useSystemTheme.value)
     val useDynamicColors: StateFlow<Boolean> = _useDynamicColors.asStateFlow()
+    
+    init {
+        // Observe AppSettings changes
+        viewModelScope.launch {
+            appSettings.useSystemTheme.collect { useSystem ->
+                _useSystemTheme.value = useSystem
+                _useDynamicColors.value = useSystem
+            }
+        }
+        
+        viewModelScope.launch {
+            appSettings.darkMode.collect { isDark ->
+                _darkMode.value = isDark
+            }
+        }
+    }
     
     // Function to update system theme usage
     fun setUseSystemTheme(useSystem: Boolean) {
+        appSettings.setUseSystemTheme(useSystem)
         _useSystemTheme.value = useSystem
         // When system theme is enabled, also enable dynamic colors (Monet)
         _useDynamicColors.value = useSystem
@@ -29,6 +49,7 @@ class ThemeViewModel(application: Application) : AndroidViewModel(application) {
     
     // Function to update dark mode
     fun setDarkMode(isDark: Boolean) {
+        appSettings.setDarkMode(isDark)
         _darkMode.value = isDark
     }
 } 
