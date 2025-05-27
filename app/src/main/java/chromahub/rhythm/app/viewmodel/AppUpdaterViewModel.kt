@@ -26,6 +26,10 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import androidx.core.content.FileProvider
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.core.content.ContextCompat
 
 /**
  * App version data model
@@ -38,7 +42,52 @@ data class AppVersion(
     val downloadUrl: String,
     val apkAssetName: String = "",
     val apkSize: Long = 0,
-    val releaseNotes: String = ""
+    val releaseNotes: String = "",
+    val isPreRelease: Boolean = false,
+    val buildNumber: Int = 0
+)
+
+/**
+ * Semantic version comparison helper class
+ */
+private data class SemanticVersion(
+    val major: Int,
+    val minor: Int,
+    val patch: Int,
+    val subpatch: Int = 0,
+    val buildNumber: Int = 0,
+    val isPreRelease: Boolean = false
+) : Comparable<SemanticVersion> {
+    override fun compareTo(other: SemanticVersion): Int {
+        // Compare major version
+        if (major != other.major) return major.compareTo(other.major)
+        // Compare minor version
+        if (minor != other.minor) return minor.compareTo(other.minor)
+        // Compare patch version
+        if (patch != other.patch) return patch.compareTo(other.patch)
+        // Compare subpatch version
+        if (subpatch != other.subpatch) return subpatch.compareTo(other.subpatch)
+        // Compare build numbers
+        if (buildNumber != other.buildNumber) return buildNumber.compareTo(other.buildNumber)
+        // Pre-releases are considered older than regular releases
+        if (isPreRelease != other.isPreRelease) {
+            return if (isPreRelease) -1 else 1
+        }
+        return 0
+    }
+}
+
+/**
+ * Download state for tracking download progress and resumption
+ */
+data class DownloadState(
+    val fileName: String,
+    val url: String,
+    val totalBytes: Long,
+    val downloadedBytes: Long,
+    val etag: String?,
+    val lastModified: String?,
+    val resumePosition: Long
 )
 
 /**
@@ -51,17 +100,29 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
     private val GITHUB_OWNER = "cromaguy"
     private val GITHUB_REPO = "Rhythm"
     
+    // Update check interval (6 hours)
+    private val UPDATE_CHECK_INTERVAL = TimeUnit.HOURS.toMillis(6)
+    
     // API service
     private val gitHubApiService = NetworkManager.createGitHubApiService()
+    
+    // Last update check timestamp
+    private var lastUpdateCheck = 0L
+    
+    // Active download state
+    private var activeDownload: DownloadState? = null
+    private var activeCall: Call? = null
     
     // Current app version info
     private val _currentVersion = MutableStateFlow(
         AppVersion(
-            versionName = "1.6.0 b-128 Alpha", // Updated version
-            versionCode = 16000020, // Using our version code calculation: 1*1000000 + 6*10000 + 0*100 + 2*10 + (128/100)
+            versionName = "1.6.100.2 b-128 Alpha",
+            versionCode = 1060001,
             releaseDate = "2025-05-27",
             changelog = emptyList(),
-            downloadUrl = ""
+            downloadUrl = "",
+            isPreRelease = true,
+            buildNumber = 128
         )
     )
     val currentVersion: StateFlow<AppVersion> = _currentVersion.asStateFlow()
@@ -94,10 +155,20 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
     private val _downloadedFile = MutableStateFlow<File?>(null)
     val downloadedFile: StateFlow<File?> = _downloadedFile.asStateFlow()
     
+    // Download state for tracking download progress and resumption
+    private val _downloadState = MutableStateFlow<DownloadState?>(null)
+    val downloadState: StateFlow<DownloadState?> = _downloadState.asStateFlow()
+    
     /**
      * Check for updates by fetching the latest release from GitHub
      */
-    fun checkForUpdates() {
+    fun checkForUpdates(force: Boolean = false) {
+        // Skip check if within update interval unless forced
+        if (!force && System.currentTimeMillis() - lastUpdateCheck < UPDATE_CHECK_INTERVAL) {
+            Log.d(TAG, "Skipping update check - within interval")
+            return
+        }
+        
         _isCheckingForUpdates.value = true
         _error.value = null
         _latestVersion.value = null  // Clear any previous version data
@@ -164,15 +235,58 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
         val appVersion = convertReleaseToAppVersion(release)
         _latestVersion.value = appVersion
         
-        // Check if an update is available by comparing version codes
-        val currentVersionCode = _currentVersion.value.versionCode
-        val newVersionCode = appVersion.versionCode
+        // Parse current and new versions for semantic comparison
+        val currentSemVer = parseVersionToSemantic(_currentVersion.value.versionName)
+        val newSemVer = parseVersionToSemantic(appVersion.versionName)
         
         // Add debug logs
-        Log.d(TAG, "Version comparison: current=${_currentVersion.value.versionName} (code: $currentVersionCode) vs latest=${appVersion.versionName} (code: $newVersionCode)")
+        Log.d(TAG, "Version comparison: current=${_currentVersion.value.versionName} (${currentSemVer}) vs latest=${appVersion.versionName} (${newSemVer})")
         
-        _updateAvailable.value = newVersionCode > currentVersionCode
+        // Update is available if:
+        // 1. New version is semantically greater than current version
+        // 2. If versions are equal, new build number is higher
+        // 3. If in pre-release, allow updates to other pre-releases
+        _updateAvailable.value = when {
+            newSemVer > currentSemVer -> true
+            newSemVer == currentSemVer && appVersion.buildNumber > _currentVersion.value.buildNumber -> true
+            _currentVersion.value.isPreRelease && appVersion.isPreRelease && appVersion.buildNumber > _currentVersion.value.buildNumber -> true
+            else -> false
+        }
+        
         _isCheckingForUpdates.value = false
+        lastUpdateCheck = System.currentTimeMillis()
+    }
+    
+    /**
+     * Parse version string to semantic version object
+     */
+    private fun parseVersionToSemantic(versionString: String): SemanticVersion {
+        try {
+            // Remove 'v' prefix if present
+            val cleaned = versionString.replace(Regex("^v"), "")
+            
+            // Extract build number if present (format like "b-127")
+            val buildNumber = Regex("b-(\\d+)").find(cleaned)?.groupValues?.get(1)?.toInt() ?: 0
+            
+            // Split version and remove any suffix (like -alpha)
+            val versionBase = cleaned.split(" ")[0].split("-")[0]
+            val versionParts = versionBase.split(".")
+            
+            // Check if it's a pre-release
+            val isPreRelease = cleaned.contains(Regex("alpha|beta|pre|rc", RegexOption.IGNORE_CASE))
+            
+            return SemanticVersion(
+                major = versionParts.getOrNull(0)?.toInt() ?: 0,
+                minor = versionParts.getOrNull(1)?.toInt() ?: 0,
+                patch = versionParts.getOrNull(2)?.toInt() ?: 0,
+                subpatch = versionParts.getOrNull(3)?.toInt() ?: 0,
+                buildNumber = buildNumber,
+                isPreRelease = isPreRelease
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing version: $versionString", e)
+            return SemanticVersion(0, 0, 0)
+        }
     }
     
     /**
@@ -203,44 +317,8 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
      * Convert a GitHub release to an AppVersion object
      */
     private fun convertReleaseToAppVersion(release: GitHubRelease): AppVersion {
-        // Parse version code from tag name
-        // Assumes tag format is like "v1.2.3" or "1.2.3" or "v1.5.100.2-alpha"
-        val versionCodeString = release.tag_name.replace(Regex("^v"), "")
-        val versionBase = versionCodeString.split("-")[0] // Remove any suffix like -alpha
-        val versionParts = versionBase.split(".")
-        
-        // Extract build number if present (format like "b-127")
-        val buildNumber = if (release.name.contains("b-")) {
-            try {
-                val buildMatch = Regex("b-(\\d+)").find(release.name)
-                buildMatch?.groupValues?.get(1)?.toInt() ?: 0
-            } catch (e: Exception) {
-                0
-            }
-        } else {
-            0
-        }
-        
-        val versionCode = if (versionParts.size >= 3) {
-            try {
-                val major = versionParts[0].toInt()
-                val minor = versionParts[1].toInt()
-                val patch = versionParts[2].toInt()
-                val subpatch = if (versionParts.size >= 4) versionParts[3].toInt() else 0
-                
-                // Create a numeric version code similar to how Android typically does it
-                // Include build number in calculation to ensure newer builds have higher version codes
-                major * 1000000 + minor * 10000 + patch * 100 + subpatch * 10 + (buildNumber / 100)
-            } catch (e: NumberFormatException) {
-                // Fallback if parsing fails
-                Log.e(TAG, "Failed to parse version: ${release.tag_name}", e)
-                100
-            }
-        } else {
-            // Fallback if tag format is unexpected
-            Log.e(TAG, "Unexpected version format: ${release.tag_name}")
-            100
-        }
+        // Parse version string to semantic version
+        val semanticVersion = parseVersionToSemantic(release.tag_name)
         
         // Format the release date
         val releaseDateString = try {
@@ -268,13 +346,17 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
         
         return AppVersion(
             versionName = release.name.ifEmpty { release.tag_name },
-            versionCode = versionCode,
+            versionCode = semanticVersion.let { 
+                it.major * 1000000 + it.minor * 10000 + it.patch * 100 + it.subpatch * 10 + (it.buildNumber / 100)
+            },
             releaseDate = releaseDateString,
             changelog = changelog,
             downloadUrl = downloadUrl,
             apkAssetName = apkAsset?.name ?: "",
             apkSize = apkSize,
-            releaseNotes = release.body
+            releaseNotes = release.body,
+            isPreRelease = release.prerelease,
+            buildNumber = semanticVersion.buildNumber
         )
     }
     
@@ -383,7 +465,13 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
             return
         }
         
-        // Download in-app if it's an APK
+        // Check if we have an active download
+        if (_isDownloading.value) {
+            Log.d(TAG, "Download already in progress")
+            return
+        }
+        
+        // Start or resume download
         downloadApkInApp(downloadUrl, latestVersion?.apkAssetName ?: "rhythm-update.apk")
     }
     
@@ -402,7 +490,7 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
     }
     
     /**
-     * Download an APK file in-app with progress tracking
+     * Download an APK file in-app with progress tracking and resume support
      */
     private fun downloadApkInApp(downloadUrl: String, fileName: String) {
         if (_isDownloading.value) {
@@ -412,52 +500,115 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
         _isDownloading.value = true
         _downloadProgress.value = 0f
         _error.value = null
-        _downloadedFile.value = null
         
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                // Create downloads directory if it doesn't exist
-                val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                if (!downloadsDir.exists()) {
-                    downloadsDir.mkdirs()
+                // Use app-specific external storage instead of public Downloads
+                val context = getApplication<Application>()
+                val downloadDir = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    // For Android 10 and above, use app-specific directory
+                    context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+                } else {
+                    // For older versions, check permission first
+                    if (ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.WRITE_EXTERNAL_STORAGE
+                        ) != PackageManager.PERMISSION_GRANTED) {
+                        _error.value = "Storage permission required to download updates"
+                        _isDownloading.value = false
+                        return@launch
+                    }
+                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                }
+
+                if (downloadDir == null) {
+                    _error.value = "Could not access storage"
+                    _isDownloading.value = false
+                    return@launch
+                }
+
+                // Ensure download directory exists
+                if (!downloadDir.exists()) {
+                    downloadDir.mkdirs()
                 }
                 
-                // Create file
-                val file = File(downloadsDir, fileName)
+                // Create or get existing file
+                val file = File(downloadDir, fileName)
+                val existingLength = if (file.exists()) file.length() else 0L
                 
-                // Create OkHttp client
-                val client = OkHttpClient()
-                
-                // Create request
-                val request = Request.Builder()
-                    .url(downloadUrl)
+                // Create OkHttp client with longer timeouts
+                val client = OkHttpClient.Builder()
+                    .connectTimeout(30, TimeUnit.SECONDS)
+                    .readTimeout(30, TimeUnit.SECONDS)
+                    .writeTimeout(30, TimeUnit.SECONDS)
                     .build()
                 
+                // Create request with resume support
+                val requestBuilder = Request.Builder()
+                    .url(downloadUrl)
+                    .header("User-Agent", "Rhythm-App")
+                
+                // Add range header if resuming
+                if (existingLength > 0 && activeDownload != null) {
+                    requestBuilder.header("Range", "bytes=$existingLength-")
+                    requestBuilder.header("If-Match", activeDownload?.etag ?: "*")
+                    if (activeDownload?.lastModified != null) {
+                        requestBuilder.header("If-Unmodified-Since", activeDownload?.lastModified!!)
+                    }
+                }
+                
+                val request = requestBuilder.build()
+                
                 // Execute request
-                client.newCall(request).enqueue(object : Callback {
+                activeCall = client.newCall(request)
+                activeCall?.enqueue(object : Callback {
                     override fun onFailure(call: Call, e: IOException) {
                         viewModelScope.launch {
-                            _isDownloading.value = false
-                            _error.value = "Download failed: ${e.message ?: "Unknown error"}"
-                            Log.e(TAG, "Download failed", e)
+                            if (!call.isCanceled()) {
+                                _isDownloading.value = false
+                                _error.value = "Download failed: ${e.message ?: "Unknown error"}"
+                                Log.e(TAG, "Download failed", e)
+                                activeDownload = null
+                                activeCall = null
+                            }
                         }
                     }
                     
                     override fun onResponse(call: Call, response: Response) {
-                        if (!response.isSuccessful) {
+                        if (!response.isSuccessful && response.code != 206) {
                             viewModelScope.launch {
                                 _isDownloading.value = false
                                 _error.value = "Download failed: HTTP ${response.code}"
+                                activeDownload = null
+                                activeCall = null
                             }
                             return
                         }
                         
-                        // Get content length
-                        val contentLength = response.body?.contentLength() ?: -1L
-                        
                         try {
+                            // Get content length and resume info
+                            val contentLength = response.body?.contentLength() ?: -1L
+                            val totalLength = if (response.code == 206) {
+                                val range = response.header("Content-Range")
+                                range?.substringAfter("/")?.toLongOrNull() ?: contentLength
+                            } else {
+                                contentLength
+                            }
+                            
+                            // Store download state
+                            activeDownload = DownloadState(
+                                fileName = fileName,
+                                url = downloadUrl,
+                                totalBytes = totalLength,
+                                downloadedBytes = existingLength,
+                                etag = response.header("ETag"),
+                                lastModified = response.header("Last-Modified"),
+                                resumePosition = existingLength
+                            )
+                            _downloadState.value = activeDownload
+                            
                             // Create output stream
-                            val outputStream = FileOutputStream(file)
+                            val outputStream = FileOutputStream(file, existingLength > 0)
                             
                             // Get input stream
                             val inputStream = response.body?.byteStream()
@@ -466,25 +617,34 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
                                 viewModelScope.launch {
                                     _isDownloading.value = false
                                     _error.value = "Download failed: Empty response"
+                                    activeDownload = null
+                                    activeCall = null
                                 }
                                 return
                             }
                             
                             // Create buffer
-                            val buffer = ByteArray(4096)
+                            val buffer = ByteArray(8192)
                             var bytesRead: Int
-                            var totalBytesRead = 0L
+                            var totalBytesRead = existingLength
                             
                             // Read input stream
                             while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                                if (!_isDownloading.value) {
+                                    // Download was cancelled
+                                    break
+                                }
+                                
                                 outputStream.write(buffer, 0, bytesRead)
                                 totalBytesRead += bytesRead
                                 
                                 // Update progress
-                                if (contentLength > 0) {
-                                    val progress = (totalBytesRead.toFloat() / contentLength.toFloat()) * 100f
+                                if (totalLength > 0) {
+                                    val progress = (totalBytesRead.toFloat() / totalLength.toFloat()) * 100f
                                     viewModelScope.launch {
                                         _downloadProgress.value = progress
+                                        activeDownload = activeDownload?.copy(downloadedBytes = totalBytesRead)
+                                        _downloadState.value = activeDownload
                                     }
                                 }
                             }
@@ -496,16 +656,25 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
                             
                             // Download complete
                             viewModelScope.launch {
-                                _isDownloading.value = false
-                                _downloadProgress.value = 100f
-                                _downloadedFile.value = file
-                                Log.d(TAG, "Download complete: ${file.absolutePath}")
+                                if (_isDownloading.value) {
+                                    _isDownloading.value = false
+                                    _downloadProgress.value = 100f
+                                    _downloadedFile.value = file
+                                    activeDownload = null
+                                    activeCall = null
+                                    _downloadState.value = null
+                                    Log.d(TAG, "Download complete: ${file.absolutePath}")
+                                }
                             }
                         } catch (e: Exception) {
                             viewModelScope.launch {
-                                _isDownloading.value = false
-                                _error.value = "Download failed: ${e.message ?: "Unknown error"}"
-                                Log.e(TAG, "Download failed", e)
+                                if (_isDownloading.value) {
+                                    _isDownloading.value = false
+                                    _error.value = "Download failed: ${e.message ?: "Unknown error"}"
+                                    Log.e(TAG, "Download failed", e)
+                                    // Keep download state for potential resume
+                                    activeCall = null
+                                }
                             }
                         }
                     }
@@ -514,6 +683,9 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
                 _isDownloading.value = false
                 _error.value = "Download failed: ${e.message ?: "Unknown error"}"
                 Log.e(TAG, "Download failed", e)
+                activeDownload = null
+                activeCall = null
+                _downloadState.value = null
             }
         }
     }
@@ -543,13 +715,20 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
     }
     
     /**
-     * Cancel the download in progress
+     * Cancel the current download
      */
     fun cancelDownload() {
-        if (_isDownloading.value) {
-            _isDownloading.value = false
-            _downloadProgress.value = 0f
-            _error.value = null
-        }
+        activeCall?.cancel()
+        activeCall = null
+        activeDownload = null
+        _isDownloading.value = false
+        _downloadProgress.value = 0f
+        _downloadState.value = null
+        _error.value = null
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        cancelDownload()
     }
 } 
