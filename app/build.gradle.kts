@@ -11,10 +11,10 @@ android {
 
     defaultConfig {
         applicationId = "chromahub.rhythm.app"
-        minSdk = 31
-        targetSdk = 35
-        versionCode = 1060001
-        versionName = "1.6.100.2"
+        minSdk = 26
+        targetSdk = 34
+        versionCode = 1080153
+        versionName = "1.8.100.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

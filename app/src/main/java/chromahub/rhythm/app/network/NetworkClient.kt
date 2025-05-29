@@ -17,124 +17,77 @@ import kotlin.math.pow
 object NetworkClient {
     private const val TAG = "NetworkClient"
     
-    // Using a valid public API key for Last.fm
-    private const val LAST_FM_API_KEY = "e5c0eaf8688d9a576e72ea5e01a23c9e"
-    private const val BASE_URL = "https://ws.audioscrobbler.com/2.0/"
-    private const val LYRICS_BASE_URL = "https://api.lyrics.ovh/v1/"
+    private const val SPOTIFY_API_KEY = "2a8ab63d21msh09369018bb55e19p1cf51ejsne04ad1f7743b"
+    private const val SPOTIFY_BASE_URL = "https://spotify23.p.rapidapi.com/"
     
-    // Configurable timeouts
-    private const val CONNECT_TIMEOUT_SECONDS = 20L
-    private const val READ_TIMEOUT_SECONDS = 30L
-    private const val WRITE_TIMEOUT_SECONDS = 20L
+    // Connection timeouts
+    private const val CONNECT_TIMEOUT = 30L
+    private const val READ_TIMEOUT = 30L
+    private const val WRITE_TIMEOUT = 30L
     private const val MAX_RETRIES = 3
     
-    // Connection pool configuration
-    private const val MAX_IDLE_CONNECTIONS = 5
-    private const val KEEP_ALIVE_DURATION_MINUTES = 5L
+    private val connectionPool = ConnectionPool(5, 30, TimeUnit.SECONDS)
     
-    private val loggingInterceptor = HttpLoggingInterceptor().apply {
-        level = HttpLoggingInterceptor.Level.BASIC
+    private val loggingInterceptor = HttpLoggingInterceptor { message ->
+        Log.d(TAG, message)
+    }.apply {
+        level = HttpLoggingInterceptor.Level.BODY
     }
     
-    // Custom retry interceptor
-    private val retryInterceptor = object : Interceptor {
-        override fun intercept(chain: Interceptor.Chain): Response {
-            val request = chain.request()
-            var response: Response? = null
-            var exception: IOException? = null
-            var retryCount = 0
-            
-            while (response == null && retryCount < MAX_RETRIES) {
-                if (retryCount > 0) {
-                    Log.d(TAG, "Retrying request (attempt ${retryCount + 1}): ${request.url}")
-                    // Exponential backoff
-                    val backoffMs = (2.0.pow(retryCount.toDouble()) * 1000).toLong()
-                    Thread.sleep(backoffMs)
-                }
-                
-                try {
-                    response = chain.proceed(request)
-                    
-                    // If response is server error (5xx), retry
-                    if (response.code >= 500 && retryCount < MAX_RETRIES - 1) {
-                        Log.w(TAG, "Server error ${response.code}, retrying: ${request.url}")
-                        response.close()
-                        response = null
-                    }
-                } catch (e: IOException) {
-                    exception = e
-                    when (e) {
-                        is SocketTimeoutException -> {
-                            Log.w(TAG, "Timeout, retrying: ${request.url}", e)
-                        }
-                        is UnknownHostException -> {
-                            Log.e(TAG, "Unknown host, retrying: ${request.url}", e)
-                        }
-                        else -> {
-                            Log.e(TAG, "Network error, retrying: ${request.url}", e)
-                        }
-                    }
-                }
-                
-                retryCount++
-            }
-            
-            // If we exhausted retries and still have no response, throw the last exception
-            return response ?: throw exception ?: IOException("Unknown error during request")
-        }
-    }
-    
-    private val connectionPool = ConnectionPool(
-        MAX_IDLE_CONNECTIONS,
-        KEEP_ALIVE_DURATION_MINUTES,
-        TimeUnit.MINUTES
-    )
-    
-    private val okHttpClient = OkHttpClient.Builder()
-        .connectTimeout(CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-        .readTimeout(READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-        .writeTimeout(WRITE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-        .connectionPool(connectionPool)
-        .addInterceptor(loggingInterceptor)
-        .addInterceptor(retryInterceptor)
-        .retryOnConnectionFailure(true)
-        .addInterceptor { chain ->
+    private val retryInterceptor = Interceptor { chain ->
+        var currentRetry = 0
+        var response: Response? = null
+        var exception: IOException? = null
+        
+        while (currentRetry < MAX_RETRIES) {
             try {
-                val request = chain.request()
-                val response = chain.proceed(request)
+                Log.d(TAG, "Attempting request (attempt ${currentRetry + 1}/${MAX_RETRIES}): ${chain.request().url}")
+                response = chain.proceed(chain.request())
                 
-                // Log failed responses
-                if (!response.isSuccessful) {
-                    Log.e(TAG, "API Error: ${response.code} for ${request.url}")
+                if (response.isSuccessful) {
+                    Log.d(TAG, "Request successful: ${chain.request().url}")
+                    return@Interceptor response
+                } else {
+                    Log.w(TAG, "Request failed with code ${response.code}: ${chain.request().url}")
+                    response.close()
                 }
+            } catch (e: IOException) {
+                exception = e
+                Log.e(TAG, "Request error (attempt ${currentRetry + 1}): ${e.message}")
                 
-                response
-            } catch (e: Exception) {
-                Log.e(TAG, "Network error: ${e.message}", e)
+                if (e is SocketTimeoutException || e is UnknownHostException) {
+                    currentRetry++
+                    if (currentRetry < MAX_RETRIES) {
+                        val backoffDelay = (2.0.pow(currentRetry.toDouble()) * 1000).toLong()
+                        Log.d(TAG, "Retrying after ${backoffDelay}ms delay")
+                        Thread.sleep(backoffDelay)
+                        continue
+                    }
+                }
                 throw e
             }
+            currentRetry++
         }
+        
+        throw exception ?: IOException("Request failed after $MAX_RETRIES retries")
+    }
+    
+    private val spotifyHttpClient = OkHttpClient.Builder()
+        .addInterceptor(loggingInterceptor)
+        .addInterceptor(retryInterceptor)
+        .connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)
+        .readTimeout(READ_TIMEOUT, TimeUnit.SECONDS)
+        .writeTimeout(WRITE_TIMEOUT, TimeUnit.SECONDS)
+        .connectionPool(connectionPool)
         .build()
     
-    private val retrofit = Retrofit.Builder()
-        .baseUrl(BASE_URL)
-        .client(okHttpClient)
+    private val spotifyRetrofit = Retrofit.Builder()
+        .baseUrl(SPOTIFY_BASE_URL)
+        .client(spotifyHttpClient)
         .addConverterFactory(GsonConverterFactory.create())
         .build()
     
-    private val lyricsRetrofit = Retrofit.Builder()
-        .baseUrl(LYRICS_BASE_URL)
-        .client(okHttpClient)
-        .addConverterFactory(GsonConverterFactory.create())
-        .build()
+    val spotifyApiService: SpotifyApiService = spotifyRetrofit.create(SpotifyApiService::class.java)
     
-    val lastFmApiService: LastFmApiService by lazy {
-        retrofit.create(LastFmApiService::class.java)
-    }
-    
-    val lyricsApiService: LyricsApiService by lazy {
-        lyricsRetrofit.create(LyricsApiService::class.java)
-    }
-    
-    fun getLastFmApiKey(): String = LAST_FM_API_KEY
+    fun getSpotifyApiKey(): String = SPOTIFY_API_KEY
 } 

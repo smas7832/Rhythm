@@ -10,12 +10,13 @@ import chromahub.rhythm.app.network.NetworkClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.net.URL
 
 class MusicRepository(private val context: Context) {
     private val TAG = "MusicRepository"
-    private val lastFmApiService = NetworkClient.lastFmApiService
-    private val lyricsApiService = NetworkClient.lyricsApiService
-    private val apiKey = NetworkClient.getLastFmApiKey()
+    private val spotifyApiService = NetworkClient.spotifyApiService
+    private val apiKey = NetworkClient.getSpotifyApiKey()
 
     // Cache for artist images to avoid redundant API calls
     private val artistImageCache = mutableMapOf<String, Uri?>()
@@ -157,6 +158,9 @@ class MusicRepository(private val context: Context) {
         albums
     }
 
+    /**
+     * Loads artists from device storage with enhanced metadata extraction
+     */
     suspend fun loadArtists(): List<Artist> = withContext(Dispatchers.IO) {
         val artists = mutableListOf<Artist>()
         val collection = MediaStore.Audio.Artists.EXTERNAL_CONTENT_URI
@@ -168,26 +172,39 @@ class MusicRepository(private val context: Context) {
             MediaStore.Audio.Artists.NUMBER_OF_TRACKS
         )
 
+        val selection = "${MediaStore.Audio.Artists.ARTIST} != ''"
         val sortOrder = "${MediaStore.Audio.Artists.ARTIST} ASC"
 
         context.contentResolver.query(
             collection,
             projection,
-            null,
+            selection,
             null,
             sortOrder
         )?.use { cursor ->
             // Cache column indices
             val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Artists._ID)
             val artistColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Artists.ARTIST)
+            val albumsColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Artists.NUMBER_OF_ALBUMS)
+            val tracksColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Artists.NUMBER_OF_TRACKS)
 
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(idColumn)
-                val name = cursor.getString(artistColumn)
+                var name = cursor.getString(artistColumn)
+                val numAlbums = cursor.getInt(albumsColumn)
+                val numTracks = cursor.getInt(tracksColumn)
+
+                // Clean up artist name
+                if (name.isNullOrBlank() || name.equals("<unknown>", ignoreCase = true)) {
+                    // Try to find a better name from the artist's tracks
+                    name = findBetterArtistName(id.toString()) ?: "Unknown Artist"
+                }
 
                 val artist = Artist(
                     id = id.toString(),
-                    name = name
+                    name = name,
+                    numberOfAlbums = numAlbums,
+                    numberOfTracks = numTracks
                 )
                 artists.add(artist)
             }
@@ -197,88 +214,139 @@ class MusicRepository(private val context: Context) {
     }
 
     /**
-     * Fetches artist images from LastFm API for artists without images
+     * Tries to find a better artist name from their tracks
+     */
+    private suspend fun findBetterArtistName(artistId: String): String? = withContext(Dispatchers.IO) {
+        val uri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+        val selection = "${MediaStore.Audio.Media.ARTIST_ID} = ?"
+        val selectionArgs = arrayOf(artistId)
+
+        context.contentResolver.query(
+            uri,
+            arrayOf(MediaStore.Audio.Media.ARTIST),
+            selection,
+            selectionArgs,
+            null
+        )?.use { cursor ->
+            val artistColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
+            val artists = mutableSetOf<String>()
+
+            while (cursor.moveToNext()) {
+                val artist = cursor.getString(artistColumn)
+                if (!artist.isNullOrBlank() && !artist.equals("<unknown>", ignoreCase = true)) {
+                    artists.add(artist)
+                }
+            }
+
+            // Return the most common non-blank artist name
+            artists.maxByOrNull { name -> 
+                cursor.moveToFirst()
+                var count = 0
+                while (cursor.moveToNext()) {
+                    if (cursor.getString(artistColumn) == name) count++
+                }
+                count
+            }
+        }
+    }
+
+    /**
+     * Fetches artist images from Spotify API for artists without images
      */
     suspend fun fetchArtistImages(artists: List<Artist>): List<Artist> = withContext(Dispatchers.IO) {
         val updatedArtists = mutableListOf<Artist>()
-        
+    
         // Check if API key is properly set
-        if (apiKey == "YOUR_API_KEY_HERE") {
-            Log.w(TAG, "Last.fm API key not set. Skipping artist image fetching.")
+        if (apiKey.isBlank()) {
+            Log.w(TAG, "Spotify API key not set. Skipping artist image fetching.")
             return@withContext artists
         }
         
         for (artist in artists) {
-            if (artist.artworkUri != null) {
-                updatedArtists.add(artist)
-                continue
-            }
-            
-            // Check cache first
-            val cachedUri = artistImageCache[artist.name]
-            if (cachedUri != null) {
-                updatedArtists.add(artist.copy(artworkUri = cachedUri))
-                continue
-            }
-            
             try {
-                // Skip artists with empty or "Unknown" names
-                if (artist.name.isBlank() || artist.name.equals("Unknown", ignoreCase = true)) {
+                Log.d(TAG, "Processing artist: ${artist.name}")
+                
+                if (artist.artworkUri != null) {
+                    Log.d(TAG, "Artist ${artist.name} already has artwork: ${artist.artworkUri}")
                     updatedArtists.add(artist)
                     continue
                 }
                 
-                // Generate a custom placeholder image based on artist name
+                // Check cache first
+                val cachedUri = artistImageCache[artist.name]
+                if (cachedUri != null) {
+                    Log.d(TAG, "Using cached image for artist: ${artist.name}")
+                    updatedArtists.add(artist.copy(artworkUri = cachedUri))
+                    continue
+                }
+
+                // Check local storage for artist image
+                val localImage = findLocalArtistImage(artist.name)
+                if (localImage != null) {
+                    Log.d(TAG, "Using local image for artist: ${artist.name}")
+                    artistImageCache[artist.name] = localImage
+                    updatedArtists.add(artist.copy(artworkUri = localImage))
+                    continue
+                }
+                
+                // Skip artists with empty or "Unknown" names
+                if (artist.name.isBlank() || artist.name.equals("Unknown Artist", ignoreCase = true)) {
+                    Log.d(TAG, "Skipping unknown/blank artist name")
+                    val placeholderUri = chromahub.rhythm.app.util.ImageUtils.generatePlaceholderImage(
+                        name = "Unknown Artist",
+                        size = 500,
+                        cacheDir = context.cacheDir
+                    )
+                    artistImageCache[artist.name] = placeholderUri
+                    updatedArtists.add(artist.copy(artworkUri = placeholderUri))
+                    continue
+                }
+                
+                // Only try online fetch if network is available
+                if (isNetworkAvailable()) {
+                    Log.d(TAG, "Searching for artist on Spotify: ${artist.name}")
+                    
+                    val searchResponse = spotifyApiService.searchArtists(artist.name)
+                    val spotifyArtist = searchResponse.artists.items.firstOrNull()
+                    
+                    if (spotifyArtist != null) {
+                        Log.d(TAG, "Found Spotify artist: ${spotifyArtist.data.profile.name}")
+                        
+                        val avatarImage = spotifyArtist.data.visuals.avatarImage
+                        if (avatarImage != null && avatarImage.sources.isNotEmpty()) {
+                            // Find the largest available image
+                            val largeImage = avatarImage.sources.maxByOrNull { it.width ?: 0 }
+                            
+                            if (largeImage != null && largeImage.url.isNotEmpty()) {
+                                val imageUri = Uri.parse(largeImage.url)
+                                Log.d(TAG, "Found image URL for ${artist.name}: ${largeImage.url}")
+                                
+                                artistImageCache[artist.name] = imageUri
+                                saveLocalArtistImage(artist.name, imageUri.toString())
+                                
+                                updatedArtists.add(artist.copy(artworkUri = imageUri))
+                                continue
+                            }
+                        }
+                    } else {
+                        Log.d(TAG, "No Spotify artist found for: ${artist.name}")
+                    }
+                } else {
+                    Log.d(TAG, "No network connection available")
+                }
+                
+                // If we get here, generate a placeholder image
+                Log.d(TAG, "Generating placeholder for artist: ${artist.name}")
                 val placeholderUri = chromahub.rhythm.app.util.ImageUtils.generatePlaceholderImage(
                     name = artist.name,
                     size = 500,
                     cacheDir = context.cacheDir
                 )
+                artistImageCache[artist.name] = placeholderUri
+                updatedArtists.add(artist.copy(artworkUri = placeholderUri))
                 
-                // Add delay to avoid rate limiting
-                delay(500)
-                
-                Log.d(TAG, "Fetching image for artist: ${artist.name}")
-                val response = lastFmApiService.getArtistInfo(artist.name, apiKey)
-                
-                // Check if artist info is not null and has images
-                if (response.artist != null && response.artist.image != null) {
-                    // Find the largest available image
-                    val largeImage = response.artist.image.find { it.size == "extralarge" } 
-                        ?: response.artist.image.find { it.size == "large" }
-                        ?: response.artist.image.maxByOrNull { 
-                            when (it.size) {
-                                "small" -> 1
-                                "medium" -> 2
-                                "large" -> 3
-                                "extralarge" -> 4
-                                else -> 0
-                            }
-                        }
-                    
-                    // Validate the image URL
-                    if (largeImage != null && largeImage.url.isNotEmpty() && 
-                        !largeImage.url.contains("2a96cbd8b46e442fc41c2b86b821562f") && // Default LastFM placeholder
-                        largeImage.url.startsWith("http")) {
-                        
-                        val imageUri = Uri.parse(largeImage.url)
-                        artistImageCache[artist.name] = imageUri
-                        updatedArtists.add(artist.copy(artworkUri = imageUri))
-                        Log.d(TAG, "Found valid image for artist: ${artist.name}, URL: ${largeImage.url}")
-                    } else {
-                        // Use our generated placeholder instead
-                        Log.d(TAG, "LastFM returned invalid image for artist: ${artist.name}, using generated placeholder")
-                        artistImageCache[artist.name] = placeholderUri
-                        updatedArtists.add(artist.copy(artworkUri = placeholderUri))
-                    }
-                } else {
-                    Log.d(TAG, "No artist info or images returned for: ${artist.name}, using generated placeholder")
-                    artistImageCache[artist.name] = placeholderUri
-                    updatedArtists.add(artist.copy(artworkUri = placeholderUri))
-                }
             } catch (e: Exception) {
                 Log.e(TAG, "Error fetching artist image for ${artist.name}", e)
-                // Try to use a generated placeholder
                 try {
                     val placeholderUri = chromahub.rhythm.app.util.ImageUtils.generatePlaceholderImage(
                         name = artist.name,
@@ -287,7 +355,7 @@ class MusicRepository(private val context: Context) {
                     )
                     updatedArtists.add(artist.copy(artworkUri = placeholderUri))
                 } catch (e2: Exception) {
-                    // If even placeholder generation fails, keep the original artist without changes
+                    Log.e(TAG, "Error generating placeholder for ${artist.name}", e2)
                     updatedArtists.add(artist)
                 }
             }
@@ -295,16 +363,132 @@ class MusicRepository(private val context: Context) {
         
         updatedArtists
     }
-    
+
     /**
-     * Fetches album art from LastFm API for albums without artwork
+     * Fetches lyrics for a song using Spotify RapidAPI
+     */
+    suspend fun fetchLyrics(artist: String, title: String): String? = withContext(Dispatchers.IO) {
+        if (artist.isBlank() || title.isBlank()) {
+            Log.d(TAG, "Cannot fetch lyrics: artist or title is blank")
+            return@withContext "No lyrics available for this song"
+        }
+        
+        val cacheKey = "$artist:$title".lowercase()
+        Log.d(TAG, "Fetching lyrics for: $artist - $title")
+        
+        // Check cache first
+        lyricsCache[cacheKey]?.let { 
+            Log.d(TAG, "Using cached lyrics for $artist - $title")
+            return@withContext it 
+        }
+        
+        // Try to find local lyrics file
+        val localLyrics = findLocalLyrics(artist, title)
+        if (localLyrics != null) {
+            Log.d(TAG, "Using local lyrics for $artist - $title")
+            lyricsCache[cacheKey] = localLyrics
+            return@withContext localLyrics
+        }
+        
+        // Check network connectivity
+        if (!isNetworkAvailable()) {
+            Log.d(TAG, "Network unavailable for lyrics fetch")
+            return@withContext "Lyrics not available offline.\nConnect to the internet to view lyrics."
+        }
+        
+        try {
+            Log.d(TAG, "Fetching lyrics online for $artist - $title")
+            
+            // Clean up artist and title for better matching
+            val cleanArtist = artist.trim().replace(Regex("\\(.*?\\)"), "").trim()
+            val cleanTitle = title.trim().replace(Regex("\\(.*?\\)"), "").trim()
+            
+            // Search for the track on Spotify
+            val searchQuery = "$cleanTitle $cleanArtist"
+            Log.d(TAG, "Searching for track: $searchQuery")
+            
+            val searchResponse = spotifyApiService.searchTracks(searchQuery)
+            val track = searchResponse.tracks.items.firstOrNull()
+            
+            if (track != null) {
+                Log.d(TAG, "Found Spotify track: ${track.data.name} (${track.data.id})")
+                
+                // Get lyrics using track ID
+                val lyricsResponse = spotifyApiService.getTrackLyrics(track.data.id)
+                
+                if (lyricsResponse.lyrics.lines.isNotEmpty()) {
+                    // Convert lyrics lines to text
+                    val lyricsText = lyricsResponse.lyrics.lines
+                        .joinToString("\n") { it.words }
+                    
+                    Log.d(TAG, "Found lyrics with ${lyricsResponse.lyrics.lines.size} lines")
+                    
+                    // Cache the result
+                    lyricsCache[cacheKey] = lyricsText
+                    
+                    // Save lyrics locally
+                    saveLocalLyrics(artist, title, lyricsText)
+                    
+                    return@withContext lyricsText
+                } else {
+                    Log.d(TAG, "No lyrics lines found in response")
+                }
+            } else {
+                Log.d(TAG, "No track found for: $searchQuery")
+            }
+            
+            Log.d(TAG, "No lyrics found for $artist - $title")
+            return@withContext "No lyrics found for this song"
+        } catch (e: Exception) {
+            Log.e(TAG, "Error fetching lyrics for $artist - $title: ${e.message}", e)
+            return@withContext "Error loading lyrics"
+        }
+    }
+
+    /**
+     * Finds local lyrics file in app's files directory
+     */
+    private fun findLocalLyrics(artist: String, title: String): String? {
+        val fileName = "${artist}_${title}.txt".replace(Regex("[^a-zA-Z0-9._-]"), "_")
+        val file = File(context.filesDir, "lyrics/$fileName")
+        return try {
+            if (file.exists()) {
+                file.readText()
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error reading local lyrics file: ${e.message}", e)
+            null
+        }
+    }
+
+    /**
+     * Saves lyrics to a local file
+     */
+    private fun saveLocalLyrics(artist: String, title: String, lyrics: String) {
+        try {
+            val fileName = "${artist}_${title}.txt".replace(Regex("[^a-zA-Z0-9._-]"), "_")
+            val lyricsDir = File(context.filesDir, "lyrics")
+            lyricsDir.mkdirs()
+            
+            val file = File(lyricsDir, fileName)
+            file.writeText(lyrics)
+            Log.d(TAG, "Saved lyrics to local file: ${file.absolutePath}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving lyrics to local file: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Fetches album art from Spotify API for albums without artwork
      */
     suspend fun fetchAlbumArtwork(albums: List<Album>): List<Album> = withContext(Dispatchers.IO) {
         val updatedAlbums = mutableListOf<Album>()
         
         // Check if API key is properly set
-        if (apiKey == "YOUR_API_KEY_HERE") {
-            Log.w(TAG, "Last.fm API key not set. Skipping album artwork fetching.")
+        if (apiKey.isBlank()) {
+            Log.w(TAG, "Spotify API key not set. Skipping album artwork fetching.")
             return@withContext albums
         }
         
@@ -330,11 +514,11 @@ class MusicRepository(private val context: Context) {
                         updatedAlbums.add(album)
                         continue
                     } else {
-                        // Artwork doesn't exist or can't be accessed, will fetch from Last.fm
+                        // Artwork doesn't exist or can't be accessed, will fetch from Spotify
                         Log.d(TAG, "Album artwork URI exists but content is null for ${album.title}: ${album.artworkUri}")
                     }
                 } else {
-                    // Album already has non-content:// artwork (e.g., from Last.fm)
+                    // Album already has non-content:// artwork (e.g., from Spotify)
                     updatedAlbums.add(album)
                     continue
                 }
@@ -367,44 +551,34 @@ class MusicRepository(private val context: Context) {
                 // Add delay to avoid rate limiting
                 delay(500)
                 
-                Log.d(TAG, "Fetching artwork for album: ${album.title} by ${album.artist}")
-                val response = lastFmApiService.getAlbumInfo(album.artist, album.title, apiKey)
+                Log.d(TAG, "Searching for album: ${album.title} by ${album.artist}")
                 
-                // Check if album info is not null and has images
-                if (response.album != null && response.album.image != null) {
-                    // Find the largest available image
-                    val largeImage = response.album.image.find { it.size == "extralarge" } 
-                        ?: response.album.image.find { it.size == "large" }
-                        ?: response.album.image.maxByOrNull { 
-                            when (it.size) {
-                                "small" -> 1
-                                "medium" -> 2
-                                "large" -> 3
-                                "extralarge" -> 4
-                                else -> 0
-                            }
-                        }
-                    
-                    // Validate the image URL
-                    if (largeImage != null && largeImage.url.isNotEmpty() && 
-                        !largeImage.url.contains("2a96cbd8b46e442fc41c2b86b821562f") && // Default LastFM placeholder
-                        largeImage.url.startsWith("http")) {
+                // Search for the album on Spotify
+                val searchResponse = spotifyApiService.searchTracks("${album.title} ${album.artist}")
+                val track = searchResponse.tracks.items.firstOrNull()
+                
+                if (track != null && track.data.album.coverArt != null) {
+                    val coverArt = track.data.album.coverArt
+                    if (coverArt.sources.isNotEmpty()) {
+                        // Find the largest available image
+                        val largeImage = coverArt.sources.maxByOrNull { it.width ?: 0 }
                         
-                        val imageUri = Uri.parse(largeImage.url)
-                        albumImageCache[cacheKey] = imageUri
-                        updatedAlbums.add(album.copy(artworkUri = imageUri))
-                        Log.d(TAG, "Found valid artwork for album: ${album.title}, URL: ${largeImage.url}")
-                    } else {
-                        // Use our generated placeholder instead
-                        Log.d(TAG, "LastFM returned invalid image for album: ${album.title}, using generated placeholder")
-                        albumImageCache[cacheKey] = placeholderUri
-                        updatedAlbums.add(album.copy(artworkUri = placeholderUri))
+                        // Validate the image URL
+                        if (largeImage != null && largeImage.url.isNotEmpty() && largeImage.url.startsWith("http")) {
+                            val imageUri = Uri.parse(largeImage.url)
+                            albumImageCache[cacheKey] = imageUri
+                            updatedAlbums.add(album.copy(artworkUri = imageUri))
+                            Log.d(TAG, "Found valid artwork for album: ${album.title}, URL: ${largeImage.url}")
+                            continue
+                        }
                     }
-                } else {
-                    Log.d(TAG, "No album info or images returned for: ${album.title}, using generated placeholder")
-                    albumImageCache[cacheKey] = placeholderUri
-                    updatedAlbums.add(album.copy(artworkUri = placeholderUri))
                 }
+                
+                // If we get here, either no album was found or no valid image was found
+                Log.d(TAG, "No valid Spotify image found for album: ${album.title}, using generated placeholder")
+                albumImageCache[cacheKey] = placeholderUri
+                updatedAlbums.add(album.copy(artworkUri = placeholderUri))
+                
             } catch (e: Exception) {
                 Log.e(TAG, "Error fetching album artwork for ${album.title}", e)
                 // Try to use a generated placeholder
@@ -552,85 +726,6 @@ class MusicRepository(private val context: Context) {
     }
 
     /**
-     * Fetches lyrics for a song from an online API
-     * @return The lyrics as a String, or null if not found or error occurred
-     */
-    suspend fun fetchLyrics(artist: String, title: String): String? = withContext(Dispatchers.IO) {
-        if (artist.isBlank() || title.isBlank()) {
-            Log.d(TAG, "Cannot fetch lyrics: artist or title is blank")
-            return@withContext null
-        }
-        
-        val cacheKey = "$artist:$title".lowercase()
-        
-        // Check cache first
-        lyricsCache[cacheKey]?.let { 
-            Log.d(TAG, "Using cached lyrics for $artist - $title")
-            return@withContext it 
-        }
-        
-        // Check network connectivity
-        if (!isNetworkAvailable()) {
-            Log.d(TAG, "Network unavailable for lyrics fetch")
-            return@withContext null
-        }
-        
-        try {
-            Log.d(TAG, "Fetching lyrics for $artist - $title")
-            
-            // Clean up artist and title for better matching
-            val cleanArtist = artist.trim().replace(Regex("\\(.*?\\)"), "").trim()
-            val cleanTitle = title.trim().replace(Regex("\\(.*?\\)"), "").trim()
-            
-            // Try with primary artist/title
-            val response = try {
-                lyricsApiService.getLyrics(cleanArtist, cleanTitle)
-            } catch (e: Exception) {
-                Log.e(TAG, "Error in primary lyrics request: ${e.message}", e)
-                null
-            }
-            
-            if (response != null && response.isSuccessful && !response.lyrics.isNullOrBlank()) {
-                Log.d(TAG, "Lyrics found for $artist - $title")
-                
-                // Cache the result
-                lyricsCache[cacheKey] = response.lyrics
-                return@withContext response.lyrics
-            }
-            
-            // Try with additional fallback cleanups
-            val fallbackArtist = cleanArtist.split(" feat.").first().trim()
-            val fallbackTitle = cleanTitle.split(" - ").first().trim()
-            
-            if (fallbackArtist != cleanArtist || fallbackTitle != cleanTitle) {
-                Log.d(TAG, "Trying fallback lyrics search for $fallbackArtist - $fallbackTitle")
-                
-                val fallbackResponse = try {
-                    lyricsApiService.getLyrics(fallbackArtist, fallbackTitle)
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error in fallback lyrics request: ${e.message}", e)
-                    null
-                }
-                
-                if (fallbackResponse != null && fallbackResponse.isSuccessful && 
-                    !fallbackResponse.lyrics.isNullOrBlank()) {
-                    Log.d(TAG, "Fallback lyrics found for $artist - $title")
-                    
-                    // Cache the result
-                    lyricsCache[cacheKey] = fallbackResponse.lyrics
-                    return@withContext fallbackResponse.lyrics
-                }
-            }
-            
-            Log.d(TAG, "No lyrics found for $artist - $title")
-            return@withContext null
-        } catch (e: Exception) {
-            Log.e(TAG, "Error fetching lyrics for $artist - $title: ${e.message}", e)
-            return@withContext null
-        }
-    }
-
-    /**
      * Checks if the device is currently connected to the internet
      */
     fun isNetworkAvailable(): Boolean {
@@ -646,6 +741,36 @@ class MusicRepository(private val context: Context) {
             val networkInfo = connectivityManager.activeNetworkInfo ?: return false
             @Suppress("DEPRECATION")
             return networkInfo.isConnected
+        }
+    }
+
+    /**
+     * Finds locally stored artist image
+     */
+    private fun findLocalArtistImage(artistName: String): Uri? {
+        val fileName = "${artistName}.jpg".replace(Regex("[^a-zA-Z0-9._-]"), "_")
+        val file = File(context.filesDir, "artist_images/$fileName")
+        return if (file.exists()) Uri.fromFile(file) else null
+    }
+
+    /**
+     * Saves artist image to local storage
+     */
+    private fun saveLocalArtistImage(artistName: String, imageUrl: String) {
+        try {
+            val fileName = "${artistName}.jpg".replace(Regex("[^a-zA-Z0-9._-]"), "_")
+            val imageDir = File(context.filesDir, "artist_images")
+            imageDir.mkdirs()
+            
+            val file = File(imageDir, fileName)
+            URL(imageUrl).openStream().use { input ->
+                file.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+            Log.d(TAG, "Saved artist image to local file: ${file.absolutePath}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving artist image to local file: ${e.message}", e)
         }
     }
 } 

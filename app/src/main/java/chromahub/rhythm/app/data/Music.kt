@@ -35,7 +35,9 @@ data class Artist(
     val name: String,
     val artworkUri: Uri? = null,
     val albums: List<Album> = emptyList(),
-    val songs: List<Song> = emptyList()
+    val songs: List<Song> = emptyList(),
+    val numberOfAlbums: Int = 0,
+    val numberOfTracks: Int = 0
 ) : Parcelable
 
 @Parcelize

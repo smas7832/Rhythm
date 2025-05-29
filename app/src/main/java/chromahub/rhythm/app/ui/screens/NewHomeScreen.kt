@@ -56,6 +56,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.surfaceColorAtElevation
+import androidx.compose.material3.SheetState
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -129,14 +131,28 @@ fun NewHomeScreen(
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val scope = rememberCoroutineScope()
     
+    // State for artist bottom sheet
+    var showArtistSheet by remember { mutableStateOf(false) }
+    var selectedArtist by remember { mutableStateOf<Artist?>(null) }
+    val artistSheetState = rememberModalBottomSheetState()
+    
     // Select featured content randomly from all albums
-    // Use remember with albums as key to recompute when albums change
     val featuredContent = remember(albums) {
         if (albums.size <= 5) {
             albums
         } else {
             albums.shuffled().take(5)
         }
+    }
+    
+    // Get all unique artists from songs
+    val availableArtists = remember(songs, artists) {
+        songs.map { it.artist }
+            .distinct()
+            .mapNotNull { artistName ->
+                artists.find { it.name == artistName }
+            }
+            .sortedBy { it.name } // Sort alphabetically for better navigation
     }
     
     val quickPicks = songs.take(6)
@@ -158,6 +174,24 @@ fun NewHomeScreen(
     val energeticSongs = songs.take(10).shuffled()
     val relaxingSongs = songs.drop(10).take(10).shuffled()
     
+    if (showArtistSheet && selectedArtist != null) {
+        ArtistBottomSheet(
+            artist = selectedArtist!!,
+            songs = songs,
+            albums = albums,
+            onDismiss = { showArtistSheet = false },
+            onSongClick = { song ->
+                showArtistSheet = false
+                onSongClick(song)
+            },
+            onAlbumClick = { album ->
+                showArtistSheet = false
+                onAlbumClick(album)
+            },
+            sheetState = artistSheetState
+        )
+    }
+
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
@@ -236,7 +270,10 @@ fun NewHomeScreen(
             relaxingSongs = relaxingSongs,
             onSongClick = onSongClick,
             onAlbumClick = onAlbumClick,
-            onArtistClick = onArtistClick,
+            onArtistClick = { artist ->
+                selectedArtist = artist
+                showArtistSheet = true
+            },
             onViewAllSongs = onViewAllSongs,
             onViewAllAlbums = onViewAllAlbums,
             onViewAllArtists = onViewAllArtists,
@@ -280,6 +317,16 @@ private fun EnhancedScrollableContent(
     val scrollState = rememberScrollState()
     val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
     val allSongs by viewModel.songs.collectAsState()
+    
+    // Get all unique artists from songs
+    val availableArtists = remember(allSongs, topArtists) {
+        allSongs.map { it.artist }
+            .distinct()
+            .mapNotNull { artistName ->
+                topArtists.find { it.name == artistName }
+            }
+            .sortedBy { it.name } // Sort alphabetically for better navigation
+    }
     
     // Get current year for New Releases section
     val currentYear = Calendar.getInstance().get(Calendar.YEAR)
@@ -471,30 +518,10 @@ private fun EnhancedScrollableContent(
                 )
             }
             
-            // Recommended For You Section with stable recommendations that don't change during playback
-            val stableRecommendations = remember(quickPicks) {
-                // Use a fixed seed for the random shuffle to ensure stability
-                val random = Random(42)
-                quickPicks.shuffled(random).take(4)
-            }
-            
-            RecommendedForYouSection(
-                songs = stableRecommendations,
-                onSongClick = onSongClick
-            )
-            
-            // Mood-based playlists section with better playlists
-            MoodBasedPlaylistsSection(
-                moodBasedSongs = betterMoodBasedSongs.first,
-                energeticSongs = betterMoodBasedSongs.second,
-                relaxingSongs = betterMoodBasedSongs.third,
-                onSongClick = onSongClick
-            )
-            
-            // Top Artists Section with improved design
-            if (topArtists.isNotEmpty()) {
+            // Artists Section with improved design
+            if (availableArtists.isNotEmpty()) {
                 SectionTitle(
-                    title = "Top Artists",
+                    title = "Artists",
                     viewAllAction = onViewAllArtists
                 )
                 
@@ -502,7 +529,10 @@ private fun EnhancedScrollableContent(
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    items(topArtists) { artist ->
+                    items(
+                        items = availableArtists,
+                        key = { it.name }
+                    ) { artist ->
                         NewArtistCard(
                             artist = artist,
                             onClick = { onArtistClick(artist) }
@@ -530,6 +560,26 @@ private fun EnhancedScrollableContent(
                     }
                 }
             }
+            
+            // Mood-based playlists section with better playlists
+            MoodBasedPlaylistsSection(
+                moodBasedSongs = betterMoodBasedSongs.first,
+                energeticSongs = betterMoodBasedSongs.second,
+                relaxingSongs = betterMoodBasedSongs.third,
+                onSongClick = onSongClick
+            )
+            
+            // Recommended For You Section with stable recommendations that don't change during playback
+            val stableRecommendations = remember(quickPicks) {
+                // Use a fixed seed for the random shuffle to ensure stability
+                val random = Random(42)
+                quickPicks.shuffled(random).take(4)
+            }
+            
+            RecommendedForYouSection(
+                songs = stableRecommendations,
+                onSongClick = onSongClick
+            )
             
             // Bottom spacer
             Spacer(modifier = Modifier.height(16.dp))
