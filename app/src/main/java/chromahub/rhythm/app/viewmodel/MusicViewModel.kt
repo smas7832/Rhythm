@@ -187,38 +187,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         Log.d(TAG, "Initializing MusicViewModel")
-        loadMusic()
-        initializeController()
-        // Start progress updates
-        startProgressUpdates()
-        // Load favorite songs
-        loadFavorites()
-        // Load search history
-        loadSearchHistory()
-        // Load all settings
-        loadSettings()
         
-        // Refresh devices periodically
-        startDeviceMonitoring()
-        
-        // Start tracking session
-        viewModelScope.launch {
-            while (true) {
-                if (isPlaying.value) {
-                    // Update listening time every minute
-                    delay(60000) // 1 minute
-                    val newTime = _listeningTime.value + 60000
-                    _listeningTime.value = newTime
-                    appSettings.setListeningTime(newTime)
-                } else {
-                    delay(1000) // Check every second when not playing
-                }
-            }
-        }
-        initializeFromPersistence()
-    }
-
-    private fun loadMusic() {
+        // Load music data and then initialize from persistence
         viewModelScope.launch {
             Log.d(TAG, "Loading music data")
             _songs.value = repository.loadSongs()
@@ -232,7 +202,46 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             
             // Fetch artist images and album artwork from internet
             fetchArtworkFromInternet()
+            
+            // Initialize from persistence after music data is loaded
+            initializeFromPersistence()
+            
+            // Mark as initialized
+            _isInitialized.value = true
         }
+        
+        initializeController()
+        // Start progress updates
+        startProgressUpdates()
+        // Load favorite songs (can be done before music data)
+        loadFavorites()
+        // Load search history (can be done before music data)
+        loadSearchHistory()
+        // Load all settings (can be done before music data)
+        loadSettings()
+        
+        // Refresh devices periodically
+        startDeviceMonitoring()
+        
+        // Start tracking session
+        viewModelScope.launch {
+            while (isActive) {
+                if (isPlaying.value) {
+                    // Update listening time every minute
+                    delay(60000) // 1 minute
+                    val newTime = _listeningTime.value + 60000
+                    _listeningTime.value = newTime
+                    appSettings.setListeningTime(newTime)
+                } else {
+                    delay(1000) // Check every second when not playing
+                }
+            }
+        }
+    }
+
+    private fun loadMusic() {
+        // This function is now called within the init block's coroutine
+        // No changes needed here, but the call site in init is modified.
     }
     
     private fun loadSavedPlaylists() {
@@ -1947,47 +1956,51 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // Initialize from persistence
-    private fun initializeFromPersistence() {
-        viewModelScope.launch {
-            try {
-                // Restore recently played
-                val recentIds = appSettings.recentlyPlayed.value
-                val recentSongs = recentIds.mapNotNull { id ->
-                    _songs.value.find { it.id == id }
-                }
-                _recentlyPlayed.value = recentSongs
-                
-                // Clean up old daily stats (keep only last 30 days)
-                val thirtyDaysAgo = java.time.LocalDate.now().minusDays(30)
-                val cleanedDailyStats = appSettings.dailyListeningStats.value.filterKeys { date ->
-                    java.time.LocalDate.parse(date).isAfter(thirtyDaysAgo)
-                }
-                appSettings.updateDailyListeningStats(cleanedDailyStats)
-                
-                // Clean up weekly top artists (reset every week)
-                val lastPlayed = appSettings.lastPlayedTimestamp.value
-                if (System.currentTimeMillis() - lastPlayed > 7 * 24 * 60 * 60 * 1000) {
-                    appSettings.updateWeeklyTopArtists(emptyMap())
-                }
-
-                // Initialize mood-based preferences if empty
-                if (appSettings.moodPreferences.value.isEmpty()) {
-                    val initialMoodPrefs = mapOf(
-                        "morning" to emptyList<String>(),
-                        "afternoon" to emptyList(),
-                        "evening" to emptyList(),
-                        "night" to emptyList()
-                    )
-                    appSettings.updateMoodPreferences(initialMoodPrefs)
-                }
-
-                // Log initialization status
-                Log.d(TAG, "Initialized from persistence: ${recentSongs.size} recent songs loaded")
-                Log.d(TAG, "Daily stats entries: ${cleanedDailyStats.size}")
-                Log.d(TAG, "Weekly top artists: ${appSettings.weeklyTopArtists.value.size}")
-            } catch (e: Exception) {
-                Log.e(TAG, "Error initializing from persistence", e)
+    private suspend fun initializeFromPersistence() {
+        Log.d(TAG, "Initializing from persistence. Songs loaded: ${_songs.value.size}")
+        try {
+            // Restore recently played
+            val recentIds = appSettings.recentlyPlayed.value
+            val recentSongs = recentIds.mapNotNull { id ->
+                _songs.value.find { it.id == id }
             }
+            _recentlyPlayed.value = recentSongs
+            
+            // Clean up old daily stats (keep only last 30 days)
+            val thirtyDaysAgo = java.time.LocalDate.now().minusDays(30)
+            val cleanedDailyStats = appSettings.dailyListeningStats.value.filterKeys { date ->
+                try {
+                    java.time.LocalDate.parse(date).isAfter(thirtyDaysAgo)
+                } catch (e: Exception) {
+                    // Handle potential parsing errors for old data
+                    false
+                }
+            }
+            appSettings.updateDailyListeningStats(cleanedDailyStats)
+            
+            // Clean up weekly top artists (reset every week)
+            val lastPlayed = appSettings.lastPlayedTimestamp.value
+            if (System.currentTimeMillis() - lastPlayed > 7 * 24 * 60 * 60 * 1000) {
+                appSettings.updateWeeklyTopArtists(emptyMap())
+            }
+
+            // Initialize mood-based preferences if empty
+            if (appSettings.moodPreferences.value.isEmpty()) {
+                val initialMoodPrefs = mapOf(
+                    "morning" to emptyList<String>(),
+                    "afternoon" to emptyList(),
+                    "evening" to emptyList(),
+                    "night" to emptyList()
+                )
+                appSettings.updateMoodPreferences(initialMoodPrefs)
+            }
+
+            // Log initialization status
+            Log.d(TAG, "Initialized from persistence: ${recentSongs.size} recent songs loaded")
+            Log.d(TAG, "Daily stats entries: ${cleanedDailyStats.size}")
+            Log.d(TAG, "Weekly top artists: ${appSettings.weeklyTopArtists.value.size}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error initializing from persistence", e)
         }
     }
 
@@ -2002,4 +2015,4 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         private const val PREF_SHOW_LYRICS = "show_lyrics"
         private const val PREF_ONLINE_ONLY_LYRICS = "online_only_lyrics"
     }
-} 
+}
