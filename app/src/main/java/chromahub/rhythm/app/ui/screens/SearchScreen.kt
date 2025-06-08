@@ -214,7 +214,13 @@ fun SearchScreen(
                 },
                 leadingIcon = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = onBack) {
+                        IconButton(
+                            onClick = onBack,
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        ) {
                             Icon(
                                 imageVector = RhythmIcons.Back,
                                 contentDescription = "Back",
@@ -1286,4 +1292,4 @@ fun MoodCard(
             }
         }
     }
-} 
+}

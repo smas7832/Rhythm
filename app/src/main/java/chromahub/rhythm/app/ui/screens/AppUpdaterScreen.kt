@@ -32,7 +32,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -64,6 +64,8 @@ import chromahub.rhythm.app.viewmodel.AppUpdaterViewModel
 import chromahub.rhythm.app.viewmodel.AppVersion
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Public
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.IconButton
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -88,22 +90,22 @@ fun AppUpdaterScreen(
     val isDownloading by updaterViewModel.isDownloading.collectAsState()
     val downloadProgress by updaterViewModel.downloadProgress.collectAsState()
     val downloadedFile by updaterViewModel.downloadedFile.collectAsState()
-    
+
     // Get the context for intent operations
     val context = LocalContext.current
-    
+
     // Check for updates when the screen is first shown
     LaunchedEffect(Unit) {
         updaterViewModel.checkForUpdates()
     }
-    
+
     // Auto-download update when screen is opened with autoDownload flag
     LaunchedEffect(updateAvailable, isCheckingForUpdates, autoDownload) {
         if (autoDownload && updateAvailable && !isCheckingForUpdates && latestVersion != null && !isDownloading && downloadedFile == null) {
             updaterViewModel.downloadUpdate()
         }
     }
-    
+
     Scaffold(
         topBar = {
             LargeTopAppBar(
@@ -116,7 +118,13 @@ fun AppUpdaterScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    FilledIconButton(
+                        onClick = onBack,
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    ) {
                         Icon(
                             imageVector = RhythmIcons.Back,
                             contentDescription = "Back"
@@ -124,13 +132,6 @@ fun AppUpdaterScreen(
                     }
                 },
                 actions = {
-                    // Developer website button
-                    IconButton(onClick = onSettingsClick) {
-                        Icon(
-                            imageVector = RhythmIcons.Settings,
-                            contentDescription = "Settings"
-                        )
-                    }
                 },
                 colors = TopAppBarDefaults.largeTopAppBarColors(
                     containerColor = Color.Transparent,
@@ -187,9 +188,9 @@ fun AppUpdaterScreen(
                                 contentDescription = "Rhythm Logo",
                                 modifier = Modifier.size(48.dp)
                             )
-                            
+
                             Spacer(modifier = Modifier.width(16.dp))
-                            
+
                             Text(
                                 text = "Rhythm",
                                 style = MaterialTheme.typography.headlineMedium,
@@ -197,18 +198,18 @@ fun AppUpdaterScreen(
                                 color = MaterialTheme.colorScheme.primary
                             )
                         }
-                        
+
                         Spacer(modifier = Modifier.height(24.dp))
-                        
+
                         Text(
                             text = "Current Version",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
                         )
-                        
+
                         Spacer(modifier = Modifier.height(8.dp))
-                        
+
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center,
@@ -227,18 +228,18 @@ fun AppUpdaterScreen(
                                     modifier = Modifier.padding(vertical = 4.dp, horizontal = 12.dp)
                                 )
                             }
-                            
+
                             Spacer(modifier = Modifier.width(8.dp))
-                            
+
                             Text(
                                 text = "Released: ${currentVersion.releaseDate}",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        
+
                         Spacer(modifier = Modifier.height(16.dp))
-                        
+
                         // Developer website button
                         Button(
                             onClick = {
@@ -260,9 +261,9 @@ fun AppUpdaterScreen(
                                     contentDescription = "Developer Website",
                                     modifier = Modifier.size(18.dp)
                                 )
-                                
+
                                 Spacer(modifier = Modifier.width(8.dp))
-                                
+
                                 Text(
                                     text = "Visit Developer",
                                     style = MaterialTheme.typography.labelLarge,
@@ -272,9 +273,9 @@ fun AppUpdaterScreen(
                         }
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 // Update Check Section
                 Card(
                     shape = RoundedCornerShape(16.dp),
@@ -298,9 +299,9 @@ fun AppUpdaterScreen(
                                 modifier = Modifier.size(40.dp),
                                 color = MaterialTheme.colorScheme.primary
                             )
-                            
+
                             Spacer(modifier = Modifier.height(8.dp))
-                            
+
                             Text(
                                 text = "Checking for updates...",
                                 style = MaterialTheme.typography.bodyLarge,
@@ -322,38 +323,38 @@ fun AppUpdaterScreen(
                                     modifier = Modifier.size(24.dp)
                                 )
                             }
-                            
+
                             Spacer(modifier = Modifier.height(8.dp))
-                            
+
                             Text(
                                 text = "Update Available",
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary
                             )
-                            
+
                             Spacer(modifier = Modifier.height(4.dp))
-                            
+
                             Text(
                                 text = "Version ${latestVersion?.versionName}",
                                 style = MaterialTheme.typography.bodyLarge,
                                 textAlign = TextAlign.Center
                             )
-                            
+
                             Spacer(modifier = Modifier.height(4.dp))
-                            
+
                             Text(
                                 text = "Released: ${latestVersion?.releaseDate}",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center
                             )
-                            
+
                             // Display APK size if available
                             latestVersion?.let { version ->
                                 if (version.apkSize > 0) {
                                     Spacer(modifier = Modifier.height(8.dp))
-                                    
+
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.Center
@@ -364,17 +365,17 @@ fun AppUpdaterScreen(
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.size(14.dp)
                                         )
-                                        
+
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        
+
                                         Text(
                                             text = version.apkAssetName,
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
-                                        
+
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        
+
                                         Text(
                                             text = "(${updaterViewModel.getReadableFileSize(version.apkSize)})",
                                             style = MaterialTheme.typography.bodySmall,
@@ -383,9 +384,9 @@ fun AppUpdaterScreen(
                                     }
                                 }
                             }
-                            
+
                             Spacer(modifier = Modifier.height(16.dp))
-                            
+
                             // Show download progress if currently downloading
                             if (isDownloading) {
                                 Column(
@@ -397,26 +398,26 @@ fun AppUpdaterScreen(
                                         style = MaterialTheme.typography.bodyLarge,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
-                                    
+
                                     Spacer(modifier = Modifier.height(8.dp))
-                                    
+
                                     LinearProgressIndicator(
                                         progress = { downloadProgress / 100f },
                                         modifier = Modifier.fillMaxWidth(),
                                         color = MaterialTheme.colorScheme.primary,
                                         trackColor = MaterialTheme.colorScheme.primaryContainer
                                     )
-                                    
+
                                     Spacer(modifier = Modifier.height(8.dp))
-                                    
+
                                     Text(
                                         text = "${downloadProgress.toInt()}%",
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                    
+
                                     Spacer(modifier = Modifier.height(16.dp))
-                                    
+
                                     OutlinedButton(
                                         onClick = { updaterViewModel.cancelDownload() },
                                         colors = ButtonDefaults.outlinedButtonColors(
@@ -439,26 +440,26 @@ fun AppUpdaterScreen(
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(40.dp)
                                     )
-                                    
+
                                     Spacer(modifier = Modifier.height(8.dp))
-                                    
+
                                     Text(
                                         text = "Download Complete",
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.primary
                                     )
-                                    
+
                                     Spacer(modifier = Modifier.height(4.dp))
-                                    
+
                                     Text(
                                         text = downloadedFile?.name ?: "",
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                    
+
                                     Spacer(modifier = Modifier.height(16.dp))
-                                    
+
                                     Button(
                                         onClick = { updaterViewModel.installDownloadedApk() },
                                         colors = ButtonDefaults.buttonColors(
@@ -475,9 +476,9 @@ fun AppUpdaterScreen(
                                                 contentDescription = null,
                                                 modifier = Modifier.size(18.dp)
                                             )
-                                            
+
                                             Spacer(modifier = Modifier.width(8.dp))
-                                            
+
                                             Text("Install Update")
                                         }
                                     }
@@ -500,13 +501,13 @@ fun AppUpdaterScreen(
                                             contentDescription = null,
                                             modifier = Modifier.size(18.dp)
                                         )
-                                        
+
                                         Spacer(modifier = Modifier.width(8.dp))
-                                        
+
                                         Text(
-                                            text = if (latestVersion?.apkAssetName?.isNotEmpty() == true) 
-                                                     "Download Update" 
-                                                   else 
+                                            text = if (latestVersion?.apkAssetName?.isNotEmpty() == true)
+                                                     "Download Update"
+                                                   else
                                                      "View Release"
                                         )
                                     }
@@ -528,18 +529,18 @@ fun AppUpdaterScreen(
                                     modifier = Modifier.size(24.dp)
                                 )
                             }
-                            
+
                             Spacer(modifier = Modifier.height(8.dp))
-                            
+
                             Text(
                                 text = "You are on the latest version",
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.tertiary
                             )
-                            
+
                             Spacer(modifier = Modifier.height(16.dp))
-                            
+
                             Button(
                                 onClick = { updaterViewModel.checkForUpdates() },
                                 colors = ButtonDefaults.buttonColors(
@@ -562,12 +563,12 @@ fun AppUpdaterScreen(
                     }
                 }
             }
-            
+
             // Changelog section
             if (latestVersion != null && latestVersion?.changelog?.isNotEmpty() == true) {
                 item {
                     Spacer(modifier = Modifier.height(16.dp))
-                    
+
                     Text(
                         text = "What's New",
                         style = MaterialTheme.typography.titleLarge,
@@ -577,7 +578,7 @@ fun AppUpdaterScreen(
                             .padding(vertical = 8.dp),
                         textAlign = TextAlign.Start
                     )
-                    
+
                     Card(
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(
@@ -609,16 +610,16 @@ fun AppUpdaterScreen(
                                                 CircleShape
                                             )
                                     )
-                                    
+
                                     Spacer(modifier = Modifier.width(12.dp))
-                                    
+
                                     Text(
                                         text = change,
                                         style = MaterialTheme.typography.bodyLarge,
                                         modifier = Modifier.fillMaxWidth()
                                     )
                                 }
-                                
+
                                 if (index < latestVersion?.changelog?.size?.minus(1) ?: 0) {
                                     Spacer(modifier = Modifier.height(4.dp))
                                 }
@@ -627,12 +628,12 @@ fun AppUpdaterScreen(
                     }
                 }
             }
-            
+
             // Error section - show a dedicated section for errors
             if (error != null) {
                 item {
                     Spacer(modifier = Modifier.height(16.dp))
-                    
+
                     Card(
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(
@@ -655,9 +656,9 @@ fun AppUpdaterScreen(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onErrorContainer
                             )
-                            
+
                             Spacer(modifier = Modifier.height(8.dp))
-                            
+
                             Text(
                                 text = error ?: "Unknown error occurred",
                                 style = MaterialTheme.typography.bodyMedium,
@@ -668,11 +669,11 @@ fun AppUpdaterScreen(
                     }
                 }
             }
-            
+
             // Extra space at bottom
             item {
                 Spacer(modifier = Modifier.height(80.dp))
             }
         }
     }
-} 
+}

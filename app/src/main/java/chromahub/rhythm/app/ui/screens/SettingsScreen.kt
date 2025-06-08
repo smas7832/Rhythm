@@ -34,7 +34,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
@@ -67,6 +67,8 @@ import chromahub.rhythm.app.data.Song
 import chromahub.rhythm.app.ui.components.MiniPlayer
 import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.R
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.IconButton
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -90,14 +92,14 @@ fun SettingsScreen(
     onCheckForUpdates: () -> Unit
 ) {
     var showAboutDialog by remember { mutableStateOf(false) }
-    
+
     if (showAboutDialog) {
         AboutDialog(
             onDismiss = { showAboutDialog = false },
             onCheckForUpdates = onCheckForUpdates
         )
     }
-    
+
     Scaffold(
         topBar = {
             LargeTopAppBar(
@@ -110,7 +112,13 @@ fun SettingsScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    FilledIconButton(
+                        onClick = onBack,
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    ) {
                         Icon(
                             imageVector = RhythmIcons.Back,
                             contentDescription = "Back"
@@ -145,17 +153,17 @@ fun SettingsScreen(
             // Appearance section
             item {
                 SettingsSectionHeader(title = "Appearance")
-                
+
                 SettingsToggleItem(
                     title = "Use system theme",
                     description = "Use Android's Monet theme colors when on, app's colors when off",
                     icon = RhythmIcons.Settings,
                     checked = useSystemTheme,
-                    onCheckedChange = { 
+                    onCheckedChange = {
                         onUseSystemThemeChange(it)
                     }
                 )
-                
+
                 AnimatedVisibility(
                     visible = !useSystemTheme,
                     enter = fadeIn() + expandVertically(),
@@ -166,29 +174,29 @@ fun SettingsScreen(
                         description = "Enable dark theme",
                         icon = RhythmIcons.LocationFilled,
                         checked = darkMode,
-                        onCheckedChange = { 
+                        onCheckedChange = {
                             onDarkModeChange(it)
                         }
                     )
                 }
-                
+
                 SettingsDivider()
             }
-            
+
             // Playback section (only lyrics and equalizer)
             item {
                 SettingsSectionHeader(title = "Playback")
-                
+
                 SettingsToggleItem(
                     title = "Show lyrics",
                     description = "Display lyrics when available",
                     icon = RhythmIcons.Queue,
                     checked = showLyrics,
-                    onCheckedChange = { 
+                    onCheckedChange = {
                         onShowLyricsChange(it)
                     }
                 )
-                
+
                 AnimatedVisibility(
                     visible = showLyrics,
                     enter = fadeIn() + expandVertically(),
@@ -199,26 +207,26 @@ fun SettingsScreen(
                         description = "Only fetch and display lyrics when connected to internet",
                         icon = RhythmIcons.LocationFilled,
                         checked = showOnlineOnlyLyrics,
-                        onCheckedChange = { 
+                        onCheckedChange = {
                             onShowOnlineOnlyLyricsChange(it)
                         }
                     )
                 }
-                
+
                 SettingsClickableItem(
                     title = "Equalizer",
                     description = "Open system equalizer to adjust audio frequencies",
                     icon = RhythmIcons.VolumeUp,
                     onClick = onOpenSystemEqualizer
                 )
-                
+
                 SettingsDivider()
             }
-            
+
             // About section
             item {
                 SettingsSectionHeader(title = "About")
-                
+
                 Card(
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
@@ -244,23 +252,23 @@ fun SettingsScreen(
                             contentDescription = null,
                             modifier = Modifier.size(80.dp)
                         )
-                        
+
                         Spacer(modifier = Modifier.height(12.dp))
-                        
+
                         Text(
                             text = "Rhythm Music Player",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
-                        
+
                         Text(
                             text = "Version 1.8 Alpha | ChromaHub",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        
+
                         Spacer(modifier = Modifier.height(8.dp))
-                        
+
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -277,7 +285,7 @@ fun SettingsScreen(
                             ) {
                                 Text("About")
                             }
-                            
+
                             Button(
                                 onClick = onCheckForUpdates,
                                 colors = ButtonDefaults.buttonColors(
@@ -304,10 +312,10 @@ fun SettingsScreen(
                         }
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
             }
-            
+
             // Extra bottom space for mini player
             item {
                 Spacer(modifier = Modifier.height(0.dp))
@@ -335,9 +343,9 @@ fun SettingsSectionHeader(title: String) {
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
-            
+
             Spacer(modifier = Modifier.weight(1f))
-            
+
             Box(
                 modifier = Modifier
                     .height(2.dp)
@@ -367,7 +375,7 @@ fun SettingsToggleItem(
         ),
         label = "toggleAnimation"
     )
-    
+
     Card(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
@@ -392,9 +400,9 @@ fun SettingsToggleItem(
                     .size(44.dp)
                     .clip(CircleShape)
                     .background(
-                        if (checked) 
+                        if (checked)
                             MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-                        else 
+                        else
                             MaterialTheme.colorScheme.surfaceVariant
                     ),
                 contentAlignment = Alignment.Center
@@ -402,14 +410,14 @@ fun SettingsToggleItem(
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = if (checked) 
-                        MaterialTheme.colorScheme.primary 
-                    else 
+                    tint = if (checked)
+                        MaterialTheme.colorScheme.primary
+                    else
                         MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(24.dp)
                 )
             }
-            
+
             // Text
             Column(
                 modifier = Modifier
@@ -421,14 +429,14 @@ fun SettingsToggleItem(
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.SemiBold
                 )
-                
+
                 Text(
                     text = description,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            
+
             // Switch
             Switch(
                 checked = checked,
@@ -485,7 +493,7 @@ fun SettingsClickableItem(
                     modifier = Modifier.size(24.dp)
                 )
             }
-            
+
             // Text
             Column(
                 modifier = Modifier
@@ -497,14 +505,14 @@ fun SettingsClickableItem(
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.SemiBold
                 )
-                
+
                 Text(
                     text = description,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            
+
             // Arrow icon
             Icon(
                 imageVector = RhythmIcons.Forward,
@@ -540,25 +548,25 @@ fun AboutDialog(
                     contentDescription = null,
                     modifier = Modifier.size(140.dp)
                 )
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 Text(
                     text = "Rhythm",
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center
                 )
-                
+
                 Text(
                     text = "Music Player",
                     style = MaterialTheme.typography.titleMedium,
                     textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.primary
                 )
-                
+
                 Spacer(modifier = Modifier.height(12.dp))
-                
+
                 Surface(
                     color = MaterialTheme.colorScheme.secondaryContainer,
                     shape = RoundedCornerShape(8.dp),
@@ -572,7 +580,7 @@ fun AboutDialog(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                     )
                 }
-                
+
                 // Add a check for updates button
                 Button(
                     onClick = {
@@ -600,32 +608,32 @@ fun AboutDialog(
                         Text("Check for Updates")
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(12.dp))
-                
+
                 HorizontalDivider(
                     thickness = 1.dp,
                     color = MaterialTheme.colorScheme.outlineVariant,
                     modifier = Modifier.padding(vertical = 8.dp)
                 )
-                
+
                 Text(
                     text = "By Anjishnu Nandi",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                     textAlign = TextAlign.Center
                 )
-                
+
                 Spacer(modifier = Modifier.height(12.dp))
-                
+
                 Text(
                     text = "A modern music player showcasing Material 3 Expressive design with physics-based animations.",
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center
                 )
-                
+
                 Spacer(modifier = Modifier.height(8.dp))
-                
+
                 Row(
                     horizontalArrangement = Arrangement.Center,
                     modifier = Modifier.fillMaxWidth()
@@ -644,7 +652,7 @@ fun AboutDialog(
                                 .size(20.dp)
                         )
                     }
-                    
+
                     Surface(
                         color = MaterialTheme.colorScheme.primaryContainer,
                         shape = CircleShape,
@@ -659,7 +667,7 @@ fun AboutDialog(
                                 .size(20.dp)
                         )
                     }
-                    
+
                     Surface(
                         color = MaterialTheme.colorScheme.primaryContainer,
                         shape = CircleShape,
