@@ -527,7 +527,6 @@ fun LibrarySongItem(
             leadingContent = {
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    shadowElevation = 1.dp,
                     modifier = Modifier.size(56.dp)
                 ) {
                     M3ImageUtils.TrackImage(
@@ -604,12 +603,12 @@ fun PlaylistItem(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 2.dp
-        ),
         modifier = Modifier.fillMaxWidth()
     ) {
         ListItem(
+            colors = ListItemDefaults.colors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
             headlineContent = {
                 Text(
                     text = playlist.name,
@@ -629,7 +628,7 @@ fun PlaylistItem(
                     modifier = Modifier
                         .size(56.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
                     contentAlignment = Alignment.Center
                 ) {
                     if (playlist.artworkUri != null) {
@@ -667,12 +666,12 @@ fun LibraryAlbumItem(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 2.dp
-        ),
         modifier = Modifier.fillMaxWidth()
     ) {
         ListItem(
+            colors = ListItemDefaults.colors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
             headlineContent = {
                 Text(
                     text = album.title,
@@ -696,6 +695,8 @@ fun LibraryAlbumItem(
                     modifier = Modifier
                         .size(56.dp)
                         .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
                 ) {
                     if (album.artworkUri != null) {
                         M3ImageUtils.AlbumArt(
@@ -774,4 +775,4 @@ fun EmptyState(
             )
         }
     }
-} 
+}
