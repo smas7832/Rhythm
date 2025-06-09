@@ -497,8 +497,8 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
             return // Already downloading
         }
         
-        _isDownloading.value = true
         _downloadProgress.value = 0f
+        _isDownloading.value = true
         _error.value = null
         
         viewModelScope.launch(Dispatchers.IO) {
