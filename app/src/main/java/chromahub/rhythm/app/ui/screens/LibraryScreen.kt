@@ -48,6 +48,8 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
@@ -601,13 +603,13 @@ fun PlaylistItem(
         onClick = onClick,
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
         ),
         modifier = Modifier.fillMaxWidth()
     ) {
         ListItem(
             colors = ListItemDefaults.colors(
-                containerColor = MaterialTheme.colorScheme.surface
+                containerColor = MaterialTheme.colorScheme.surfaceContainer
             ),
             headlineContent = {
                 Text(
@@ -722,13 +724,16 @@ fun LibraryAlbumItem(
                 }
             },
             trailingContent = {
-                IconButton(
-                    onClick = onPlayClick
+                FilledIconButton(
+                    onClick = onPlayClick,
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
                 ) {
                     Icon(
                         imageVector = RhythmIcons.Play,
-                        contentDescription = "Play album",
-                        tint = MaterialTheme.colorScheme.primary
+                        contentDescription = "Play album"
                     )
                 }
             }

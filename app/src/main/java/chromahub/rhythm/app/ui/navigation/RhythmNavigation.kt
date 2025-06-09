@@ -26,6 +26,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -960,19 +964,35 @@ fun RhythmNavigation(
                         } else {
                             Scaffold(
                                 topBar = {
-                                    TopAppBar(
-                                        title = { Text("Add Songs to ${targetPlaylist.name}") },
+                                    LargeTopAppBar(
+                                        title = {
+                                            Text(
+                                                text = "Add Songs to ${targetPlaylist.name}",
+                                                style = MaterialTheme.typography.headlineMedium,
+                                                maxLines = 1
+                                            )
+                                        },
                                         navigationIcon = {
-                                            IconButton(onClick = {
-                                                viewModel.clearTargetPlaylistForAddingSongs()
-                                                navController.popBackStack()
-                                            }) {
+                                            FilledIconButton(
+                                                onClick = {
+                                                    viewModel.clearTargetPlaylistForAddingSongs()
+                                                    navController.popBackStack()
+                                                },
+                                                colors = IconButtonDefaults.filledIconButtonColors(
+                                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                                )
+                                            ) {
                                                 Icon(
                                                     imageVector = RhythmIcons.Back,
                                                     contentDescription = "Back"
                                                 )
                                             }
-                                        }
+                                        },
+                                        colors = TopAppBarDefaults.largeTopAppBarColors(
+                                            containerColor = Color.Transparent,
+                                            scrolledContainerColor = Color.Transparent
+                                        )
                                     )
                                 }
                             ) { innerPadding ->
@@ -981,34 +1001,78 @@ fun RhythmNavigation(
                                     contentPadding = PaddingValues(vertical = 8.dp)
                                 ) {
                                     items(availableSongs) { song ->
-                                        ListItem(
-                                            headlineContent = { Text(song.title) },
-                                            supportingContent = { Text("${song.artist} • ${song.album}") },
-                                            leadingContent = {
-                                                AsyncImage(
-                                                    model = song.artworkUri,
-                                                    contentDescription = null,
-                                                    modifier = Modifier
-                                                        .size(56.dp)
-                                                        .clip(RoundedCornerShape(8.dp)),
-                                                    contentScale = ContentScale.Crop
-                                                )
+                                        Surface(
+                                            onClick = {
+                                                viewModel.addSongToPlaylist(song, targetPlaylistId)
+                                                // Show a snackbar or some feedback
                                             },
-                                            trailingContent = {
-                                                IconButton(onClick = {
-                                                    viewModel.addSongToPlaylist(song, targetPlaylistId)
-                                                }) {
+                                            color = MaterialTheme.colorScheme.surfaceContainer,
+                                            shape = RoundedCornerShape(12.dp),
+                                            tonalElevation = 1.dp,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 16.dp, vertical = 4.dp)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(12.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                // Album art
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(48.dp)
+                                                        .clip(RoundedCornerShape(8.dp))
+                                                ) {
+                                                    AsyncImage(
+                                                        model = song.artworkUri,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.fillMaxSize(),
+                                                        contentScale = ContentScale.Crop
+                                                    )
+                                                }
+
+                                                // Song info
+                                                Column(
+                                                    modifier = Modifier
+                                                        .weight(1f)
+                                                        .padding(horizontal = 12.dp)
+                                                ) {
+                                                    Text(
+                                                        text = song.title,
+                                                        style = MaterialTheme.typography.bodyLarge,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+
+                                                    Text(
+                                                        text = "${song.artist} • ${song.album}",
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                }
+
+                                                // Add button
+                                                FilledIconButton(
+                                                    onClick = {
+                                                        viewModel.addSongToPlaylist(song, targetPlaylistId)
+                                                        // Show a snackbar or some feedback
+                                                    },
+                                                    colors = IconButtonDefaults.filledIconButtonColors(
+                                                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                                    )
+                                                ) {
                                                     Icon(
                                                         imageVector = RhythmIcons.Add,
                                                         contentDescription = "Add to playlist"
                                                     )
                                                 }
-                                            },
-                                            modifier = Modifier.clickable {
-                                                viewModel.addSongToPlaylist(song, targetPlaylistId)
-                                                // Show a snackbar or some feedback
                                             }
-                                        )
+                                        }
                                     }
                                 }
                             }
@@ -1121,4 +1185,4 @@ fun RhythmNavigation(
             }
         }
     }
-} 
+}

@@ -35,6 +35,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -136,20 +139,26 @@ fun PlaylistDetailScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            LargeTopAppBar(
                 title = {
                     Text(
                         text = playlist.name,
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    FilledIconButton(
+                        onClick = onBack,
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    ) {
                         Icon(
                             imageVector = RhythmIcons.Back,
-                            contentDescription = "Back",
-                            tint = MaterialTheme.colorScheme.onBackground
+                            contentDescription = "Back"
                         )
                     }
                 },
@@ -159,7 +168,7 @@ fun PlaylistDetailScreen(
                             Icon(
                                 imageVector = RhythmIcons.More,
                                 contentDescription = "More options",
-                                tint = MaterialTheme.colorScheme.onBackground
+                                tint = MaterialTheme.colorScheme.onSurface
                             )
                         }
                         DropdownMenu(
@@ -196,8 +205,9 @@ fun PlaylistDetailScreen(
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                colors = TopAppBarDefaults.largeTopAppBarColors(
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = Color.Transparent
                 )
             )
         },
@@ -245,8 +255,7 @@ fun PlaylistDetailScreen(
                 Box(
                     modifier = Modifier
                         .size(120.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                        .clip(RoundedCornerShape(16.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     if (playlist.artworkUri != null) {
@@ -268,7 +277,10 @@ fun PlaylistDetailScreen(
                             imageVector = RhythmIcons.Playlist,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(48.dp)
+                            modifier = Modifier
+                                .size(48.dp)
+                                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(16.dp))
+                                .padding(8.dp) // Add some padding to the icon itself
                         )
                     }
                 }
@@ -355,13 +367,17 @@ fun PlaylistSongItem(
     
     Surface(
         onClick = onClick,
-        color = Color.Transparent,
-        modifier = Modifier.fillMaxWidth()
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = RoundedCornerShape(12.dp),
+        tonalElevation = 1.dp,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp) // Add horizontal padding to the surface
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 8.dp, horizontal = 16.dp),
+                .padding(12.dp), // Adjust padding inside the card
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Album art
@@ -408,13 +424,18 @@ fun PlaylistSongItem(
             }
             
             // Remove button
-            IconButton(onClick = onRemove) {
+            FilledIconButton(
+                onClick = onRemove,
+                colors = IconButtonDefaults.filledIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer
+                )
+            ) {
                 Icon(
                     imageVector = RhythmIcons.Remove,
-                    contentDescription = "Remove from playlist",
-                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    contentDescription = "Remove from playlist"
                 )
             }
         }
     }
-} 
+}
