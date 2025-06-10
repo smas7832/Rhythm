@@ -12,31 +12,40 @@ Rhythm is a modern, feature-rich Android music player built with Jetpack Compose
 
 - 🎨 **Modern UI**: Built with Jetpack Compose and Material 3 design
 - 🎵 **Comprehensive Audio Support**: Plays various formats including MP3, AAC, FLAC, OGG, WAV
-- 📱 **Android 13+ Support**: Targets Android API 34 with minimum SDK 26
+- 📱 **Android Support**: Targets Android API 34 with compatibility down to Android 8.0
 - 🎯 **Media3 Integration**: Robust media playback using ExoPlayer
-- 📂 **Playlist Management**: Support for various playlist formats
+- 📂 **Advanced Playlist Management**: Create, edit, and organize playlists
 - 🔄 **Background Playback**: Continuous playback with foreground service
-- 🎨 **Customizable Interface**: Material 3 theming and animations
-- 🔊 **Output Switcher**: Seamless audio output device switching
-- 📱 **Bluetooth Support**: Enhanced Bluetooth device connectivity
-- 🌐 **Network Features**: Internet connectivity for extended functionality
+- 🎨 **Dynamic Theming**: Material You/Monet theming and fluid animations
+- 🔊 **Smart Audio**: Gapless playback, crossfade, audio normalization
+- 🎵 **Advanced Features**: Equalizer, high-quality mode, replay gain
+- 🔊 **Output Control**: Seamless audio device and Bluetooth switching
+- 📊 **Personalization**: Listening stats, mood-based playlists
+- 🌐 **Online Integration**: Automatic updates, online lyrics
+- 🔄 **Auto-Resume**: Remembers playback state and queue
+- 🎨 **Adaptive UI**: Beautiful transitions and responsive design
 
 ## Technical Stack
 
-- **Language**: Kotlin
+- **Language**: Kotlin with Coroutines
 - **UI Framework**: Jetpack Compose
-- **Design System**: Material 3
+- **Design System**: Material 3 (Material You)
 - **Media Playback**: Media3 ExoPlayer
+- **Audio Processing**: Media3 Session, Audio Effects
 - **Navigation**: Compose Navigation
-- **Image Loading**: Coil
+- **Image Loading**: Coil for async image loading
 - **Networking**: Retrofit2 + OkHttp3
 - **JSON Parsing**: Gson
-- **Animations**: Compose Animation
+- **Animations**: Compose Animation with Physics
 - **Drag & Drop**: Reorderable Compose
+- **Device Integration**: MediaRouter, Bluetooth APIs
+- **Storage**: Android Storage Access Framework
+- **Background Services**: Foreground Service for playback
 
 ### Requirements
-- Android 12+
+- Android 8.0+ (API level 26)
 - 50MB+ free storage space
+- Internet connection for online features
 
 ### Installation
 Download the latest release APK from the [Releases](https://github.com/cromaguy/Rhythm/releases) page.
@@ -74,8 +83,14 @@ Rhythm is available under the MIT license. See the [LICENSE](LICENSE) file for m
 
 ## Version
 
-Current version: 1.8.100.4 (Build 1080153)
+Current version: 1.9.100.5 (Build 166 Beta)
+
+## Support
+
+If you encounter any issues or have feature requests, please file them in the [Issues](https://github.com/cromaguy/Rhythm/issues) section.
 
 <div align="center">
   <sub>Made with ❤️ by Anjishnu</sub>
 </div>
+
+
