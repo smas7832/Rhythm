@@ -498,6 +498,7 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
         }
         
         _downloadProgress.value = 0f
+        activeDownload = null
         _isDownloading.value = true
         _error.value = null
         
@@ -639,8 +640,9 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
                                 totalBytesRead += bytesRead
                                 
                                 // Update progress
-                                if (totalLength > 0) {
-                                    val progress = (totalBytesRead.toFloat() / totalLength.toFloat()) * 100f
+                                val totalBytes = if (totalLength > 0) totalLength else contentLength
+                                if (totalBytes > 0) {
+                                    val progress = (totalBytesRead.toFloat() / totalBytes.toFloat()) * 100f
                                     viewModelScope.launch {
                                         _downloadProgress.value = progress
                                         activeDownload = activeDownload?.copy(downloadedBytes = totalBytesRead)
