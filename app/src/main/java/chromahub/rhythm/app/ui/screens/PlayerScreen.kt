@@ -528,16 +528,15 @@ fun PlayerScreen(
             
             // MAIN CHANGE: Use a Column that fills the available space but anchors content to the bottom
             // This makes all content stick to the bottom of the screen
-            Column(
+            Column( // This outer column will now manage the vertical distribution
                 modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.Bottom, // Anchor to bottom
-                horizontalAlignment = Alignment.CenterHorizontally
+                horizontalAlignment = Alignment.CenterHorizontally // Keep this for horizontal centering
             ) {
-                // Main content column with bottom padding for buttons
+                // Main content column - now takes up all available space
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 80.dp), // Reserve space for bottom buttons
+                        .weight(1f), // This makes it take all available vertical space
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     // Calculate dynamic top padding based on screen height
@@ -2063,4 +2062,4 @@ private fun QueueItem(
             }
         }
     }
-} 
+}
