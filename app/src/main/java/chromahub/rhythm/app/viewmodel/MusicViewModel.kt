@@ -25,6 +25,7 @@ import chromahub.rhythm.app.data.Song
 import chromahub.rhythm.app.service.MediaPlaybackService
 import chromahub.rhythm.app.util.AudioDeviceManager
 import chromahub.rhythm.app.util.EqualizerUtils
+import chromahub.rhythm.app.util.GsonUtils
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
 import kotlinx.coroutines.Job
@@ -188,37 +189,32 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     init {
         Log.d(TAG, "Initializing MusicViewModel")
         
-        // Load music data and then initialize from persistence
         viewModelScope.launch {
-            Log.d(TAG, "Loading music data")
+            Log.d(TAG, "Starting data initialization")
+            // Step 1: Load core music data from the repository
             _songs.value = repository.loadSongs()
             _albums.value = repository.loadAlbums()
             _artists.value = repository.loadArtists()
-            
-            // Load saved playlists
-            loadSavedPlaylists()
-            
-            Log.d(TAG, "Loaded ${_songs.value.size} songs")
-            
-            // Fetch artist images and album artwork from internet
-            fetchArtworkFromInternet()
-            
-            // Initialize from persistence after music data is loaded
+            Log.d(TAG, "Loaded ${_songs.value.size} songs, ${_albums.value.size} albums, ${_artists.value.size} artists")
+
+            // Step 2: Load all settings and persisted data
+            loadSettings()
+            loadSearchHistory()
+            loadSavedPlaylists() // This also loads favorite songs
+
+            // Step 3: Initialize the rest of the components
+            initializeController()
             initializeFromPersistence()
-            
-            // Mark as initialized
+            startProgressUpdates()
+            startDeviceMonitoring()
+
+            // Step 4: Fetch supplementary data from the internet
+            fetchArtworkFromInternet()
+
+            // Step 5: Mark as initialized
             _isInitialized.value = true
+            Log.d(TAG, "Data initialization complete")
         }
-        
-        initializeController()
-        // Start progress updates
-        startProgressUpdates()
-        // Load favorite songs (can be done before music data)
-        loadFavorites()
-        // Load search history (can be done before music data)
-        loadSearchHistory()
-        // Load all settings (can be done before music data)
-        loadSettings()
         
         // Refresh devices periodically
         startDeviceMonitoring()
@@ -250,7 +246,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             val playlistsJson = appSettings.playlists.value
             val playlists = if (playlistsJson != null) {
                 val type = object : TypeToken<List<Playlist>>() {}.type
-                Gson().fromJson<List<Playlist>>(playlistsJson, type)
+                GsonUtils.gson.fromJson<List<Playlist>>(playlistsJson, type)
             } else {
                 // Initialize with default playlists if none exist
                 listOf(
@@ -265,7 +261,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             val favoriteSongsJson = appSettings.favoriteSongs.value
             if (favoriteSongsJson != null) {
                 val type = object : TypeToken<Set<String>>() {}.type
-                _favoriteSongs.value = Gson().fromJson(favoriteSongsJson, type)
+                _favoriteSongs.value = GsonUtils.gson.fromJson(favoriteSongsJson, type)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error loading saved playlists", e)
@@ -281,7 +277,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun savePlaylists() {
         try {
-            val playlistsJson = Gson().toJson(_playlists.value)
+            val playlistsJson = GsonUtils.gson.toJson(_playlists.value)
             appSettings.setPlaylists(playlistsJson)
             Log.d(TAG, "Saved ${_playlists.value.size} playlists")
         } catch (e: Exception) {
@@ -291,7 +287,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun saveFavoriteSongs() {
         try {
-            val favoriteSongsJson = Gson().toJson(_favoriteSongs.value)
+            val favoriteSongsJson = GsonUtils.gson.toJson(_favoriteSongs.value)
             appSettings.setFavoriteSongs(favoriteSongsJson)
             Log.d(TAG, "Saved ${_favoriteSongs.value.size} favorite songs")
         } catch (e: Exception) {
@@ -391,14 +387,6 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 Log.e(TAG, "Error refreshing album artwork", e)
             }
-        }
-    }
-
-    private fun loadFavorites() {
-        viewModelScope.launch {
-            // In a real app, this would load from a database or preferences
-            // For now, we'll use an empty set
-            _favoriteSongs.value = emptySet()
         }
     }
 
@@ -1091,6 +1079,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                         playlist
                     }
                 }
+                savePlaylists()
             } else {
                 Log.d(TAG, "Adding song to favorites: ${song.title}")
                 currentFavorites.add(songId)
@@ -1104,11 +1093,11 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                         playlist
                     }
                 }
+                savePlaylists()
             }
             
             _favoriteSongs.value = currentFavorites
             saveFavoriteSongs()
-            savePlaylists()
         }
     }
 
@@ -1155,8 +1144,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val newPlaylist = repository.createPlaylist(name)
             _playlists.value = _playlists.value + newPlaylist
-            Log.d(TAG, "Created new playlist: ${newPlaylist.name}")
             savePlaylists()
+            Log.d(TAG, "Created new playlist: ${newPlaylist.name}")
         }
     }
 
@@ -1177,8 +1166,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 playlist
             }
         }
-        Log.d(TAG, "Added song to playlist: ${song.title}")
         savePlaylists()
+        Log.d(TAG, "Added song to playlist: ${song.title}")
     }
 
     fun removeSongFromPlaylist(song: Song, playlistId: String) {
@@ -1192,8 +1181,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 playlist
             }
         }
-        Log.d(TAG, "Removed song from playlist: ${song.title}")
         savePlaylists()
+        Log.d(TAG, "Removed song from playlist: ${song.title}")
     }
 
     fun deletePlaylist(playlistId: String) {
@@ -1204,8 +1193,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
         
         _playlists.value = _playlists.value.filter { it.id != playlistId }
-        Log.d(TAG, "Deleted playlist: $playlistId")
         savePlaylists()
+        Log.d(TAG, "Deleted playlist: $playlistId")
     }
 
     fun renamePlaylist(playlistId: String, newName: String) {
@@ -1620,7 +1609,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         if (searchHistoryJson != null) {
             try {
                 val type = object : TypeToken<List<String>>() {}.type
-                val history = Gson().fromJson<List<String>>(searchHistoryJson, type)
+                val history = GsonUtils.gson.fromJson<List<String>>(searchHistoryJson, type)
                 _searchHistory.value = history
             } catch (e: Exception) {
                 Log.e(TAG, "Error loading search history", e)
@@ -1630,7 +1619,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     private fun saveSearchHistory() {
-        val searchHistoryJson = Gson().toJson(_searchHistory.value)
+        val searchHistoryJson = GsonUtils.gson.toJson(_searchHistory.value)
         appSettings.setSearchHistory(searchHistoryJson)
     }
     

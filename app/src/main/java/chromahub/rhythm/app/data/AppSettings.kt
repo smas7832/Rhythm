@@ -338,18 +338,18 @@ class AppSettings private constructor(context: Context) {
     // Playlists
     fun setPlaylists(playlistsJson: String?) {
         if (playlistsJson == null) {
-            prefs.edit().remove(KEY_PLAYLISTS).apply()
+            prefs.edit().remove(KEY_PLAYLISTS).commit()
         } else {
-            prefs.edit().putString(KEY_PLAYLISTS, playlistsJson).apply()
+            prefs.edit().putString(KEY_PLAYLISTS, playlistsJson).commit()
         }
         _playlists.value = playlistsJson
     }
 
     fun setFavoriteSongs(favoriteSongsJson: String?) {
         if (favoriteSongsJson == null) {
-            prefs.edit().remove(KEY_FAVORITE_SONGS).apply()
+            prefs.edit().remove(KEY_FAVORITE_SONGS).commit()
         } else {
-            prefs.edit().putString(KEY_FAVORITE_SONGS, favoriteSongsJson).apply()
+            prefs.edit().putString(KEY_FAVORITE_SONGS, favoriteSongsJson).commit()
         }
         _favoriteSongs.value = favoriteSongsJson
     }
