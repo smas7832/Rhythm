@@ -25,8 +25,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -40,6 +40,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DockedSearchBar
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
@@ -59,13 +60,13 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -90,7 +91,9 @@ import chromahub.rhythm.app.data.Song
 import chromahub.rhythm.app.ui.components.MiniPlayer
 import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.viewmodel.MusicViewModel
-import chromahub.rhythm.app.util.M3ImageUtils
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -127,6 +130,18 @@ fun SearchScreen(
     
     // Collect search history from ViewModel
     val searchHistory by viewModel.searchHistory.collectAsState()
+    val recentlyPlayed by viewModel.recentlyPlayed.collectAsState()
+    val allSongs by viewModel.songs.collectAsState()
+    
+    // Generate mood-based playlists similar to HomeScreen
+    val (focusSongs, energeticSongs, relaxingSongs) = remember(allSongs) {
+        val focus = allSongs.filter { it.duration > 3 * 60 * 1000 }.shuffled().take(12)
+        val energeticKeywords = listOf("rock", "dance", "pop", "party", "beat", "energy")
+        val energetic = allSongs.filter { song -> energeticKeywords.any { kw -> song.title.contains(kw, true) || song.artist.contains(kw, true) } }.shuffled().take(10)
+        val relaxingKeywords = listOf("chill", "relax", "ambient", "piano", "sleep", "calm")
+        val relaxing = allSongs.filter { song -> relaxingKeywords.any { kw -> song.title.contains(kw, true) || song.artist.contains(kw, true) } }.shuffled().take(10)
+        Triple(focus.ifEmpty { allSongs.shuffled().take(12) }, energetic.ifEmpty { allSongs.take(10) }, relaxing.ifEmpty { allSongs.takeLast(10) })
+    }
     
     // Filter results based on search query and active filters
     val filteredSongs by remember(searchQuery, songs, filterSongs) {
@@ -343,9 +358,12 @@ fun SearchScreen(
                         searchQuery = query
                         isSearchActive = true
                     },
-                    onClearSearchHistory = {
-                        viewModel.clearSearchHistory()
-                    }
+                    onClearSearchHistory = { viewModel.clearSearchHistory() },
+                    recentlyPlayed = recentlyPlayed,
+                    focusSongs = focusSongs,
+                    energeticSongs = energeticSongs,
+                    relaxingSongs = relaxingSongs,
+                    onSongClick = onSongClick
                 )
             }
         }
@@ -521,7 +539,12 @@ fun SearchBrowseContent(
     onArtistClick: (Artist) -> Unit,
     searchHistory: List<String> = emptyList(),
     onSearchHistoryClick: (String) -> Unit = {},
-    onClearSearchHistory: () -> Unit = {}
+    onClearSearchHistory: () -> Unit = {},
+    recentlyPlayed: List<Song> = emptyList(),
+    focusSongs: List<Song> = emptyList(),
+    energeticSongs: List<Song> = emptyList(),
+    relaxingSongs: List<Song> = emptyList(),
+    onSongClick: (Song) -> Unit = {}
 ) {
     // Make entire content scrollable
     LazyColumn(
@@ -628,125 +651,26 @@ fun SearchBrowseContent(
             }
         }
         
-        // Mood & Moments section
+        // Mood & Moments and Recently Played (shared design)
         item {
-            Text(
-                text = "Mood & Moments",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-            )
-            
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                item {
-                    MoodCard(
-                        title = "Energize",
-                        description = "Upbeat tracks to boost your energy",
-                        backgroundColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        icon = RhythmIcons.Energy,
-                        onClick = { /* Handle mood click */ }
-                    )
-                }
-                
-                item {
-                    MoodCard(
-                        title = "Relax",
-                        description = "Calm tracks to help you unwind",
-                        backgroundColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                        icon = RhythmIcons.Relax,
-                        onClick = { /* Handle mood click */ }
-                    )
-                }
-                
-                item {
-                    MoodCard(
-                        title = "Focus",
-                        description = "Concentration-enhancing music",
-                        backgroundColor = MaterialTheme.colorScheme.tertiaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                        icon = RhythmIcons.Focus,
-                        onClick = { /* Handle mood click */ }
-                    )
-                }
-            }
-        }
-        
-        // Browse categories section
-        item {
-            Text(
-                text = "Browse Categories",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            MoodBasedPlaylistsSection(
+                moodBasedSongs = focusSongs,
+                energeticSongs = energeticSongs,
+                relaxingSongs = relaxingSongs,
+                onSongClick = onSongClick
             )
         }
         
-        // Full categories grid with all items visible
-        item {
-            // Define our categories
-            val categories = listOf(
-                Category("Pop", MaterialTheme.colorScheme.primary),
-                Category("Rock", MaterialTheme.colorScheme.secondary),
-                Category("Hip Hop", MaterialTheme.colorScheme.tertiary),
-                Category("Classical", MaterialTheme.colorScheme.primary),
-                Category("Jazz", MaterialTheme.colorScheme.secondary),
-                Category("Electronic", MaterialTheme.colorScheme.tertiary)
-            )
-            
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-            ) {
-                // Using a grid with 2 columns
-                for (i in categories.indices step 2) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        // First item
-                        Box(modifier = Modifier.weight(1f)) {
-                            CategoryCard(
-                                title = categories[i].name,
-                                icon = RhythmIcons.Music.MusicNote,
-                                color = categories[i].color,
-                                onClick = { /* Handle category click */ }
-                            )
-                        }
-                        
-                        // Second item (if exists)
-                        if (i + 1 < categories.size) {
-                            Box(modifier = Modifier.weight(1f)) {
-                                CategoryCard(
-                                    title = categories[i + 1].name,
-                                    icon = RhythmIcons.Music.MusicNote,
-                                    color = categories[i + 1].color,
-                                    onClick = { /* Handle category click */ }
-                                )
-                            }
-                        } else {
-                            // Empty space to maintain grid layout
-                            Spacer(modifier = Modifier.weight(1f))
-                        }
-                    }
-                }
+        if (recentlyPlayed.isNotEmpty()) {
+            item {
+                RecentlyPlayedSection(recentlyPlayed = recentlyPlayed, onSongClick = onSongClick)
             }
-            
-            // Add bottom spacing
-            Spacer(modifier = Modifier.height(16.dp))
         }
+        
+        // Add bottom spacing
+        item { Spacer(modifier = Modifier.height(16.dp)) }
     }
 }
-
-// Data class for category information
-private data class Category(val name: String, val color: Color)
 
 @Composable
 fun RecentSearchItem(
@@ -847,9 +771,13 @@ fun SearchSongItem(
                     .size(48.dp)
                     .clip(RoundedCornerShape(8.dp))
             ) {
-                M3ImageUtils.TrackImage(
-                    imageUrl = song.artworkUri,
-                    trackName = song.title,
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data(song.artworkUri)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
             }
@@ -921,9 +849,13 @@ fun SearchAlbumItem(
                     .aspectRatio(1f)
                     .clip(RoundedCornerShape(8.dp))
             ) {
-                M3ImageUtils.AlbumArt(
-                    imageUrl = album.artworkUri,
-                    albumName = album.title,
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data(album.artworkUri)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
             }
@@ -982,9 +914,13 @@ fun SearchArtistItem(
                     .padding(4.dp),
                 shadowElevation = 4.dp
             ) {
-                M3ImageUtils.ArtistImage(
-                    imageUrl = artist.artworkUri,
-                    artistName = artist.name,
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data(artist.artworkUri)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxSize()
                         .clip(CircleShape)
@@ -1005,7 +941,6 @@ fun SearchArtistItem(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GenreCard(
     genre: String,
@@ -1073,9 +1008,13 @@ fun SearchPlaylistItem(
                 contentAlignment = Alignment.Center
             ) {
                 if (playlist.artworkUri != null) {
-                    M3ImageUtils.PlaylistImage(
-                        imageUrl = playlist.artworkUri,
-                        playlistName = playlist.name,
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(playlist.artworkUri)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
                 } else {
@@ -1198,9 +1137,13 @@ fun RecommendedAlbumItem(
             Box(
                 modifier = Modifier.fillMaxSize()
             ) {
-                M3ImageUtils.AlbumArt(
-                    imageUrl = album.artworkUri,
-                    albumName = album.title,
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(album.artworkUri)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
             }
@@ -1288,6 +1231,239 @@ fun MoodCard(
                     imageVector = RhythmIcons.Play,
                     contentDescription = "Play $title playlist",
                     modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+    }
+}
+
+// ---------- Shared composables copied from NewHomeScreen ----------
+@Composable
+private fun MoodBasedPlaylistsSection(
+    moodBasedSongs: List<Song>,
+    energeticSongs: List<Song>,
+    relaxingSongs: List<Song>,
+    onSongClick: (Song) -> Unit
+) {
+    val viewModel = viewModel<MusicViewModel>()
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 8.dp)
+    ) {
+        Text(
+            text = "Mood & Moments",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+        
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item {
+                MoodPlaylistCard(
+                    title = "Energize",
+                    description = "Upbeat tracks to boost your energy",
+                    songs = energeticSongs,
+                    backgroundColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    icon = RhythmIcons.Energy,
+                    onPlayClick = {
+                        viewModel.playQueue(energeticSongs)
+                        if (energeticSongs.isNotEmpty()) onSongClick(energeticSongs.first())
+                    }
+                )
+            }
+            item {
+                MoodPlaylistCard(
+                    title = "Relax",
+                    description = "Calm tracks to help you unwind",
+                    songs = relaxingSongs,
+                    backgroundColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    icon = RhythmIcons.Relax,
+                    onPlayClick = {
+                        viewModel.playQueue(relaxingSongs)
+                        if (relaxingSongs.isNotEmpty()) onSongClick(relaxingSongs.first())
+                    }
+                )
+            }
+            item {
+                MoodPlaylistCard(
+                    title = "Focus",
+                    description = "Concentration-enhancing music",
+                    songs = moodBasedSongs,
+                    backgroundColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                    icon = RhythmIcons.Focus,
+                    onPlayClick = {
+                        viewModel.playQueue(moodBasedSongs)
+                        if (moodBasedSongs.isNotEmpty()) onSongClick(moodBasedSongs.first())
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MoodPlaylistCard(
+    title: String,
+    description: String,
+    songs: List<Song>,
+    backgroundColor: Color,
+    contentColor: Color,
+    icon: ImageVector,
+    onPlayClick: () -> Unit
+) {
+    Surface(
+        color = backgroundColor,
+        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier
+            .width(200.dp)
+            .height(200.dp)
+            .clickable { onPlayClick() }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(20.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = contentColor,
+                    modifier = Modifier.size(32.dp)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = contentColor
+                )
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = contentColor.copy(alpha = 0.8f),
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+            Surface(
+                shape = CircleShape,
+                color = contentColor.copy(alpha = 0.2f),
+                modifier = Modifier
+                    .size(36.dp)
+                    .clickable { onPlayClick() }
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = RhythmIcons.Play,
+                        contentDescription = "Play",
+                        tint = contentColor,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecentlyPlayedSection(
+    recentlyPlayed: List<Song>,
+    onSongClick: (Song) -> Unit
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp)
+        ) {
+            Text(
+                text = "Recently Played",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+            
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(recentlyPlayed) { song ->
+                    EnhancedRecentChip(song = song, onClick = { onSongClick(song) })
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EnhancedRecentChip(
+    song: Song,
+    onClick: () -> Unit
+) {
+    val context = LocalContext.current
+    val viewModel = viewModel<MusicViewModel>()
+    
+    ElevatedCard(
+        onClick = { onClick(); viewModel.playSong(song) },
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        ),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.width(180.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.size(40.dp),
+                color = MaterialTheme.colorScheme.surface
+            ) {
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data(song.artworkUri)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+            
+            Spacer(modifier = Modifier.width(12.dp))
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = song.title,
+                    style = MaterialTheme.typography.labelLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = song.artist,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }

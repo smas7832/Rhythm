@@ -914,7 +914,10 @@ private fun MoodBasedPlaylistsSection(
                     backgroundColor = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                     icon = RhythmIcons.Energy,
-                    onPlayClick = { viewModel.playQueue(energeticSongs) }
+                    onPlayClick = {
+                        viewModel.playQueue(energeticSongs)
+                        if (energeticSongs.isNotEmpty()) onSongClick(energeticSongs.first())
+                    }
                 )
             }
             
@@ -926,7 +929,10 @@ private fun MoodBasedPlaylistsSection(
                     backgroundColor = MaterialTheme.colorScheme.secondaryContainer,
                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                     icon = RhythmIcons.Relax,
-                    onPlayClick = { viewModel.playQueue(relaxingSongs) }
+                    onPlayClick = {
+                        viewModel.playQueue(relaxingSongs)
+                        if (relaxingSongs.isNotEmpty()) onSongClick(relaxingSongs.first())
+                    }
                 )
             }
             
@@ -938,7 +944,10 @@ private fun MoodBasedPlaylistsSection(
                     backgroundColor = MaterialTheme.colorScheme.tertiaryContainer,
                     contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                     icon = RhythmIcons.Focus,
-                    onPlayClick = { viewModel.playQueue(moodBasedSongs) }
+                    onPlayClick = {
+                        viewModel.playQueue(moodBasedSongs)
+                        if (moodBasedSongs.isNotEmpty()) onSongClick(moodBasedSongs.first())
+                    }
                 )
             }
         }
@@ -1975,4 +1984,4 @@ private fun UpdateAvailableSection(
             }
         }
     }
-} 
+}

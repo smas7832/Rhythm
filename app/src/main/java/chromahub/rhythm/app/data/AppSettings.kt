@@ -98,7 +98,7 @@ class AppSettings private constructor(context: Context) {
     private val _showLyrics = MutableStateFlow(prefs.getBoolean(KEY_SHOW_LYRICS, true))
     val showLyrics: StateFlow<Boolean> = _showLyrics.asStateFlow()
     
-    private val _onlineOnlyLyrics = MutableStateFlow(prefs.getBoolean(KEY_ONLINE_ONLY_LYRICS, false))
+    private val _onlineOnlyLyrics = MutableStateFlow(prefs.getBoolean(KEY_ONLINE_ONLY_LYRICS, true))
     val onlineOnlyLyrics: StateFlow<Boolean> = _onlineOnlyLyrics.asStateFlow()
     
     // Theme Settings

@@ -16,6 +16,7 @@ import java.net.URL
 class MusicRepository(private val context: Context) {
     private val TAG = "MusicRepository"
     private val spotifyApiService = NetworkClient.spotifyApiService
+    private val lrclibApiService = NetworkClient.lrclibApiService
     private val apiKey = NetworkClient.getSpotifyApiKey()
 
     // Cache for artist images to avoid redundant API calls
@@ -396,53 +397,48 @@ class MusicRepository(private val context: Context) {
             return@withContext "Lyrics not available offline.\nConnect to the internet to view lyrics."
         }
         
+        // Clean up artist and title for matching
+        val cleanArtist = artist.trim().replace(Regex("\\(.*?\\)"), "").trim()
+        val cleanTitle = title.trim().replace(Regex("\\(.*?\\)"), "").trim()
+
+        // ---- Attempt Spotify RapidAPI ----
         try {
-            Log.d(TAG, "Fetching lyrics online for $artist - $title")
-            
-            // Clean up artist and title for better matching
-            val cleanArtist = artist.trim().replace(Regex("\\(.*?\\)"), "").trim()
-            val cleanTitle = title.trim().replace(Regex("\\(.*?\\)"), "").trim()
-            
-            // Search for the track on Spotify
             val searchQuery = "$cleanTitle $cleanArtist"
-            Log.d(TAG, "Searching for track: $searchQuery")
-            
+            Log.d(TAG, "Searching Spotify for track: $searchQuery")
             val searchResponse = spotifyApiService.searchTracks(searchQuery)
             val track = searchResponse.tracks.items.firstOrNull()
-            
             if (track != null) {
-                Log.d(TAG, "Found Spotify track: ${track.data.name} (${track.data.id})")
-                
-                // Get lyrics using track ID
                 val lyricsResponse = spotifyApiService.getTrackLyrics(track.data.id)
-                
                 if (lyricsResponse.lyrics.lines.isNotEmpty()) {
-                    // Convert lyrics lines to text
-                    val lyricsText = lyricsResponse.lyrics.lines
-                        .joinToString("\n") { it.words }
-                    
-                    Log.d(TAG, "Found lyrics with ${lyricsResponse.lyrics.lines.size} lines")
-                    
-                    // Cache the result
+                    val lyricsText = lyricsResponse.lyrics.lines.joinToString("\n") { it.words }
                     lyricsCache[cacheKey] = lyricsText
-                    
-                    // Save lyrics locally
                     saveLocalLyrics(artist, title, lyricsText)
-                    
                     return@withContext lyricsText
-                } else {
-                    Log.d(TAG, "No lyrics lines found in response")
                 }
-            } else {
-                Log.d(TAG, "No track found for: $searchQuery")
             }
-            
-            Log.d(TAG, "No lyrics found for $artist - $title")
-            return@withContext "No lyrics found for this song"
         } catch (e: Exception) {
-            Log.e(TAG, "Error fetching lyrics for $artist - $title: ${e.message}", e)
-            return@withContext "Error loading lyrics"
+            Log.w(TAG, "Spotify RapidAPI lyrics fetch failed: ${e.message}")
         }
+
+        // ---- Fallback to LRCLib ----
+        try {
+            Log.d(TAG, "Trying LRCLib for lyrics: $cleanArtist - $cleanTitle")
+            val lrclibResults = lrclibApiService.searchLyrics(trackName = cleanTitle, artistName = cleanArtist)
+            val bestMatch = lrclibResults.firstOrNull { !it.plainLyrics.isNullOrBlank() || !it.syncedLyrics.isNullOrBlank() }
+            if (bestMatch != null) {
+                val lyricsText = bestMatch.plainLyrics ?: bestMatch.syncedLyrics?.replace(Regex("\\[.*?]"), "") ?: ""
+                if (lyricsText.isNotBlank()) {
+                    lyricsCache[cacheKey] = lyricsText
+                    saveLocalLyrics(artist, title, lyricsText)
+                    return@withContext lyricsText
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "LRCLib lyrics fetch failed: ${e.message}", e)
+        }
+
+        Log.d(TAG, "No lyrics found for $artist - $title after all attempts")
+        return@withContext "No lyrics found for this song"
     }
 
     /**

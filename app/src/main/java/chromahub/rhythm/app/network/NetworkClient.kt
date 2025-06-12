@@ -13,12 +13,14 @@ import java.io.IOException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import kotlin.math.pow
+import chromahub.rhythm.app.network.LRCLibApiService
 
 object NetworkClient {
     private const val TAG = "NetworkClient"
     
-    private const val SPOTIFY_API_KEY = "2a8ab63d21msh09369018bb55e19p1cf51ejsne04ad1f7743b"
+    private const val SPOTIFY_API_KEY = "acd7746756msh38770eb0ec2ea68p15c583jsn5ac26c448f24"
     private const val SPOTIFY_BASE_URL = "https://spotify23.p.rapidapi.com/"
+    private const val LRCLIB_BASE_URL = "https://lrclib.net/"
     
     // Connection timeouts
     private const val CONNECT_TIMEOUT = 30L
@@ -87,7 +89,22 @@ object NetworkClient {
         .addConverterFactory(GsonConverterFactory.create())
         .build()
     
+    private val lrclibHttpClient = OkHttpClient.Builder()
+        .addInterceptor(loggingInterceptor)
+        .connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)
+        .readTimeout(READ_TIMEOUT, TimeUnit.SECONDS)
+        .writeTimeout(WRITE_TIMEOUT, TimeUnit.SECONDS)
+        .connectionPool(connectionPool)
+        .build()
+    
+    private val lrclibRetrofit = Retrofit.Builder()
+        .baseUrl(LRCLIB_BASE_URL)
+        .client(lrclibHttpClient)
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+    
     val spotifyApiService: SpotifyApiService = spotifyRetrofit.create(SpotifyApiService::class.java)
+    val lrclibApiService: LRCLibApiService = lrclibRetrofit.create(LRCLibApiService::class.java)
     
     fun getSpotifyApiKey(): String = SPOTIFY_API_KEY
 } 
