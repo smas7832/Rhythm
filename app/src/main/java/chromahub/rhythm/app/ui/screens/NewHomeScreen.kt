@@ -541,10 +541,10 @@ private fun EnhancedScrollableContent(
                 }
             }
             
-            // New Releases Section with improved cards
+            // Recently Added Section with improved cards
             if (newReleases.isNotEmpty()) {
                 SectionTitle(
-                    title = "New Releases ($currentYear)",
+                    title = "Recently Added",
                     viewAllAction = onViewAllAlbums
                 )
                 
@@ -1306,7 +1306,8 @@ private fun QuickPickCard(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 4.dp)
                 )
             }
             
@@ -1749,17 +1750,14 @@ private fun RecommendedForYouSection(
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
                 
-                songs.forEach { song ->
+                songs.forEachIndexed { index, song ->
                     RecommendedSongItem(
                         song = song,
                         onClick = { onSongClick(song) }
                     )
                     
-                    if (song != songs.last()) {
-                        HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 8.dp),
-                            color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.1f)
-                        )
+                    if (index != songs.lastIndex) {
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
             }
@@ -1819,11 +1817,18 @@ private fun RecommendedSongItem(
             )
         },
         trailingContent = {
-            IconButton(onClick = onClick) {
+            FilledIconButton(
+                onClick = onClick,
+                modifier = Modifier.size(36.dp),
+                colors = IconButtonDefaults.filledIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            ) {
                 Icon(
                     imageVector = RhythmIcons.Play,
                     contentDescription = "Play",
-                    tint = MaterialTheme.colorScheme.onTertiaryContainer
+                    modifier = Modifier.size(20.dp)
                 )
             }
         },

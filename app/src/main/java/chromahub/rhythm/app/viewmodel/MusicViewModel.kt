@@ -175,6 +175,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _timeBasedPreferences = MutableStateFlow<Map<Int, List<String>>>(appSettings.timeBasedPreferences.value)
     val timeBasedPreferences: StateFlow<Map<Int, List<String>>> = _timeBasedPreferences.asStateFlow()
 
+    // Song play counts
+    private val _songPlayCounts = MutableStateFlow<Map<String, Int>>(appSettings.songPlayCounts.value)
+    val songPlayCounts: StateFlow<Map<String, Int>> = _songPlayCounts.asStateFlow()
+
     // Add initialization state tracking
     private val _isInitialized = MutableStateFlow(false)
     val isInitialized: StateFlow<Boolean> = _isInitialized.asStateFlow()
@@ -208,7 +212,11 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             startProgressUpdates()
             startDeviceMonitoring()
 
-            // Step 4: Fetch supplementary data from the internet
+            // Step 4: Populate default playlists
+            populateRecentlyAddedPlaylist()
+            populateMostPlayedPlaylist()
+
+            // Step 5: Fetch supplementary data from the internet
             fetchArtworkFromInternet()
 
             // Step 5: Mark as initialized
@@ -1139,6 +1147,75 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         super.onCleared()
     }
 
+    /**
+     * Populates the "Recently Added" playlist with songs from current year's albums.
+     */
+    private fun populateRecentlyAddedPlaylist() {
+        viewModelScope.launch {
+            val recentlyAddedPlaylist = _playlists.value.find { it.id == "2" && it.name == "Recently Added" }
+            if (recentlyAddedPlaylist == null) {
+                Log.e(TAG, "Recently Added playlist not found, cannot populate.")
+                return@launch
+            }
+
+            val currentYear = Calendar.getInstance().get(Calendar.YEAR)
+            val currentYearAlbums = _albums.value.filter { it.year == currentYear }
+                .ifEmpty {
+                    // Fallback to most recent albums if no current year albums are available
+                    _albums.value.sortedByDescending { it.year }.take(4)
+                }
+
+            val songsToAdd = mutableSetOf<Song>()
+            currentYearAlbums.forEach { album ->
+                val albumSongs = repository.getSongsForAlbum(album.id)
+                songsToAdd.addAll(albumSongs)
+            }
+
+            // Add songs to the playlist, avoiding duplicates
+            val updatedSongs = (recentlyAddedPlaylist.songs.toSet() + songsToAdd).toList()
+            _playlists.value = _playlists.value.map { playlist ->
+                if (playlist.id == "2") {
+                    playlist.copy(songs = updatedSongs, dateModified = System.currentTimeMillis())
+                } else {
+                    playlist
+                }
+            }
+            savePlaylists()
+            Log.d(TAG, "Populated Recently Added playlist with ${songsToAdd.size} new songs.")
+        }
+    }
+
+    /**
+     * Populates the "Most Played" playlist based on song play counts.
+     */
+    private fun populateMostPlayedPlaylist() {
+        viewModelScope.launch {
+            val mostPlayedPlaylist = _playlists.value.find { it.id == "3" && it.name == "Most Played" }
+            if (mostPlayedPlaylist == null) {
+                Log.e(TAG, "Most Played playlist not found, cannot populate.")
+                return@launch
+            }
+
+            val sortedSongsByPlayCount = _songs.value.sortedByDescending { song ->
+                _songPlayCounts.value[song.id] ?: 0
+            }
+
+            // Take top 50 most played songs
+            val topSongs = sortedSongsByPlayCount.take(50)
+
+            // Add these songs to the playlist, replacing existing ones to keep it fresh
+            _playlists.value = _playlists.value.map { playlist ->
+                if (playlist.id == "3") {
+                    playlist.copy(songs = topSongs, dateModified = System.currentTimeMillis())
+                } else {
+                    playlist
+                }
+            }
+            savePlaylists()
+            Log.d(TAG, "Populated Most Played playlist with ${topSongs.size} songs.")
+        }
+    }
+
     // New functions for playlist management
     fun createPlaylist(name: String) {
         viewModelScope.launch {
@@ -1298,6 +1375,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 "AutoConnectDevice=${autoConnectDevice.value}, " +
                 "MaxCacheSize=${maxCacheSize.value}, " +
                 "ClearCacheOnExit=${clearCacheOnExit.value}")
+
+        // Load song play counts
+        _songPlayCounts.value = appSettings.songPlayCounts.value
     }
 
     /**
@@ -1863,6 +1943,13 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 _genrePreferences.value = currentGenrePrefs
                 appSettings.setGenrePreferences(currentGenrePrefs)
             }
+
+            // Update song play counts
+            val currentSongPlayCounts = _songPlayCounts.value.toMutableMap()
+            val playCount = currentSongPlayCounts.getOrDefault(song.id, 0) + 1
+            currentSongPlayCounts[song.id] = playCount
+            _songPlayCounts.value = currentSongPlayCounts
+            appSettings.setSongPlayCounts(currentSongPlayCounts)
             
             // Update time-based preferences
             val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
@@ -1988,6 +2075,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             Log.d(TAG, "Initialized from persistence: ${recentSongs.size} recent songs loaded")
             Log.d(TAG, "Daily stats entries: ${cleanedDailyStats.size}")
             Log.d(TAG, "Weekly top artists: ${appSettings.weeklyTopArtists.value.size}")
+
+            // Restore song play counts
+            _songPlayCounts.value = appSettings.songPlayCounts.value
         } catch (e: Exception) {
             Log.e(TAG, "Error initializing from persistence", e)
         }
@@ -2003,5 +2093,6 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         private const val PREF_REPLAY_GAIN = "replay_gain"
         private const val PREF_SHOW_LYRICS = "show_lyrics"
         private const val PREF_ONLINE_ONLY_LYRICS = "online_only_lyrics"
+        private const val PREF_SONG_PLAY_COUNTS = "song_play_counts"
     }
 }

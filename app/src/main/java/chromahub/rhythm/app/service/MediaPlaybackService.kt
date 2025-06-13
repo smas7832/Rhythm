@@ -33,6 +33,7 @@ import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import chromahub.rhythm.app.R
+import chromahub.rhythm.app.MainActivity
 import chromahub.rhythm.app.data.AppSettings
 import chromahub.rhythm.app.data.Song
 import java.util.concurrent.ConcurrentHashMap
@@ -145,11 +146,24 @@ class MediaPlaybackService : MediaLibraryService() {
     }
     
     private fun createMediaSession(): MediaLibrarySession {
+        // PendingIntent that launches MainActivity when user taps media controls
+        val sessionIntent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            0,
+            sessionIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
         return MediaLibrarySession.Builder(
             this,
             player,
             MediaSessionCallback()
-        ).build()
+        )
+            .setSessionActivity(pendingIntent)
+            .build()
     }
     
     private fun applyPlayerSettings() {

@@ -469,11 +469,18 @@ private fun ArtistSongItem(
             }
         },
         trailingContent = {
-            IconButton(onClick = onClick) {
+            FilledIconButton(
+                onClick = onClick,
+                modifier = Modifier.size(36.dp),
+                colors = IconButtonDefaults.filledIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            ) {
                 Icon(
                     imageVector = RhythmIcons.Play,
                     contentDescription = "Play song",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    modifier = Modifier.size(20.dp)
                 )
             }
         },

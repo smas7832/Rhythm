@@ -57,11 +57,17 @@ class AppSettings private constructor(context: Context) {
         private const val KEY_RECENTLY_PLAYED = "recently_played"
         private const val KEY_LAST_PLAYED_TIMESTAMP = "last_played_timestamp"
         
+        // Spotify Integration
+        private const val KEY_SPOTIFY_API_KEY = "spotify_api_key"
+        
         // Enhanced User Preferences
         private const val KEY_FAVORITE_GENRES = "favorite_genres"
         private const val KEY_DAILY_LISTENING_STATS = "daily_listening_stats"
         private const val KEY_WEEKLY_TOP_ARTISTS = "weekly_top_artists"
         private const val KEY_MOOD_PREFERENCES = "mood_preferences"
+        
+        // Song Play Counts
+        private const val KEY_SONG_PLAY_COUNTS = "song_play_counts"
         
         @Volatile
         private var INSTANCE: AppSettings? = null
@@ -189,6 +195,10 @@ class AppSettings private constructor(context: Context) {
     private val _lastPlayedTimestamp = MutableStateFlow(prefs.getLong(KEY_LAST_PLAYED_TIMESTAMP, 0L))
     val lastPlayedTimestamp: StateFlow<Long> = _lastPlayedTimestamp.asStateFlow()
     
+    // Spotify RapidAPI Key
+    private val _spotifyApiKey = MutableStateFlow<String?>(prefs.getString(KEY_SPOTIFY_API_KEY, null))
+    val spotifyApiKey: StateFlow<String?> = _spotifyApiKey.asStateFlow()
+
     // Enhanced User Preferences
     private val _favoriteGenres = MutableStateFlow<Map<String, Int>>(
         try {
@@ -245,6 +255,20 @@ class AppSettings private constructor(context: Context) {
         }
     )
     val moodPreferences: StateFlow<Map<String, List<String>>> = _moodPreferences.asStateFlow()
+
+    private val _songPlayCounts = MutableStateFlow<Map<String, Int>>(
+        try {
+            val json = prefs.getString(KEY_SONG_PLAY_COUNTS, null)
+            if (json != null) {
+                Gson().fromJson(json, object : TypeToken<Map<String, Int>>() {}.type)
+            } else {
+                emptyMap()
+            }
+        } catch (e: Exception) {
+            emptyMap()
+        }
+    )
+    val songPlayCounts: StateFlow<Map<String, Int>> = _songPlayCounts.asStateFlow()
     
     // Playback Settings Methods
     fun setHighQualityAudio(enable: Boolean) {
@@ -394,6 +418,17 @@ class AppSettings private constructor(context: Context) {
         _lastPlayedTimestamp.value = timestamp
     }
     
+    // Spotify API Key Methods
+    fun setSpotifyApiKey(key: String?) {
+        if (key.isNullOrBlank()) {
+            prefs.edit().remove(KEY_SPOTIFY_API_KEY).apply()
+            _spotifyApiKey.value = null
+        } else {
+            prefs.edit().putString(KEY_SPOTIFY_API_KEY, key).apply()
+            _spotifyApiKey.value = key
+        }
+    }
+
     // Enhanced User Preferences Methods
     fun updateFavoriteGenres(genres: Map<String, Int>) {
         val json = Gson().toJson(genres)
@@ -418,4 +453,11 @@ class AppSettings private constructor(context: Context) {
         prefs.edit().putString(KEY_MOOD_PREFERENCES, json).apply()
         _moodPreferences.value = preferences
     }
-} 
+
+    // Song Play Counts Methods
+    fun setSongPlayCounts(counts: Map<String, Int>) {
+        val json = Gson().toJson(counts)
+        prefs.edit().putString(KEY_SONG_PLAY_COUNTS, json).apply()
+        _songPlayCounts.value = counts
+    }
+}

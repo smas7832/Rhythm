@@ -61,8 +61,8 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.Slider
@@ -1376,8 +1376,7 @@ private fun NowPlayingCard(song: Song) {
             ) {
                 // Album art with subtle elevation
                 Surface(
-                    modifier = Modifier
-                        .size(64.dp),
+                    modifier = Modifier.size(64.dp),
                     shape = RoundedCornerShape(12.dp),
                     tonalElevation = 0.dp,
                     shadowElevation = 0.dp
@@ -1544,17 +1543,17 @@ private fun SongToAddCard(song: Song) {
 
 @Composable
 private fun CreatePlaylistButton(onClick: () -> Unit) {
-    ElevatedCard(
+    // Accent-filled card without elevation
+    Card(
         onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 24.dp, vertical = 8.dp),
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
         ),
-        elevation = CardDefaults.elevatedCardElevation(
-            defaultElevation = 2.dp
-        )
+        shape = RoundedCornerShape(16.dp)
     ) {
         Row(
             modifier = Modifier
@@ -1562,18 +1561,18 @@ private fun CreatePlaylistButton(onClick: () -> Unit) {
                 .padding(vertical = 16.dp, horizontal = 20.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Icon with circular background
+            // Leading accent icon
             Box(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+                    .background(MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.size(24.dp)
                 )
             }
@@ -1582,9 +1581,9 @@ private fun CreatePlaylistButton(onClick: () -> Unit) {
             
             Text(
                 text = "Create New Playlist",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                fontWeight = FontWeight.Bold
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                maxLines = 1
             )
             
             Spacer(modifier = Modifier.weight(1f))
@@ -1592,7 +1591,7 @@ private fun CreatePlaylistButton(onClick: () -> Unit) {
             Icon(
                 imageVector = RhythmIcons.Forward,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSecondaryContainer
+                tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
             )
         }
     }
@@ -1608,9 +1607,8 @@ private fun PlaylistsHeader(count: Int) {
     ) {
         Text(
             text = "YOUR PLAYLISTS",
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         
         Spacer(modifier = Modifier.width(8.dp))
@@ -1626,10 +1624,10 @@ private fun PlaylistsHeader(count: Int) {
         Text(
             text = "$count",
             style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.primary,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier
                 .background(
-                    color = MaterialTheme.colorScheme.primaryContainer,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
                     shape = CircleShape
                 )
                 .padding(horizontal = 8.dp, vertical = 4.dp)
@@ -1941,7 +1939,6 @@ private fun QueueItem(
     reorderableState: ReorderableLazyListState
 ) {
     val context = LocalContext.current
-    val elevation = if (isDragging) 8.dp else 0.dp
     
     OutlinedCard(
         onClick = onSongClick,
@@ -1962,9 +1959,6 @@ private fun QueueItem(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 2.dp)
-            .graphicsLayer {
-                shadowElevation = 0.dp.toPx()
-            }
     ) {
         Row(
             modifier = Modifier

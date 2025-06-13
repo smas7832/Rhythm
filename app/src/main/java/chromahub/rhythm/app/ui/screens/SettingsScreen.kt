@@ -29,11 +29,13 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -47,18 +49,21 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -67,8 +72,22 @@ import chromahub.rhythm.app.data.Song
 import chromahub.rhythm.app.ui.components.MiniPlayer
 import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.R
-import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.IconButton
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.HorizontalDivider
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.net.HttpURLConnection
+import java.net.URL
+import chromahub.rhythm.app.data.AppSettings
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.foundation.text.ClickableText
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.SpanStyle
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -91,7 +110,133 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onCheckForUpdates: () -> Unit
 ) {
+    val context = LocalContext.current
+    val appSettings = remember { AppSettings.getInstance(context) }
+    val spotifyKey by appSettings.spotifyApiKey.collectAsState()
+    val scope = rememberCoroutineScope()
+    var showApiKeyDialog by remember { mutableStateOf(false) }
+    var apiKeyInput by remember { mutableStateOf(spotifyKey ?: "") }
     var showAboutDialog by remember { mutableStateOf(false) }
+    var isChecking by remember { mutableStateOf(false) }
+    var checkResult: Boolean? by remember { mutableStateOf(null) } // null not checked
+    var errorCode: Int? by remember { mutableStateOf(null) } // hold HTTP error for messaging
+
+    if (showApiKeyDialog) {
+        AlertDialog(
+            onDismissRequest = { if(!isChecking) showApiKeyDialog = false },
+            title = {
+                Text(
+                    text = "Spotify RapidAPI Key",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        "Obtain a free RapidAPI key for the Spotify23 API (\u2192 Open the \u201cPlayground\u201d and copy your Personal key).",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    val linkColor = MaterialTheme.colorScheme.primary
+                    val annotatedLink = buildAnnotatedString {
+                        append("More info")
+                        addStyle(SpanStyle(color = linkColor, fontWeight = FontWeight.Medium), 0, length)
+                        addStringAnnotation("URL", "https://rapidapi.com/Glavier/api/spotify23/playground", 0, length)
+                    }
+                    ClickableText(text = annotatedLink, style = MaterialTheme.typography.bodySmall) { offset ->
+                        annotatedLink.getStringAnnotations("URL", offset, offset).firstOrNull()?.let { anno ->
+                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(anno.item))
+                            context.startActivity(intent)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = apiKeyInput,
+                        onValueChange = {
+                            apiKeyInput = it
+                            checkResult = null // reset result when editing
+                        },
+                        singleLine = true,
+                        placeholder = { Text("Enter API key") },
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    when {
+                        isChecking -> {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Verifying key…")
+                            }
+                        }
+                        checkResult == true -> {
+                            Text("Key valid!", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
+                        }
+                        checkResult == false -> {
+                            val msg = when (errorCode) {
+                                429 -> "Monthly limit exceeded for this key. Using default key."
+                                500 -> "RapidAPI server error. Please try again later."
+                                else -> "Key invalid. We'll keep using the default key."
+                            }
+                            Text(msg, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (isChecking) return@Button
+                        isChecking = true
+                        checkResult = null
+                        scope.launch {
+                            val code = verifySpotifyKey(apiKeyInput.trim())
+                            val ok = code == HttpURLConnection.HTTP_OK
+                            checkResult = ok
+                            errorCode = if (ok) null else code
+                            if (ok) {
+                                appSettings.setSpotifyApiKey(apiKeyInput.trim())
+                                showApiKeyDialog = false
+                            } else {
+                                appSettings.setSpotifyApiKey(null) // fallback
+                            }
+                            isChecking = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer)
+                ) {
+                    Text(if (isChecking) "Verifying…" else "Save")
+                }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = { if(!isChecking) showApiKeyDialog = false }) {
+                        Text("Cancel")
+                    }
+                    if (!spotifyKey.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = {
+                                if (isChecking) return@Button
+                                scope.launch {
+                                    appSettings.setSpotifyApiKey(null)
+                                    showApiKeyDialog = false
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
+                        ) {
+                            Text("Remove")
+                        }
+                    }
+                }
+            },
+            shape = RoundedCornerShape(20.dp)
+        )
+    }
 
     if (showAboutDialog) {
         AboutDialog(
@@ -218,6 +363,23 @@ fun SettingsScreen(
                     description = "Open system equalizer to adjust audio frequencies",
                     icon = RhythmIcons.VolumeUp,
                     onClick = onOpenSystemEqualizer
+                )
+
+                SettingsDivider()
+            }
+
+            // Integrations section
+            item {
+                SettingsSectionHeader(title = "Integrations")
+
+                SettingsClickableItem(
+                    title = "Spotify RapidAPI Key",
+                    description = if (spotifyKey.isNullOrBlank()) "No key set" else "Key set (tap to change)",
+                    icon = RhythmIcons.Settings,
+                    onClick = {
+                        apiKeyInput = spotifyKey ?: ""
+                        showApiKeyDialog = true
+                    }
                 )
 
                 SettingsDivider()
@@ -698,4 +860,24 @@ fun AboutDialog(
         },
         shape = RoundedCornerShape(24.dp)
     )
+}
+
+/**
+ * Simple network check for the RapidAPI key. Uses java.net.HttpURLConnection to avoid
+ * Retrofit dependency here. Performs a small search query and returns true if HTTP 200.
+ */
+suspend fun verifySpotifyKey(key: String): Int? {
+    if (key.isBlank()) return null
+    return withContext(Dispatchers.IO) {
+        runCatching {
+            val url = URL("https://spotify23.p.rapidapi.com/artist_images/?id=6eUKZXaKkcviH0Ku9w2n3V")
+            val conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "GET"
+            conn.setRequestProperty("X-RapidAPI-Key", key)
+            conn.setRequestProperty("X-RapidAPI-Host", "spotify23.p.rapidapi.com")
+            conn.connectTimeout = 5000
+            conn.readTimeout = 5000
+            conn.responseCode
+        }.getOrNull()
+    }
 }

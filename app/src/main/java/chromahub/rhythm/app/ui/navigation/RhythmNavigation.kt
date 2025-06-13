@@ -11,6 +11,20 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -83,27 +97,13 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
-import androidx.compose.ui.graphics.Color
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.foundation.layout.width
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.EaseOutQuint
 import androidx.compose.animation.core.EaseInOutQuart
 import androidx.compose.animation.core.EaseInBack
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.systemBars
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.windowInsetsBottomHeight
 
 sealed class Screen(val route: String) {
     object Home : Screen("home")
@@ -515,12 +515,13 @@ fun RhythmNavigation(
                     onPlayerClick = {
                         navController.navigate(Screen.Player.route)
                     },
-                    onAddSongToPlaylist = { song ->
-                        // Store the selected song in the ViewModel and navigate to add to playlist screen
-                        viewModel.setSelectedSongForPlaylist(song)
-                        navController.navigate(Screen.AddToPlaylist.route)
-                    },
                     onSkipNext = onSkipNext,
+                    onAddSongToPlaylist = { song, playlistId ->
+                        viewModel.addSongToPlaylist(song, playlistId)
+                    },
+                    onCreatePlaylist = { name ->
+                        viewModel.createPlaylist(name)
+                    },
                     onBack = {
                         navController.popBackStack()
                     }

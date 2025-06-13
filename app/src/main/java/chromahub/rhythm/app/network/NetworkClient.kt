@@ -14,6 +14,9 @@ import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import kotlin.math.pow
 import chromahub.rhythm.app.network.LRCLibApiService
+import chromahub.rhythm.app.network.MusicBrainzApiService
+import chromahub.rhythm.app.network.SpotifyApiService
+import chromahub.rhythm.app.network.CoverArtArchiveService
 
 object NetworkClient {
     private const val TAG = "NetworkClient"
@@ -21,6 +24,8 @@ object NetworkClient {
     private const val SPOTIFY_API_KEY = "acd7746756msh38770eb0ec2ea68p15c583jsn5ac26c448f24"
     private const val SPOTIFY_BASE_URL = "https://spotify23.p.rapidapi.com/"
     private const val LRCLIB_BASE_URL = "https://lrclib.net/"
+    private const val MUSICBRAINZ_BASE_URL = "https://musicbrainz.org/"
+    private const val COVERART_BASE_URL = "https://coverartarchive.org/"
     
     // Connection timeouts
     private const val CONNECT_TIMEOUT = 30L
@@ -74,6 +79,14 @@ object NetworkClient {
         throw exception ?: IOException("Request failed after $MAX_RETRIES retries")
     }
     
+    private fun musicBrainzHeadersInterceptor() = Interceptor { chain ->
+        val request = chain.request().newBuilder()
+            .header("User-Agent", "RhythmApp/1.0 (contact@chromahub.dev)")
+            .header("Accept", "application/json")
+            .build()
+        chain.proceed(request)
+    }
+    
     private val spotifyHttpClient = OkHttpClient.Builder()
         .addInterceptor(loggingInterceptor)
         .addInterceptor(retryInterceptor)
@@ -103,8 +116,46 @@ object NetworkClient {
         .addConverterFactory(GsonConverterFactory.create())
         .build()
     
+    private val musicBrainzHttpClient = OkHttpClient.Builder()
+        .addInterceptor(musicBrainzHeadersInterceptor())
+        .addInterceptor(loggingInterceptor)
+        .connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)
+        .readTimeout(READ_TIMEOUT, TimeUnit.SECONDS)
+        .writeTimeout(WRITE_TIMEOUT, TimeUnit.SECONDS)
+        .connectionPool(connectionPool)
+        .build()
+
+    private val musicBrainzRetrofit = Retrofit.Builder()
+        .baseUrl(MUSICBRAINZ_BASE_URL)
+        .client(musicBrainzHttpClient)
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+    
+    private val coverArtHttpClient = OkHttpClient.Builder()
+        .addInterceptor(musicBrainzHeadersInterceptor()) // same UA rules
+        .addInterceptor(loggingInterceptor)
+        .connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)
+        .readTimeout(READ_TIMEOUT, TimeUnit.SECONDS)
+        .writeTimeout(WRITE_TIMEOUT, TimeUnit.SECONDS)
+        .connectionPool(connectionPool)
+        .build()
+    
+    private val coverArtRetrofit = Retrofit.Builder()
+        .baseUrl(COVERART_BASE_URL)
+        .client(coverArtHttpClient)
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+    
     val spotifyApiService: SpotifyApiService = spotifyRetrofit.create(SpotifyApiService::class.java)
     val lrclibApiService: LRCLibApiService = lrclibRetrofit.create(LRCLibApiService::class.java)
+    val musicBrainzApiService: MusicBrainzApiService = musicBrainzRetrofit.create(MusicBrainzApiService::class.java)
+    val coverArtArchiveService: CoverArtArchiveService = coverArtRetrofit.create(CoverArtArchiveService::class.java)
+    
+    // Generic OkHttp client for one-off requests (e.g., Wikidata JSON). Reuses header interceptor.
+    val genericHttpClient: OkHttpClient = OkHttpClient.Builder()
+        .addInterceptor(musicBrainzHeadersInterceptor())
+        .addInterceptor(loggingInterceptor)
+        .build()
     
     fun getSpotifyApiKey(): String = SPOTIFY_API_KEY
 } 
