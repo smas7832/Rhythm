@@ -229,18 +229,7 @@ fun LibraryScreen(
                 scrollBehavior = scrollBehavior
             )
         },
-        bottomBar = {
-            if (currentSong != null) {
-                MiniPlayer(
-                    song = currentSong,
-                    isPlaying = isPlaying,
-                    progress = progress,
-                    onPlayPause = onPlayPause,
-                    onPlayerClick = onPlayerClick,
-                    onSkipNext = onSkipNext
-                )
-            }
-        },
+        bottomBar = {},
         floatingActionButton = {
             if (selectedTabIndex == 1) {
                 ExtendedFloatingActionButton(

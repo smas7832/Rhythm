@@ -163,6 +163,11 @@ fun RhythmNavigation(
     val onToggleShuffle = { viewModel.toggleShuffle() }
     val onToggleRepeat = { viewModel.toggleRepeatMode() }
     val onToggleFavorite = { viewModel.toggleFavorite() }
+
+    // Player click navigates to full player screen
+    val onPlayerClick = {
+        navController.navigate(Screen.Player.route)
+    }
     
     // Track current destination for hiding navigation bar on player screen
     var currentRoute by remember { mutableStateOf(Screen.Home.route) }
@@ -181,14 +186,26 @@ fun RhythmNavigation(
 
     Scaffold(
         bottomBar = {
-            // Only show the navigation bar if we're not on the player screen or related screens
-            // Also hide it on search, settings, and updater screens as requested
-            if (currentRoute != Screen.Player.route && 
-                currentRoute != Screen.PlayerLocations.route &&
-                currentRoute != Screen.Search.route &&
-                currentRoute != Screen.Settings.route &&
-                currentRoute != Screen.AppUpdater.route) {
-                Column {
+            Column {
+                // Global MiniPlayer (hidden on full player screen)
+                if (currentSong != null && currentRoute != Screen.Player.route) {
+                    MiniPlayer(
+                        song = currentSong,
+                        isPlaying = isPlaying,
+                        progress = progress,
+                        onPlayPause = onPlayPause,
+                        onPlayerClick = onPlayerClick,
+                        onSkipNext = onSkipNext
+                    )
+                }
+
+                // Navigation bar shown only on specific routes
+                if (currentRoute != Screen.Player.route &&
+                    currentRoute != Screen.PlayerLocations.route &&
+                    currentRoute != Screen.Search.route &&
+                    currentRoute != Screen.Settings.route &&
+                    currentRoute != Screen.AppUpdater.route) {
+
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()

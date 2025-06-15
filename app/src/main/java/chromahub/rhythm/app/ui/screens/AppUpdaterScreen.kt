@@ -139,18 +139,7 @@ fun AppUpdaterScreen(
                 )
             )
         },
-        bottomBar = {
-            if (currentSong != null) {
-                MiniPlayer(
-                    song = currentSong,
-                    isPlaying = isPlaying,
-                    progress = progress,
-                    onPlayPause = onPlayPause,
-                    onPlayerClick = onPlayerClick,
-                    onSkipNext = onSkipNext
-                )
-            }
-        }
+        bottomBar = {}
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier

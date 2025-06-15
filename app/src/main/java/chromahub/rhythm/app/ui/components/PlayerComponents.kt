@@ -502,13 +502,9 @@ fun MiniPlayer(
             containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
             contentColor = MaterialTheme.colorScheme.onSurface
         ),
-        border = BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-        ),
         elevation = CardDefaults.cardElevation(
-            defaultElevation = 2.dp,
-            pressedElevation = 6.dp
+            defaultElevation = 0.dp,
+            pressedElevation = 0.dp
         ),
         modifier = modifier
             .fillMaxWidth()

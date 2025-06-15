@@ -65,6 +65,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
@@ -93,7 +94,12 @@ import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.viewmodel.MusicViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import kotlinx.coroutines.launch
 import java.util.Calendar
+
+import androidx.compose.material3.rememberModalBottomSheetState
+import chromahub.rhythm.app.ui.screens.AddToPlaylistBottomSheet
+import chromahub.rhythm.app.ui.components.CreatePlaylistDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -111,8 +117,9 @@ fun SearchScreen(
     onPlaylistClick: (Playlist) -> Unit,
     onPlayPause: () -> Unit,
     onPlayerClick: () -> Unit,
-    onSkipNext: () -> Unit,
-    onAddSongToPlaylist: (Song) -> Unit = {},
+    onSkipNext: () -> Unit = {},
+    onAddSongToPlaylist: (Song, String) -> Unit = { _, _ -> },
+    onCreatePlaylist: (String) -> Unit = {},
     onBack: () -> Unit = {}
 ) {
     val viewModel: MusicViewModel = viewModel()
@@ -186,19 +193,16 @@ fun SearchScreen(
     val hasSearchResults = filteredSongs.isNotEmpty() || filteredAlbums.isNotEmpty() || 
                           filteredArtists.isNotEmpty() || filteredPlaylists.isNotEmpty()
     
+    val scope = rememberCoroutineScope()
+    
+    // Bottom sheet + dialog state for add-to-playlist flow
+    var showAddToPlaylistSheet by remember { mutableStateOf(false) }
+    var selectedSong by remember { mutableStateOf<Song?>(null) }
+    var showCreatePlaylistDialog by remember { mutableStateOf(false) }
+    val addToPlaylistSheetState = rememberModalBottomSheetState()
+    
     Scaffold(
-        bottomBar = {
-            if (currentSong != null) {
-                MiniPlayer(
-                    song = currentSong,
-                    isPlaying = isPlaying,
-                    progress = progress,
-                    onPlayPause = onPlayPause,
-                    onPlayerClick = onPlayerClick,
-                    onSkipNext = onSkipNext
-                )
-            }
-        }
+        bottomBar = {}
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -304,7 +308,10 @@ fun SearchScreen(
                         onAlbumClick = onAlbumClick,
                         onArtistClick = onArtistClick,
                         onPlaylistClick = onPlaylistClick,
-                        onAddSongToPlaylist = onAddSongToPlaylist
+                        onAddSongToPlaylist = { song ->
+                            selectedSong = song
+                            showAddToPlaylistSheet = true
+                        }
                     )
                 } else {
                     // No results
@@ -367,6 +374,45 @@ fun SearchScreen(
                 )
             }
         }
+    }
+    
+    // Add-to-playlist bottom sheet
+    if (showAddToPlaylistSheet && selectedSong != null) {
+        AddToPlaylistBottomSheet(
+            song = selectedSong!!,
+            playlists = playlists,
+            onDismiss = { showAddToPlaylistSheet = false },
+            onAddToPlaylist = { playlist ->
+                onAddSongToPlaylist(selectedSong!!, playlist.id ?: "")
+                scope.launch {
+                    addToPlaylistSheetState.hide()
+                }.invokeOnCompletion {
+                    if (!addToPlaylistSheetState.isVisible) {
+                        showAddToPlaylistSheet = false
+                    }
+                }
+            },
+            onCreateNewPlaylist = {
+                scope.launch { addToPlaylistSheetState.hide() }.invokeOnCompletion {
+                    if (!addToPlaylistSheetState.isVisible) {
+                        showAddToPlaylistSheet = false
+                        showCreatePlaylistDialog = true
+                    }
+                }
+            },
+            sheetState = addToPlaylistSheetState
+        )
+    }
+    
+    // Create playlist dialog
+    if (showCreatePlaylistDialog) {
+        CreatePlaylistDialog(
+            onDismiss = { showCreatePlaylistDialog = false },
+            onConfirm = { name ->
+                onCreatePlaylist(name)
+                showCreatePlaylistDialog = false
+            }
+        )
     }
 }
 
@@ -652,6 +698,12 @@ fun SearchBrowseContent(
         }
         
         // Mood & Moments and Recently Played (shared design)
+        if (recentlyPlayed.isNotEmpty()) {
+            item {
+                RecentlyPlayedSection(recentlyPlayed = recentlyPlayed, onSongClick = onSongClick)
+            }
+        }
+
         item {
             MoodBasedPlaylistsSection(
                 moodBasedSongs = focusSongs,
@@ -659,12 +711,6 @@ fun SearchBrowseContent(
                 relaxingSongs = relaxingSongs,
                 onSongClick = onSongClick
             )
-        }
-        
-        if (recentlyPlayed.isNotEmpty()) {
-            item {
-                RecentlyPlayedSection(recentlyPlayed = recentlyPlayed, onSongClick = onSongClick)
-            }
         }
         
         // Add bottom spacing
@@ -747,7 +793,7 @@ fun RecentSearchItem(
 fun SearchSongItem(
     song: Song,
     onClick: () -> Unit,
-    onAddToPlaylist: () -> Unit = {}
+    onAddToPlaylist: (Song) -> Unit = {}
 ) {
     val context = LocalContext.current
     
@@ -805,14 +851,17 @@ fun SearchSongItem(
             }
             
             // Add to playlist button
-            IconButton(
-                onClick = onAddToPlaylist,
-                modifier = Modifier.size(36.dp)
+            FilledIconButton(
+                onClick = { onAddToPlaylist(song) },
+                modifier = Modifier.size(36.dp),
+                colors = IconButtonDefaults.filledIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                )
             ) {
                 Icon(
                     imageVector = RhythmIcons.AddToPlaylist,
                     contentDescription = "Add to playlist",
-                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -1185,7 +1234,7 @@ fun MoodCard(
         modifier = Modifier
             .width(200.dp)
             .height(200.dp)
-            .clickable(onClick = onClick)
+            .clickable { onClick() }
     ) {
         Column(
             modifier = Modifier
@@ -1193,7 +1242,6 @@ fun MoodCard(
                 .padding(20.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Top section
             Column {
                 Icon(
                     imageVector = icon,
@@ -1201,16 +1249,13 @@ fun MoodCard(
                     tint = contentColor,
                     modifier = Modifier.size(32.dp)
                 )
-                
                 Spacer(modifier = Modifier.height(16.dp))
-                
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = contentColor
                 )
-                
                 Text(
                     text = description,
                     style = MaterialTheme.typography.bodyMedium,
@@ -1218,26 +1263,124 @@ fun MoodCard(
                     modifier = Modifier.padding(top = 4.dp)
                 )
             }
-            
-            // Play button
-            FilledIconButton(
-                onClick = onClick,
-                colors = IconButtonDefaults.filledIconButtonColors(
-                    containerColor = contentColor,
-                    contentColor = backgroundColor
-                )
+            Surface(
+                shape = CircleShape,
+                color = contentColor.copy(alpha = 0.2f),
+                modifier = Modifier
+                    .size(36.dp)
+                    .clickable { onClick() }
             ) {
-                Icon(
-                    imageVector = RhythmIcons.Play,
-                    contentDescription = "Play $title playlist",
-                    modifier = Modifier.size(24.dp)
-                )
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = RhythmIcons.Play,
+                        contentDescription = "Play",
+                        tint = contentColor,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
         }
     }
 }
 
 // ---------- Shared composables copied from NewHomeScreen ----------
+@Composable
+private fun RecentlyPlayedSection(
+    recentlyPlayed: List<Song>,
+    onSongClick: (Song) -> Unit
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp)
+        ) {
+            Text(
+                text = "Recently Played",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+            
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(recentlyPlayed) { song ->
+                    EnhancedRecentChip(song = song, onClick = { onSongClick(song) })
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EnhancedRecentChip(
+    song: Song,
+    onClick: () -> Unit
+) {
+    val context = LocalContext.current
+    val viewModel = viewModel<MusicViewModel>()
+    
+    ElevatedCard(
+        onClick = { onClick(); viewModel.playSong(song) },
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        ),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.width(180.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.size(40.dp),
+                color = MaterialTheme.colorScheme.surface
+            ) {
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data(song.artworkUri)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+            
+            Spacer(modifier = Modifier.width(12.dp))
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = song.title,
+                    style = MaterialTheme.typography.labelLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = song.artist,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun MoodBasedPlaylistsSection(
     moodBasedSongs: List<Song>,
@@ -1368,103 +1511,6 @@ private fun MoodPlaylistCard(
                         modifier = Modifier.size(20.dp)
                     )
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun RecentlyPlayedSection(
-    recentlyPlayed: List<Song>,
-    onSongClick: (Song) -> Unit
-) {
-    Surface(
-        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
-        shape = RoundedCornerShape(16.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 16.dp)
-        ) {
-            Text(
-                text = "Recently Played",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-            )
-            
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(recentlyPlayed) { song ->
-                    EnhancedRecentChip(song = song, onClick = { onSongClick(song) })
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun EnhancedRecentChip(
-    song: Song,
-    onClick: () -> Unit
-) {
-    val context = LocalContext.current
-    val viewModel = viewModel<MusicViewModel>()
-    
-    ElevatedCard(
-        onClick = { onClick(); viewModel.playSong(song) },
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-        ),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(16.dp),
-        modifier = Modifier.width(180.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.size(40.dp),
-                color = MaterialTheme.colorScheme.surface
-            ) {
-                AsyncImage(
-                    model = ImageRequest.Builder(context)
-                        .data(song.artworkUri)
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
-            
-            Spacer(modifier = Modifier.width(12.dp))
-            
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = song.title,
-                    style = MaterialTheme.typography.labelLarge,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = song.artist,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
             }
         }
     }

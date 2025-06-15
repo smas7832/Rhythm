@@ -211,18 +211,7 @@ fun PlaylistDetailScreen(
                 )
             )
         },
-        bottomBar = {
-            if (currentSong != null) {
-                MiniPlayer(
-                    song = currentSong,
-                    isPlaying = isPlaying,
-                    progress = progress,
-                    onPlayPause = onPlayPause,
-                    onPlayerClick = onPlayerClick,
-                    onSkipNext = onSkipNext
-                )
-            }
-        },
+        bottomBar = {},
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onAddSongsToPlaylist,

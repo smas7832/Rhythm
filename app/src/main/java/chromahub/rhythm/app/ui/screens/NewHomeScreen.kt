@@ -235,23 +235,7 @@ fun NewHomeScreen(
                 )
             )
         },
-        bottomBar = {
-            AnimatedVisibility(
-                visible = currentSong != null,
-                enter = slideInVertically(initialOffsetY = { it }) + fadeIn()
-            ) {
-                if (currentSong != null) {
-                    MiniPlayer(
-                        song = currentSong,
-                        isPlaying = isPlaying,
-                        progress = progress,
-                        onPlayPause = onPlayPause,
-                        onPlayerClick = onPlayerClick,
-                        onSkipNext = onSkipNext
-                    )
-                }
-            }
-        },
+        bottomBar = {},
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
         EnhancedScrollableContent(

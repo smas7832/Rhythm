@@ -159,24 +159,7 @@ fun HomeScreen(
                 }
             )
         },
-        bottomBar = {
-            AnimatedVisibility(
-                visible = currentSong != null,
-                enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-                exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
-            ) {
-                if (currentSong != null) {
-                    MiniPlayer(
-                        song = currentSong,
-                        isPlaying = isPlaying,
-                        progress = progress,
-                        onPlayPause = onPlayPause,
-                        onPlayerClick = onPlayerClick,
-                        onSkipNext = onSkipNext
-                    )
-                }
-            }
-        }
+        bottomBar = {}
     ) { paddingValues ->
         LazyColumn(
             state = scrollState,
