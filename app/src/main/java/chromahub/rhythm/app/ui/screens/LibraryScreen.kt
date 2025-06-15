@@ -1,3 +1,4 @@
+@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 package chromahub.rhythm.app.ui.screens
 
 import androidx.compose.animation.core.animateFloatAsState
@@ -36,6 +37,7 @@ import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingActionButton
+import chromahub.rhythm.app.ui.UiConstants
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -44,6 +46,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import chromahub.rhythm.app.ui.LocalMiniPlayerPadding
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
@@ -87,7 +90,9 @@ import coil.request.ImageRequest
 import kotlinx.coroutines.launch
 import androidx.compose.material3.ListItemDefaults
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+
+enum class LibraryTab { SONGS, PLAYLISTS }
+
 @Composable
 fun LibraryScreen(
     songs: List<Song>,
@@ -107,11 +112,12 @@ fun LibraryScreen(
     onCreatePlaylist: (String) -> Unit = { _ -> },
     sortOrder: MusicViewModel.SortOrder = MusicViewModel.SortOrder.TITLE_ASC,
     onSkipNext: () -> Unit = {},
-    onAddToQueue: (Song) -> Unit
+    onAddToQueue: (Song) -> Unit,
+    initialTab: LibraryTab = LibraryTab.SONGS
 ) {
     val tabs = listOf("Songs", "Playlists")
-    var selectedTabIndex by remember { mutableStateOf(0) }
-    val pagerState = rememberPagerState(initialPage = 0) { tabs.size }
+    var selectedTabIndex by remember { mutableStateOf(initialTab.ordinal) }
+    val pagerState = rememberPagerState(initialPage = selectedTabIndex) { tabs.size }
     val scope = rememberCoroutineScope()
     
     // Dialog and bottom sheet states
@@ -233,6 +239,9 @@ fun LibraryScreen(
         floatingActionButton = {
             if (selectedTabIndex == 1) {
                 ExtendedFloatingActionButton(
+                        modifier = Modifier.padding(
+                            bottom = (LocalMiniPlayerPadding.current.calculateBottomPadding() * 0.5f) + 8.dp
+                        ),
                     onClick = { showCreatePlaylistDialog = true },
                     icon = {
                         Icon(
@@ -335,7 +344,7 @@ fun SongsTab(
         )
     } else {
         LazyColumn(
-            contentPadding = PaddingValues(bottom = 0.dp),
+            contentPadding = PaddingValues(bottom = LocalMiniPlayerPadding.current.calculateBottomPadding()),
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             item {
@@ -416,7 +425,12 @@ fun PlaylistsTab(
         )
     } else {
         LazyColumn(
-            contentPadding = PaddingValues(16.dp),
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                top = 16.dp,
+                bottom = LocalMiniPlayerPadding.current.calculateBottomPadding() + 16.dp
+            ),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             if (playlists.isNotEmpty()) {

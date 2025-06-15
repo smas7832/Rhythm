@@ -56,6 +56,7 @@ import chromahub.rhythm.app.data.Playlist
 import chromahub.rhythm.app.data.Song
 import chromahub.rhythm.app.ui.components.MiniPlayer
 import chromahub.rhythm.app.ui.components.RhythmIcons
+import chromahub.rhythm.app.ui.LocalMiniPlayerPadding
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import chromahub.rhythm.app.util.ImageUtils
@@ -214,6 +215,7 @@ fun PlaylistDetailScreen(
         bottomBar = {},
         floatingActionButton = {
             FloatingActionButton(
+                modifier = Modifier.padding(bottom = (LocalMiniPlayerPadding.current.calculateBottomPadding() * 0.5f) + 8.dp),
                 onClick = onAddSongsToPlaylist,
                 containerColor = MaterialTheme.colorScheme.primary,
                 shape = CircleShape
@@ -330,7 +332,7 @@ fun PlaylistDetailScreen(
                 }
             } else {
                 LazyColumn(
-                    contentPadding = PaddingValues(bottom = 16.dp),
+                    contentPadding = PaddingValues(bottom = LocalMiniPlayerPadding.current.calculateBottomPadding() + 16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(playlist.songs) { song ->

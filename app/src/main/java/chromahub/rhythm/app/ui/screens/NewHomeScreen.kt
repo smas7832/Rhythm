@@ -155,8 +155,9 @@ fun NewHomeScreen(
             .sortedBy { it.name } // Sort alphabetically for better navigation
     }
     
+    // Quick picks can still be first few songs but used for other sections
     val quickPicks = songs.take(6)
-    val topArtists = artists.take(6)
+    val topArtists = artists
     
     // Filter new releases to only show albums from the current year
     val currentYear = Calendar.getInstance().get(Calendar.YEAR)
@@ -506,7 +507,7 @@ private fun EnhancedScrollableContent(
             if (availableArtists.isNotEmpty()) {
                 SectionTitle(
                     title = "Artists",
-                    viewAllAction = onViewAllArtists
+                    viewAllAction = null
                 )
                 
                 LazyRow(
@@ -528,7 +529,7 @@ private fun EnhancedScrollableContent(
             // Recently Added Section with improved cards
             if (newReleases.isNotEmpty()) {
                 SectionTitle(
-                    title = "Recently Added",
+                    title = "Recent Albums",
                     viewAllAction = onViewAllAlbums
                 )
                 
@@ -553,17 +554,16 @@ private fun EnhancedScrollableContent(
                 onSongClick = onSongClick
             )
             
-            // Recommended For You Section with stable recommendations that don't change during playback
-            val stableRecommendations = remember(quickPicks) {
-                // Use a fixed seed for the random shuffle to ensure stability
-                val random = Random(42)
-                quickPicks.shuffled(random).take(4)
+            // Recommended For You Section – use real recommendations from ViewModel
+            val recommendedSongs = remember(viewModel) {
+                viewModel.getRecommendedSongs().take(4)
             }
-            
-            RecommendedForYouSection(
-                songs = stableRecommendations,
-                onSongClick = onSongClick
-            )
+            if (recommendedSongs.isNotEmpty()) {
+                RecommendedForYouSection(
+                    songs = recommendedSongs,
+                    onSongClick = onSongClick
+                )
+            }
             
             // Bottom spacer
             Spacer(modifier = Modifier.height(16.dp))
@@ -1009,7 +1009,7 @@ private fun MoodPlaylistCard(
 private fun SectionTitle(
     title: String,
     modifier: Modifier = Modifier,
-    viewAllAction: () -> Unit = {}
+    viewAllAction: (() -> Unit)? = null
 ) {
     Row(
         modifier = modifier
@@ -1025,24 +1025,24 @@ private fun SectionTitle(
             color = MaterialTheme.colorScheme.onBackground
         )
         
-        Surface(
-            onClick = viewAllAction,
-            color = MaterialTheme.colorScheme.primaryContainer,
-            shape = RoundedCornerShape(20.dp),
-            modifier = Modifier.padding(4.dp)
-        ) {
-            Text(
-                text = "View All",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-            )
+        if (viewAllAction != null) {
+            Surface(
+                onClick = viewAllAction,
+                color = MaterialTheme.colorScheme.primaryContainer,
+                shape = RoundedCornerShape(20.dp),
+                modifier = Modifier.padding(4.dp)
+            ) {
+                Text(
+                    text = "View All",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                )
+            }
         }
     }
 }
-
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun FeaturedContentSection(
     albums: List<Album>,

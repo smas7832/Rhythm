@@ -199,9 +199,8 @@ fun AppUpdaterScreen(
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center,
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Surface(
@@ -218,7 +217,7 @@ fun AppUpdaterScreen(
                                 )
                             }
 
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
 
                             Text(
                                 text = "Released: ${currentVersion.releaseDate}",
@@ -251,7 +250,7 @@ fun AppUpdaterScreen(
                                     modifier = Modifier.size(18.dp)
                                 )
 
-                                Spacer(modifier = Modifier.width(8.dp))
+                                Spacer(modifier = Modifier.height(8.dp))
 
                                 Text(
                                     text = "Visit Developer",
@@ -466,7 +465,7 @@ fun AppUpdaterScreen(
                                                 modifier = Modifier.size(18.dp)
                                             )
 
-                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Spacer(modifier = Modifier.height(8.dp))
 
                                             Text("Install Update")
                                         }
@@ -491,7 +490,7 @@ fun AppUpdaterScreen(
                                             modifier = Modifier.size(18.dp)
                                         )
 
-                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Spacer(modifier = Modifier.height(8.dp))
 
                                         Text(
                                             text = if (latestVersion?.apkAssetName?.isNotEmpty() == true)

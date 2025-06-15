@@ -72,6 +72,7 @@ import chromahub.rhythm.app.data.Song
 import chromahub.rhythm.app.ui.components.MiniPlayer
 import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.R
+import chromahub.rhythm.app.ui.LocalMiniPlayerPadding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.material3.OutlinedTextField

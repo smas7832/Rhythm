@@ -398,12 +398,16 @@ fun PlayerScreen(
                     Box(modifier = Modifier.padding(start = 8.dp)) {
                         FilledTonalIconButton(
                             onClick = onBack,
-                            modifier = Modifier.size(40.dp)
+                            modifier = Modifier.size(40.dp),
+                            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
                         ) {
                             Icon(
                                 imageVector = RhythmIcons.Back,
                                 contentDescription = "Back",
-                                tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                         }
                     }
@@ -414,12 +418,16 @@ fun PlayerScreen(
                         Box(modifier = Modifier.padding(end = 8.dp)) {
                             FilledTonalIconButton(
                                 onClick = { showLyricsView = !showLyricsView },
-                                modifier = Modifier.size(40.dp)
+                                modifier = Modifier.size(40.dp),
+                                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
                             ) {
                                 Icon(
                                     imageVector = if (showLyricsView) RhythmIcons.Album else RhythmIcons.Queue,
                                     contentDescription = if (showLyricsView) "Show Album Art" else "Show Lyrics",
-                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
                                 )
                             }
                         }
@@ -790,7 +798,7 @@ fun PlayerScreen(
                             Icon(
                                 imageVector = RhythmIcons.SkipPrevious,
                                 contentDescription = "Previous track",
-                                tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                         }
                         
@@ -822,7 +830,7 @@ fun PlayerScreen(
                             Icon(
                                 imageVector = RhythmIcons.SkipNext,
                                 contentDescription = "Next track",
-                                tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                         }
                         
@@ -997,7 +1005,7 @@ fun PlayerScreen(
                                     Icon(
                                         imageVector = RhythmIcons.AddToPlaylist,
                                         contentDescription = "Add to playlist",
-                                        tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
                                     )
                                 }
                                 Text(
@@ -1031,7 +1039,7 @@ fun PlayerScreen(
                             },
                             shape = RoundedCornerShape(24.dp), // Rounded pill shape
                             colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer
+                                containerColor = MaterialTheme.colorScheme.primaryContainer
                             ),
                             elevation = CardDefaults.cardElevation(
                                 defaultElevation = 0.dp
@@ -1054,14 +1062,14 @@ fun PlayerScreen(
                                 Icon(
                                     imageVector = icon,
                                     contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                     modifier = Modifier.size(24.dp)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = location?.name ?: "Choose device",
                                     style = MaterialTheme.typography.labelLarge,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -1083,7 +1091,7 @@ fun PlayerScreen(
                             },
                             shape = RoundedCornerShape(24.dp),
                             colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer
+                                containerColor = MaterialTheme.colorScheme.primaryContainer
                             ),
                             elevation = CardDefaults.cardElevation(
                                 defaultElevation = 0.dp
@@ -1098,14 +1106,14 @@ fun PlayerScreen(
                                 Icon(
                                     imageVector = RhythmIcons.Queue,
                                     contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                     modifier = Modifier.size(24.dp)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = "Queue ($queuePosition/$queueTotal)",
                                     style = MaterialTheme.typography.labelLarge,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -1192,7 +1200,7 @@ fun QueueBottomSheet(
                 FilledTonalIconButton(
                     onClick = onAddSongs,
                     colors = IconButtonDefaults.filledTonalIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
                     )
                 ) {
                     Icon(
