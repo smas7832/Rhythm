@@ -499,7 +499,7 @@ fun MiniPlayer(
         },
         shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
             contentColor = MaterialTheme.colorScheme.onSurface
         ),
         elevation = CardDefaults.cardElevation(
@@ -508,7 +508,7 @@ fun MiniPlayer(
         ),
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = 16.dp)
             // Add padding for navigation bar to prevent overlap
             .windowInsetsPadding(WindowInsets.navigationBars)
             .scale(scale)

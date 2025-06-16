@@ -108,6 +108,7 @@ fun LibraryScreen(
     onAddPlaylist: () -> Unit,
     onAlbumClick: (Album) -> Unit,
     onSort: () -> Unit = {},
+    onSearchClick: () -> Unit = {},
     onAddSongToPlaylist: (Song, String) -> Unit = { _, _ -> },
     onCreatePlaylist: (String) -> Unit = { _ -> },
     sortOrder: MusicViewModel.SortOrder = MusicViewModel.SortOrder.TITLE_ASC,
@@ -201,9 +202,9 @@ fun LibraryScreen(
                 },
                 actions = {
                     // Sort button with indicator of current sort order
+                    // Sort button with indicator of current sort order
                     FilledTonalButton(
                         onClick = onSort,
-                        modifier = Modifier.padding(end = 8.dp),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                     ) {
                         Icon(
@@ -225,6 +226,22 @@ fun LibraryScreen(
                         Text(
                             text = sortText,
                             style = MaterialTheme.typography.labelMedium
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    // Search button
+                    FilledIconButton(
+                        onClick = onSearchClick,
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    ) {
+                        Icon(
+                            imageVector = RhythmIcons.Search,
+                            contentDescription = "Search"
                         )
                     }
                 },
@@ -347,9 +364,10 @@ fun SongsTab(
             contentPadding = PaddingValues(bottom = LocalMiniPlayerPadding.current.calculateBottomPadding()),
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
+
             item {
                 Surface(
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    color = MaterialTheme.colorScheme.surfaceContainer,
                     tonalElevation = 1.dp,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -361,7 +379,7 @@ fun SongsTab(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Surface(
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                            color = MaterialTheme.colorScheme.surfaceContainer,
                             shape = CircleShape,
                             modifier = Modifier.size(48.dp)
                         ) {
@@ -482,7 +500,7 @@ fun LibrarySongItem(
 ) {
     val context = LocalContext.current
     var showDropdown by remember { mutableStateOf(false) }
-    
+
     Surface(
         onClick = onClick,
         color = Color.Transparent,
@@ -511,15 +529,15 @@ fun LibrarySongItem(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    
+
                     Box(
                         modifier = Modifier
                             .padding(horizontal = 4.dp)
                             .size(4.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                            .background(Color.Transparent)
                     )
-                    
+
                     Text(
                         text = song.album,
                         style = MaterialTheme.typography.bodySmall,
@@ -557,9 +575,9 @@ fun LibrarySongItem(
                             modifier = Modifier.size(20.dp)
                         )
                     }
-                    
+
                     Spacer(modifier = Modifier.width(8.dp))
-                    
+
                     FilledIconButton(
                         onClick = { showDropdown = true },
                         modifier = Modifier.size(36.dp),
@@ -574,7 +592,7 @@ fun LibrarySongItem(
                             modifier = Modifier.size(20.dp)
                         )
                     }
-                    
+
                     DropdownMenu(
                         expanded = showDropdown,
                         onDismissRequest = { showDropdown = false }
@@ -609,18 +627,16 @@ fun PlaylistItem(
     onClick: () -> Unit
 ) {
     val context = LocalContext.current
-    
-    Card(
+
+    Surface(
         onClick = onClick,
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer
-        ),
+        color = Color.Transparent,
         modifier = Modifier.fillMaxWidth()
     ) {
         ListItem(
             colors = ListItemDefaults.colors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainer
+                containerColor = Color.Transparent
             ),
             headlineContent = {
                 Text(
@@ -641,7 +657,7 @@ fun PlaylistItem(
                     modifier = Modifier
                         .size(56.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+                        .background(Color.Transparent),
                     contentAlignment = Alignment.Center
                 ) {
                     if (playlist.artworkUri != null) {
@@ -652,10 +668,15 @@ fun PlaylistItem(
                         )
                     } else {
                         Icon(
-                            imageVector = RhythmIcons.AddToPlaylist,
+                            imageVector = RhythmIcons.Playlist,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp)
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    color = MaterialTheme.colorScheme.surfaceVariant
+                                )
+                                .padding(12.dp)
                         )
                     }
                 }
@@ -677,13 +698,13 @@ fun LibraryAlbumItem(
         onClick = onClick,
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
         ),
         modifier = Modifier.fillMaxWidth()
     ) {
         ListItem(
             colors = ListItemDefaults.colors(
-                containerColor = MaterialTheme.colorScheme.surface
+                containerColor = MaterialTheme.colorScheme.surfaceContainer
             ),
             headlineContent = {
                 Text(
@@ -708,7 +729,7 @@ fun LibraryAlbumItem(
                     modifier = Modifier
                         .size(56.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                        .background(MaterialTheme.colorScheme.surfaceContainer),
                     contentAlignment = Alignment.Center
                 ) {
                     if (album.artworkUri != null) {
@@ -721,7 +742,7 @@ fun LibraryAlbumItem(
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                                .background(MaterialTheme.colorScheme.surfaceContainer),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(

@@ -249,6 +249,7 @@ object RhythmIcons {
     val AddToPlaylist = Music.Playlist
     val More = Actions.More
     val Queue = Player.Queue
+    val MusicNote = Music.MusicNote
     val Check = Actions.Check
     val Close = Navigation.Close
     val Back = Navigation.Back

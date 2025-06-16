@@ -101,6 +101,7 @@ import java.util.Calendar
 import androidx.compose.material3.rememberModalBottomSheetState
 import chromahub.rhythm.app.ui.screens.AddToPlaylistBottomSheet
 import chromahub.rhythm.app.ui.components.CreatePlaylistDialog
+import chromahub.rhythm.app.util.ImageUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -820,12 +821,18 @@ fun SearchSongItem(
             ) {
                 AsyncImage(
                     model = ImageRequest.Builder(context)
-                        .data(song.artworkUri)
-                        .crossfade(true)
+                        .apply(ImageUtils.buildImageRequest(
+                            song.artworkUri,
+                            song.title,
+                            context.cacheDir,
+                            ImageUtils.PlaceholderType.TRACK
+                        ))
                         .build(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(RoundedCornerShape(8.dp))
                 )
             }
             
@@ -901,8 +908,12 @@ fun SearchAlbumItem(
             ) {
                 AsyncImage(
                     model = ImageRequest.Builder(context)
-                        .data(album.artworkUri)
-                        .crossfade(true)
+                        .apply(ImageUtils.buildImageRequest(
+                            album.artworkUri,
+                            album.title,
+                            context.cacheDir,
+                            ImageUtils.PlaceholderType.ALBUM
+                        ))
                         .build(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
@@ -966,8 +977,12 @@ fun SearchArtistItem(
             ) {
                 AsyncImage(
                     model = ImageRequest.Builder(context)
-                        .data(artist.artworkUri)
-                        .crossfade(true)
+                        .apply(ImageUtils.buildImageRequest(
+                            artist.artworkUri,
+                            artist.name,
+                            context.cacheDir,
+                            ImageUtils.PlaceholderType.ARTIST
+                        ))
                         .build(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
@@ -1060,8 +1075,12 @@ fun SearchPlaylistItem(
                 if (playlist.artworkUri != null) {
                     AsyncImage(
                         model = ImageRequest.Builder(context)
-                            .data(playlist.artworkUri)
-                            .crossfade(true)
+                            .apply(ImageUtils.buildImageRequest(
+                                playlist.artworkUri,
+                                playlist.name,
+                                context.cacheDir,
+                                ImageUtils.PlaceholderType.PLAYLIST
+                            ))
                             .build(),
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
@@ -1189,8 +1208,12 @@ fun RecommendedAlbumItem(
             ) {
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
-                        .data(album.artworkUri)
-                        .crossfade(true)
+                        .apply(ImageUtils.buildImageRequest(
+                            album.artworkUri,
+                            album.title,
+                            LocalContext.current.cacheDir,
+                            ImageUtils.PlaceholderType.ALBUM
+                        ))
                         .build(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
@@ -1352,12 +1375,18 @@ private fun EnhancedRecentChip(
             ) {
                 AsyncImage(
                     model = ImageRequest.Builder(context)
-                        .data(song.artworkUri)
-                        .crossfade(true)
+                        .apply(ImageUtils.buildImageRequest(
+                            song.artworkUri,
+                            song.title,
+                            LocalContext.current.cacheDir,
+                            ImageUtils.PlaceholderType.TRACK
+                        ))
                         .build(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(RoundedCornerShape(8.dp))
                 )
             }
             

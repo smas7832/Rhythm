@@ -226,12 +226,12 @@ fun RhythmNavigation(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 24.dp, vertical = 0.dp)
-                                .padding(top = 0.dp, bottom = 16.dp),
+                                .padding(horizontal = 24.dp)
+                                .padding(bottom = 8.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Surface(
-                                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                                color = MaterialTheme.colorScheme.surfaceContainer,
                                 shape = RoundedCornerShape(28.dp),
                                 tonalElevation = 3.dp,
                                 modifier = Modifier
@@ -711,6 +711,9 @@ fun RhythmNavigation(
                         onCreatePlaylist = { name ->
                             // Create new playlist
                             viewModel.createPlaylist(name)
+                        },
+                        onSearchClick = {
+                            navController.navigate(Screen.Search.route)
                         },
                         sortOrder = sortOrder,
                         onSkipNext = onSkipNext,

@@ -654,7 +654,7 @@ fun PlayerScreen(
                                                 horizontalAlignment = Alignment.CenterHorizontally
                                             ) {
                                                 Icon(
-                                                    imageVector = RhythmIcons.Queue,
+                                                    imageVector = RhythmIcons.MusicNote,
                                                     contentDescription = null,
                                                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                                     modifier = Modifier.size(48.dp)
@@ -793,12 +793,15 @@ fun PlayerScreen(
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 onSkipPrevious() 
                             },
-                            modifier = Modifier.size(48.dp)
+                            modifier = Modifier.size(48.dp),
+                            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f),
+                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
                         ) {
                             Icon(
                                 imageVector = RhythmIcons.SkipPrevious,
-                                contentDescription = "Previous track",
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                contentDescription = "Previous track"
                             )
                         }
                         
@@ -825,12 +828,15 @@ fun PlayerScreen(
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 onSkipNext() 
                             },
-                            modifier = Modifier.size(48.dp)
+                            modifier = Modifier.size(48.dp),
+                            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f),
+                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
                         ) {
                             Icon(
                                 imageVector = RhythmIcons.SkipNext,
-                                contentDescription = "Next track",
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                contentDescription = "Next track"
                             )
                         }
                         
@@ -971,7 +977,11 @@ fun PlayerScreen(
                                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                         onToggleFavorite() 
                                     },
-                                    modifier = Modifier.size(48.dp)
+                                    modifier = Modifier.size(48.dp),
+                                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f),
+                                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
                                 ) {
                                     Icon(
                                         imageVector = if (isFavorite) RhythmIcons.FavoriteFilled else RhythmIcons.Favorite,
@@ -1000,12 +1010,15 @@ fun PlayerScreen(
                                         // Call onAddToPlaylist directly instead of setting showAddToPlaylistSheet
                                         onAddToPlaylist()
                                     },
-                                    modifier = Modifier.size(48.dp)
+                                    modifier = Modifier.size(48.dp),
+                                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f),
+                                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
                                 ) {
                                     Icon(
                                         imageVector = RhythmIcons.AddToPlaylist,
-                                        contentDescription = "Add to playlist",
-                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                        contentDescription = "Add to playlist"
                                     )
                                 }
                                 Text(
