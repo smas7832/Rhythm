@@ -143,7 +143,7 @@ fun PlaylistDetailScreen(
             LargeTopAppBar(
                 title = {
                     Text(
-                        text = playlist.name,
+                        text = "Playlists",
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1
@@ -165,16 +165,24 @@ fun PlaylistDetailScreen(
                 },
                 actions = {
                     if (playlist.id != "1" && playlist.id != "2" && playlist.id != "3") {
-                        IconButton(onClick = { showMenu = true }) {
+                        FilledIconButton(
+                            onClick = { showMenu = true },
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        ) {
                             Icon(
                                 imageVector = RhythmIcons.More,
                                 contentDescription = "More options",
-                                tint = MaterialTheme.colorScheme.onSurface
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                         DropdownMenu(
                             expanded = showMenu,
-                            onDismissRequest = { showMenu = false }
+                            onDismissRequest = { showMenu = false },
+                            modifier = Modifier,
+                            shape = RoundedCornerShape(16.dp)
                         ) {
                             DropdownMenuItem(
                                 text = { Text("Rename playlist") },

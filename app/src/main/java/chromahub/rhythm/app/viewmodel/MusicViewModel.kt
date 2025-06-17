@@ -110,7 +110,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _currentSong = MutableStateFlow<Song?>(null)
     val currentSong: StateFlow<Song?> = _currentSong.asStateFlow()
 
-    private val _currentQueue = MutableStateFlow(Queue(emptyList()))
+    private val _currentQueue = MutableStateFlow(Queue(emptyList(), -1))
     val currentQueue: StateFlow<Queue> = _currentQueue.asStateFlow()
 
     private val _progress = MutableStateFlow(0f)
@@ -310,21 +310,21 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 Log.d(TAG, "Fetching artist images from internet")
-                // Only fetch for a subset of artists to avoid overwhelming the API
-                val artistsToUpdate = _artists.value.filter { it.artworkUri == null }.take(10)
-                Log.d(TAG, "Found ${artistsToUpdate.size} artists without images out of ${_artists.value.size} total artists")
-                if (artistsToUpdate.isNotEmpty()) {
-                    val updatedArtists = repository.fetchArtistImages(artistsToUpdate)
-                    // Update only the artists we fetched, keeping the rest unchanged
-                    val artistMap = updatedArtists.associateBy { it.id }
-                    _artists.value = _artists.value.map { 
-                        artistMap[it.id] ?: it 
+                val missingArtists = _artists.value.filter { it.artworkUri == null }
+                Log.d(TAG, "Found ${missingArtists.size} artists without images out of ${_artists.value.size} total artists")
+                val chunkSize = 10
+                for (batch in missingArtists.chunked(chunkSize)) {
+                    val updatedArtists = repository.fetchArtistImages(batch)
+                    if (updatedArtists.isNotEmpty()) {
+                        val artistMap = updatedArtists.associateBy { it.id }
+                        _artists.value = _artists.value.map { artist ->
+                            artistMap[artist.id] ?: artist
+                        }
+                        Log.d(TAG, "Updated ${updatedArtists.size} artists with images from internet (batch)")
                     }
-                    Log.d(TAG, "Updated ${updatedArtists.size} artists with images from internet")
+                    // Throttle between batches to avoid hitting API rate limits
+                    delay(1000)
                 }
-                
-                // Add a delay between API calls to avoid rate limiting
-                delay(1000)
                 
                 Log.d(TAG, "Fetching album artwork from internet")
                 // Check for albums with null or content URI artwork (which might not exist)
@@ -650,61 +650,55 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private fun Song.toMediaItem(): MediaItem {
+        return MediaItem.Builder()
+            .setMediaId(this.id)
+            .setUri(this.uri)
+            .setMediaMetadata(
+                MediaMetadata.Builder()
+                    .setTitle(this.title)
+                    .setArtist(this.artist)
+                    .setAlbumTitle(this.album)
+                    .setArtworkUri(this.artworkUri)
+                    .build()
+            )
+            .build()
+    }
+
     fun playSong(song: Song) {
         Log.d(TAG, "Playing song: ${song.title}")
-        
-        // Add to recently played list
+
         updateRecentlyPlayed(song)
-        
-        // Track song play statistics
         trackSongPlay(song)
-        
-        // Check if the song is in the current queue
-        val currentQueueSongs = _currentQueue.value.songs
+
+        val currentQueueSongs = _currentQueue.value.songs.toMutableList()
         val songIndexInQueue = currentQueueSongs.indexOfFirst { it.id == song.id }
-        
-        if (songIndexInQueue != -1) {
-            // If the song is in the queue, play it from that position
-            Log.d(TAG, "Song found in queue at position $songIndexInQueue, playing from queue")
-            mediaController?.let { controller ->
+
+        mediaController?.let { controller ->
+            if (songIndexInQueue != -1) {
+                // Song is already in the queue, just play it
                 controller.seekToDefaultPosition(songIndexInQueue)
-                controller.prepare()
-                controller.play()
-                _currentSong.value = song
-                _isPlaying.value = true
-                // Update the current queue with the new position
                 _currentQueue.value = _currentQueue.value.copy(currentIndex = songIndexInQueue)
-                // Update favorite status
-                _isFavorite.value = _favoriteSongs.value.contains(song.id)
-                startProgressUpdates()
+            } else {
+                // Song is not in the queue, add it after the current song
+                val currentIndex = _currentQueue.value.currentIndex
+                val insertIndex = if (currentQueueSongs.isEmpty() || currentIndex == -1) 0 else (currentIndex + 1).coerceAtMost(currentQueueSongs.size)
+                currentQueueSongs.add(insertIndex, song)
+
+                val mediaItem = song.toMediaItem()
+                controller.addMediaItem(insertIndex, mediaItem)
+
+                _currentQueue.value = Queue(currentQueueSongs, insertIndex)
+                controller.seekToDefaultPosition(insertIndex)
             }
-        } else {
-            // If the song is not in the queue, create a new queue with just this song
-            val mediaItem = MediaItem.Builder()
-                .setMediaId(song.id)
-                .setUri(song.uri)
-                .setMediaMetadata(
-                    MediaMetadata.Builder()
-                        .setTitle(song.title)
-                        .setArtist(song.artist)
-                        .setAlbumTitle(song.album)
-                        .setArtworkUri(song.artworkUri)
-                        .build()
-                )
-                .build()
-            
-            mediaController?.let { controller ->
-                controller.setMediaItem(mediaItem)
-                controller.prepare()
-                controller.play()
-                _currentSong.value = song
-                _isPlaying.value = true
-                // Create a new queue with just this song
-                _currentQueue.value = Queue(listOf(song), 0)
-                // Update favorite status
-                _isFavorite.value = _favoriteSongs.value.contains(song.id)
-                startProgressUpdates()
-            }
+
+            controller.prepare()
+            controller.play()
+
+            _currentSong.value = song
+            _isPlaying.value = true
+            _isFavorite.value = _favoriteSongs.value.contains(song.id)
+            startProgressUpdates()
         }
     }
 

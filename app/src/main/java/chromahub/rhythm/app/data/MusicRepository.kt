@@ -7,6 +7,11 @@ import android.os.Build
 import android.provider.MediaStore
 import android.util.Log
 import chromahub.rhythm.app.network.NetworkClient
+import chromahub.rhythm.app.network.MusicBrainzApiService
+import chromahub.rhythm.app.network.CoverArtArchiveService
+import okhttp3.Request
+import com.google.gson.JsonParser
+import java.net.URLEncoder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -17,6 +22,11 @@ class MusicRepository(private val context: Context) {
     private val TAG = "MusicRepository"
     private val spotifyApiService = NetworkClient.spotifyApiService
     private val lrclibApiService = NetworkClient.lrclibApiService
+    private val musicBrainzApiService = NetworkClient.musicBrainzApiService
+    private val coverArtArchiveService = NetworkClient.coverArtArchiveService
+    private val lastFmApiService = NetworkClient.lastFmApiService
+    private val lastFmApiKey = NetworkClient.getLastFmApiKey()
+    private val genericHttpClient = NetworkClient.genericHttpClient
     private val apiKey = NetworkClient.getSpotifyApiKey()
 
     // Cache for artist images to avoid redundant API calls
@@ -257,10 +267,10 @@ class MusicRepository(private val context: Context) {
     suspend fun fetchArtistImages(artists: List<Artist>): List<Artist> = withContext(Dispatchers.IO) {
         val updatedArtists = mutableListOf<Artist>()
     
-        // Check if API key is properly set
+        // If Spotify API key is missing we will skip the Spotify lookup, but we still
+        // want to attempt the other fall-backs (MusicBrainz, CoverArtArchive, Wiki, placeholder).
         if (apiKey.isBlank()) {
-            Log.w(TAG, "Spotify API key not set. Skipping artist image fetching.")
-            return@withContext artists
+            Log.w(TAG, "Spotify API key not set – will skip Spotify lookup and try alternate sources.")
         }
         
         for (artist in artists) {
@@ -305,35 +315,131 @@ class MusicRepository(private val context: Context) {
                 
                 // Only try online fetch if network is available
                 if (isNetworkAvailable()) {
-                    Log.d(TAG, "Searching for artist on Spotify: ${artist.name}")
-                    
-                    val searchResponse = spotifyApiService.searchArtists(artist.name)
-                    val spotifyArtist = searchResponse.artists.items.firstOrNull()
-                    
-                    if (spotifyArtist != null) {
-                        Log.d(TAG, "Found Spotify artist: ${spotifyArtist.data.profile.name}")
-                        
-                        val avatarImage = spotifyArtist.data.visuals.avatarImage
-                        if (avatarImage != null && avatarImage.sources.isNotEmpty()) {
-                            // Find the largest available image
-                            val largeImage = avatarImage.sources.maxByOrNull { it.width ?: 0 }
-                            
-                            if (largeImage != null && largeImage.url.isNotEmpty()) {
-                                val imageUri = Uri.parse(largeImage.url)
-                                Log.d(TAG, "Found image URL for ${artist.name}: ${largeImage.url}")
-                                
-                                artistImageCache[artist.name] = imageUri
-                                saveLocalArtistImage(artist.name, imageUri.toString())
-                                
-                                updatedArtists.add(artist.copy(artworkUri = imageUri))
-                                continue
+                    if (apiKey.isNotBlank()) {
+                        Log.d(TAG, "Searching for artist on Spotify: ${artist.name}")
+                        try {
+                            val searchResponse = spotifyApiService.searchArtists(artist.name)
+                            val spotifyArtist = searchResponse.artists.items.firstOrNull()
+    
+                            if (spotifyArtist != null) {
+                                Log.d(TAG, "Found Spotify artist: ${spotifyArtist.data.profile.name}")
+                                val avatarImage = spotifyArtist.data.visuals.avatarImage
+                                if (avatarImage != null && avatarImage.sources.isNotEmpty()) {
+                                    val largeImage = avatarImage.sources.maxByOrNull { it.width ?: 0 }
+                                    if (largeImage != null && largeImage.url.isNotEmpty()) {
+                                        val imageUri = Uri.parse(largeImage.url)
+                                        Log.d(TAG, "Found image URL for ${artist.name}: ${largeImage.url}")
+                                        artistImageCache[artist.name] = imageUri
+                                        saveLocalArtistImage(artist.name, imageUri.toString())
+                                        updatedArtists.add(artist.copy(artworkUri = imageUri))
+                                        continue
+                                    }
+                                }
+                            } else {
+                                Log.d(TAG, "No Spotify artist found for: ${artist.name}")
                             }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Spotify lookup failed for ${artist.name}: ${e.message}")
                         }
                     } else {
-                        Log.d(TAG, "No Spotify artist found for: ${artist.name}")
+                        Log.d(TAG, "Skipping Spotify lookup for ${artist.name} due to missing API key")
                     }
                 } else {
-                    Log.d(TAG, "No network connection available")
+                    Log.d(TAG, "No network connection available while fetching ${artist.name} image")
+                }
+                
+                // ----- Fallback using MusicBrainz + CoverArtArchive -----
+                try {
+                    Log.d(TAG, "Searching MusicBrainz for artist: ${artist.name}")
+                    val mbResponse = musicBrainzApiService.searchArtists("artist:\"${artist.name}\"")
+                    val mbid = mbResponse.artists.firstOrNull()?.id
+                    if (mbid != null) {
+                        Log.d(TAG, "Found MBID $mbid for ${artist.name}, querying Cover Art Archive")
+                        val caaResponse = coverArtArchiveService.getArtistImages(mbid)
+                        val imageUrl = caaResponse.images.firstOrNull()?.image
+                        if (!imageUrl.isNullOrEmpty()) {
+                            val imageUri = Uri.parse(imageUrl)
+                            artistImageCache[artist.name] = imageUri
+                            saveLocalArtistImage(artist.name, imageUrl)
+                            updatedArtists.add(artist.copy(artworkUri = imageUri))
+                            continue
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "MusicBrainz/CoverArt fallback failed for ${artist.name}: ${e.message}")
+                }
+
+                // -------- Fallback using Wikipedia / Wikidata --------
+                try {
+                    var wikiImage: Uri? = null
+                    val mbidWiki = try {
+                        musicBrainzApiService.searchArtists("artist:\"${artist.name}\"").artists.firstOrNull()?.id
+                    } catch (e: Exception) { null }
+
+                    if (mbidWiki != null) {
+                        val details = musicBrainzApiService.getArtistDetails(mbidWiki)
+                        val wikiUrl = details.relations.firstOrNull {
+                            val t = it.type?.lowercase()
+                            t == "wikidata" || t == "wikipedia"
+                        }?.url?.resource
+                        if (!wikiUrl.isNullOrEmpty()) {
+                            wikiImage = fetchImageFromWiki(wikiUrl)
+                        }
+                    }
+
+                    if (wikiImage == null) {
+                        val primaryTitle = artist.name.split("[,&()].+".toRegex())[0].trim().replace(" ", "_")
+                        if (primaryTitle.isNotEmpty()) {
+                            val wikiRes = "https://en.wikipedia.org/wiki/" + URLEncoder.encode(primaryTitle, "UTF-8")
+                            Log.d(TAG, "Trying direct Wikipedia lookup: $wikiRes")
+                            wikiImage = fetchImageFromWiki(wikiRes)
+                        }
+                    }
+
+                    // --- Final attempt: Wikipedia search API ---
+                    if (wikiImage == null) {
+                        wikiImage = fetchImageFromWikiSearch(artist.name)
+                    }
+
+                    if (wikiImage != null) {
+                        artistImageCache[artist.name] = wikiImage
+                        saveLocalArtistImage(artist.name, wikiImage.toString())
+                        updatedArtists.add(artist.copy(artworkUri = wikiImage))
+                        continue
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Wiki fallback failed for ${artist.name}: ${e.message}")
+                }
+
+                // -------- Final fallback using Last.fm (moved to end) --------
+                try {
+                    if (false && lastFmApiKey.isNotBlank()) { // Last.fm temporarily disabled
+                        Log.d(TAG, "Trying Last.fm (final fallback) for artist: ${artist.name}")
+                        val lfResponse = lastFmApiService.getArtistInfo(artist = artist.name, apiKey = lastFmApiKey)
+                        val sizeOrder = listOf("small","medium","large","extralarge","mega")
+                        var imageUrl = lfResponse.artist?.image
+                            ?.filter { it.url.isNotBlank() && !it.url.contains("2a96cbd8b46e442fc41c2b86b821562f") && !it.url.contains("/noimage/") }
+                            ?.maxByOrNull { sizeOrder.indexOf(it.size.lowercase()) }?.url
+                        if (imageUrl.isNullOrEmpty()) {
+                            val primaryName = artist.name.split("[,&()].+".toRegex())[0].trim()
+                            if (primaryName.isNotEmpty() && primaryName != artist.name) {
+                                Log.d(TAG, "Retrying Last.fm with primary artist name: $primaryName")
+                                val retry = lastFmApiService.getArtistInfo(artist = primaryName, apiKey = lastFmApiKey)
+                                imageUrl = retry.artist?.image
+                                    ?.filter { it.url.isNotBlank() && !it.url.contains("2a96cbd8b46e442fc41c2b86b821562f") && !it.url.contains("/noimage/") }
+                                    ?.maxByOrNull { sizeOrder.indexOf(it.size.lowercase()) }?.url
+                            }
+                        }
+                        if (!imageUrl.isNullOrEmpty()) {
+                            val imageUri = Uri.parse(imageUrl)
+                            artistImageCache[artist.name] = imageUri
+                            saveLocalArtistImage(artist.name, imageUrl)
+                            updatedArtists.add(artist.copy(artworkUri = imageUri))
+                            continue
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Last.fm final fallback failed for ${artist.name}: ${e.message}")
                 }
                 
                 // If we get here, generate a placeholder image
@@ -366,51 +472,153 @@ class MusicRepository(private val context: Context) {
     }
 
     /**
+     * Tries to fetch an image URL from Wikipedia or Wikidata given a resource URL.
+     */
+    private fun fetchImageFromWiki(resourceUrl: String): Uri? {
+        return try {
+            if (resourceUrl.contains("wikidata.org")) {
+                // Query Wikidata for image (P18)
+                val qid = resourceUrl.substringAfterLast("/")
+                val wdUrl = "https://www.wikidata.org/wiki/Special:EntityData/${qid}.json"
+                val req = Request.Builder().url(wdUrl).build()
+                genericHttpClient.newCall(req).execute().use { resp ->
+                    if (!resp.isSuccessful) return null
+                    val body = resp.body?.string() ?: return null
+                    val json = JsonParser.parseString(body).asJsonObject
+                    val fileName = json
+                        .getAsJsonObject("entities").getAsJsonObject(qid)
+                        .getAsJsonObject("claims").getAsJsonArray("P18")?.firstOrNull()?.asJsonObject
+                        ?.getAsJsonObject("mainsnak")?.getAsJsonObject("datavalue")?.get("value")?.asString
+                        ?: return null
+                    val encoded = URLEncoder.encode(fileName, "UTF-8")
+                    return Uri.parse("https://commons.wikimedia.org/wiki/Special:FilePath/${encoded}?width=500")
+                }
+            } else if (resourceUrl.contains("wikipedia.org")) {
+                // Query Wikipedia API for lead image
+                val title = resourceUrl.substringAfterLast("/")
+                val wikiApi = "https://en.wikipedia.org/w/api.php?action=query&titles=${title}&prop=pageimages&format=json&pithumbsize=500"
+                val req = Request.Builder().url(wikiApi).build()
+                genericHttpClient.newCall(req).execute().use { resp ->
+                    if (!resp.isSuccessful) return null
+                    val body = resp.body?.string() ?: return null
+                    val root = JsonParser.parseString(body).asJsonObject
+                    val pages = root.getAsJsonObject("query").getAsJsonObject("pages")
+                    for (pageEntry in pages.entrySet()) {
+                        val pageObj = pageEntry.value.asJsonObject
+                        val thumbObj = pageObj.getAsJsonObject("thumbnail") ?: continue
+                        val imgUrl = thumbObj.get("source").asString
+                        if (imgUrl.isNotBlank()) return Uri.parse(imgUrl)
+                    }
+                }
+            }
+            null
+        } catch (e: Exception) {
+            Log.e(TAG, "Error fetching wiki image: ${e.message}", e)
+            null
+        }
+    }
+
+    /**
+     * Uses Wikipedia search API to find a relevant page for the artist, validates it,
+     * and then retrieves its lead image.
+     */
+    private fun fetchImageFromWikiSearch(artistName: String): Uri? {
+        try {
+            Log.d(TAG, "Attempting Wikipedia search for '$artistName'")
+            // Step 1: Search for the artist on Wikipedia
+            val searchUrl = "https://en.wikipedia.org/w/api.php?action=query&list=search&srlimit=5&srsearch=" +
+                    URLEncoder.encode(artistName, "UTF-8") + "&format=json"
+            val searchReq = Request.Builder().url(searchUrl).build()
+
+            val searchResponse = genericHttpClient.newCall(searchReq).execute()
+            if (!searchResponse.isSuccessful) {
+                Log.w(TAG, "Wikipedia search request failed for '$artistName' with code: ${searchResponse.code}")
+                return null
+            }
+
+            val searchBody = searchResponse.body?.string() ?: return null
+            val searchJson = JsonParser.parseString(searchBody).asJsonObject
+            val searchResults = searchJson.getAsJsonObject("query")?.getAsJsonArray("search") ?: return null
+
+            // Step 2: Find the best matching page by checking for artist-related keywords in the snippet
+            val artistKeywords = setOf("musician", "singer", "band", "rapper", "dj", "group", "vocalist", "guitarist", "drummer", "pianist", "songwriter", "composer", "artist")
+            var bestTitle: String? = null
+
+            for (resultElement in searchResults) {
+                val resultObj = resultElement.asJsonObject
+                val title = resultObj.get("title").asString
+                val snippet = resultObj.get("snippet").asString.lowercase()
+
+                if (artistKeywords.any { snippet.contains(it) }) {
+                    Log.d(TAG, "Found potential Wiki page for '$artistName': '$title'")
+                    bestTitle = title.replace(" ", "_")
+                    break // Found a good match, stop searching
+                }
+            }
+
+            if (bestTitle == null) {
+                Log.d(TAG, "No suitable Wikipedia page found for '$artistName' after checking search results.")
+                return null
+            }
+
+            // Step 3: Fetch the image for the selected page title
+            val wikiApi = "https://en.wikipedia.org/w/api.php?action=query&titles=${bestTitle}&prop=pageimages&format=json&pithumbsize=500"
+            val imgReq = Request.Builder().url(wikiApi).build()
+            genericHttpClient.newCall(imgReq).execute().use { imgResp ->
+                if (!imgResp.isSuccessful) return null
+                val imgBody = imgResp.body?.string() ?: return null
+                val root = JsonParser.parseString(imgBody).asJsonObject
+                val pages = root.getAsJsonObject("query")?.getAsJsonObject("pages") ?: return null
+                for (pageEntry in pages.entrySet()) {
+                    if (pageEntry.key == "-1") continue // Ignore invalid pages
+                    val pageObj = pageEntry.value.asJsonObject
+                    val thumbObj = pageObj.getAsJsonObject("thumbnail") ?: continue
+                    val imgUrl = thumbObj.get("source").asString
+                    if (imgUrl.isNotBlank()) {
+                        Log.d(TAG, "Successfully fetched image for '$artistName' from page '$bestTitle'")
+                        return Uri.parse(imgUrl)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Wiki search API failed for '$artistName': ${e.message}", e)
+        }
+        return null
+    }
+
+
+
+    /**
      * Fetches lyrics for a song using Spotify RapidAPI
      */
     suspend fun fetchLyrics(artist: String, title: String): String? = withContext(Dispatchers.IO) {
-        if (artist.isBlank() || title.isBlank()) {
-            Log.d(TAG, "Cannot fetch lyrics: artist or title is blank")
+        if (artist.isBlank() || title.isBlank())
             return@withContext "No lyrics available for this song"
-        }
-        
+
         val cacheKey = "$artist:$title".lowercase()
-        Log.d(TAG, "Fetching lyrics for: $artist - $title")
-        
-        // Check cache first
-        lyricsCache[cacheKey]?.let { 
-            Log.d(TAG, "Using cached lyrics for $artist - $title")
-            return@withContext it 
+        lyricsCache[cacheKey]?.let { return@withContext it }
+
+        findLocalLyrics(artist, title)?.let {
+            lyricsCache[cacheKey] = it
+            return@withContext it
         }
-        
-        // Try to find local lyrics file
-        val localLyrics = findLocalLyrics(artist, title)
-        if (localLyrics != null) {
-            Log.d(TAG, "Using local lyrics for $artist - $title")
-            lyricsCache[cacheKey] = localLyrics
-            return@withContext localLyrics
-        }
-        
-        // Check network connectivity
+
         if (!isNetworkAvailable()) {
-            Log.d(TAG, "Network unavailable for lyrics fetch")
             return@withContext "Lyrics not available offline.\nConnect to the internet to view lyrics."
         }
-        
-        // Clean up artist and title for matching
+
         val cleanArtist = artist.trim().replace(Regex("\\(.*?\\)"), "").trim()
         val cleanTitle = title.trim().replace(Regex("\\(.*?\\)"), "").trim()
 
-        // ---- Attempt Spotify RapidAPI ----
+        // ---- Spotify RapidAPI ----
         try {
             val searchQuery = "$cleanTitle $cleanArtist"
-            Log.d(TAG, "Searching Spotify for track: $searchQuery")
-            val searchResponse = spotifyApiService.searchTracks(searchQuery)
-            val track = searchResponse.tracks.items.firstOrNull()
-            if (track != null) {
-                val lyricsResponse = spotifyApiService.getTrackLyrics(track.data.id)
-                if (lyricsResponse.lyrics.lines.isNotEmpty()) {
-                    val lyricsText = lyricsResponse.lyrics.lines.joinToString("\n") { it.words }
+            val searchResp = spotifyApiService.searchTracks(searchQuery)
+            val track = searchResp.tracks.items.firstOrNull()
+            track?.let {
+                val lyricsResp = spotifyApiService.getTrackLyrics(it.data.id)
+                if (lyricsResp.lyrics.lines.isNotEmpty()) {
+                    val lyricsText = lyricsResp.lyrics.lines.joinToString("\n") { ln -> ln.words }
                     lyricsCache[cacheKey] = lyricsText
                     saveLocalLyrics(artist, title, lyricsText)
                     return@withContext lyricsText
@@ -420,13 +628,23 @@ class MusicRepository(private val context: Context) {
             Log.w(TAG, "Spotify RapidAPI lyrics fetch failed: ${e.message}")
         }
 
-        // ---- Fallback to LRCLib ----
+        // ---- MusicBrainz lyrics link ----
         try {
-            Log.d(TAG, "Trying LRCLib for lyrics: $cleanArtist - $cleanTitle")
-            val lrclibResults = lrclibApiService.searchLyrics(trackName = cleanTitle, artistName = cleanArtist)
-            val bestMatch = lrclibResults.firstOrNull { !it.plainLyrics.isNullOrBlank() || !it.syncedLyrics.isNullOrBlank() }
-            if (bestMatch != null) {
-                val lyricsText = bestMatch.plainLyrics ?: bestMatch.syncedLyrics?.replace(Regex("\\[.*?]"), "") ?: ""
+            fetchLyricsFromMusicBrainz(cleanArtist, cleanTitle)?.let {
+                lyricsCache[cacheKey] = it
+                saveLocalLyrics(artist, title, it)
+                return@withContext it
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "MusicBrainz lyrics fallback failed: ${e.message}")
+        }
+
+        // ---- LRCLib ----
+        try {
+            val results = lrclibApiService.searchLyrics(trackName = cleanTitle, artistName = cleanArtist)
+            val bestMatch = results.firstOrNull { !it.plainLyrics.isNullOrBlank() || !it.syncedLyrics.isNullOrBlank() }
+            bestMatch?.let { bm ->
+                val lyricsText = bm.plainLyrics ?: bm.syncedLyrics?.replace(Regex("\\[.*?]"), "") ?: ""
                 if (lyricsText.isNotBlank()) {
                     lyricsCache[cacheKey] = lyricsText
                     saveLocalLyrics(artist, title, lyricsText)
@@ -437,13 +655,43 @@ class MusicRepository(private val context: Context) {
             Log.e(TAG, "LRCLib lyrics fetch failed: ${e.message}", e)
         }
 
-        Log.d(TAG, "No lyrics found for $artist - $title after all attempts")
         return@withContext "No lyrics found for this song"
     }
 
     /**
      * Finds local lyrics file in app's files directory
      */
+    
+    /**
+     * Attempts to retrieve lyrics via MusicBrainz recording relations that point
+     * to external lyrics sites (type = "lyrics"). If a URL is found we fetch it
+     * and strip HTML to get plain text.
+     */
+    private suspend fun fetchLyricsFromMusicBrainz(artist: String, title: String): String? = withContext(Dispatchers.IO) {
+        try {
+            val query = "recording:\"$title\" AND artist:\"$artist\""
+            val searchResp = musicBrainzApiService.searchRecordings(query)
+            val recording = searchResp.recordings.firstOrNull() ?: return@withContext null
+            val details = musicBrainzApiService.getRecordingDetails(recording.id)
+            val lyricsUrl = details.relations.firstOrNull { it.type.equals("lyrics", true) }?.url?.resource ?: return@withContext null
+
+            val req = Request.Builder().url(lyricsUrl).header("User-Agent", "RhythmApp/1.0").build()
+            genericHttpClient.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) return@withContext null
+                val html = resp.body?.string() ?: return@withContext null
+                // Very naive HTML tag removal
+                val plain = html.replace(Regex("<[^>]*>"), "\n").replace("&nbsp;", " ").lines()
+                    .map { it.trim() }
+                    .filter { it.isNotBlank() }
+                    .joinToString("\n")
+                return@use if (plain.split('\n').size >= 10) plain else null
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Error fetching lyrics via MusicBrainz: ${e.message}")
+            null
+        }
+    }
+
     private fun findLocalLyrics(artist: String, title: String): String? {
         val fileName = "${artist}_${title}.txt".replace(Regex("[^a-zA-Z0-9._-]"), "_")
         val file = File(context.filesDir, "lyrics/$fileName")

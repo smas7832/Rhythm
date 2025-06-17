@@ -228,7 +228,7 @@ fun SearchScreen(
                 onActiveChange = { },
                 placeholder = { 
                     Text(
-                        "Search songs, albums, artists...",
+                        "Search Songs, Albums...",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                     ) 

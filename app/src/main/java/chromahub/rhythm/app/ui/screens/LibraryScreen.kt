@@ -116,7 +116,7 @@ fun LibraryScreen(
     onAddToQueue: (Song) -> Unit,
     initialTab: LibraryTab = LibraryTab.SONGS
 ) {
-    val tabs = listOf("Songs", "Playlists")
+    val tabs = listOf("Songs", "Playlists & Albums")
     var selectedTabIndex by remember { mutableStateOf(initialTab.ordinal) }
     val pagerState = rememberPagerState(initialPage = selectedTabIndex) { tabs.size }
     val scope = rememberCoroutineScope()
@@ -191,47 +191,8 @@ fun LibraryScreen(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             LargeTopAppBar(
-                title = {
-                    Text(
-                        text = "Your Library",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                },
-                actions = {
-                    // Sort button with indicator of current sort order
-                    // Sort button with indicator of current sort order
-                    FilledTonalButton(
-                        onClick = onSort,
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
-                    ) {
-                        Icon(
-                            imageVector = RhythmIcons.List,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        
-                        Spacer(modifier = Modifier.width(8.dp))
-                        
-                        // Sort order text
-                        val sortText = when (sortOrder) {
-                            MusicViewModel.SortOrder.TITLE_ASC -> "Title A-Z"
-                            MusicViewModel.SortOrder.TITLE_DESC -> "Title Z-A"
-                            MusicViewModel.SortOrder.ARTIST_ASC -> "Artist A-Z"
-                            MusicViewModel.SortOrder.ARTIST_DESC -> "Artist Z-A"
-                        }
-                        
-                        Text(
-                            text = sortText,
-                            style = MaterialTheme.typography.labelMedium
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    // Search button
+                navigationIcon = {
+                    // Search button on far left
                     FilledIconButton(
                         onClick = onSearchClick,
                         colors = IconButtonDefaults.filledIconButtonColors(
@@ -242,6 +203,43 @@ fun LibraryScreen(
                         Icon(
                             imageVector = RhythmIcons.Search,
                             contentDescription = "Search"
+                        )
+                    }
+                },
+                title = {
+                    Text(
+                        text = "Library",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
+                actions = {
+                    // Sort button with indicator of current sort order
+                    FilledTonalButton(
+                        onClick = onSort,
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Icon(
+                            imageVector = RhythmIcons.List,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        // Sort order text
+                        val sortText = when (sortOrder) {
+                            MusicViewModel.SortOrder.TITLE_ASC -> "Title A-Z"
+                            MusicViewModel.SortOrder.TITLE_DESC -> "Title Z-A"
+                            MusicViewModel.SortOrder.ARTIST_ASC -> "Artist A-Z"
+                            MusicViewModel.SortOrder.ARTIST_DESC -> "Artist Z-A"
+                        }
+
+                        Text(
+                            text = sortText,
+                            style = MaterialTheme.typography.labelMedium
                         )
                     }
                 },
@@ -256,9 +254,9 @@ fun LibraryScreen(
         floatingActionButton = {
             if (selectedTabIndex == 1) {
                 ExtendedFloatingActionButton(
-                        modifier = Modifier.padding(
-                            bottom = (LocalMiniPlayerPadding.current.calculateBottomPadding() * 0.5f) + 8.dp
-                        ),
+                    modifier = Modifier.padding(
+                        bottom = (LocalMiniPlayerPadding.current.calculateBottomPadding() * 0.5f) + 8.dp
+                    ),
                     onClick = { showCreatePlaylistDialog = true },
                     icon = {
                         Icon(
@@ -595,7 +593,9 @@ fun LibrarySongItem(
 
                     DropdownMenu(
                         expanded = showDropdown,
-                        onDismissRequest = { showDropdown = false }
+                        onDismissRequest = { showDropdown = false },
+                        modifier = Modifier,
+                        shape = RoundedCornerShape(16.dp)
                     ) {
                         DropdownMenuItem(
                             text = { Text("Add to playlist") },

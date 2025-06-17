@@ -17,6 +17,7 @@ import chromahub.rhythm.app.network.LRCLibApiService
 import chromahub.rhythm.app.network.MusicBrainzApiService
 import chromahub.rhythm.app.network.SpotifyApiService
 import chromahub.rhythm.app.network.CoverArtArchiveService
+import chromahub.rhythm.app.network.LastFmApiService
 
 object NetworkClient {
     private const val TAG = "NetworkClient"
@@ -26,6 +27,8 @@ object NetworkClient {
     private const val LRCLIB_BASE_URL = "https://lrclib.net/"
     private const val MUSICBRAINZ_BASE_URL = "https://musicbrainz.org/"
     private const val COVERART_BASE_URL = "https://coverartarchive.org/"
+    private const val LASTFM_API_KEY = "ba62d1b3203307dcbfc78a5cb2be4888"
+    private const val LASTFM_BASE_URL = "https://ws.audioscrobbler.com/"
     
     // Connection timeouts
     private const val CONNECT_TIMEOUT = 30L
@@ -150,6 +153,12 @@ object NetworkClient {
     val lrclibApiService: LRCLibApiService = lrclibRetrofit.create(LRCLibApiService::class.java)
     val musicBrainzApiService: MusicBrainzApiService = musicBrainzRetrofit.create(MusicBrainzApiService::class.java)
     val coverArtArchiveService: CoverArtArchiveService = coverArtRetrofit.create(CoverArtArchiveService::class.java)
+    private val lastFmRetrofit = Retrofit.Builder()
+        .baseUrl(LASTFM_BASE_URL)
+        .client(loggingInterceptor.let { OkHttpClient.Builder().addInterceptor(it).build() })
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+    val lastFmApiService: LastFmApiService = lastFmRetrofit.create(LastFmApiService::class.java)
     
     // Generic OkHttp client for one-off requests (e.g., Wikidata JSON). Reuses header interceptor.
     val genericHttpClient: OkHttpClient = OkHttpClient.Builder()
@@ -158,4 +167,5 @@ object NetworkClient {
         .build()
     
     fun getSpotifyApiKey(): String = SPOTIFY_API_KEY
+    fun getLastFmApiKey(): String = LASTFM_API_KEY
 } 

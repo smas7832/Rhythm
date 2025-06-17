@@ -13,7 +13,7 @@ android {
         applicationId = "chromahub.rhythm.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 2000234
+        versionCode = 2000246
         versionName = "2.0.100.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -92,6 +92,10 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.11.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.11.0")
     implementation("com.google.code.gson:gson:2.10.1")
+
+    // Coroutines for async operations
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     
     // Reorderable library for drag-and-drop functionality
     implementation("org.burnoutcrew.composereorderable:reorderable:0.9.6")
