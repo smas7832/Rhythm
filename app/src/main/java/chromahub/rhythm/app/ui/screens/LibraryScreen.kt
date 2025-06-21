@@ -1,6 +1,13 @@
 @file:OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 package chromahub.rhythm.app.ui.screens
 
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.dp
+
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -24,8 +31,15 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.material3.Surface
+import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -370,7 +384,7 @@ fun SongsTab(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .clip(MaterialTheme.shapes.medium)
+                        .clip(MaterialTheme.shapes.large)
                 ) {
                     Row(
                         modifier = Modifier.padding(16.dp),
@@ -451,12 +465,37 @@ fun PlaylistsTab(
         ) {
             if (playlists.isNotEmpty()) {
                 item {
-                    Text(
-                        text = "Playlists",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp)
+                        ) {
+                            Text(
+                                text = "Playlists",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+
+                            Spacer(modifier = Modifier.weight(1f))
+
+                            Box(
+                                modifier = Modifier
+                                    .height(2.dp)
+                                    .weight(1f)
+                                    .background(
+                                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f),
+                                        shape = RoundedCornerShape(1.dp)
+                                    )
+                            )
+                        }
+                    }
                 }
                 
                 items(playlists) { playlist ->
@@ -469,12 +508,37 @@ fun PlaylistsTab(
             
             if (albums.isNotEmpty()) {
                 item {
-                    Text(
-                        text = "Albums",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
-                    )
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp)
+                        ) {
+                            Text(
+                                text = "Albums",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+
+                            Spacer(modifier = Modifier.weight(1f))
+
+                            Box(
+                                modifier = Modifier
+                                    .height(2.dp)
+                                    .weight(1f)
+                                    .background(
+                                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f),
+                                        shape = RoundedCornerShape(1.dp)
+                                    )
+                            )
+                        }
+                    }
                 }
                 
                 items(albums) { album ->
@@ -626,62 +690,76 @@ fun PlaylistItem(
     playlist: Playlist,
     onClick: () -> Unit
 ) {
-    val context = LocalContext.current
-
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(16.dp),
-        color = Color.Transparent,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 1.dp),
+        shape = MaterialTheme.shapes.large,  // Increased corner radius
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        tonalElevation = 0.dp
     ) {
-        ListItem(
-            colors = ListItemDefaults.colors(
-                containerColor = Color.Transparent
-            ),
-            headlineContent = {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Playlist artwork
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(MaterialTheme.shapes.large)  // Increased corner radius to match container
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),  // Slightly reduced opacity
+                contentAlignment = Alignment.Center
+            ) {
+                if (playlist.artworkUri != null) {
+                    M3ImageUtils.PlaylistImage(
+                        imageUrl = playlist.artworkUri,
+                        playlistName = playlist.name,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Icon(
+                        imageVector = RhythmIcons.List,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            }
+            
+            // Playlist info
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 16.dp)
+            ) {
                 Text(
                     text = playlist.name,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-            },
-            supportingContent = {
+                
                 Text(
-                    text = "${playlist.songs.size} songs",
+                    text = "${playlist.songs.size} ${if (playlist.songs.size == 1) "song" else "songs"}",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-            },
-            leadingContent = {
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color.Transparent),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (playlist.artworkUri != null) {
-                        M3ImageUtils.PlaylistImage(
-                            imageUrl = playlist.artworkUri,
-                            playlistName = playlist.name,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else {
-                        Icon(
-                            imageVector = RhythmIcons.Playlist,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(
-                                    color = MaterialTheme.colorScheme.surfaceVariant
-                                )
-                                .padding(12.dp)
-                        )
-                    }
-                }
             }
-        )
+            
+            // Chevron icon
+            Icon(
+                imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                contentDescription = "Open playlist",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(24.dp)
+            )
+        }
     }
 }
 

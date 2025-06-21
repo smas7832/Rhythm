@@ -807,12 +807,13 @@ fun PlayerScreen(
                         
                         // Play/pause button (larger)
                         FilledIconButton(
-                            onClick = { 
+                            onClick = {
                                 // Add haptic feedback with stronger intensity for primary control
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                onPlayPause() 
+                                onPlayPause()
                             },
-                            modifier = Modifier.size(64.dp)
+                            modifier = Modifier.size(64.dp),
+                            shape = RoundedCornerShape(26.dp)
                         ) {
                             Icon(
                                 imageVector = if (isPlaying) RhythmIcons.Pause else RhythmIcons.Play,

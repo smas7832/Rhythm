@@ -443,127 +443,136 @@ private fun EnhancedScrollableContent(
                 WelcomeSection(greeting = greeting, onSearchClick = onSearchClick)
             }
             
-            // Quick Actions Section
-            QuickActionsSection(
-                onNavigateToLibrary = onNavigateToLibrary, 
-                onNavigateToPlaylist = onNavigateToPlaylist
-            )
-            
-            // Featured Content Carousel with enhanced design
-            if (currentFeaturedAlbums.isNotEmpty()) {
-                Column(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Featured Albums",
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                        
-                        Surface(
-                            onClick = onViewAllAlbums,
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            shape = RoundedCornerShape(20.dp),
-                            modifier = Modifier.padding(4.dp)
-                        ) {
-                            Text(
-                                text = "View All",
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                            )
-                        }
-                    }
-                    
-                    FeaturedContentSection(
-                        albums = currentFeaturedAlbums,
-                        pagerState = featuredPagerState,
-                        onAlbumClick = onAlbumClick
-                    )
-                }
-            }
-            
-            // Listening Statistics
-            ListeningStatsSection()
-            
-            // Recently played chips with improved visual design
-            if (recentlyPlayed.isNotEmpty()) {
-                RecentlyPlayedSection(
-                    recentlyPlayed = recentlyPlayed.take(5),
-                    onSongClick = onSongClick
-                )
-            }
-            
-            // Artists Section with improved design
-            if (availableArtists.isNotEmpty()) {
-                SectionTitle(
-                    title = "Artists",
-                    viewAllAction = null
-                )
-                
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    items(
-                        items = availableArtists,
-                        key = { it.name }
-                    ) { artist ->
-                        NewArtistCard(
-                            artist = artist,
-                            onClick = { onArtistClick(artist) }
-                        )
-                    }
-                }
-            }
-            
-            // Recently Added Section with improved cards
-            if (newReleases.isNotEmpty()) {
-                SectionTitle(
-                    title = "Recent Albums",
-                    viewAllAction = onViewAllAlbums
-                )
-                
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    items(newReleases) { album ->
-                        NewAlbumCard(
-                            album = album,
-                            onClick = { onAlbumClick(album) }
-                        )
-                    }
-                }
-            }
-            
-            // Mood-based playlists section with better playlists
-            MoodBasedPlaylistsSection(
-                moodBasedSongs = betterMoodBasedSongs.first,
-                energeticSongs = betterMoodBasedSongs.second,
-                relaxingSongs = betterMoodBasedSongs.third,
-                onSongClick = onSongClick
-            )
-            
-            // Recommended For You Section – use real recommendations from ViewModel
+            // Fetch recommendations for "Recommended For You" section
             val recommendedSongs = remember(viewModel) {
                 viewModel.getRecommendedSongs().take(4)
             }
-            if (recommendedSongs.isNotEmpty()) {
-                RecommendedForYouSection(
-                    songs = recommendedSongs,
-                    onSongClick = onSongClick
-                )
+
+            // --- Randomized Sections Start ---
+            val randomizedSections = remember(
+                recentlyPlayed,
+                availableArtists,
+                newReleases,
+                betterMoodBasedSongs
+            ) {
+                buildList<@Composable () -> Unit> {
+                    // Quick Actions
+                    add {
+                        QuickActionsSection(
+                            onNavigateToLibrary = onNavigateToLibrary,
+                            onNavigateToPlaylist = onNavigateToPlaylist
+                        )
+                    }
+
+                    // Featured Albums
+                    if (currentFeaturedAlbums.isNotEmpty()) add {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Featured Albums",
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onBackground
+                                )
+                                Surface(
+                                    onClick = onViewAllAlbums,
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    shape = RoundedCornerShape(20.dp),
+                                    modifier = Modifier.padding(4.dp)
+                                ) {
+                                    Text(
+                                        text = "View All",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                    )
+                                }
+                            }
+                            FeaturedContentSection(
+                                albums = currentFeaturedAlbums,
+                                pagerState = featuredPagerState,
+                                onAlbumClick = onAlbumClick
+                            )
+                        }
+                    }
+
+                    // Listening Stats
+                    add { ListeningStatsSection() }
+
+                    // Recently Played
+                    if (recentlyPlayed.isNotEmpty()) add {
+                        RecentlyPlayedSection(
+                            recentlyPlayed = recentlyPlayed.take(5),
+                            onSongClick = onSongClick
+                        )
+                    }
+
+                    // Artists
+                    if (availableArtists.isNotEmpty()) add {
+                        SectionTitle(title = "Artists", viewAllAction = null)
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            items(
+                                items = availableArtists,
+                                key = { it.name }
+                            ) { artist ->
+                                NewArtistCard(
+                                    artist = artist,
+                                    onClick = { onArtistClick(artist) }
+                                )
+                            }
+                        }
+                    }
+
+                    // Recent Albums
+                    if (newReleases.isNotEmpty()) add {
+                        SectionTitle(title = "Recent Albums", viewAllAction = onViewAllAlbums)
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            items(newReleases) { album ->
+                                NewAlbumCard(
+                                    album = album,
+                                    onClick = { onAlbumClick(album) }
+                                )
+                            }
+                        }
+                    }
+
+                    // Recommended For You
+                    if (recommendedSongs.isNotEmpty()) add {
+                        RecommendedForYouSection(
+                            songs = recommendedSongs,
+                            onSongClick = onSongClick
+                        )
+                    }
+
+                    // Mood & Moments
+                    add {
+                        MoodBasedPlaylistsSection(
+                            moodBasedSongs = betterMoodBasedSongs.first,
+                            energeticSongs = betterMoodBasedSongs.second,
+                            relaxingSongs = betterMoodBasedSongs.third,
+                            onSongClick = onSongClick
+                        )
+                    }
+                }.shuffled(Random(System.currentTimeMillis()))
             }
+
+            randomizedSections.forEach { it() }
+            // --- Randomized Sections End ---
+            
+
             
             // Bottom spacer
             Spacer(modifier = Modifier.height(16.dp))
@@ -643,7 +652,7 @@ private fun WelcomeSection(
                     Spacer(modifier = Modifier.width(16.dp))
                     
                     Text(
-                        text = "Search for songs, artists, or albums",
+                        text = "Search for songs, artists..",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurface
                     )

@@ -729,12 +729,13 @@ fun MiniPlayer(
                 ) {
                     // Play/pause button
                     FilledIconButton(
-                        onClick = { 
+                        onClick = {
                             // Enhanced haptic feedback for primary action
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onPlayPause() 
+                            onPlayPause()
                         },
                         modifier = Modifier.size(48.dp),
+                        shape = RoundedCornerShape(20.dp),
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer,
                             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -1099,4 +1100,4 @@ fun PlayerControls(
             }
         }
     }
-} 
+}

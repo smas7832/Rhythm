@@ -939,11 +939,14 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 
                 // Update the current queue position
-                val newIndex = (_currentQueue.value.currentIndex + 1) % _currentQueue.value.songs.size
-                _currentQueue.value = _currentQueue.value.copy(currentIndex = newIndex)
-                
-                // Reset progress to 0 for immediate UI feedback
-                _progress.value = 0f
+                val songs = _currentQueue.value.songs
+                if (songs.isNotEmpty()) {
+                    val newIndex = (_currentQueue.value.currentIndex + 1) % songs.size
+                    _currentQueue.value = _currentQueue.value.copy(currentIndex = newIndex)
+                    
+                    // Reset progress to 0 for immediate UI feedback
+                    _progress.value = 0f
+                }
                 
                 // Now perform the actual seek operation
                 controller.seekToNext()

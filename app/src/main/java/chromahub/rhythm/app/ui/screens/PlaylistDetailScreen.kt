@@ -143,7 +143,7 @@ fun PlaylistDetailScreen(
             LargeTopAppBar(
                 title = {
                     Text(
-                        text = "Playlists",
+                        text = "Playlist",
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1
