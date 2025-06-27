@@ -5,6 +5,7 @@
 </div>
 
 ## Overview
+
 Rhythm is a premium music player for Android that delivers a seamless audio experience with a beautiful Material You design. Enjoy your music collection with advanced playback features, intuitive controls, and comprehensive audio format support.
 
 ## Screenshots
@@ -15,14 +16,16 @@ Rhythm is a premium music player for Android that delivers a seamless audio expe
       <img src="assets/ScreenShots/Home.png" alt="Home Screen" width="200"><br>
       <b>🎵 Home Screen 1</b>
     </td>
-    <!-- <td align="center">
+    <td align="center">
       <img src="assets/ScreenShots/Home2.png" alt="Home Screen" width="200"><br>
       <b>🎵 Home Screen 2</b>
     </td>
     <td align="center">
       <img src="assets/ScreenShots/Home3.png" alt="Home Screen" width="200"><br>
       <b>🎵 Home Screen 3</b>
-    </td> -->
+    </td>
+  </tr>
+  <tr>
     <td align="center">
       <img src="assets/ScreenShots/Player.png" alt="Now Playing" width="200"><br>
       <b>▶️ Now Playing</b>
@@ -31,13 +34,13 @@ Rhythm is a premium music player for Android that delivers a seamless audio expe
       <img src="assets/ScreenShots/Player_Lyrics.png" alt="Lyrics View" width="200"><br>
       <b>📝 Lyrics View</b>
     </td>
-  </tr>
-  <tr>
     <td align="center">
       <img src="assets/ScreenShots/Playlist.png" alt="Playlist View" width="200"><br>
       <b>🎼 Playlist View</b>
     </td>
-    <td align="center">
+  </tr>
+  <tr>
+      <td align="center">
       <img src="assets/ScreenShots/Library_Songs.png" alt="Songs Library" width="200"><br>
       <b>🎧 Songs Library</b>
     </td>
@@ -101,11 +104,13 @@ Rhythm is a premium music player for Android that delivers a seamless audio expe
 - **Background Services**: Foreground Service for playback
 
 ### Requirements
+
 - Android 8.0+ (API level 26)
 - 50MB+ free storage space
 - Internet connection for online features
 
 ### Installation
+
 Download the latest release APK from the [Releases](https://github.com/cromaguy/Rhythm/releases) page.
 
 ## Project Structure
@@ -126,6 +131,7 @@ app/
 ## Permissions
 
 The app requires the following permissions:
+
 - Storage access (for media files)
 - Media audio access
 - Foreground service (for playback)
@@ -133,11 +139,9 @@ The app requires the following permissions:
 - Bluetooth connectivity
 - Network state
 
-
 ## 📄 License
 
 Rhythm is available under the MIT license. See the [LICENSE](LICENSE) file for more info.
-
 
 ## Version
 
@@ -150,5 +154,3 @@ If you encounter any issues or have feature requests, please file them in the [I
 <div align="center">
   <sub>Made with ❤️ by Anjishnu</sub>
 </div>
-
-
