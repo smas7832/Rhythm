@@ -1,4 +1,4 @@
-# Rhythm - Modern Android Music Player
+# Rhythm - Offline Android Music App
 
 <div align="center">
   <img src="app/rhythm_logo.png" alt="Rhythm Logo" width="200"/>
