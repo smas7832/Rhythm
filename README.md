@@ -7,6 +7,49 @@
 ## Overview
 Rhythm is a premium music player for Android that delivers a seamless audio experience with a beautiful Material You design. Enjoy your music collection with advanced playback features, intuitive controls, and comprehensive audio format support.
 
+## Screenshots
+
+<div align="center">
+  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; margin: 20px 0;">
+    <div>
+      <img src="assets/ScreenShots/Home.png" alt="Home Screen" style="width:100%; border-radius: 8px;"/>
+      <p align="center">Home Screen</p>
+    </div>
+    <div>
+      <img src="assets/ScreenShots/Player.png" alt="Now Playing" style="width:100%; border-radius: 8px;"/>
+      <p align="center">Now Playing</p>
+    </div>
+    <div>
+      <img src="assets/ScreenShots/Player_Lyrics.png" alt="Lyrics View" style="width:100%; border-radius: 8px;"/>
+      <p align="center">Lyrics View</p>
+    </div>
+    <div>
+      <img src="assets/ScreenShots/Playlist.png" alt="Playlist View" style="width:100%; border-radius: 8px;"/>
+      <p align="center">Playlist View</p>
+    </div>
+    <div>
+      <img src="assets/ScreenShots/Library_Songs.png" alt="Songs Library" style="width:100%; border-radius: 8px;"/>
+      <p align="center">Songs Library</p>
+    </div>
+    <div>
+      <img src="assets/ScreenShots/Library_Albums.png" alt="Albums View" style="width:100%; border-radius: 8px;"/>
+      <p align="center">Albums View</p>
+    </div>
+    <div>
+      <img src="assets/ScreenShots/Search.png" alt="Search" style="width:100%; border-radius: 8px;"/>
+      <p align="center">Search</p>
+    </div>
+    <div>
+      <img src="assets/ScreenShots/Queue.png" alt="Queue Management" style="width:100%; border-radius: 8px;"/>
+      <p align="center">Queue Management</p>
+    </div>
+    <div>
+      <img src="assets/ScreenShots/Settings.png" alt="Settings" style="width:100%; border-radius: 8px;"/>
+      <p align="center">Settings</p>
+    </div>
+  </div>
+</div>
+
 ## Features
 
 - 🎨 **Modern UI**: Built with Jetpack Compose and Material 3 design
