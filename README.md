@@ -82,7 +82,7 @@ Rhythm is available under the MIT license. See the [LICENSE](LICENSE) file for m
 
 ## Version
 
-Current version: 2.0.100.6 (Build 246 Pre-Release Beta)
+Current version: 2.0.100.6 (Build 253 Pre-Release Beta)
 
 ## Support
 
