@@ -9,90 +9,50 @@ Rhythm is a premium music player for Android that delivers a seamless audio expe
 
 ## Screenshots
 
-<div align="center">
-  <style>
-    .screenshot-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-      gap: 16px;
-      margin: 24px 0;
-      padding: 0 16px;
-    }
-    .screenshot-card {
-      background: #1e1e1e;
-      border-radius: 12px;
-      overflow: hidden;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-    .screenshot-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
-    }
-    .screenshot-img {
-      width: 100%;
-      height: 320px;
-      object-fit: cover;
-      border-bottom: 1px solid #333;
-    }
-    .screenshot-caption {
-      padding: 12px;
-      text-align: center;
-      font-size: 14px;
-      color: #e0e0e0;
-      background: #252525;
-    }
-    @media (max-width: 768px) {
-      .screenshot-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
-    @media (max-width: 480px) {
-      .screenshot-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
-
-  <div class="screenshot-grid">
-    <div class="screenshot-card">
-      <img src="assets/ScreenShots/Home.png" alt="Home Screen" class="screenshot-img">
-      <div class="screenshot-caption">🎵 Home Screen</div>
-    </div>
-    <div class="screenshot-card">
-      <img src="assets/ScreenShots/Player.png" alt="Now Playing" class="screenshot-img">
-      <div class="screenshot-caption">▶️ Now Playing</div>
-    </div>
-    <div class="screenshot-card">
-      <img src="assets/ScreenShots/Player_Lyrics.png" alt="Lyrics View" class="screenshot-img">
-      <div class="screenshot-caption">📝 Lyrics View</div>
-    </div>
-    <div class="screenshot-card">
-      <img src="assets/ScreenShots/Playlist.png" alt="Playlist View" class="screenshot-img">
-      <div class="screenshot-caption">🎼 Playlist View</div>
-    </div>
-    <div class="screenshot-card">
-      <img src="assets/ScreenShots/Library_Songs.png" alt="Songs Library" class="screenshot-img">
-      <div class="screenshot-caption">🎧 Songs Library</div>
-    </div>
-    <div class="screenshot-card">
-      <img src="assets/ScreenShots/Library_Albums.png" alt="Albums View" class="screenshot-img">
-      <div class="screenshot-caption">💿 Albums View</div>
-    </div>
-    <div class="screenshot-card">
-      <img src="assets/ScreenShots/Search.png" alt="Search" class="screenshot-img">
-      <div class="screenshot-caption">🔍 Search</div>
-    </div>
-    <div class="screenshot-card">
-      <img src="assets/ScreenShots/Queue.png" alt="Queue Management" class="screenshot-img">
-      <div class="screenshot-caption">⏭️ Queue Management</div>
-    </div>
-    <div class="screenshot-card">
-      <img src="assets/ScreenShots/Settings.png" alt="Settings" class="screenshot-img">
-      <div class="screenshot-caption">⚙️ Settings</div>
-    </div>
-  </div>
-</div>
+<table>
+  <tr>
+    <td align="center">
+      <img src="assets/ScreenShots/Home.png" alt="Home Screen" width="200"><br>
+      <b>🎵 Home Screen</b>
+    </td>
+    <td align="center">
+      <img src="assets/ScreenShots/Player.png" alt="Now Playing" width="200"><br>
+      <b>▶️ Now Playing</b>
+    </td>
+    <td align="center">
+      <img src="assets/ScreenShots/Player_Lyrics.png" alt="Lyrics View" width="200"><br>
+      <b>📝 Lyrics View</b>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="assets/ScreenShots/Playlist.png" alt="Playlist View" width="200"><br>
+      <b>🎼 Playlist View</b>
+    </td>
+    <td align="center">
+      <img src="assets/ScreenShots/Library_Songs.png" alt="Songs Library" width="200"><br>
+      <b>🎧 Songs Library</b>
+    </td>
+    <td align="center">
+      <img src="assets/ScreenShots/Library_Albums.png" alt="Albums View" width="200"><br>
+      <b>💿 Albums View</b>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="assets/ScreenShots/Search.png" alt="Search" width="200"><br>
+      <b>🔍 Search</b>
+    </td>
+    <td align="center">
+      <img src="assets/ScreenShots/Queue.png" alt="Queue Management" width="200"><br>
+      <b>⏭️ Queue Management</b>
+    </td>
+    <td align="center">
+      <img src="assets/ScreenShots/Settings.png" alt="Settings" width="200"><br>
+      <b>⚙️ Settings</b>
+    </td>
+  </tr>
+</table>
 
 ## Features
 
