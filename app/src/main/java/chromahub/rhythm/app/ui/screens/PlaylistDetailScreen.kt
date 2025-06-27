@@ -143,7 +143,7 @@ fun PlaylistDetailScreen(
             LargeTopAppBar(
                 title = {
                     Text(
-                        text = "Playlist",
+                        text = playlist.name,
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1
@@ -290,17 +290,9 @@ fun PlaylistDetailScreen(
                     modifier = Modifier.weight(1f)
                 ) {
                     Text(
-                        text = playlist.name,
+                        text = "${playlist.songs.size} songs",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
-                    )
-                    
-                    Spacer(modifier = Modifier.height(4.dp))
-                    
-                    Text(
-                        text = "${playlist.songs.size} songs",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
                     )
                     
                     Spacer(modifier = Modifier.height(16.dp))

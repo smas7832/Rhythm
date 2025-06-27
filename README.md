@@ -13,7 +13,15 @@ Rhythm is a premium music player for Android that delivers a seamless audio expe
   <tr>
     <td align="center">
       <img src="assets/ScreenShots/Home.png" alt="Home Screen" width="200"><br>
-      <b>🎵 Home Screen</b>
+      <b>🎵 Home Screen 1</b>
+    </td>
+    <td align="center">
+      <img src="assets/ScreenShots/Home2.png" alt="Home Screen" width="200"><br>
+      <b>🎵 Home Screen 2</b>
+    </td>
+    <td align="center">
+      <img src="assets/ScreenShots/Home3.png" alt="Home Screen" width="200"><br>
+      <b>🎵 Home Screen 3</b>
     </td>
     <td align="center">
       <img src="assets/ScreenShots/Player.png" alt="Now Playing" width="200"><br>
@@ -36,6 +44,10 @@ Rhythm is a premium music player for Android that delivers a seamless audio expe
     <td align="center">
       <img src="assets/ScreenShots/Library_Albums.png" alt="Albums View" width="200"><br>
       <b>💿 Albums View</b>
+    </td>
+    <td align="center">
+      <img src="assets/ScreenShots/Updater.png" alt="Updater" width="200"><br>
+      <b>💿 Updater</b>
     </td>
   </tr>
   <tr>
