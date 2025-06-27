@@ -10,42 +10,86 @@ Rhythm is a premium music player for Android that delivers a seamless audio expe
 ## Screenshots
 
 <div align="center">
-  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; margin: 20px 0;">
-    <div>
-      <img src="assets/ScreenShots/Home.png" alt="Home Screen" style="width:100%; border-radius: 8px;"/>
-      <p align="center">Home Screen</p>
+  <style>
+    .screenshot-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 16px;
+      margin: 24px 0;
+      padding: 0 16px;
+    }
+    .screenshot-card {
+      background: #1e1e1e;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .screenshot-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+    }
+    .screenshot-img {
+      width: 100%;
+      height: 320px;
+      object-fit: cover;
+      border-bottom: 1px solid #333;
+    }
+    .screenshot-caption {
+      padding: 12px;
+      text-align: center;
+      font-size: 14px;
+      color: #e0e0e0;
+      background: #252525;
+    }
+    @media (max-width: 768px) {
+      .screenshot-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    @media (max-width: 480px) {
+      .screenshot-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+
+  <div class="screenshot-grid">
+    <div class="screenshot-card">
+      <img src="assets/ScreenShots/Home.png" alt="Home Screen" class="screenshot-img">
+      <div class="screenshot-caption">🎵 Home Screen</div>
     </div>
-    <div>
-      <img src="assets/ScreenShots/Player.png" alt="Now Playing" style="width:100%; border-radius: 8px;"/>
-      <p align="center">Now Playing</p>
+    <div class="screenshot-card">
+      <img src="assets/ScreenShots/Player.png" alt="Now Playing" class="screenshot-img">
+      <div class="screenshot-caption">▶️ Now Playing</div>
     </div>
-    <div>
-      <img src="assets/ScreenShots/Player_Lyrics.png" alt="Lyrics View" style="width:100%; border-radius: 8px;"/>
-      <p align="center">Lyrics View</p>
+    <div class="screenshot-card">
+      <img src="assets/ScreenShots/Player_Lyrics.png" alt="Lyrics View" class="screenshot-img">
+      <div class="screenshot-caption">📝 Lyrics View</div>
     </div>
-    <div>
-      <img src="assets/ScreenShots/Playlist.png" alt="Playlist View" style="width:100%; border-radius: 8px;"/>
-      <p align="center">Playlist View</p>
+    <div class="screenshot-card">
+      <img src="assets/ScreenShots/Playlist.png" alt="Playlist View" class="screenshot-img">
+      <div class="screenshot-caption">🎼 Playlist View</div>
     </div>
-    <div>
-      <img src="assets/ScreenShots/Library_Songs.png" alt="Songs Library" style="width:100%; border-radius: 8px;"/>
-      <p align="center">Songs Library</p>
+    <div class="screenshot-card">
+      <img src="assets/ScreenShots/Library_Songs.png" alt="Songs Library" class="screenshot-img">
+      <div class="screenshot-caption">🎧 Songs Library</div>
     </div>
-    <div>
-      <img src="assets/ScreenShots/Library_Albums.png" alt="Albums View" style="width:100%; border-radius: 8px;"/>
-      <p align="center">Albums View</p>
+    <div class="screenshot-card">
+      <img src="assets/ScreenShots/Library_Albums.png" alt="Albums View" class="screenshot-img">
+      <div class="screenshot-caption">💿 Albums View</div>
     </div>
-    <div>
-      <img src="assets/ScreenShots/Search.png" alt="Search" style="width:100%; border-radius: 8px;"/>
-      <p align="center">Search</p>
+    <div class="screenshot-card">
+      <img src="assets/ScreenShots/Search.png" alt="Search" class="screenshot-img">
+      <div class="screenshot-caption">🔍 Search</div>
     </div>
-    <div>
-      <img src="assets/ScreenShots/Queue.png" alt="Queue Management" style="width:100%; border-radius: 8px;"/>
-      <p align="center">Queue Management</p>
+    <div class="screenshot-card">
+      <img src="assets/ScreenShots/Queue.png" alt="Queue Management" class="screenshot-img">
+      <div class="screenshot-caption">⏭️ Queue Management</div>
     </div>
-    <div>
-      <img src="assets/ScreenShots/Settings.png" alt="Settings" style="width:100%; border-radius: 8px;"/>
-      <p align="center">Settings</p>
+    <div class="screenshot-card">
+      <img src="assets/ScreenShots/Settings.png" alt="Settings" class="screenshot-img">
+      <div class="screenshot-caption">⚙️ Settings</div>
     </div>
   </div>
 </div>
