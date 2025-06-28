@@ -425,7 +425,7 @@ fun SettingsScreen(
                         )
 
                         Text(
-                            text = "Version 2.0 Beta | ChromaHub",
+                            text = "Version 2.1 Beta | ChromaHub",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -736,7 +736,7 @@ fun AboutDialog(
                     modifier = Modifier.padding(vertical = 8.dp)
                 ) {
                     Text(
-                        text = "Version 2.0 Beta",
+                        text = "Version 2.1 Beta",
                         style = MaterialTheme.typography.bodyMedium,
                         textAlign = TextAlign.Center,
                         color = MaterialTheme.colorScheme.onSecondaryContainer,
