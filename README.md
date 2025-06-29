@@ -60,7 +60,7 @@ Rhythm is a premium music player for Android that delivers a seamless audio expe
     </td>
     <td align="center">
       <img src="assets/ScreenShots/Queue.png" alt="Queue Management" width="200"><br>
-      <b>⏭️ Queue Management</b>
+      <b>⏭️ Queue</b>
     </td>
     <td align="center">
       <img src="assets/ScreenShots/Settings.png" alt="Settings" width="200"><br>
