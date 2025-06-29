@@ -54,14 +54,16 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import chromahub.rhythm.app.R
 import chromahub.rhythm.app.ui.components.RhythmIcons
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Warning
 import chromahub.rhythm.app.ui.navigation.RhythmNavigation
 import chromahub.rhythm.app.ui.theme.RhythmTheme
-import chromahub.rhythm.app.viewmodel.MusicViewModel
 import chromahub.rhythm.app.viewmodel.ThemeViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.google.accompanist.permissions.rememberPermissionState
+import com.google.accompanist.permissions.shouldShowRationale // Corrected import location
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.Image
@@ -73,6 +75,17 @@ import chromahub.rhythm.app.util.MediaUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.animation.Crossfade
+import androidx.compose.ui.text.font.FontWeight
+import chromahub.rhythm.app.viewmodel.MusicViewModel
+import android.provider.Settings // Corrected import location
 
 class MainActivity : ComponentActivity() {
     private val TAG = "MainActivity"
@@ -312,9 +325,10 @@ fun SplashScreen() {
 fun PermissionHandler(
     onPermissionsGranted: @Composable () -> Unit
 ) {
-    var isLoading by remember { mutableStateOf(true) }
-    var permissionsChecked by remember { mutableStateOf(false) }
-    
+    val context = LocalContext.current
+    var isLoading by remember { mutableStateOf(true) } // Overall loading state for the PermissionHandler
+    var shouldShowSettingsRedirect by remember { mutableStateOf(false) }
+
     // For Android 13+, we need READ_MEDIA_AUDIO, for older versions we need READ_EXTERNAL_STORAGE
     val storagePermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         listOf(
@@ -355,21 +369,24 @@ fun PermissionHandler(
     val allPermissions = storagePermissions + bluetoothPermissions
     
     val permissionsState = rememberMultiplePermissionsState(allPermissions)
-    val context = LocalContext.current
     
-    LaunchedEffect(Unit) {
+    // This state will trigger a re-evaluation of permissions and potentially a new request
+    var permissionCheckTrigger by remember { mutableStateOf(0) }
+
+    LaunchedEffect(permissionCheckTrigger) {
+        isLoading = true // Start loading whenever a check is triggered
+
+        // Launch permission request. This is a suspend function and will wait for user interaction.
         permissionsState.launchMultiplePermissionRequest()
-        // Add a small delay to show loading indicator
-        delay(2500)
-        isLoading = false
-        permissionsChecked = true
-        
-        // If permissions are granted, make sure we initialize media playback service
-        if (permissionsState.permissions
+
+        // After the request returns (user has interacted with dialog or it didn't show):
+        val allStoragePermissionsGranted = permissionsState.permissions
             .filter { it.permission in storagePermissions }
-            .all { it.status.isGranted }) {
-            
-            // Initialize the media service to ensure it's ready when needed
+            .all { it.status.isGranted }
+
+        if (allStoragePermissionsGranted) {
+            shouldShowSettingsRedirect = false
+            // Initialize media service
             val intent = Intent(context, chromahub.rhythm.app.service.MediaPlaybackService::class.java)
             intent.action = chromahub.rhythm.app.service.MediaPlaybackService.ACTION_INIT_SERVICE
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -377,19 +394,25 @@ fun PermissionHandler(
             } else {
                 context.startService(intent)
             }
-            
-            // Give the service additional time to fully initialize
-            delay(1000)
-        }
-    }
-    
-    Box(modifier = Modifier.fillMaxSize()) {
-        // Main content that appears when permissions are granted
-        AnimatedVisibility(
-            visible = permissionsChecked && permissionsState.permissions
+            delay(1000) // Give service time to initialize
+        } else {
+            // Permissions are not granted. Determine if redirect to settings is needed.
+            shouldShowSettingsRedirect = permissionsState.permissions
                 .filter { it.permission in storagePermissions }
-                .all { it.status.isGranted },
-            enter = fadeIn(animationSpec = tween(1000, easing = androidx.compose.animation.core.EaseOutCubic)) + 
+                .any { !it.status.isGranted && !it.status.shouldShowRationale }
+        }
+        isLoading = false // Stop loading after all checks and actions are done
+    }
+
+    // Trigger initial permission check on first composition
+    LaunchedEffect(Unit) {
+        permissionCheckTrigger++
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        AnimatedVisibility(
+            visible = !isLoading && permissionsState.allPermissionsGranted,
+            enter = fadeIn(animationSpec = tween(1000, easing = androidx.compose.animation.core.EaseOutCubic)) +
                    slideInVertically(
                        initialOffsetY = { it / 3 },
                        animationSpec = tween(1000, easing = androidx.compose.animation.core.EaseOutCubic)
@@ -397,8 +420,7 @@ fun PermissionHandler(
         ) {
             onPermissionsGranted()
         }
-        
-        // Loading indicator
+
         AnimatedVisibility(
             visible = isLoading,
             exit = fadeOut(animationSpec = tween(800, easing = androidx.compose.animation.core.EaseInCubic))
@@ -407,25 +429,23 @@ fun PermissionHandler(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                // Updated to use the new Material 3 circular loader with four colors
                 M3FourColorCircularLoader(
                     modifier = Modifier.size(64.dp)
                 )
             }
         }
-        
-        // Permission denied screen
+
         AnimatedVisibility(
-            visible = !isLoading && permissionsChecked && !permissionsState.permissions
-                .filter { it.permission in storagePermissions }
-                .all { it.status.isGranted },
+            visible = !isLoading && !permissionsState.allPermissionsGranted,
             enter = fadeIn(animationSpec = tween(800, easing = androidx.compose.animation.core.EaseOutCubic)) +
                    scaleIn(initialScale = 0.95f, animationSpec = tween(800, easing = androidx.compose.animation.core.EaseOutCubic))
         ) {
             PermissionDeniedScreen(
                 onRequestAgain = {
-                    permissionsState.launchMultiplePermissionRequest()
-                }
+                    permissionCheckTrigger++ // Trigger a new permission check
+                },
+                shouldShowSettingsRedirect = shouldShowSettingsRedirect,
+                isParentLoading = isLoading
             )
         }
     }
@@ -433,67 +453,167 @@ fun PermissionHandler(
 
 @Composable
 fun PermissionDeniedScreen(
-    onRequestAgain: () -> Unit
+    onRequestAgain: () -> Unit,
+    shouldShowSettingsRedirect: Boolean,
+    isParentLoading: Boolean // New parameter
 ) {
+    val context = LocalContext.current
+    var isButtonLoading by remember { mutableStateOf(false) } // Local state for button feedback
+
+    LaunchedEffect(isParentLoading) {
+        if (!isParentLoading) {
+            isButtonLoading = false // Reset button loading when parent loading finishes
+        }
+    }
+    
     Box(
         modifier = Modifier
             .fillMaxSize()
             .padding(32.dp),
         contentAlignment = Alignment.Center
     ) {
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            shape = MaterialTheme.shapes.extraLarge,
-            tonalElevation = 4.dp,
-            shadowElevation = 8.dp,
-            modifier = Modifier.padding(16.dp)
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxSize()
         ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+            // App name and logo above the card
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(bottom = 32.dp)
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.rhythm_logo),
                     contentDescription = null,
-                    modifier = Modifier
-                        .size(80.dp)
-                        .padding(bottom = 16.dp)
+                    modifier = Modifier.size(64.dp)
                 )
-                
+                Spacer(modifier = Modifier.width(16.dp))
                 Text(
-                    text = "Storage Permission Required",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(bottom = 16.dp)
+                    text = "Rhythm",
+                    style = MaterialTheme.typography.displaySmall,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    fontWeight = FontWeight.Bold
                 )
-                
-                Text(
-                    text = "Storage permission is required to access music files on your device. " +
-                           "Bluetooth permissions are needed to detect and use Bluetooth audio devices.",
-                    style = MaterialTheme.typography.bodyLarge,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(bottom = 24.dp)
-                )
-                
-                Surface(
-                    onClick = onRequestAgain,
-                    color = MaterialTheme.colorScheme.primary,
-                    shape = MaterialTheme.shapes.large,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp)
+            }
+            
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainerHigh, // Use a higher surface variant for more contrast
+                shape = MaterialTheme.shapes.extraLarge,
+                tonalElevation = 4.dp,
+                modifier = Modifier.fillMaxWidth(0.9f) // Make the card slightly wider
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(
-                        text = "Grant Permissions",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier
-                            .padding(vertical = 16.dp)
-                            .align(Alignment.CenterHorizontally)
+                    Icon(
+                        imageVector = Icons.Filled.Warning, // A more generic "info" or "alert" icon
+                        contentDescription = "Permissions Required",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(64.dp).padding(bottom = 16.dp)
                     )
+                    
+                    Text(
+                        text = "Permissions Required",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    
+                    Text(
+                        text = "To provide you with the best music experience, Rhythm needs access to certain permissions.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(bottom = 24.dp)
+                    )
+                    
+                    // Permission explanations with icons
+                    PermissionExplanationRow(
+                        icon = RhythmIcons.Music.Audiotrack,
+                        description = "Access your music files on this device to play your favorite songs."
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    PermissionExplanationRow(
+                        icon = RhythmIcons.Devices.Bluetooth,
+                        description = "Detect Bluetooth audio devices for playback and control."
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    
+                    FilledTonalButton(
+                        onClick = {
+                            if (shouldShowSettingsRedirect) {
+                                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                    data = Uri.fromParts("package", context.packageName, null)
+                                }
+                                context.startActivity(intent)
+                            } else {
+                                isButtonLoading = true // Start button loading
+                                onRequestAgain()
+                            }
+                        },
+                        enabled = !isButtonLoading, // Disable button while local loading
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp)
+                    ) {
+                        Crossfade(targetState = isButtonLoading, label = "buttonLoading") { requesting ->
+                            if (requesting) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Text(
+                                    text = if (shouldShowSettingsRedirect) "Open App Settings" else "Grant Permissions",
+                                    style = MaterialTheme.typography.labelLarge
+                                )
+                            }
+                        }
+                    }
+                    
+                    if (isButtonLoading) { // Show linear progress only when button is loading
+                        LinearProgressIndicator(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp)
+                        )
+                    }
+
+                    if (shouldShowSettingsRedirect) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "It looks like you've permanently denied some permissions. Please enable them manually in app settings.",
+                            style = MaterialTheme.typography.bodySmall,
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+fun PermissionExplanationRow(icon: androidx.compose.ui.graphics.vector.ImageVector, description: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(24.dp)
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Text(
+            text = description,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
