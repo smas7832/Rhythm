@@ -64,6 +64,7 @@ import chromahub.rhythm.app.viewmodel.AppUpdaterViewModel
 import chromahub.rhythm.app.viewmodel.AppVersion
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.IconButton
 
@@ -228,10 +229,10 @@ fun AppUpdaterScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // Developer website button
+                        // Report Bug button
                         Button(
                             onClick = {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://anjishnunandi.vercel.app/"))
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/cromaguy/Rhythm/issues"))
                                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                 context.startActivity(intent)
                             },
@@ -245,15 +246,15 @@ fun AppUpdaterScreen(
                                 modifier = Modifier.padding(vertical = 4.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.Public,
-                                    contentDescription = "Developer Website",
+                                    imageVector = RhythmIcons.Edit, // Using Edit icon for Report Bug
+                                    contentDescription = "Report Bug",
                                     modifier = Modifier.size(18.dp)
                                 )
 
-                                Spacer(modifier = Modifier.height(8.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
 
                                 Text(
-                                    text = "Visit Developer",
+                                    text = "Report Bug",
                                     style = MaterialTheme.typography.labelLarge,
                                     fontWeight = FontWeight.Medium
                                 )

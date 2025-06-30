@@ -89,6 +89,10 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.SpanStyle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import chromahub.rhythm.app.viewmodel.AppUpdaterViewModel
+import android.content.Intent
+import android.net.Uri
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -121,6 +125,9 @@ fun SettingsScreen(
     var isChecking by remember { mutableStateOf(false) }
     var checkResult: Boolean? by remember { mutableStateOf(null) } // null not checked
     var errorCode: Int? by remember { mutableStateOf(null) } // hold HTTP error for messaging
+
+    val updaterViewModel: AppUpdaterViewModel = viewModel()
+    val currentAppVersion by updaterViewModel.currentVersion.collectAsState()
 
     if (showApiKeyDialog) {
         AlertDialog(
@@ -242,7 +249,8 @@ fun SettingsScreen(
     if (showAboutDialog) {
         AboutDialog(
             onDismiss = { showAboutDialog = false },
-            onCheckForUpdates = onCheckForUpdates
+            onCheckForUpdates = onCheckForUpdates,
+            currentAppVersion = currentAppVersion
         )
     }
 
@@ -425,7 +433,7 @@ fun SettingsScreen(
                         )
 
                         Text(
-                            text = "Version 2.1 Beta | ChromaHub",
+                            text = "Version ${currentAppVersion.versionName} | ChromaHub",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -444,7 +452,7 @@ fun SettingsScreen(
                                 ),
                                 modifier = Modifier
                                     .padding(top = 8.dp)
-                                    .weight(1f)
+                                .weight(1f)
                             ) {
                                 Text("About")
                             }
@@ -470,6 +478,38 @@ fun SettingsScreen(
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text("Updates")
+                                }
+                            }
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/cromaguy/Rhythm/issues"))
+                                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    context.startActivity(intent)
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                                ),
+                                modifier = Modifier
+                                    .padding(top = 8.dp)
+                                    .fillMaxWidth()
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(
+                                        imageVector = RhythmIcons.Edit,
+                                        contentDescription = "Report Bug",
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Report Bug")
                                 }
                             }
                         }
@@ -694,8 +734,10 @@ fun SettingsDivider() {
 @Composable
 fun AboutDialog(
     onDismiss: () -> Unit,
-    onCheckForUpdates: () -> Unit = {}
+    onCheckForUpdates: () -> Unit = {},
+    currentAppVersion: chromahub.rhythm.app.viewmodel.AppVersion // Pass currentAppVersion
 ) {
+    val context = LocalContext.current // Get context for opening URL
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = null,
@@ -736,7 +778,7 @@ fun AboutDialog(
                     modifier = Modifier.padding(vertical = 8.dp)
                 ) {
                     Text(
-                        text = "Version 2.1 Beta",
+                        text = "Version ${currentAppVersion.versionName}",
                         style = MaterialTheme.typography.bodyMedium,
                         textAlign = TextAlign.Center,
                         color = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -769,6 +811,36 @@ fun AboutDialog(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Check for Updates")
+                    }
+                }
+
+                // Add a Report Bug button inside the dialog
+                Button(
+                    onClick = {
+                        onDismiss() // Close the dialog first
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/cromaguy/Rhythm/issues"))
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        context.startActivity(intent)
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                    ),
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .fillMaxWidth()
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = RhythmIcons.Edit,
+                            contentDescription = "Report Bug",
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Report Bug")
                     }
                 }
 
