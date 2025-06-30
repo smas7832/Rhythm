@@ -1,7 +1,7 @@
 # Rhythm - Offline Music App
 
 <div align="center">
-  <img src="assets/Rhythm.png" alt="Rhythm Logo" width="200"/>
+  <img src="assets/Rhythm.png" alt="Rhythm Logo" width="400"/>
 </div>
 
 ## Overview
