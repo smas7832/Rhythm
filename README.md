@@ -1,12 +1,12 @@
-# Rhythm - Offline Android Music App
+# Rhythm - Offline Music App
 
 <div align="center">
-  <img src="app/rhythm_logo.png" alt="Rhythm Logo" width="200"/>
+  <img src="assets/Rhythm.png" alt="Rhythm Logo" width="200"/>
 </div>
 
 ## Overview
 
-Rhythm is a premium music player for Android that delivers a seamless audio experience with a beautiful Material You design. Enjoy your music collection with advanced playback features, intuitive controls, and comprehensive audio format support.
+Rhythm is a music player for Android that delivers a seamless audio experience with a beautiful Material You design. Enjoy your music collection with advanced playback features, intuitive controls, and comprehensive audio format support.
 
 ## Screenshots
 
