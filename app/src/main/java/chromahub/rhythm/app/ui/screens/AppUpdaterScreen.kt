@@ -67,6 +67,7 @@ import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.IconButton
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,9 +81,11 @@ fun AppUpdaterScreen(
     onBack: () -> Unit,
     onSettingsClick: () -> Unit = {},
     updaterViewModel: AppUpdaterViewModel = viewModel(),
-    autoDownload: Boolean = false
+    autoDownload: Boolean = false, // This parameter is not directly used for auto-check logic here
+    appSettings: chromahub.rhythm.app.data.AppSettings
 ) {
     // Collect state from ViewModel
+    val autoCheckForUpdates by appSettings.autoCheckForUpdates.collectAsState()
     val currentVersion by updaterViewModel.currentVersion.collectAsState()
     val latestVersion by updaterViewModel.latestVersion.collectAsState()
     val isCheckingForUpdates by updaterViewModel.isCheckingForUpdates.collectAsState()
@@ -95,8 +98,10 @@ fun AppUpdaterScreen(
     // Get the context for intent operations
     val context = LocalContext.current
 
-    // Check for updates when the screen is first shown
+    // Check for updates when the screen is first shown, respecting the AppSettings auto-check preference
     LaunchedEffect(Unit) {
+        // The ViewModel's checkForUpdates function now handles the autoCheckForUpdates preference internally.
+        // We can call it without 'force' here, as the screen's initial load should respect user settings.
         updaterViewModel.checkForUpdates()
     }
 
@@ -225,6 +230,57 @@ fun AppUpdaterScreen(
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // Auto-check for updates status
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(
+                                    imageVector = RhythmIcons.Settings, // Using a generic settings icon
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = if (autoCheckForUpdates) "Updates Enabled" else "Updates Disabled",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // Update Channel status
+                            AnimatedVisibility(
+                                visible = autoCheckForUpdates,
+                                enter = fadeIn() + expandVertically(),
+                                exit = fadeOut() + shrinkVertically()
+                            ) {
+                                val updateChannel by appSettings.updateChannel.collectAsState()
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(
+                                        imageVector = if (updateChannel == "beta") Icons.Default.BugReport else Icons.Default.Public,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Update Channel: ${updateChannel.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }}",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))
@@ -246,7 +302,7 @@ fun AppUpdaterScreen(
                                 modifier = Modifier.padding(vertical = 4.dp)
                             ) {
                                 Icon(
-                                    imageVector = RhythmIcons.Edit, // Using Edit icon for Report Bug
+                                    imageVector = Icons.Default.BugReport, // Using BugReport icon for Report Bug
                                     contentDescription = "Report Bug",
                                     modifier = Modifier.size(18.dp)
                                 )
@@ -503,45 +559,83 @@ fun AppUpdaterScreen(
                                 }
                             }
                         } else if (!isCheckingForUpdates && error == null) {
-                            // Up to date - only show when not checking and no error
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.tertiaryContainer),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = RhythmIcons.Check,
-                                    contentDescription = "Up to date",
-                                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                                    modifier = Modifier.size(24.dp)
+                            if (autoCheckForUpdates) {
+                                // Up to date - only show when not checking and no error
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.tertiaryContainer),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = RhythmIcons.Check,
+                                        contentDescription = "Up to date",
+                                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Text(
+                                    text = "You are on the latest version",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.tertiary
                                 )
-                            }
 
-                            Spacer(modifier = Modifier.height(8.dp))
+                                Spacer(modifier = Modifier.height(16.dp))
 
-                            Text(
-                                text = "You are on the latest version",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.tertiary
-                            )
+                                Button(
+                                    onClick = { updaterViewModel.checkForUpdates(force = true) }, // Force check on tap
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary
+                                    )
+                                ) {
+                                    Text("Check Again")
+                                }
+                            } else {
+                                // Auto-updates Disabled Card
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.errorContainer),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = RhythmIcons.Settings,
+                                        contentDescription = "Auto-updates disabled",
+                                        tint = MaterialTheme.colorScheme.onErrorContainer,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
 
-                            Spacer(modifier = Modifier.height(16.dp))
+                                Spacer(modifier = Modifier.height(8.dp))
 
-                            Button(
-                                onClick = { updaterViewModel.checkForUpdates() },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.primary
+                                Text(
+                                    text = "Updates Disabled",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold, // Corrected 'Weight' to 'FontWeight'
+                                    color = MaterialTheme.colorScheme.error
                                 )
-                            ) {
-                                Text("Check Again")
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                Button(
+                                    onClick = { appSettings.setAutoCheckForUpdates(true) },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary
+                                    )
+                                ) {
+                                    Text("Enable Updates")
+                                }
                             }
                         } else if (!isCheckingForUpdates && error != null) {
                             // If there's an error but not actively checking, show check again button
                             Button(
-                                onClick = { updaterViewModel.checkForUpdates() },
+                                onClick = { updaterViewModel.checkForUpdates(force = true) }, // Force check on tap
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = MaterialTheme.colorScheme.primary
                                 )
@@ -554,63 +648,69 @@ fun AppUpdaterScreen(
             }
 
             // Changelog section
-            if (latestVersion != null && latestVersion?.changelog?.isNotEmpty() == true) {
-                item {
-                    Spacer(modifier = Modifier.height(16.dp))
+            item { // Moved AnimatedVisibility content into an item block
+                AnimatedVisibility(
+                    visible = autoCheckForUpdates && latestVersion != null && latestVersion?.changelog?.isNotEmpty() == true,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically()
+                ) {
+                    Column { // Wrap content in a Column as AnimatedVisibility takes a single Composable
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                    Text(
-                        text = "What's New",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        textAlign = TextAlign.Start
-                    )
-
-                    Card(
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer
-                        ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp)
-                    ) {
-                        Column(
+                        Text(
+                            text = "What's New",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(16.dp)
+                                .padding(vertical = 8.dp),
+                            textAlign = TextAlign.Start
+                        )
+
+                        Card(
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainer
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp)
                         ) {
-                            latestVersion?.changelog?.forEachIndexed { index, change ->
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 4.dp),
-                                    verticalAlignment = Alignment.Top
-                                ) {
-                                    Box(
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp)
+                            ) {
+                                latestVersion?.changelog?.forEachIndexed { index, change ->
+                                    Row(
                                         modifier = Modifier
-                                            .size(6.dp)
-                                            .padding(top = 8.dp)
-                                            .background(
-                                                MaterialTheme.colorScheme.primary,
-                                                CircleShape
-                                            )
-                                    )
+                                            .fillMaxWidth()
+                                            .padding(vertical = 4.dp),
+                                        verticalAlignment = Alignment.Top
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(6.dp)
+                                                .padding(top = 8.dp)
+                                                .background(
+                                                    MaterialTheme.colorScheme.primary,
+                                                    CircleShape
+                                                )
+                                        )
 
-                                    Spacer(modifier = Modifier.width(12.dp))
+                                        Spacer(modifier = Modifier.width(12.dp))
 
-                                    Text(
-                                        text = change,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                }
+                                        Text(
+                                            text = change,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+                                    }
 
-                                if (index < latestVersion?.changelog?.size?.minus(1) ?: 0) {
-                                    Spacer(modifier = Modifier.height(4.dp))
+                                    if (index < latestVersion?.changelog?.size?.minus(1) ?: 0) {
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                    }
                                 }
                             }
                         }

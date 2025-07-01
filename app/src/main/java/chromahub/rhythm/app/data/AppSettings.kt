@@ -68,6 +68,13 @@ class AppSettings private constructor(context: Context) {
         
         // Song Play Counts
         private const val KEY_SONG_PLAY_COUNTS = "song_play_counts"
+
+        // Onboarding
+        private const val KEY_ONBOARDING_COMPLETED = "onboarding_completed"
+
+        // App Updater Settings
+        private const val KEY_AUTO_CHECK_FOR_UPDATES = "auto_check_for_updates"
+        private const val KEY_UPDATE_CHANNEL = "update_channel" // New key for update channel
         
         @Volatile
         private var INSTANCE: AppSettings? = null
@@ -269,6 +276,17 @@ class AppSettings private constructor(context: Context) {
         }
     )
     val songPlayCounts: StateFlow<Map<String, Int>> = _songPlayCounts.asStateFlow()
+
+    // Onboarding
+    private val _onboardingCompleted = MutableStateFlow(prefs.getBoolean(KEY_ONBOARDING_COMPLETED, false))
+    val onboardingCompleted: StateFlow<Boolean> = _onboardingCompleted.asStateFlow()
+
+    // App Updater Settings
+    private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CHECK_FOR_UPDATES, true))
+    val autoCheckForUpdates: StateFlow<Boolean> = _autoCheckForUpdates.asStateFlow()
+
+    private val _updateChannel = MutableStateFlow(prefs.getString(KEY_UPDATE_CHANNEL, "stable") ?: "stable")
+    val updateChannel: StateFlow<String> = _updateChannel.asStateFlow()
     
     // Playback Settings Methods
     fun setHighQualityAudio(enable: Boolean) {
@@ -459,5 +477,22 @@ class AppSettings private constructor(context: Context) {
         val json = Gson().toJson(counts)
         prefs.edit().putString(KEY_SONG_PLAY_COUNTS, json).apply()
         _songPlayCounts.value = counts
+    }
+
+    // Onboarding Methods
+    fun setOnboardingCompleted(completed: Boolean) {
+        prefs.edit().putBoolean(KEY_ONBOARDING_COMPLETED, completed).apply()
+        _onboardingCompleted.value = completed
+    }
+
+    // App Updater Settings Methods
+    fun setAutoCheckForUpdates(enable: Boolean) {
+        prefs.edit().putBoolean(KEY_AUTO_CHECK_FOR_UPDATES, enable).apply()
+        _autoCheckForUpdates.value = enable
+    }
+
+    fun setUpdateChannel(channel: String) {
+        prefs.edit().putString(KEY_UPDATE_CHANNEL, channel).apply()
+        _updateChannel.value = channel
     }
 }

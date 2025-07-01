@@ -91,6 +91,7 @@ import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material.icons.rounded.Speaker
 import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.SystemUpdate // New import for Update icon
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Tune
 
@@ -178,6 +179,7 @@ object RhythmIcons {
         val Refresh = Icons.Rounded.Refresh
         val Download = Icons.Rounded.Download
         val Tune = Icons.Rounded.Tune
+        val Update = Icons.Rounded.SystemUpdate // Added Update icon
     }
     
     /**
@@ -269,4 +271,4 @@ object RhythmIcons {
     val HeadphonesFilled = Devices.Headphones
     val Speaker = Devices.SpeakerOutlined
     val SpeakerFilled = Devices.Speaker
-} 
+}

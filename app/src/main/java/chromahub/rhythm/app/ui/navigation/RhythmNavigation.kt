@@ -131,7 +131,8 @@ sealed class Screen(val route: String) {
 fun RhythmNavigation(
     navController: NavHostController = rememberNavController(),
     viewModel: MusicViewModel = viewModel(),
-    themeViewModel: ThemeViewModel = viewModel()
+    themeViewModel: ThemeViewModel = viewModel(),
+    appSettings: chromahub.rhythm.app.data.AppSettings // Add appSettings parameter
 ) {
     // Collect state from ViewModel
     val songs by viewModel.songs.collectAsState()
@@ -1208,7 +1209,8 @@ fun RhythmNavigation(
                         onSettingsClick = {
                             navController.navigate(Screen.Settings.route)
                         },
-                        autoDownload = autoDownload
+                        autoDownload = autoDownload,
+                        appSettings = appSettings
                     )
                 }
             }

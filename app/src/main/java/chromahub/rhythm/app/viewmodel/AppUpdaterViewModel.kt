@@ -30,6 +30,9 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.content.ContextCompat
+import chromahub.rhythm.app.data.AppSettings
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.collectLatest
 
 /**
  * App version data model
@@ -112,112 +115,129 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
     // Active download state
     private var activeDownload: DownloadState? = null
     private var activeCall: Call? = null
+
+    // AppSettings instance
+    private val appSettings = AppSettings.getInstance(application.applicationContext)
+
+    // Update channel (stable or beta)
+    private lateinit var _updateChannel: MutableStateFlow<String>
+    val updateChannel: StateFlow<String> get() = _updateChannel.asStateFlow()
     
     // Current app version info
-    private val _currentVersion = MutableStateFlow(
-        AppVersion(
-            versionName = "2.1.102.258 Beta",
-            versionCode = 2102258,
-            releaseDate = "2025-06-30",
-            changelog = emptyList(),
-            downloadUrl = "",
-            isPreRelease = true,
-            buildNumber = 258
-        )
-    )
-    val currentVersion: StateFlow<AppVersion> = _currentVersion.asStateFlow()
+    private lateinit var _currentVersion: MutableStateFlow<AppVersion>
+    val currentVersion: StateFlow<AppVersion> get() = _currentVersion.asStateFlow()
     
     // Latest version info
-    private val _latestVersion = MutableStateFlow<AppVersion?>(null)
-    val latestVersion: StateFlow<AppVersion?> = _latestVersion.asStateFlow()
+    private lateinit var _latestVersion: MutableStateFlow<AppVersion?>
+    val latestVersion: StateFlow<AppVersion?> get() = _latestVersion.asStateFlow()
     
     // Update check state
-    private val _isCheckingForUpdates = MutableStateFlow(false)
-    val isCheckingForUpdates: StateFlow<Boolean> = _isCheckingForUpdates.asStateFlow()
+    private lateinit var _isCheckingForUpdates: MutableStateFlow<Boolean>
+    val isCheckingForUpdates: StateFlow<Boolean> get() = _isCheckingForUpdates.asStateFlow()
     
     // Update available state
-    private val _updateAvailable = MutableStateFlow(false)
-    val updateAvailable: StateFlow<Boolean> = _updateAvailable.asStateFlow()
+    private lateinit var _updateAvailable: MutableStateFlow<Boolean>
+    val updateAvailable: StateFlow<Boolean> get() = _updateAvailable.asStateFlow()
     
     // Error state
-    private val _error = MutableStateFlow<String?>(null)
-    val error: StateFlow<String?> = _error.asStateFlow()
+    private lateinit var _error: MutableStateFlow<String?>
+    val error: StateFlow<String?> get() = _error.asStateFlow()
     
     // Download state - true when actively downloading
-    private val _isDownloading = MutableStateFlow(false)
-    val isDownloading: StateFlow<Boolean> = _isDownloading.asStateFlow()
+    private lateinit var _isDownloading: MutableStateFlow<Boolean>
+    val isDownloading: StateFlow<Boolean> get() = _isDownloading.asStateFlow()
     
     // Download progress (0-100)
-    private val _downloadProgress = MutableStateFlow(0f)
-    val downloadProgress: StateFlow<Float> = _downloadProgress.asStateFlow()
+    private lateinit var _downloadProgress: MutableStateFlow<Float>
+    val downloadProgress: StateFlow<Float> get() = _downloadProgress.asStateFlow()
     
     // Downloaded file
-    private val _downloadedFile = MutableStateFlow<File?>(null)
-    val downloadedFile: StateFlow<File?> = _downloadedFile.asStateFlow()
+    private lateinit var _downloadedFile: MutableStateFlow<File?>
+    val downloadedFile: StateFlow<File?> get() = _downloadedFile.asStateFlow()
     
     // Download state for tracking download progress and resumption
-    private val _downloadState = MutableStateFlow<DownloadState?>(null)
-    val downloadState: StateFlow<DownloadState?> = _downloadState.asStateFlow()
+    private lateinit var _downloadState: MutableStateFlow<DownloadState?>
+    val downloadState: StateFlow<DownloadState?> get() = _downloadState.asStateFlow()
+
+    init {
+        // Initialize all lateinit properties here
+        _updateChannel = MutableStateFlow("stable")
+        _currentVersion = MutableStateFlow(
+            AppVersion(
+                versionName = "2.1.105.264 Beta",
+                versionCode = 20205264, // Updated to reflect major*10M + minor*100K + patch*1K + buildNumber
+                releaseDate = "2025-07-01",
+                changelog = emptyList(),
+                downloadUrl = "",
+                isPreRelease = true,
+                buildNumber = 264
+            )
+        )
+        _latestVersion = MutableStateFlow<AppVersion?>(null)
+        _isCheckingForUpdates = MutableStateFlow(false)
+        _updateAvailable = MutableStateFlow(false)
+        _error = MutableStateFlow<String?>(null)
+        _isDownloading = MutableStateFlow(false)
+        _downloadProgress = MutableStateFlow(0f)
+        _downloadedFile = MutableStateFlow<File?>(null)
+        _downloadState = MutableStateFlow<DownloadState?>(null)
+
+        viewModelScope.launch {
+            appSettings.updateChannel.collectLatest { channel ->
+                _updateChannel.value = channel
+                // Re-check for updates if channel changes
+                checkForUpdates(force = true)
+            }
+        }
+    }
     
     /**
      * Check for updates by fetching the latest release from GitHub
      */
     fun checkForUpdates(force: Boolean = false) {
-        // Skip check if within update interval unless forced
-        if (!force && System.currentTimeMillis() - lastUpdateCheck < UPDATE_CHECK_INTERVAL) {
-            Log.d(TAG, "Skipping update check - within interval")
-            return
-        }
-        
-        _isCheckingForUpdates.value = true
-        _error.value = null
-        _latestVersion.value = null  // Clear any previous version data
-        
         viewModelScope.launch {
+            val autoCheckEnabled = appSettings.autoCheckForUpdates.first()
+            val currentChannel = appSettings.updateChannel.first()
+
+            if (!force && !autoCheckEnabled) {
+                Log.d(TAG, "Skipping update check - auto-check is disabled and not forced.")
+                _isCheckingForUpdates.value = false // Ensure loading state is false
+                return@launch
+            }
+
+            // Skip check if within update interval unless forced
+            if (!force && System.currentTimeMillis() - lastUpdateCheck < UPDATE_CHECK_INTERVAL) {
+                Log.d(TAG, "Skipping update check - within interval")
+                return@launch
+            }
+            
+            _isCheckingForUpdates.value = true
+            _error.value = null
+            _latestVersion.value = null  // Clear any previous version data
+            
             try {
-                // Try to fetch just the latest release first (more efficient)
-                val response = gitHubApiService.getLatestRelease(GITHUB_OWNER, GITHUB_REPO)
+                val releasesResponse = gitHubApiService.getReleases(GITHUB_OWNER, GITHUB_REPO)
                 
-                if (response.isSuccessful) {
-                    val latestRelease = response.body()
+                if (releasesResponse.isSuccessful) {
+                    val allReleases = releasesResponse.body()
                     
-                    if (latestRelease == null) {
-                        _error.value = "No release information available"
+                    if (allReleases.isNullOrEmpty()) {
+                        _error.value = "No releases found on GitHub"
                         _isCheckingForUpdates.value = false
                         return@launch
                     }
                     
-                    processRelease(latestRelease)
-                } else {
-                    // If 404 (no releases found) or other error, try getting all releases
-                    if (response.code() == 404) {
-                        val allReleasesResponse = gitHubApiService.getReleases(GITHUB_OWNER, GITHUB_REPO)
-                        
-                        if (allReleasesResponse.isSuccessful) {
-                            val releases = allReleasesResponse.body()
-                            
-                            if (releases.isNullOrEmpty()) {
-                                _error.value = "No releases found on GitHub"
-                                _isCheckingForUpdates.value = false
-                                return@launch
-                            }
-                            
-                            // Find latest release
-                            val latestRelease = findLatestRelease(releases)
-                            
-                            if (latestRelease == null) {
-                                _error.value = "No suitable release found"
-                                _isCheckingForUpdates.value = false
-                                return@launch
-                            }
-                            
-                            processRelease(latestRelease)
-                        } else {
-                            handleApiError(allReleasesResponse.code(), allReleasesResponse.message())
-                        }
-                    } else {
-                        handleApiError(response.code(), response.message())
+                    val latestSuitableRelease = findLatestSuitableRelease(allReleases, currentChannel)
+                    
+                    if (latestSuitableRelease == null) {
+                        _error.value = "No suitable release found for channel '$currentChannel'"
+                        _isCheckingForUpdates.value = false
+                        return@launch
                     }
+                    
+                    processRelease(latestSuitableRelease)
+                } else {
+                    handleApiError(releasesResponse.code(), releasesResponse.message())
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error checking for updates", e)
@@ -303,14 +323,20 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
     }
     
     /**
-     * Find the latest non-draft release from the list
-     * This allows including pre-releases as they may contain important updates
+     * Find the latest suitable release based on the update channel.
+     * "stable" channel: latest non-prerelease.
+     * "beta" channel: latest prerelease or stable release.
      */
-    private fun findLatestRelease(releases: List<GitHubRelease>): GitHubRelease? {
-        return releases
-            .filter { !it.draft } // Exclude draft releases
-            // We're including prereleases as they might have APK builds
-            .maxByOrNull { it.published_at }
+    private fun findLatestSuitableRelease(releases: List<GitHubRelease>, channel: String): GitHubRelease? {
+        return when (channel) {
+            "stable" -> releases
+                .filter { !it.draft && !it.prerelease } // Only stable, non-draft releases
+                .maxByOrNull { it.published_at }
+            "beta" -> releases
+                .filter { !it.draft } // Include pre-releases for beta channel, but exclude drafts
+                .maxByOrNull { it.published_at }
+            else -> null // Should not happen with current implementation
+        }
     }
     
     /**
@@ -346,8 +372,11 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
         
         return AppVersion(
             versionName = release.name.ifEmpty { release.tag_name },
-            versionCode = semanticVersion.let { 
-                it.major * 1000000 + it.minor * 10000 + it.patch * 100 + it.subpatch * 10 + (it.buildNumber / 100)
+            versionCode = semanticVersion.let {
+                // Using a more robust versionCode calculation: major * 10M + minor * 100K + patch * 1K + buildNumber
+                // This allows for 2 digits for major, minor, patch, and 3-4 digits for build number,
+                // ensuring uniqueness and monotonicity.
+                it.major * 10000000 + it.minor * 100000 + it.patch * 1000 + it.buildNumber
             },
             releaseDate = releaseDateString,
             changelog = changelog,

@@ -56,6 +56,8 @@ import chromahub.rhythm.app.R
 import chromahub.rhythm.app.ui.components.RhythmIcons
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.WavingHand // New import for Welcome screen icon
+import androidx.compose.material.icons.filled.DarkMode // New import for Dark Mode icon
 import chromahub.rhythm.app.ui.navigation.RhythmNavigation
 import chromahub.rhythm.app.ui.theme.RhythmTheme
 import chromahub.rhythm.app.viewmodel.ThemeViewModel
@@ -63,7 +65,7 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.google.accompanist.permissions.rememberPermissionState
-import com.google.accompanist.permissions.shouldShowRationale // Corrected import location
+import com.google.accompanist.permissions.shouldShowRationale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.Image
@@ -75,6 +77,7 @@ import chromahub.rhythm.app.util.MediaUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner // Corrected import for LocalLifecycleOwner
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -85,16 +88,38 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.animation.Crossfade
 import androidx.compose.ui.text.font.FontWeight
 import chromahub.rhythm.app.viewmodel.MusicViewModel
-import android.provider.Settings // Corrected import location
+import android.provider.Settings
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import chromahub.rhythm.app.data.AppSettings // Import AppSettings
+
+enum class OnboardingStep {
+    WELCOME,
+    PERMISSIONS,
+    THEMING,
+    UPDATER, // New state for app updater settings
+    COMPLETE
+}
 
 class MainActivity : ComponentActivity() {
     private val TAG = "MainActivity"
     private val musicViewModel: MusicViewModel by viewModels()
     private val themeViewModel: ThemeViewModel by viewModels()
-    
+    private lateinit var appSettings: AppSettings // Declare AppSettings
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        appSettings = AppSettings.getInstance(applicationContext) // Initialize AppSettings
         
         // We'll delay intent handling until after initialization
         val startupIntent = intent
@@ -127,7 +152,7 @@ class MainActivity : ComponentActivity() {
                     
                     // Animate the splash screen out after a delay
                     LaunchedEffect(Unit) {
-                        delay(2000) // Reduced delay for faster startup with external files
+                        delay(3000) // Increased delay for a longer gap between splash and onboarding
                         showSplash = false
                         
                         // Handle intent after splash screen disappears and app is initialized
@@ -147,9 +172,12 @@ class MainActivity : ComponentActivity() {
                                 onPermissionsGranted = {
                                     RhythmNavigation(
                                         viewModel = musicViewModel,
-                                        themeViewModel = themeViewModel
+                                        themeViewModel = themeViewModel,
+                                        appSettings = appSettings // Pass appSettings here
                                     )
-                                }
+                                },
+                                themeViewModel = themeViewModel, // Pass themeViewModel here
+                                appSettings = appSettings // Pass appSettings here
                             )
                         }
                         
@@ -266,68 +294,94 @@ class MainActivity : ComponentActivity() {
 fun SplashScreen() {
     val infiniteTransition = rememberInfiniteTransition(label = "splashPulse")
     val scale by infiniteTransition.animateFloat(
-        initialValue = 0.95f,
-        targetValue = 1.05f,
+        initialValue = 0.98f, // More subtle pulse
+        targetValue = 1.02f, // More subtle pulse
         animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = androidx.compose.animation.core.EaseInOutQuad),
+            animation = tween(1500, easing = LinearEasing), // Slower, linear animation
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulse"
     )
-    
+
     val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.85f,
+        initialValue = 0.9f, // More subtle fade
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = androidx.compose.animation.core.EaseInOutQuad),
+            animation = tween(1500, easing = LinearEasing), // Slower, linear animation
             repeatMode = RepeatMode.Reverse
         ),
         label = "fade"
     )
-    
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center
     ) {
-        Box(
-            modifier = Modifier
-                .size(200.dp)
-                .scale(scale)
-                .graphicsLayer {
-                    this.alpha = alpha
-                },
-            contentAlignment = Alignment.Center
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxSize()
         ) {
-            // Use our custom logo drawable
-            Image(
-                painter = painterResource(id = R.drawable.rhythm_splash_logo),
-                contentDescription = "Rhythm",
-                modifier = Modifier.size(180.dp)
+            Box(
+                modifier = Modifier
+                    .size(200.dp)
+                    .scale(scale)
+                    .graphicsLayer {
+                        this.alpha = alpha
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                // Use our custom logo drawable
+                Image(
+                    painter = painterResource(id = R.drawable.rhythm_splash_logo),
+                    contentDescription = "Rhythm",
+                    modifier = Modifier.size(180.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(32.dp)) // Add some space between logo and text
+
+            Text(
+                text = "Rhythm",
+                style = MaterialTheme.typography.displaySmall, // Changed to displaySmall
+                fontWeight = FontWeight.Bold, // Added bold font weight
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.alpha(alpha)
+            )
+
+            Spacer(modifier = Modifier.height(16.dp)) // Space between text and progress indicator
+
+            LinearProgressIndicator(
+                modifier = Modifier
+                    .width(120.dp) // Fixed width for the progress indicator
+                    .alpha(alpha), // Apply alpha animation
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.primaryContainer
             )
         }
-        
-        Text(
-            text = "Rhythm",
-            style = MaterialTheme.typography.headlineLarge,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 64.dp)
-                .alpha(alpha)
-        )
     }
 }
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun PermissionHandler(
-    onPermissionsGranted: @Composable () -> Unit
+    onPermissionsGranted: @Composable () -> Unit,
+    themeViewModel: ThemeViewModel, // Add this parameter
+    appSettings: AppSettings // Add this parameter
 ) {
     val context = LocalContext.current
-    var isLoading by remember { mutableStateOf(true) } // Overall loading state for the PermissionHandler
+    var isLoading by remember { mutableStateOf(false) } // Overall loading state for the PermissionHandler (primarily for permission dialogs)
+    var isInitializingApp by remember { mutableStateOf(false) } // New loading state for post-onboarding initialization
     var shouldShowSettingsRedirect by remember { mutableStateOf(false) }
+    val onboardingCompleted by appSettings.onboardingCompleted.collectAsState() // Read onboarding status
+
+    var currentOnboardingStep by remember {
+        mutableStateOf(
+            if (onboardingCompleted) OnboardingStep.COMPLETE else OnboardingStep.WELCOME
+        )
+    }
 
     // For Android 13+, we need READ_MEDIA_AUDIO, for older versions we need READ_EXTERNAL_STORAGE
     val storagePermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -372,248 +426,702 @@ fun PermissionHandler(
     
     // This state will trigger a re-evaluation of permissions and potentially a new request
     var permissionCheckTrigger by remember { mutableStateOf(0) }
+    val lifecycleOwner = LocalLifecycleOwner.current
 
-    LaunchedEffect(permissionCheckTrigger) {
-        isLoading = true // Start loading whenever a check is triggered
-
-        // Launch permission request. This is a suspend function and will wait for user interaction.
-        permissionsState.launchMultiplePermissionRequest()
-
-        // After the request returns (user has interacted with dialog or it didn't show):
-        val allStoragePermissionsGranted = permissionsState.permissions
-            .filter { it.permission in storagePermissions }
-            .all { it.status.isGranted }
-
-        if (allStoragePermissionsGranted) {
-            shouldShowSettingsRedirect = false
-            // Initialize media service
-            val intent = Intent(context, chromahub.rhythm.app.service.MediaPlaybackService::class.java)
-            intent.action = chromahub.rhythm.app.service.MediaPlaybackService.ACTION_INIT_SERVICE
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
-            delay(1000) // Give service time to initialize
-        } else {
-            // Permissions are not granted. Determine if redirect to settings is needed.
-            shouldShowSettingsRedirect = permissionsState.permissions
+        // Function to check and update permission status
+        val checkPermissionsAndProceed: suspend () -> Unit = {
+            val allStoragePermissionsGranted = permissionsState.permissions
                 .filter { it.permission in storagePermissions }
-                .any { !it.status.isGranted && !it.status.shouldShowRationale }
+                .all { it.status.isGranted }
+
+            if (allStoragePermissionsGranted) {
+                shouldShowSettingsRedirect = false
+                if (!onboardingCompleted) {
+                    currentOnboardingStep = OnboardingStep.THEMING
+                } else {
+                    // Onboarding is complete, transition to app with a loading screen
+                    currentOnboardingStep = OnboardingStep.COMPLETE
+                    isInitializingApp = true // Start app initialization loading
+                }
+                // Initialize media service
+                val intent = Intent(context, chromahub.rhythm.app.service.MediaPlaybackService::class.java)
+                intent.action = chromahub.rhythm.app.service.MediaPlaybackService.ACTION_INIT_SERVICE
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
+                delay(1000) // Give service time to initialize
+                isLoading = false // Stop general loading
+                isInitializingApp = false // Stop app initialization loading
+            } else {
+                // Permissions are not granted. Stay on permissions screen.
+                val ungrantedStoragePermissions = permissionsState.permissions
+                    .filter { it.permission in storagePermissions && !it.status.isGranted }
+
+                shouldShowSettingsRedirect = ungrantedStoragePermissions.isNotEmpty() &&
+                                             ungrantedStoragePermissions.all { !it.status.shouldShowRationale }
+                currentOnboardingStep = OnboardingStep.PERMISSIONS // Explicitly stay on permissions
+                isLoading = false // Stop loading, show permission screen again
+                isInitializingApp = false // Ensure this is false if we're on permissions
+            }
         }
-        isLoading = false // Stop loading after all checks and actions are done
-    }
 
-    // Trigger initial permission check on first composition
-    LaunchedEffect(Unit) {
-        permissionCheckTrigger++
-    }
+        // LaunchedEffect to trigger initial permission request or re-request
+        LaunchedEffect(permissionCheckTrigger, onboardingCompleted) {
+            // This effect is triggered when the user explicitly requests permissions or on initial load
+            if (currentOnboardingStep == OnboardingStep.PERMISSIONS) {
+                val allStoragePermissionsGranted = permissionsState.permissions
+                    .filter { it.permission in storagePermissions }
+                    .all { it.status.isGranted }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        AnimatedVisibility(
-            visible = !isLoading && permissionsState.allPermissionsGranted,
-            enter = fadeIn(animationSpec = tween(1000, easing = androidx.compose.animation.core.EaseOutCubic)) +
-                   slideInVertically(
-                       initialOffsetY = { it / 3 },
-                       animationSpec = tween(1000, easing = androidx.compose.animation.core.EaseOutCubic)
-                   )
-        ) {
-            onPermissionsGranted()
+                if (!allStoragePermissionsGranted) {
+                    // Only launch request if permissions are not granted
+                    isLoading = true // Show loader while permission dialog is active
+                    permissionsState.launchMultiplePermissionRequest()
+                    isLoading = false // Immediately set to false after launching request, as the dialog is now external
+                } else {
+                    // If permissions are already granted (e.g., on initial load or after a previous request)
+                    checkPermissionsAndProceed()
+                }
+            } else if (onboardingCompleted && currentOnboardingStep != OnboardingStep.COMPLETE) {
+                // If onboarding is completed, and we are not already in COMPLETE state,
+                // check permissions and proceed to app if granted.
+                isLoading = true // Start loading when checking permissions on resume for completed onboarding
+                checkPermissionsAndProceed()
+            }
         }
 
-        AnimatedVisibility(
-            visible = isLoading,
-            exit = fadeOut(animationSpec = tween(800, easing = androidx.compose.animation.core.EaseInCubic))
-        ) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
+        // LaunchedEffect to observe lifecycle and re-check permissions on resume
+        LaunchedEffect(lifecycleOwner) {
+            lifecycleOwner.lifecycle.addObserver(object : androidx.lifecycle.DefaultLifecycleObserver {
+                override fun onResume(owner: androidx.lifecycle.LifecycleOwner) {
+                    super.onResume(owner)
+                    // When activity resumes, if we are on the permissions step, re-check
+                    if (currentOnboardingStep == OnboardingStep.PERMISSIONS || (onboardingCompleted && currentOnboardingStep != OnboardingStep.COMPLETE)) {
+                        // Small delay to ensure system permission dialogs are fully dismissed
+                        // and permission state is updated by the system.
+                        launch {
+                            delay(500)
+                            isLoading = true // Start loading when re-checking permissions on resume
+                            checkPermissionsAndProceed()
+                        }
+                    }
+                }
+            })
+        }
+
+        // New LaunchedEffect to specifically observe permission state changes and move to theming/updater/complete
+        LaunchedEffect(permissionsState.allPermissionsGranted, permissionsState.shouldShowRationale) {
+            // This effect runs when permission state changes (e.g., after user interacts with dialog)
+            if (currentOnboardingStep == OnboardingStep.PERMISSIONS) {
+                isLoading = false // Explicitly stop loading as soon as permission dialog is dismissed
+                // Re-evaluate permissions and update UI state
+                checkPermissionsAndProceed()
+            }
+        }
+
+        Box(modifier = Modifier.fillMaxSize()) {
+            AnimatedVisibility(
+                visible = currentOnboardingStep == OnboardingStep.COMPLETE && !isInitializingApp, // Show app when complete AND not initializing
+                enter = fadeIn(animationSpec = tween(1000, easing = androidx.compose.animation.core.EaseOutCubic)) +
+                       slideInVertically(
+                           initialOffsetY = { it / 3 },
+                           animationSpec = tween(1000, easing = androidx.compose.animation.core.EaseOutCubic)
+                       )
             ) {
-                M3FourColorCircularLoader(
-                    modifier = Modifier.size(64.dp)
+                onPermissionsGranted()
+            }
+
+            AnimatedVisibility(
+                visible = (isLoading && currentOnboardingStep != OnboardingStep.COMPLETE) || isInitializingApp, // Show loading if general loading OR app initializing
+                exit = fadeOut(animationSpec = tween(800, easing = androidx.compose.animation.core.EaseInCubic))
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    M3FourColorCircularLoader(
+                        modifier = Modifier.size(64.dp)
+                    )
+                }
+            }
+
+            AnimatedVisibility(
+                visible = !isLoading && !isInitializingApp && currentOnboardingStep != OnboardingStep.COMPLETE, // Show onboarding if not loading AND not initializing AND not complete
+                enter = fadeIn(animationSpec = tween(800, easing = androidx.compose.animation.core.EaseOutCubic)) +
+                       scaleIn(initialScale = 0.95f, animationSpec = tween(800, easing = androidx.compose.animation.core.EaseOutCubic))
+            ) {
+                OnboardingScreen(
+                    currentStep = currentOnboardingStep,
+                    onNextStep = {
+                        when (currentOnboardingStep) {
+                            OnboardingStep.WELCOME -> currentOnboardingStep = OnboardingStep.PERMISSIONS
+                            OnboardingStep.PERMISSIONS -> {
+                                // When "Grant Permissions" is clicked, set loading to true and trigger permission request
+                                isLoading = true
+                                permissionCheckTrigger++
+                            }
+                            OnboardingStep.THEMING -> currentOnboardingStep = OnboardingStep.UPDATER // Move to updater
+                            OnboardingStep.UPDATER -> {
+                                appSettings.setOnboardingCompleted(true) // Mark onboarding as complete
+                                currentOnboardingStep = OnboardingStep.COMPLETE // Move to complete
+                                // The checkPermissionsAndProceed will handle setting isInitializingApp = true
+                                // and then false after service init.
+                            }
+                            OnboardingStep.COMPLETE -> { /* Should not happen */ }
+                        }
+                    },
+                    onRequestAgain = {
+                        // This is for "Open App Settings" or re-requesting permissions
+                        isLoading = true // Set loading to true when requesting again
+                        permissionCheckTrigger++ // Trigger a new permission check
+                    },
+                    shouldShowSettingsRedirect = shouldShowSettingsRedirect,
+                    isParentLoading = isLoading,
+                    themeViewModel = themeViewModel,
+                    appSettings = appSettings // Pass appSettings to OnboardingScreen
                 )
             }
-        }
-
-        AnimatedVisibility(
-            visible = !isLoading && !permissionsState.allPermissionsGranted,
-            enter = fadeIn(animationSpec = tween(800, easing = androidx.compose.animation.core.EaseOutCubic)) +
-                   scaleIn(initialScale = 0.95f, animationSpec = tween(800, easing = androidx.compose.animation.core.EaseOutCubic))
-        ) {
-            PermissionDeniedScreen(
-                onRequestAgain = {
-                    permissionCheckTrigger++ // Trigger a new permission check
-                },
-                shouldShowSettingsRedirect = shouldShowSettingsRedirect,
-                isParentLoading = isLoading
-            )
-        }
-    }
-}
-
-@Composable
-fun PermissionDeniedScreen(
-    onRequestAgain: () -> Unit,
-    shouldShowSettingsRedirect: Boolean,
-    isParentLoading: Boolean // New parameter
-) {
-    val context = LocalContext.current
-    var isButtonLoading by remember { mutableStateOf(false) } // Local state for button feedback
-
-    LaunchedEffect(isParentLoading) {
-        if (!isParentLoading) {
-            isButtonLoading = false // Reset button loading when parent loading finishes
         }
     }
     
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        contentAlignment = Alignment.Center
+    @Composable
+    fun OnboardingScreen(
+        currentStep: OnboardingStep, // New parameter
+        onNextStep: () -> Unit, // New parameter
+        onRequestAgain: () -> Unit, // Keep this for permission re-request
+        shouldShowSettingsRedirect: Boolean,
+        isParentLoading: Boolean,
+        themeViewModel: ThemeViewModel, // New parameter
+        appSettings: AppSettings // New parameter
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier.fillMaxSize()
+        val context = LocalContext.current
+        
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(32.dp),
+            contentAlignment = Alignment.Center
         ) {
-            // App name and logo above the card
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center,
-                modifier = Modifier.padding(bottom = 32.dp)
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.fillMaxSize()
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.rhythm_logo),
-                    contentDescription = null,
-                    modifier = Modifier.size(64.dp)
-                )
-                Spacer(modifier = Modifier.width(16.dp))
-                Text(
-                    text = "Rhythm",
-                    style = MaterialTheme.typography.displaySmall,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-            
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceContainerHigh, // Use a higher surface variant for more contrast
-                shape = MaterialTheme.shapes.extraLarge,
-                tonalElevation = 4.dp,
-                modifier = Modifier.fillMaxWidth(0.9f) // Make the card slightly wider
-            ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                // App name and logo above the card
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.padding(bottom = 32.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.Warning, // A more generic "info" or "alert" icon
-                        contentDescription = "Permissions Required",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(64.dp).padding(bottom = 16.dp)
+                    Image(
+                        painter = painterResource(id = R.drawable.rhythm_logo),
+                        contentDescription = null,
+                        modifier = Modifier.size(64.dp)
                     )
-                    
+                    Spacer(modifier = Modifier.width(16.dp))
                     Text(
-                        text = "Permissions Required",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(bottom = 8.dp)
+                        text = "Rhythm",
+                        style = MaterialTheme.typography.displaySmall,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        fontWeight = FontWeight.Bold
                     )
-                    
-                    Text(
-                        text = "To provide you with the best music experience, Rhythm needs access to certain permissions.",
-                        style = MaterialTheme.typography.bodyLarge,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(bottom = 24.dp)
-                    )
-                    
-                    // Permission explanations with icons
-                    PermissionExplanationRow(
-                        icon = RhythmIcons.Music.Audiotrack,
-                        description = "Access your music files on this device to play your favorite songs."
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    PermissionExplanationRow(
-                        icon = RhythmIcons.Devices.Bluetooth,
-                        description = "Detect Bluetooth audio devices for playback and control."
-                    )
-                    Spacer(modifier = Modifier.height(24.dp))
-                    
-                    FilledTonalButton(
-                        onClick = {
-                            if (shouldShowSettingsRedirect) {
-                                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                    data = Uri.fromParts("package", context.packageName, null)
-                                }
-                                context.startActivity(intent)
-                            } else {
-                                isButtonLoading = true // Start button loading
-                                onRequestAgain()
-                            }
-                        },
-                        enabled = !isButtonLoading, // Disable button while local loading
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp)
+                }
+                
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh, // Use a higher surface variant for more contrast
+                    shape = MaterialTheme.shapes.extraLarge,
+                    tonalElevation = 4.dp,
+                    modifier = Modifier.fillMaxWidth(0.9f) // Make the card slightly wider
+                ) {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Crossfade(targetState = isButtonLoading, label = "buttonLoading") { requesting ->
-                            if (requesting) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(24.dp),
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    strokeWidth = 2.dp
+                        Crossfade(targetState = currentStep, label = "onboardingStepTransition") { step ->
+                            when (step) {
+                                OnboardingStep.WELCOME -> WelcomeContent(onNextStep)
+                                OnboardingStep.PERMISSIONS -> PermissionContent(
+                                    onRequestAgain = onRequestAgain,
+                                    shouldShowSettingsRedirect = shouldShowSettingsRedirect,
+                                    isButtonLoading = isParentLoading // Pass isParentLoading directly
                                 )
-                            } else {
-                                Text(
-                                    text = if (shouldShowSettingsRedirect) "Open App Settings" else "Grant Permissions",
-                                    style = MaterialTheme.typography.labelLarge
-                                )
-                            }
+                                OnboardingStep.THEMING -> ThemingContent(
+                                    themeViewModel = themeViewModel,
+                                    onNextStep = onNextStep
+                            )
+                            OnboardingStep.UPDATER -> UpdaterContent(
+                                appSettings = appSettings,
+                                onNextStep = onNextStep
+                            )
+                            OnboardingStep.COMPLETE -> { /* Should not be visible here */ }
                         }
-                    }
-                    
-                    if (isButtonLoading) { // Show linear progress only when button is loading
-                        LinearProgressIndicator(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 8.dp)
-                        )
-                    }
-
-                    if (shouldShowSettingsRedirect) {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "It looks like you've permanently denied some permissions. Please enable them manually in app settings.",
-                            style = MaterialTheme.typography.bodySmall,
-                            textAlign = TextAlign.Center,
-                            color = MaterialTheme.colorScheme.error
-                        )
+                        }
                     }
                 }
             }
         }
     }
-}
-
-@Composable
-fun PermissionExplanationRow(icon: androidx.compose.ui.graphics.vector.ImageVector, description: String) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(24.dp)
-        )
-        Spacer(modifier = Modifier.width(16.dp))
-        Text(
-            text = description,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+    
+    @Composable
+    fun WelcomeContent(onNext: () -> Unit) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(
+                imageVector = Icons.Filled.WavingHand, // Reverted to WavingHand icon
+                contentDescription = "Welcome",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(64.dp).padding(bottom = 16.dp)
+            )
+            Text(
+                text = "Welcome to Rhythm",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            Text(
+                text = "Your personalized music journey begins here. Let's get started.",
+                style = MaterialTheme.typography.bodyLarge,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(bottom = 24.dp)
+            )
+            FilledTonalButton(
+                onClick = onNext,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+            ) {
+                Text("Continue", style = MaterialTheme.typography.labelLarge)
+            }
+        }
     }
-}
+    
+    @Composable
+    fun PermissionContent(
+        onRequestAgain: () -> Unit,
+        shouldShowSettingsRedirect: Boolean,
+        isButtonLoading: Boolean // Receive this from OnboardingScreen
+    ) {
+        val context = LocalContext.current
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Warning,
+                contentDescription = "Permissions Required",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(64.dp).padding(bottom = 16.dp)
+            )
+    
+            Text(
+                text = "Grant Permissions",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+    
+            Text(
+                text = "Rhythm needs a few permissions to access your music and connect to devices.",
+                style = MaterialTheme.typography.bodyLarge,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(bottom = 24.dp)
+            )
+    
+            PermissionExplanationRow(
+                icon = RhythmIcons.Music.Audiotrack,
+                description = "Access music files on your device."
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            PermissionExplanationRow(
+                icon = RhythmIcons.Devices.Bluetooth,
+                description = "Detect Bluetooth audio devices."
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+    
+            FilledTonalButton(
+                onClick = {
+                    if (shouldShowSettingsRedirect) {
+                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = Uri.fromParts("package", context.packageName, null)
+                        }
+                        context.startActivity(intent)
+                    } else {
+                        onRequestAgain()
+                    }
+                },
+                enabled = !isButtonLoading, // Use the passed-down state to enable/disable
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+            ) {
+                Crossfade(targetState = isButtonLoading, label = "buttonLoading") { requesting ->
+                    if (requesting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(
+                            text = if (shouldShowSettingsRedirect) "Open Settings" else "Grant Access",
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                    }
+                }
+            }
+    
+            if (isButtonLoading) {
+                LinearProgressIndicator(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                )
+            }
+    
+            if (shouldShowSettingsRedirect) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Permissions permanently denied. Please enable them in app settings.",
+                    style = MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+    }
+    
+    @Composable
+    fun ThemingContent(
+        themeViewModel: ThemeViewModel,
+        onNextStep: () -> Unit // To signal completion
+    ) {
+        val useSystemTheme by themeViewModel.useSystemTheme.collectAsState()
+        val darkMode by themeViewModel.darkMode.collectAsState()
+    
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(
+                imageVector = RhythmIcons.Settings, // A relevant icon for theming
+                contentDescription = "Theming Settings",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(64.dp).padding(bottom = 16.dp)
+            )
+            Text(
+                text = "Customize Your Theme",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            Text(
+                text = "Set up your preferred look and feel for Rhythm.",
+                style = MaterialTheme.typography.bodyLarge,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(bottom = 24.dp)
+            )
+    
+            // Use system theme toggle
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                ),
+                elevation = CardDefaults.cardElevation(
+                    defaultElevation = 1.dp
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 6.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .clickable { themeViewModel.setUseSystemTheme(!useSystemTheme) }
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (useSystemTheme)
+                                    MaterialTheme.colorScheme.primaryContainer
+                                else
+                                    MaterialTheme.colorScheme.surfaceVariant
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = RhythmIcons.Settings, // Reverted to Settings icon
+                            contentDescription = null,
+                            tint = if (useSystemTheme)
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            else
+                                MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+    
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 16.dp)
+                    ) {
+                        Text(
+                            text = "Use system theme",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "Match system theme or use app's default colors.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+    
+                    Switch(
+                        checked = useSystemTheme,
+                        onCheckedChange = { themeViewModel.setUseSystemTheme(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = MaterialTheme.colorScheme.primary,
+                            checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                            uncheckedThumbColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                            uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    )
+                }
+            }
+    
+            // Dark mode toggle (only visible if not using system theme)
+            AnimatedVisibility(
+                visible = !useSystemTheme,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer
+                    ),
+                    elevation = CardDefaults.cardElevation(
+                        defaultElevation = 1.dp
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 6.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .clickable { themeViewModel.setDarkMode(!darkMode) }
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (darkMode)
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    else
+                                        MaterialTheme.colorScheme.surfaceVariant
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.DarkMode, // Changed to DarkMode icon
+                                contentDescription = null,
+                                tint = if (darkMode)
+                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                else
+                                    MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+    
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(horizontal = 16.dp)
+                        ) {
+                            Text(
+                                text = "Dark mode",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "Enable dark mode for a darker interface.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+    
+                        Switch(
+                            checked = darkMode,
+                            onCheckedChange = { themeViewModel.setDarkMode(it) },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                                uncheckedThumbColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        )
+                    }
+                }
+            }
+    
+            Spacer(modifier = Modifier.height(24.dp))
+            FilledTonalButton(
+                onClick = onNextStep,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+            ) {
+                Text("Next", style = MaterialTheme.typography.labelLarge)
+            }
+        }
+    }
+    
+    @Composable
+    fun UpdaterContent(
+        appSettings: AppSettings,
+        onNextStep: () -> Unit
+    ) {
+        val autoCheckForUpdates by appSettings.autoCheckForUpdates.collectAsState()
+    
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(
+                imageVector = RhythmIcons.Actions.Update, // Using the new Update icon from Actions
+                contentDescription = "App Updates",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(64.dp).padding(bottom = 16.dp)
+            )
+            Text(
+                text = "App Updates Settings",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            Text(
+                text = "Manage how Rhythm checks for and handles app updates.",
+                style = MaterialTheme.typography.bodyLarge,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(bottom = 24.dp)
+            )
+    
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                ),
+                elevation = CardDefaults.cardElevation(
+                    defaultElevation = 1.dp
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 6.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .clickable { appSettings.setAutoCheckForUpdates(!autoCheckForUpdates) }
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (autoCheckForUpdates)
+                                    MaterialTheme.colorScheme.primaryContainer
+                                else
+                                    MaterialTheme.colorScheme.surfaceVariant
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = RhythmIcons.Actions.Update, // Using the new Update icon from Actions
+                            contentDescription = null,
+                            tint = if (autoCheckForUpdates)
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            else
+                                MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+    
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 16.dp)
+                    ) {
+                        Text(
+                            text = "Auto check",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "Automatically check for new app versions.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+    
+                    Switch(
+                        checked = autoCheckForUpdates,
+                        onCheckedChange = { appSettings.setAutoCheckForUpdates(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = MaterialTheme.colorScheme.primary,
+                            checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                            uncheckedThumbColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                            uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    )
+                }
+            }
+    
+            Spacer(modifier = Modifier.height(24.dp))
+            FilledTonalButton(
+                onClick = onNextStep,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+            ) {
+                Text("Finish", style = MaterialTheme.typography.labelLarge)
+            }
+        }
+    }
+    
+    @Composable
+    fun PermissionExplanationRow(icon: androidx.compose.ui.graphics.vector.ImageVector, description: String) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }

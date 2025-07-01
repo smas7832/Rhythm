@@ -93,6 +93,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import chromahub.rhythm.app.viewmodel.AppUpdaterViewModel
 import android.content.Intent
 import android.net.Uri
+import java.util.Locale
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.BugReport
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -394,6 +398,67 @@ fun SettingsScreen(
                 SettingsDivider()
             }
 
+            // Updates section
+            item {
+                SettingsSectionHeader(title = "Updates")
+
+                val autoCheckForUpdates by appSettings.autoCheckForUpdates.collectAsState()
+                val updateChannel by appSettings.updateChannel.collectAsState()
+                var showChannelDropdown by remember { mutableStateOf(false) }
+
+                SettingsToggleItem(
+                    title = "Auto check for updates",
+                    description = "Automatically check for new app versions in the background.",
+                    icon = RhythmIcons.Actions.Update,
+                    checked = autoCheckForUpdates,
+                    onCheckedChange = {
+                        appSettings.setAutoCheckForUpdates(it)
+                    }
+                )
+
+                AnimatedVisibility(
+                    visible = autoCheckForUpdates,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically()
+                ) {
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        SettingsClickableItem(
+                            title = "Update Channel",
+                            description = "Current: ${updateChannel.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }}",
+                            icon = if (updateChannel == "beta") Icons.Default.BugReport else Icons.Default.Public,
+                            iconTint = if (updateChannel == "beta") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                            onClick = { showChannelDropdown = true }
+                        )
+
+                        DropdownMenu(
+                            expanded = showChannelDropdown,
+                            onDismissRequest = { showChannelDropdown = false },
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier
+                                .align(Alignment.TopEnd) // Align to the end of the clickable item
+                                .width(150.dp) // Adjust width as needed
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Stable") },
+                                onClick = {
+                                    appSettings.setUpdateChannel("stable")
+                                    showChannelDropdown = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Beta") },
+                                onClick = {
+                                    appSettings.setUpdateChannel("beta")
+                                    showChannelDropdown = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                SettingsDivider()
+            }
+
             // About section
             item {
                 SettingsSectionHeader(title = "About")
@@ -452,7 +517,7 @@ fun SettingsScreen(
                                 ),
                                 modifier = Modifier
                                     .padding(top = 8.dp)
-                                .weight(1f)
+                                    .weight(1f)
                             ) {
                                 Text("About")
                             }
@@ -661,6 +726,7 @@ fun SettingsClickableItem(
     title: String,
     description: String,
     icon: ImageVector,
+    iconTint: Color = MaterialTheme.colorScheme.primary, // Added iconTint parameter
     onClick: () -> Unit
 ) {
     Card(
@@ -692,7 +758,7 @@ fun SettingsClickableItem(
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = iconTint,
                     modifier = Modifier.size(24.dp)
                 )
             }
@@ -787,32 +853,32 @@ fun AboutDialog(
                 }
 
                 // Add a check for updates button
-                Button(
-                    onClick = {
-                        onDismiss()  // Close the dialog first
-                        onCheckForUpdates()  // Then navigate to updates screen
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    ),
-                    modifier = Modifier
-                        .padding(top = 12.dp)
-                        .fillMaxWidth()
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            imageVector = RhythmIcons.Download,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Check for Updates")
-                    }
-                }
+//                Button(
+//                    onClick = {
+//                        onDismiss()  // Close the dialog first
+//                        onCheckForUpdates()  // Then navigate to updates screen
+//                    },
+//                    colors = ButtonDefaults.buttonColors(
+//                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+//                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+//                    ),
+//                    modifier = Modifier
+//                        .padding(top = 12.dp)
+//                        .fillMaxWidth()
+//                ) {
+//                    Row(
+//                        verticalAlignment = Alignment.CenterVertically,
+//                        horizontalArrangement = Arrangement.Center
+//                    ) {
+//                        Icon(
+//                            imageVector = RhythmIcons.Download,
+//                            contentDescription = null,
+//                            modifier = Modifier.size(18.dp)
+//                        )
+//                        Spacer(modifier = Modifier.width(8.dp))
+//                        Text("Check for Updates")
+//                    }
+//                }
 
                 // Add a Report Bug button inside the dialog
                 Button(
