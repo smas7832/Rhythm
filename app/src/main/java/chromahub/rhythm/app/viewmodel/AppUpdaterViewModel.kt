@@ -41,13 +41,19 @@ data class AppVersion(
     val versionName: String,
     val versionCode: Int,
     val releaseDate: String,
-    val changelog: List<String>,
+    val whatsNew: List<String>,
+    val knownIssues: List<String>,
     val downloadUrl: String,
     val apkAssetName: String = "",
     val apkSize: Long = 0,
     val releaseNotes: String = "",
     val isPreRelease: Boolean = false,
     val buildNumber: Int = 0
+)
+
+data class ReleaseContent(
+    val whatsNew: List<String>,
+    val knownIssues: List<String>
 )
 
 /**
@@ -164,13 +170,14 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
         _updateChannel = MutableStateFlow("stable")
         _currentVersion = MutableStateFlow(
             AppVersion(
-                versionName = "2.1.105.264 Beta",
-                versionCode = 20205264, // Updated to reflect major*10M + minor*100K + patch*1K + buildNumber
-                releaseDate = "2025-07-01",
-                changelog = emptyList(),
+                versionName = "2.1.106.267 Beta",
+                versionCode = 20206267, // Updated to reflect major*10M + minor*100K + patch*1K + buildNumber
+                releaseDate = "2025-07-02",
+                whatsNew = emptyList(),
+                knownIssues = emptyList(),
                 downloadUrl = "",
                 isPreRelease = true,
-                buildNumber = 264
+                buildNumber = 267
             )
         )
         _latestVersion = MutableStateFlow<AppVersion?>(null)
@@ -236,6 +243,7 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
                     }
                     
                     processRelease(latestSuitableRelease)
+                    Log.d(TAG, "Latest version processed: ${_latestVersion.value}")
                 } else {
                     handleApiError(releasesResponse.code(), releasesResponse.message())
                 }
@@ -243,6 +251,7 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
                 Log.e(TAG, "Error checking for updates", e)
                 _error.value = "Network error: ${e.message ?: "Unknown error"}"
                 _isCheckingForUpdates.value = false
+                Log.e(TAG, "Error state set: ${_error.value}")
             }
         }
     }
@@ -357,7 +366,9 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
         }
         
         // Parse changelog from release body
-        val changelog = parseChangelog(release.body)
+        val releaseContent = parseReleaseBody(release.body)
+        Log.d(TAG, "Parsed whatsNew: ${releaseContent.whatsNew}")
+        Log.d(TAG, "Parsed knownIssues: ${releaseContent.knownIssues}")
         
         // Find the APK asset if available
         val apkAsset = release.assets.firstOrNull { 
@@ -379,7 +390,8 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
                 it.major * 10000000 + it.minor * 100000 + it.patch * 1000 + it.buildNumber
             },
             releaseDate = releaseDateString,
-            changelog = changelog,
+            whatsNew = releaseContent.whatsNew,
+            knownIssues = releaseContent.knownIssues,
             downloadUrl = downloadUrl,
             apkAssetName = apkAsset?.name ?: "",
             apkSize = apkSize,
@@ -388,71 +400,76 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
             buildNumber = semanticVersion.buildNumber
         )
     }
-    
+
     /**
-     * Parse changelog items from release body
+     * Parses the release body string to extract "What's New" and "Known Issues" sections.
+     * Assumes a Markdown-like format with specific headings.
      */
-    private fun parseChangelog(body: String): List<String> {
-        // Split by new lines
-        val lines = body.split("\n")
-        val changelog = mutableListOf<String>()
-        
-        // Look for Markdown-style lists
-        var isInList = false
-        
-        for (line in lines) {
-            val trimmedLine = line.trim()
-            
-            // Check for standard Markdown list items
-            if (trimmedLine.startsWith("- ") || 
-                trimmedLine.startsWith("* ") || 
-                trimmedLine.matches(Regex("^\\d+\\. .*"))) {
-                
-                isInList = true
-                
-                // Extract the content after the list marker
-                val content = when {
-                    trimmedLine.startsWith("- ") -> trimmedLine.substring(2)
-                    trimmedLine.startsWith("* ") -> trimmedLine.substring(2)
-                    else -> trimmedLine.replaceFirst(Regex("^\\d+\\. "), "")
-                }
-                
-                changelog.add(content.trim())
-            } else if (isInList && trimmedLine.isNotEmpty() && 
-                      (trimmedLine.startsWith("  ") || trimmedLine.startsWith("\t"))) {
-                // This is a continuation of a list item - append to the last item
-                if (changelog.isNotEmpty()) {
-                    changelog[changelog.size - 1] += " " + trimmedLine.trim()
-                }
-            } else if (trimmedLine.startsWith("#") && changelog.isNotEmpty()) {
-                // A heading after we've already found some list items - we're done with the changelog
-                break
-            } else {
-                isInList = false
-            }
-        }
-        
-        // If no specific changelog items found, look for the first paragraph
-        if (changelog.isEmpty() && body.isNotEmpty()) {
-            // Find the first non-empty paragraph
-            val paragraphs = body.split("\n\n")
-            for (paragraph in paragraphs) {
-                val trimmed = paragraph.trim()
-                if (trimmed.isNotEmpty() && !trimmed.startsWith("#")) {
-                    changelog.add(trimmed)
-                    break
-                }
-            }
-            
-            // If still empty, just use the first line of the body
-            if (changelog.isEmpty() && lines.isNotEmpty()) {
-                changelog.add(lines.first().trim())
-            }
-        }
-        
-        return changelog
+    private enum class ParsingState {
+        NONE, WHATS_NEW, KNOWN_ISSUES
     }
-    
+
+    private fun parseReleaseBody(body: String?): ReleaseContent {
+        if (body.isNullOrBlank()) {
+            return ReleaseContent(emptyList(), emptyList())
+        }
+
+        val whatsNew = mutableListOf<String>()
+        val knownIssues = mutableListOf<String>()
+
+        var currentState = ParsingState.NONE
+
+        body.lines().forEach { line ->
+            val trimmedLine = line.trim()
+
+            when {
+                trimmedLine.startsWith("**What's New:**") -> {
+                    currentState = ParsingState.WHATS_NEW
+                }
+                trimmedLine.startsWith("**Known Issues") -> { // Matches "Known Issues (Will be fixed on a later build):"
+                    currentState = ParsingState.KNOWN_ISSUES
+                }
+                trimmedLine.startsWith("**Build Information:**") -> {
+                    currentState = ParsingState.NONE // Stop parsing for these sections
+                }
+                // If we are in a section and encounter another heading, stop parsing the current section
+                (trimmedLine.startsWith("#") || trimmedLine.startsWith("##")) &&
+                currentState != ParsingState.NONE -> {
+                    currentState = ParsingState.NONE
+                }
+                else -> {
+                    // Add line to current section if we are in one
+                    when (currentState) {
+                        ParsingState.WHATS_NEW -> {
+                            val htmlLine = trimmedLine
+                                .replace(Regex("^[*-]\\s*"), "") // Remove list prefixes
+                                .replace(Regex("\\*\\*(.*?)\\*\\*"), "<b>$1</b>") // Bold
+                                .replace(Regex("_(.*?)_"), "<i>$1</i>") // Italic
+                                .replace(Regex("\\[(.*?)\\]\\((.*?)\\)"), "<a href=\"$2\">$1</a>") // Links
+                            if (htmlLine.isNotBlank()) {
+                                whatsNew.add(htmlLine)
+                            }
+                        }
+                        ParsingState.KNOWN_ISSUES -> {
+                            val htmlLine = trimmedLine
+                                .replace(Regex("^[*-]\\s*"), "") // Remove list prefixes
+                                .replace(Regex("\\*\\*(.*?)\\*\\*"), "<b>$1</b>") // Bold
+                                .replace(Regex("_(.*?)_"), "<i>$1</i>") // Italic
+                                .replace(Regex("\\[(.*?)\\]\\((.*?)\\)"), "<a href=\"$2\">$1</a>") // Links
+                            if (htmlLine.isNotBlank()) {
+                                knownIssues.add(htmlLine)
+                            }
+                        }
+                        ParsingState.NONE -> {
+                            // Do nothing if not in a specific section
+                        }
+                    }
+                }
+            }
+        }
+        return ReleaseContent(whatsNew, knownIssues)
+    }
+
     /**
      * Clear any error message
      */

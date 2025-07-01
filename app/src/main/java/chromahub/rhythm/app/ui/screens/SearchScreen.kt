@@ -102,6 +102,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import chromahub.rhythm.app.ui.screens.AddToPlaylistBottomSheet
 import chromahub.rhythm.app.ui.components.CreatePlaylistDialog
 import chromahub.rhythm.app.util.ImageUtils
+import chromahub.rhythm.app.ui.screens.SettingsSectionHeader
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -439,32 +440,7 @@ fun SearchResults(
         // Songs section
         if (songs.isNotEmpty()) {
             item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Songs",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    
-                    if (songs.size > 3) {
-                        TextButton(
-                            onClick = { /* Navigate to all songs */ },
-                            contentPadding = PaddingValues(horizontal = 8.dp)
-                        ) {
-                            Text(
-                                text = "See all (${songs.size})",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-                }
+                SettingsSectionHeader(title = "Songs")
             }
             
             items(songs.take(3)) { song ->
@@ -479,32 +455,7 @@ fun SearchResults(
         // Albums section
         if (albums.isNotEmpty()) {
             item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp, bottom = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Albums",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    
-                    if (albums.size > 5) {
-                        TextButton(
-                            onClick = { /* Navigate to all albums */ },
-                            contentPadding = PaddingValues(horizontal = 8.dp)
-                        ) {
-                            Text(
-                                text = "See all",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-                }
+                SettingsSectionHeader(title = "Albums")
             }
             
             item {
@@ -525,12 +476,7 @@ fun SearchResults(
         // Artists section
         if (artists.isNotEmpty()) {
             item {
-                Text(
-                    text = "Artists",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
-                )
+                SettingsSectionHeader(title = "Artists")
             }
             
             item {
@@ -551,12 +497,7 @@ fun SearchResults(
         // Playlists section
         if (playlists.isNotEmpty()) {
             item {
-                Text(
-                    text = "Playlists",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
-                )
+                SettingsSectionHeader(title = "Playlists")
             }
             
             item {

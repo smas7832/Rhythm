@@ -44,6 +44,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LargeTopAppBar
+import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -107,6 +108,10 @@ import androidx.compose.animation.core.EaseInOutQuart
 import androidx.compose.animation.core.EaseInBack
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.lerp
+import androidx.compose.ui.unit.sp
 import chromahub.rhythm.app.ui.screens.LibraryTab
 
 sealed class Screen(val route: String) {
@@ -953,6 +958,8 @@ fun RhythmNavigation(
                     val songToAdd = viewModel.selectedSongForPlaylist.collectAsState().value
                     val targetPlaylistId = viewModel.targetPlaylistId.collectAsState().value
 
+                    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
+
                     // If we have a target playlist ID, we're adding songs to that playlist
                     if (targetPlaylistId != null) {
                         val targetPlaylist = playlists.find { it.id == targetPlaylistId }
@@ -984,13 +991,26 @@ fun RhythmNavigation(
                                 )
                             } else {
                                 Scaffold(
+                                    modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
                                     topBar = {
                                         LargeTopAppBar(
                                             title = {
+                                                val expandedTextStyle = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold)
+                                                val collapsedTextStyle = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
+
+                                                val fraction = scrollBehavior.state.collapsedFraction
+                                                val currentFontSize = lerp(expandedTextStyle.fontSize, collapsedTextStyle.fontSize, fraction)
+                                                val currentFontWeight = if (fraction < 0.5f) FontWeight.Bold else FontWeight.Bold
+
                                                 Text(
-                                                    text = "Add Songs to ${targetPlaylist.name}",
-                                                    style = MaterialTheme.typography.headlineMedium,
-                                                    maxLines = 1
+                                                    text = "Add to ${targetPlaylist.name}",
+                                                    style = MaterialTheme.typography.headlineSmall.copy(
+                                                        fontSize = currentFontSize,
+                                                        fontWeight = currentFontWeight
+                                                    ),
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    modifier = Modifier.padding(start = 8.dp) // Added padding
                                                 )
                                             },
                                             navigationIcon = {
@@ -1013,12 +1033,16 @@ fun RhythmNavigation(
                                             colors = TopAppBarDefaults.largeTopAppBarColors(
                                                 containerColor = Color.Transparent,
                                                 scrolledContainerColor = Color.Transparent
-                                            )
+                                            ),
+                                            scrollBehavior = scrollBehavior, // Apply scroll behavior
+                                            modifier = Modifier.padding(horizontal = 8.dp) // Added padding
                                         )
                                     }
                                 ) { innerPadding ->
                                     LazyColumn(
-                                        modifier = Modifier.padding(innerPadding),
+                                        modifier = Modifier
+                                            .padding(innerPadding)
+                                            .padding(horizontal = 16.dp), // Added horizontal padding
                                         contentPadding = PaddingValues(vertical = 8.dp)
                                     ) {
                                         items(availableSongs) { song ->
@@ -1035,7 +1059,7 @@ fun RhythmNavigation(
                                                 tonalElevation = 1.dp,
                                                 modifier = Modifier
                                                     .fillMaxWidth()
-                                                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                                                    .padding(vertical = 4.dp) // Removed horizontal padding here as it's now on LazyColumn
                                             ) {
                                                 Row(
                                                     modifier = Modifier

@@ -877,7 +877,7 @@ fun PermissionHandler(
                             .padding(horizontal = 16.dp)
                     ) {
                         Text(
-                            text = "Use system theme",
+                            text = "System theme",
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -1016,7 +1016,7 @@ fun PermissionHandler(
                 modifier = Modifier.padding(bottom = 8.dp)
             )
             Text(
-                text = "Manage how Rhythm checks for and handles app updates.",
+                text = "Manage how Rhythm checks for app updates from GitHub.",
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(bottom = 24.dp)

@@ -79,11 +79,13 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontWeight
 import chromahub.rhythm.app.R
 import chromahub.rhythm.app.data.Album
 import chromahub.rhythm.app.data.Artist
@@ -198,10 +200,22 @@ fun NewHomeScreen(
         topBar = {
             LargeTopAppBar(
                 title = {
+                    val expandedTextStyle = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold)
+                    val collapsedTextStyle = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
+
+                    val fraction = scrollBehavior.state.collapsedFraction
+                    val currentFontSize = lerp(expandedTextStyle.fontSize.value, collapsedTextStyle.fontSize.value, fraction).sp
+                    val currentFontWeight = if (fraction < 0.5f) FontWeight.Bold else FontWeight.Bold
+
                     Text(
                         "Rhythm",
-                        style = MaterialTheme.typography.headlineLarge,
-                        fontWeight = FontWeight.Bold
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontSize = currentFontSize,
+                            fontWeight = currentFontWeight
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(start = 8.dp)
                     )
                 },
                 actions = {
@@ -233,7 +247,8 @@ fun NewHomeScreen(
                     containerColor = Color.Transparent,
                     scrolledContainerColor = Color.Transparent.copy(alpha = 0.0f),
                     titleContentColor = MaterialTheme.colorScheme.onSurface
-                )
+                ),
+                modifier = Modifier.padding(horizontal = 8.dp) // Added padding
             )
         },
         bottomBar = {},
@@ -1915,22 +1930,53 @@ private fun UpdateAvailableSection(
             
             Spacer(modifier = Modifier.height(8.dp))
             
-            // Show first changelog item or release notes if available
-            if (latestVersion.changelog.isNotEmpty()) {
+            // Show "What's New" section if available
+            if (latestVersion.whatsNew.isNotEmpty()) {
                 Text(
-                    text = latestVersion.changelog.first(),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(bottom = 16.dp)
+                    text = "What's New:",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.padding(bottom = 4.dp)
                 )
-            } else if (latestVersion.releaseNotes.isNotEmpty()) {
+                latestVersion.whatsNew.take(2).forEach { item ->
+                    Text(
+                        text = "• $item",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+            
+            // Show "Known Issues" section if available
+            if (latestVersion.knownIssues.isNotEmpty()) {
+                Text(
+                    text = "Known Issues:",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+                latestVersion.knownIssues.take(1).forEach { item ->
+                    Text(
+                        text = "• $item",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            } else if (latestVersion.releaseNotes.isNotEmpty() && latestVersion.whatsNew.isEmpty()) {
+                // Fallback to general release notes if no structured "What's New" and "Known Issues"
                 Text(
                     text = latestVersion.releaseNotes,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
-                    maxLines = 2,
+                    maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(bottom = 16.dp)
                 )

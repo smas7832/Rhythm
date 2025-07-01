@@ -48,6 +48,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.LargeTopAppBar
+import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -65,9 +66,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
 import chromahub.rhythm.app.data.Song
 import chromahub.rhythm.app.ui.components.MiniPlayer
 import chromahub.rhythm.app.ui.components.RhythmIcons
@@ -97,6 +96,13 @@ import java.util.Locale
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.lerp
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.font.FontWeight
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -132,6 +138,8 @@ fun SettingsScreen(
 
     val updaterViewModel: AppUpdaterViewModel = viewModel()
     val currentAppVersion by updaterViewModel.currentVersion.collectAsState()
+
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
 
     if (showApiKeyDialog) {
         AlertDialog(
@@ -259,14 +267,26 @@ fun SettingsScreen(
     }
 
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             LargeTopAppBar(
                 title = {
+                    val expandedTextStyle = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold)
+                    val collapsedTextStyle = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
+
+                    val fraction = scrollBehavior.state.collapsedFraction
+                    val currentFontSize = lerp(expandedTextStyle.fontSize.value, collapsedTextStyle.fontSize.value, fraction).sp
+                    val currentFontWeight = if (fraction < 0.5f) FontWeight.Bold else FontWeight.Bold // Changed to FontWeight.Bold
+
                     Text(
                         text = "Settings",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontSize = currentFontSize,
+                            fontWeight = currentFontWeight
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(start = 8.dp) // Added padding
                     )
                 },
                 navigationIcon = {
@@ -286,7 +306,9 @@ fun SettingsScreen(
                 colors = TopAppBarDefaults.largeTopAppBarColors(
                     containerColor = Color.Transparent,
                     scrolledContainerColor = Color.Transparent
-                )
+                ),
+                scrollBehavior = scrollBehavior,
+                modifier = Modifier.padding(horizontal = 8.dp) // Added padding
             )
         },
         bottomBar = {
@@ -408,7 +430,7 @@ fun SettingsScreen(
 
                 SettingsToggleItem(
                     title = "Auto check for updates",
-                    description = "Automatically check for new app versions in the background.",
+                    description = "Check for updates from GitHub automatically",
                     icon = RhythmIcons.Actions.Update,
                     checked = autoCheckForUpdates,
                     onCheckedChange = {

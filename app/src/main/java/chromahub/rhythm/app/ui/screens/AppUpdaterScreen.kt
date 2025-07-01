@@ -42,6 +42,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -51,7 +52,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -68,6 +68,20 @@ import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.IconButton
 import java.util.Locale
+import androidx.compose.ui.viewinterop.AndroidView
+import android.widget.TextView
+import androidx.core.text.HtmlCompat
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.util.lerp
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.font.FontWeight
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -94,6 +108,8 @@ fun AppUpdaterScreen(
     val isDownloading by updaterViewModel.isDownloading.collectAsState()
     val downloadProgress by updaterViewModel.downloadProgress.collectAsState()
     val downloadedFile by updaterViewModel.downloadedFile.collectAsState()
+    val whatsNew = latestVersion?.whatsNew ?: emptyList()
+    val knownIssues = latestVersion?.knownIssues ?: emptyList()
 
     // Get the context for intent operations
     val context = LocalContext.current
@@ -112,15 +128,29 @@ fun AppUpdaterScreen(
         }
     }
 
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
+
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             LargeTopAppBar(
                 title = {
+                    val expandedTextStyle = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold)
+                    val collapsedTextStyle = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
+
+                    val fraction = scrollBehavior.state.collapsedFraction
+                    val currentFontSize = lerp(expandedTextStyle.fontSize.value, collapsedTextStyle.fontSize.value, fraction).sp
+                    val currentFontWeight = if (fraction < 0.5f) FontWeight.Bold else FontWeight.Bold // Changed to FontWeight.Bold
+
                     Text(
                         text = "App Updates",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontSize = currentFontSize,
+                            fontWeight = currentFontWeight
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(start = 8.dp) // Added padding
                     )
                 },
                 navigationIcon = {
@@ -142,7 +172,9 @@ fun AppUpdaterScreen(
                 colors = TopAppBarDefaults.largeTopAppBarColors(
                     containerColor = Color.Transparent,
                     scrolledContainerColor = Color.Transparent
-                )
+                ),
+                scrollBehavior = scrollBehavior,
+                modifier = Modifier.padding(horizontal = 8.dp) // Added padding
             )
         },
         bottomBar = {}
@@ -647,14 +679,14 @@ fun AppUpdaterScreen(
                 }
             }
 
-            // Changelog section
-            item { // Moved AnimatedVisibility content into an item block
+            // What's New section
+            item {
                 AnimatedVisibility(
-                    visible = autoCheckForUpdates && latestVersion != null && latestVersion?.changelog?.isNotEmpty() == true,
+                    visible = autoCheckForUpdates && latestVersion != null && whatsNew.isNotEmpty(),
                     enter = fadeIn() + expandVertically(),
                     exit = fadeOut() + shrinkVertically()
                 ) {
-                    Column { // Wrap content in a Column as AnimatedVisibility takes a single Composable
+                    Column {
                         Spacer(modifier = Modifier.height(16.dp))
 
                         Text(
@@ -682,7 +714,7 @@ fun AppUpdaterScreen(
                                     .fillMaxWidth()
                                     .padding(16.dp)
                             ) {
-                                latestVersion?.changelog?.forEachIndexed { index, change ->
+                                whatsNew.forEachIndexed { index, change ->
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -701,14 +733,125 @@ fun AppUpdaterScreen(
 
                                         Spacer(modifier = Modifier.width(12.dp))
 
-                                        Text(
-                                            text = change,
-                                            style = MaterialTheme.typography.bodyLarge,
-                                            modifier = Modifier.fillMaxWidth()
+                                        val bodyLargeFontWeight = MaterialTheme.typography.bodyLarge.fontWeight
+                                        val onSurfaceColor = MaterialTheme.colorScheme.onSurface.toArgb()
+
+                                        AndroidView(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            factory = { context ->
+                                                TextView(context).apply {
+                                                    setTextColor(onSurfaceColor)
+                                                }
+                                            },
+                                            update = { textView ->
+                                                textView.text = HtmlCompat.fromHtml(change, HtmlCompat.FROM_HTML_MODE_COMPACT)
+                                                textView.setTextAppearance(
+                                                    when (bodyLargeFontWeight) {
+                                                        FontWeight.Normal -> android.R.style.TextAppearance_Material_Body1
+                                                        FontWeight.Medium -> android.R.style.TextAppearance_Material_Medium
+                                                        FontWeight.SemiBold -> android.R.style.TextAppearance_Material_Medium
+                                                        FontWeight.Bold -> android.R.style.TextAppearance_Material_Large
+                                                        else -> android.R.style.TextAppearance_Material_Body1
+                                                    }
+                                                )
+                                                textView.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 16f)
+                                                textView.setTextColor(onSurfaceColor)
+                                            }
                                         )
                                     }
 
-                                    if (index < latestVersion?.changelog?.size?.minus(1) ?: 0) {
+                                    if (index < whatsNew.size - 1) {
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Known Issues section
+            item {
+                AnimatedVisibility(
+                    visible = autoCheckForUpdates && latestVersion != null && knownIssues.isNotEmpty(),
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically()
+                ) {
+                    Column {
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Text(
+                            text = "Known Issues",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp),
+                            textAlign = TextAlign.Start
+                        )
+
+                        Card(
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainer
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp)
+                            ) {
+                                knownIssues.forEachIndexed { index, issue ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 4.dp),
+                                        verticalAlignment = Alignment.Top
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(6.dp)
+                                                .padding(top = 8.dp)
+                                                .background(
+                                                    MaterialTheme.colorScheme.error,
+                                                    CircleShape
+                                                )
+                                        )
+
+                                        Spacer(modifier = Modifier.width(12.dp))
+
+                                        val bodyLargeFontWeight = MaterialTheme.typography.bodyLarge.fontWeight
+                                        val onSurfaceColor = MaterialTheme.colorScheme.onSurface.toArgb()
+
+                                        AndroidView(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            factory = { context ->
+                                                TextView(context).apply {
+                                                    setTextColor(onSurfaceColor)
+                                                }
+                                            },
+                                            update = { textView ->
+                                                textView.text = HtmlCompat.fromHtml(issue, HtmlCompat.FROM_HTML_MODE_COMPACT)
+                                                textView.setTextAppearance(
+                                                    when (bodyLargeFontWeight) {
+                                                        FontWeight.Normal -> android.R.style.TextAppearance_Material_Body1
+                                                        FontWeight.Medium -> android.R.style.TextAppearance_Material_Medium
+                                                        FontWeight.SemiBold -> android.R.style.TextAppearance_Material_Medium
+                                                        FontWeight.Bold -> android.R.style.TextAppearance_Material_Large
+                                                        else -> android.R.style.TextAppearance_Material_Body1
+                                                    }
+                                                )
+                                                textView.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 16f)
+                                                textView.setTextColor(onSurfaceColor)
+                                            }
+                                        )
+                                    }
+
+                                    if (index < knownIssues.size - 1) {
                                         Spacer(modifier = Modifier.height(4.dp))
                                     }
                                 }

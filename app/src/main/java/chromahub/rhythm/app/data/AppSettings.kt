@@ -115,10 +115,10 @@ class AppSettings private constructor(context: Context) {
     val onlineOnlyLyrics: StateFlow<Boolean> = _onlineOnlyLyrics.asStateFlow()
     
     // Theme Settings
-    private val _useSystemTheme = MutableStateFlow(prefs.getBoolean(KEY_USE_SYSTEM_THEME, true))
+    private val _useSystemTheme = MutableStateFlow(prefs.getBoolean(KEY_USE_SYSTEM_THEME, false))
     val useSystemTheme: StateFlow<Boolean> = _useSystemTheme.asStateFlow()
     
-    private val _darkMode = MutableStateFlow(prefs.getBoolean(KEY_DARK_MODE, false))
+    private val _darkMode = MutableStateFlow(prefs.getBoolean(KEY_DARK_MODE, true))
     val darkMode: StateFlow<Boolean> = _darkMode.asStateFlow()
     
     // Audio Device Settings
