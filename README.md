@@ -95,10 +95,11 @@ Rhythm is a music player for Android that delivers a seamless audio experience w
 - **Audio Processing**: Media3 Session, Audio Effects
 - **Navigation**: Compose Navigation
 - **Image Loading**: Coil for async image loading
-- **Networking**: Retrofit2 + OkHttp3
+- **Networking**: Retrofit2, OkHttp3
 - **JSON Parsing**: Gson
 - **Animations**: Compose Animation with Physics
 - **Drag & Drop**: Reorderable Compose
+- **Permissions**: Accompanist Permissions
 - **Device Integration**: MediaRouter, Bluetooth APIs
 - **Storage**: Android Storage Access Framework
 - **Background Services**: Foreground Service for playback
@@ -132,12 +133,16 @@ app/
 
 The app requires the following permissions:
 
-- Storage access (for media files)
-- Media audio access
-- Foreground service (for playback)
-- Internet access
-- Bluetooth connectivity
-- Network state
+- `READ_EXTERNAL_STORAGE` (Android 12 and below) for media files
+- `WRITE_EXTERNAL_STORAGE` (Android 10 and below) for media files
+- `READ_MEDIA_AUDIO` (Android 13 and above) for media files
+- `READ_MEDIA_IMAGES` (Android 13 and above) for album art
+- `FOREGROUND_SERVICE` for background playback
+- `FOREGROUND_SERVICE_MEDIA_PLAYBACK` for media playback service
+- `INTERNET` for online features (lyrics, updates)
+- `ACCESS_NETWORK_STATE` for network connectivity checks
+- `REQUEST_INSTALL_PACKAGES` for in-app updates
+- `BLUETOOTH`, `BLUETOOTH_ADMIN`, `BLUETOOTH_CONNECT`, `BLUETOOTH_SCAN` for Bluetooth device integration
 
 ## 📄 License
 
@@ -145,7 +150,7 @@ Rhythm is available under the MIT license. See the [LICENSE](LICENSE) file for m
 
 ## Version
 
-Current version: 2.0.100.6 (Build 253 Pre-Release Beta)
+Current version: 2.1.106.267
 
 ## Support
 
