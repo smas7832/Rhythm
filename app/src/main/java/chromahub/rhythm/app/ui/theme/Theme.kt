@@ -64,10 +64,13 @@ fun RhythmTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            // Make the status bar transparent
+            // Make the status bar and navigation bar transparent
+            window.statusBarColor = Color.Transparent.toArgb()
+            window.navigationBarColor = Color.Transparent.toArgb()
             WindowCompat.setDecorFitsSystemWindows(window, false)
-            // Set the status bar appearance (light/dark icons)
+            // Set the status bar and navigation bar appearance (light/dark icons)
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = !darkTheme
         }
     }
 
