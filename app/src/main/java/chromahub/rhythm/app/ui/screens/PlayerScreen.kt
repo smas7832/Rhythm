@@ -5,6 +5,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -72,6 +73,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -116,23 +118,7 @@ import org.burnoutcrew.reorderable.rememberReorderableLazyListState
 import org.burnoutcrew.reorderable.reorderable
 import kotlin.math.abs
 import chromahub.rhythm.app.ui.components.M3CircularLoader
-
-// Add the calculateOvershootInterpolation function
-/**
- * Calculates overshooting interpolation similar to Android's OvershootInterpolator
- * Used to create bouncy animation effects in a Compose-friendly way
- */
-private fun calculateOvershootInterpolation(fraction: Float, tension: Float = 1.5f): Float {
-    // This simulates the overshoot effect with a simple formula
-    if (fraction < 0.6f) {
-        // Accelerate phase
-        return fraction / 0.6f
-    } else {
-        // Overshoot and settle phase
-        val x = (fraction - 0.6f) / 0.4f // normalized from 0 to 1 in the overshoot range
-        return 1f + tension * x * (1 - x) * Math.sin(Math.PI * x).toFloat()
-    }
-}
+import android.view.animation.OvershootInterpolator // Corrected import for OvershootInterpolator
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -205,11 +191,21 @@ fun PlayerScreen(
     var showQueueSheet by remember { mutableStateOf(false) }
     
     // For swipe down gesture detection - improved parameters
-    var offsetY by remember { mutableStateOf(0f) }
+    var targetOffsetY by remember { mutableStateOf(0f) } // Target for animation
+    val animatedOffsetY by animateFloatAsState( // Animated value for translation
+        targetValue = targetOffsetY,
+        animationSpec = tween(
+            durationMillis = 300,
+            easing = { fraction ->
+                OvershootInterpolator(2.0f).getInterpolation(fraction)
+            }
+        ),
+        label = "animatedOffsetY"
+    )
     val swipeThreshold = 120f // Lower threshold for easier closing
     
     // Animation for dismiss swipe gesture
-    val dismissProgress = (offsetY / swipeThreshold).coerceIn(0f, 1f)
+    val dismissProgress = (animatedOffsetY / swipeThreshold).coerceIn(0f, 1f) // Use animatedOffsetY
     val contentAlpha by animateFloatAsState(
         targetValue = 1f - (dismissProgress * 0.4f), // Slightly more aggressive fade
         label = "contentAlpha"
@@ -365,7 +361,7 @@ fun PlayerScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            CenterAlignedTopAppBar(
                 title = {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -384,23 +380,31 @@ fun PlayerScreen(
                         // Small spacing after the pill
                         Spacer(modifier = Modifier.height(4.dp))
                         
-                        Text(
-                            text = "NOW PLAYING",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
-                        )
-                        
-                        if (song != null && songPlaylist != null) {
-                            Text(
-                                text = songPlaylist.name,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(horizontal = 48.dp)
-                            )
+                        AnimatedVisibility(
+                            visible = song != null,
+                            enter = fadeIn() + slideInVertically { it / 2 },
+                            exit = fadeOut() + slideOutVertically { it / 2 }
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = "NOW PLAYING",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                                )
+                                
+                                if (song != null && songPlaylist != null) {
+                                    Text(
+                                        text = songPlaylist.name,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.padding(horizontal = 48.dp)
+                                    )
+                                }
+                            }
                         }
                     }
                 },
@@ -447,7 +451,7 @@ fun PlayerScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
+                    containerColor = MaterialTheme.colorScheme.background, // Changed to background color
                     titleContentColor = MaterialTheme.colorScheme.onBackground
                 )
             )
@@ -455,7 +459,7 @@ fun PlayerScreen(
         modifier = Modifier
             .graphicsLayer {
                 // Apply translation and alpha effects based on swipe gesture
-                translationY = offsetY
+                translationY = animatedOffsetY // Use animatedOffsetY
                 alpha = contentAlpha
                 scaleX = contentScale
                 scaleY = contentScale
@@ -467,73 +471,47 @@ fun PlayerScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .pointerInput(Unit) {
-                    var totalDragDistance = 0f
-                    var initialDragY = 0f
+                    var dragAmountY = 0f // Track drag amount for current gesture
                     
                     detectVerticalDragGestures(
-                        onDragStart = { offset ->
-                            totalDragDistance = 0f
-                            initialDragY = offset.y
+                        onDragStart = {
+                            dragAmountY = 0f
                         },
                         onVerticalDrag = { change, dragAmount ->
                             change.consume() // Important: consume the gesture to prevent conflicts
                             
                             // Only track downward swipes for dismissal
                             if (dragAmount > 0) {
-                                totalDragDistance += dragAmount
+                                dragAmountY += dragAmount
                                 // Apply resistance effect - slower movement as user drags further
-                                offsetY = (totalDragDistance * 0.6f).coerceIn(0f, screenHeight / 2)
+                                targetOffsetY = (dragAmountY * 0.6f).coerceIn(0f, screenHeight / 2) // Update targetOffsetY
                             }
                         },
                         onDragEnd = {
                             // If we've dragged enough, close the player with haptic feedback
-                            if (totalDragDistance > swipeThreshold) {
+                            if (dragAmountY > swipeThreshold) {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 isDismissing = true
                             } else {
-                                // Reset position with animation using Compose-friendly approach
-                                scope.launch {
-                                    // Smoothly animate back to position
-                                    val startValue = offsetY
-                                    val animationDuration = 300 // longer duration for bouncy feel
-                                    val startTime = System.currentTimeMillis()
-                                    
-                                    while (true) {
-                                        val elapsedTime = System.currentTimeMillis() - startTime
-                                        if (elapsedTime >= animationDuration) {
-                                            offsetY = 0f
-                                            break
-                                        }
-                                        
-                                        val fraction = (elapsedTime / animationDuration.toFloat()).coerceIn(0f, 1f)
-                                        // Apply overshooting effect by adjusting the fraction
-                                        val adjustedFraction = calculateOvershootInterpolation(fraction, 2.0f) // More pronounced bounce
-                                        offsetY = startValue * (1 - adjustedFraction)
-                                        
-                                        // Wait for next frame
-                                        delay(16) // roughly 60fps
-                                    }
-                                }
+                                targetOffsetY = 0f // Animate back to 0
                             }
                         },
                         onDragCancel = {
                             // Reset position immediately if not dismissing
-                            scope.launch {
-                                offsetY = 0f
-                            }
+                            targetOffsetY = 0f // Animate back to 0
                         }
                     )
                 }
         ) {
             // Add swipe down indicator text when dragging down
-            if (offsetY > swipeThreshold * 0.3f) {
+            if (animatedOffsetY > swipeThreshold * 0.3f) { // Use animatedOffsetY
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 8.dp)
                 ) {
-                    val textAlpha = ((offsetY - (swipeThreshold * 0.3f)) / (swipeThreshold * 0.7f)).coerceIn(0f, 1f)
+                    val textAlpha = ((animatedOffsetY - (swipeThreshold * 0.3f)) / (swipeThreshold * 0.7f)).coerceIn(0f, 1f) // Use animatedOffsetY
                     Text(
                         text = "Release to close",
                         style = MaterialTheme.typography.labelMedium,
@@ -556,7 +534,8 @@ fun PlayerScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f), // This makes it take all available vertical space
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = if (isCompactHeight) Arrangement.Center else Arrangement.Top // Center content vertically on compact screens
                 ) {
                     // Calculate dynamic top padding based on screen height
                     val dynamicTopPadding = with(density) {
@@ -566,7 +545,9 @@ fun PlayerScreen(
                     }
                     
                     // Add dynamic spacing at the top that expands/contracts based on screen size
-                    Spacer(modifier = Modifier.height(dynamicTopPadding))
+                    if (!isCompactHeight) { // Only add top padding if not compact height
+                        Spacer(modifier = Modifier.height(dynamicTopPadding))
+                    }
                     
                     // Album artwork or lyrics view with reduced top padding
                     ElevatedCard(
@@ -645,22 +626,7 @@ fun PlayerScreen(
                                                 fourColor = true
                                             )
                                         }
-                                        lyrics != null -> {
-                                            // Keep scroll only for lyrics view
-                                            Column(
-                                                modifier = Modifier
-                                                    .fillMaxSize()
-                                                    .verticalScroll(rememberScrollState())
-                                            ) {
-                                                Text(
-                                                    text = lyrics,
-                                                    style = MaterialTheme.typography.bodyMedium,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    textAlign = TextAlign.Center
-                                                )
-                                            }
-                                        }
-                                        else -> {
+                                        lyrics.isNullOrEmpty() || lyrics == "No lyrics found for this song" -> { // Modified condition to check for null, empty, or specific string
                                             Column(
                                                 horizontalAlignment = Alignment.CenterHorizontally
                                             ) {
@@ -672,12 +638,27 @@ fun PlayerScreen(
                                                 )
                                                 Spacer(modifier = Modifier.height(8.dp))
                                                 Text(
-                                                    text = if (onlineOnlyLyrics) 
-                                                        "No lyrics available.\nConnect to the internet to view lyrics." 
-                                                    else 
+                                                    text = if (onlineOnlyLyrics)
+                                                        "Currently no lyrics are available for this song.\n"
+                                                    else
                                                         "No lyrics available for this song.",
                                                     style = MaterialTheme.typography.bodyMedium,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                                    textAlign = TextAlign.Center
+                                                )
+                                            }
+                                        }
+                                        else -> { // This will now only be reached if lyrics is not null, not empty, and not the specific "No lyrics found" string
+                                            // Keep scroll only for lyrics view
+                                            Column(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .verticalScroll(rememberScrollState())
+                                            ) {
+                                                Text(
+                                                    text = lyrics,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                     textAlign = TextAlign.Center
                                                 )
                                             }
@@ -1824,7 +1805,7 @@ fun PlayerLocationsScreen(
     
     Scaffold(
         topBar = {
-            TopAppBar(
+            CenterAlignedTopAppBar( // Changed to CenterAlignedTopAppBar
                 title = {
                     Text(
                         text = "Choose Output Device",
@@ -1833,16 +1814,26 @@ fun PlayerLocationsScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = RhythmIcons.Back,
-                            contentDescription = "Back",
-                            tint = MaterialTheme.colorScheme.onBackground
-                        )
+                    // Consistent button style with PlayerScreen
+                    Box(modifier = Modifier.padding(start = 8.dp)) {
+                        FilledTonalIconButton(
+                            onClick = onBack,
+                            modifier = Modifier.size(40.dp),
+                            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        ) {
+                            Icon(
+                                imageVector = RhythmIcons.Back,
+                                contentDescription = "Back",
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                    containerColor = MaterialTheme.colorScheme.background // Ensure consistent background
                 )
             )
         }
@@ -2007,7 +1998,10 @@ private fun QueueItem(
                 modifier = Modifier
                     .size(36.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .background(
+                        if (isDragging) MaterialTheme.colorScheme.primaryContainer
+                        else MaterialTheme.colorScheme.surfaceVariant
+                    )
                     .detectReorderAfterLongPress(reorderableState),
                 contentAlignment = Alignment.Center
             ) {
@@ -2016,7 +2010,7 @@ private fun QueueItem(
                     Icon(
                         imageVector = Icons.Default.DragHandle,
                         contentDescription = "Drag to reorder",
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer, // Changed tint
                         modifier = Modifier.size(20.dp)
                     )
                 } else {
