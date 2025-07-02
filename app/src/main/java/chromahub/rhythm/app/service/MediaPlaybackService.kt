@@ -54,10 +54,6 @@ class MediaPlaybackService : MediaLibraryService() {
     // Settings manager
     private lateinit var appSettings: AppSettings
     
-    // Notification Channel ID
-    private val NOTIFICATION_CHANNEL_ID = "rhythm_playback_channel"
-    private val NOTIFICATION_ID = 101
-    
     // SharedPreferences keys
     companion object {
         private const val PREF_NAME = "rhythm_preferences"
@@ -125,9 +121,6 @@ class MediaPlaybackService : MediaLibraryService() {
             
             // Create the media session
             mediaSession = createMediaSession()
-            
-            // Create notification channel for Android O and above
-            createNotificationChannel()
             
             Log.d(TAG, "Service initialized successfully")
         } catch (e: Exception) {
@@ -218,10 +211,6 @@ class MediaPlaybackService : MediaLibraryService() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(TAG, "Service started with command: ${intent?.action}")
         
-        // Ensure the service is started in the foreground immediately
-        // This addresses the "ForegroundServiceDidNotStartInTimeException"
-        startForeground(NOTIFICATION_ID, createNotification())
-
         when (intent?.action) {
             ACTION_UPDATE_SETTINGS -> {
                 Log.d(TAG, "Updating service settings")
@@ -241,38 +230,6 @@ class MediaPlaybackService : MediaLibraryService() {
         
         // Always return START_STICKY to ensure the service restarts if killed
         return START_STICKY
-    }
-    
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                NOTIFICATION_CHANNEL_ID,
-                "Rhythm Playback",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Notifications for music playback controls"
-            }
-            val notificationManager: NotificationManager =
-                getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.createNotificationChannel(channel)
-        }
-    }
-    
-    private fun createNotification(): Notification {
-        val pendingIntent: PendingIntent =
-            Intent(this, MainActivity::class.java).let { notificationIntent ->
-                PendingIntent.getActivity(this, 0, notificationIntent,
-                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-            }
-        
-        return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
-            .setContentTitle("Rhythm")
-            .setContentText("Initializing...")
-            .setSmallIcon(R.drawable.rhythm_logo) // Use your app's logo
-            .setContentIntent(pendingIntent)
-            .setTicker("Rhythm is initializing")
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
     }
     
     /**
@@ -527,4 +484,4 @@ class MediaPlaybackService : MediaLibraryService() {
             }
         }
     }
-}
+} 
