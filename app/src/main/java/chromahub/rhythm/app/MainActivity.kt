@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalPermissionsApi::class)
-
 package chromahub.rhythm.app
 
 import android.Manifest
@@ -67,7 +65,6 @@ import chromahub.rhythm.app.viewmodel.ThemeViewModel
 import chromahub.rhythm.app.viewmodel.AppUpdaterViewModel // Import AppUpdaterViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
-import com.google.accompanist.permissions.MultiplePermissionsState
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.google.accompanist.permissions.rememberPermissionState
 import com.google.accompanist.permissions.shouldShowRationale
@@ -110,7 +107,6 @@ import androidx.compose.material.icons.filled.Public // Import Public icon
 import androidx.compose.material.icons.filled.BugReport // Import BugReport icon
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.AlertDialog // New import for AlertDialog
 
 enum class OnboardingStep {
     WELCOME,
@@ -397,7 +393,7 @@ fun SplashScreen() {
     }
 }
 
-@OptIn(ExperimentalPermissionsApi::class) // Explicitly add here too, just in case
+@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun PermissionHandler(
     onPermissionsGranted: @Composable () -> Unit,
@@ -460,57 +456,39 @@ fun PermissionHandler(
     val lifecycleOwner = LocalLifecycleOwner.current
 
     // Function to check and update permission status
-    // Defined as a remember'd suspend lambda
-    val checkPermissionsAndProceedInternal: suspend () -> Unit = remember {
-        {
-            val allStoragePermissionsGranted = permissionsState.permissions
-                .filter { it.permission in storagePermissions }
-                .all { it.status.isGranted }
+    val checkPermissionsAndProceed: suspend () -> Unit = {
+        val allStoragePermissionsGranted = permissionsState.permissions
+            .filter { it.permission in storagePermissions }
+            .all { it.status.isGranted }
 
-            if (allStoragePermissionsGranted) {
-                shouldShowSettingsRedirect = false
-                if (!onboardingCompleted) {
-                    currentOnboardingStep = OnboardingStep.THEMING
-                } else {
-                    currentOnboardingStep = OnboardingStep.COMPLETE
-                    isInitializingApp = true
-                }
-                val intent = Intent(context, chromahub.rhythm.app.service.MediaPlaybackService::class.java)
-                intent.action = chromahub.rhythm.app.service.MediaPlaybackService.ACTION_INIT_SERVICE
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    context.startForegroundService(intent)
-                } else {
-                    context.startService(intent)
-                }
-                isLoading = false
-                isInitializingApp = false
+        if (allStoragePermissionsGranted) {
+            shouldShowSettingsRedirect = false
+            if (!onboardingCompleted) {
+                currentOnboardingStep = OnboardingStep.THEMING
             } else {
-                val ungrantedStoragePermissions = permissionsState.permissions
-                    .filter { it.permission in storagePermissions && !it.status.isGranted }
-
-                shouldShowSettingsRedirect = ungrantedStoragePermissions.isNotEmpty() &&
-                                             ungrantedStoragePermissions.all { !it.status.shouldShowRationale }
-                currentOnboardingStep = OnboardingStep.PERMISSIONS
-                isLoading = false
-                isInitializingApp = false
+                currentOnboardingStep = OnboardingStep.COMPLETE
+                isInitializingApp = true
             }
-        }
-    }
+            val intent = Intent(context, chromahub.rhythm.app.service.MediaPlaybackService::class.java)
+            intent.action = chromahub.rhythm.app.service.MediaPlaybackService.ACTION_INIT_SERVICE
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+            delay(1000)
+            isLoading = false
+            isInitializingApp = false
+        } else {
+            val ungrantedStoragePermissions = permissionsState.permissions
+                .filter { it.permission in storagePermissions && !it.status.isGranted }
 
-    // Add logging for permission request results
-    LaunchedEffect(permissionsState.allPermissionsGranted, permissionsState.shouldShowRationale, onboardingCompleted) {
-        if (!permissionsState.allPermissionsGranted && !permissionsState.shouldShowRationale) {
-            // Log when permissions are permanently denied
-            Log.d("PermissionHandler", "Permissions permanently denied. User might have clicked 'Don't ask again'.")
-        } else if (!permissionsState.allPermissionsGranted && permissionsState.shouldShowRationale) {
-            // Log when permissions are denied but rationale can be shown
-            Log.d("PermissionHandler", "Permissions denied, showing rationale.")
-        } else if (permissionsState.allPermissionsGranted) {
-            // Log when all permissions are granted
-            Log.d("PermissionHandler", "All permissions granted.")
+            shouldShowSettingsRedirect = ungrantedStoragePermissions.isNotEmpty() &&
+                                         ungrantedStoragePermissions.all { !it.status.shouldShowRationale }
+            currentOnboardingStep = OnboardingStep.PERMISSIONS
+            isLoading = false
+            isInitializingApp = false
         }
-        // Call the suspend function directly within LaunchedEffect's coroutine scope
-        checkPermissionsAndProceedInternal()
     }
 
     // LaunchedEffect to handle initial permission check and subsequent changes
@@ -528,8 +506,7 @@ fun PermissionHandler(
                 // Do NOT set isLoading to false here. It will be set by checkPermissionsAndProceed
                 // when the permission dialog is dismissed and onResume triggers a re-check.
             } else {
-                // Call the suspend function directly within LaunchedEffect's coroutine scope
-                checkPermissionsAndProceedInternal()
+                checkPermissionsAndProceed()
             }
         }
     }
@@ -541,10 +518,10 @@ fun PermissionHandler(
                 super.onResume(owner)
                 // When activity resumes, if we are on the permissions step, re-check
                 if (currentOnboardingStep == OnboardingStep.PERMISSIONS || (onboardingCompleted && currentOnboardingStep != OnboardingStep.COMPLETE)) {
-                    launch { // This `launch` is still needed because onResume is not a suspend function
+                    launch {
                         delay(500) // Small delay to ensure system permission dialogs are fully dismissed
                         isLoading = true // Start loading when re-checking permissions on resume
-                        checkPermissionsAndProceedInternal()
+                        checkPermissionsAndProceed()
                     }
                 }
             }
@@ -556,8 +533,8 @@ fun PermissionHandler(
         // This effect runs when permission state changes (e.g., after user interacts with dialog)
         if (currentOnboardingStep == OnboardingStep.PERMISSIONS) {
             isLoading = false // Explicitly stop loading as soon as permission dialog is dismissed
-            // Call the suspend function directly within LaunchedEffect's coroutine scope
-            checkPermissionsAndProceedInternal()
+            // Re-evaluate permissions and update UI state
+            checkPermissionsAndProceed()
         }
     }
 
@@ -620,8 +597,7 @@ fun PermissionHandler(
                     shouldShowSettingsRedirect = shouldShowSettingsRedirect,
                     isParentLoading = isLoading,
                     themeViewModel = themeViewModel,
-                    appSettings = appSettings, // Pass appSettings here
-                    permissionsState = permissionsState // Pass permissionsState here
+                    appSettings = appSettings // Pass appSettings to OnboardingScreen
                 )
             }
         }
@@ -635,8 +611,7 @@ fun PermissionHandler(
         shouldShowSettingsRedirect: Boolean,
         isParentLoading: Boolean,
         themeViewModel: ThemeViewModel, // New parameter
-        appSettings: AppSettings, // New parameter
-        permissionsState: MultiplePermissionsState // New parameter
+        appSettings: AppSettings // New parameter
     ) {
         val context = LocalContext.current
         
@@ -687,8 +662,7 @@ fun PermissionHandler(
                                 OnboardingStep.PERMISSIONS -> PermissionContent(
                                     onRequestAgain = onRequestAgain,
                                     shouldShowSettingsRedirect = shouldShowSettingsRedirect,
-                                    isButtonLoading = isParentLoading, // Pass isParentLoading directly
-                                    permissionsState = permissionsState // Pass permissionsState
+                                    isButtonLoading = isParentLoading // Pass isParentLoading directly
                                 )
                                 OnboardingStep.THEMING -> ThemingContent(
                                     themeViewModel = themeViewModel,
@@ -744,49 +718,13 @@ fun PermissionHandler(
         }
     }
     
-    @OptIn(ExperimentalPermissionsApi::class)
     @Composable
     fun PermissionContent(
         onRequestAgain: () -> Unit,
         shouldShowSettingsRedirect: Boolean,
-        isButtonLoading: Boolean, // Receive this from OnboardingScreen
-        permissionsState: MultiplePermissionsState // Receive permissionsState
+        isButtonLoading: Boolean // Receive this from OnboardingScreen
     ) {
         val context = LocalContext.current
-        var showRationaleDialog by remember { mutableStateOf(false) }
-
-        LaunchedEffect(permissionsState.allPermissionsGranted, permissionsState.shouldShowRationale) {
-            if (!permissionsState.allPermissionsGranted && permissionsState.shouldShowRationale) {
-                // Show rationale dialog if permissions are denied and rationale can be shown
-                showRationaleDialog = true
-            } else if (!permissionsState.allPermissionsGranted && !permissionsState.shouldShowRationale) {
-                // Permissions permanently denied, inform user to go to settings
-                Toast.makeText(context, "Permissions permanently denied. Please enable them in app settings.", Toast.LENGTH_LONG).show()
-            }
-        }
-
-        // Rationale Dialog
-        if (showRationaleDialog) {
-            AlertDialog(
-                onDismissRequest = { showRationaleDialog = false },
-                title = { Text("Permissions Required") },
-                text = { Text("Rhythm needs access to your music files and Bluetooth to function properly. Please grant these permissions.") },
-                confirmButton = {
-                    TextButton(onClick = {
-                        showRationaleDialog = false
-                        onRequestAgain() // Re-request permissions
-                    }) {
-                        Text("Continue")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showRationaleDialog = false }) {
-                        Text("Not now")
-                    }
-                }
-            )
-        }
-
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.fillMaxWidth()
