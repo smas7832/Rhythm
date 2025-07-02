@@ -171,7 +171,8 @@ fun PlayerScreen(
     onSongClick: (Song) -> Unit = {},
     onRemoveFromQueue: (Song) -> Unit = {},
     onMoveQueueItem: (Int, Int) -> Unit = { _, _ -> },
-    onAddSongsToQueue: () -> Unit = {},
+    onAddSongsToQueue: () -> Unit = {}, // This will be the navigation action
+    onNavigateToLibrary: (LibraryTab) -> Unit = {}, // New parameter for navigation
     showAddToPlaylistSheet: Boolean = false,
     onAddToPlaylistSheetDismiss: () -> Unit = {},
     onAddSongToPlaylist: (Song, String) -> Unit = { _, _ -> },
@@ -310,7 +311,17 @@ fun PlayerScreen(
                 // Move queue item in the actual queue
                 onMoveQueueItem(fromIndex, toIndex)
             },
-            onAddSongs = onAddSongsToQueue,
+            onAddSongsClick = { // Changed parameter name
+                // Dismiss the queue sheet first
+                scope.launch {
+                    queueSheetState.hide()
+                }.invokeOnCompletion {
+                    if (!queueSheetState.isVisible) {
+                        // Navigate to the LibraryScreen (Songs tab)
+                        onNavigateToLibrary(LibraryTab.SONGS)
+                    }
+                }
+            },
             sheetState = queueSheetState
         )
     }
@@ -1150,7 +1161,7 @@ fun QueueBottomSheet(
     onDismiss: () -> Unit,
     onRemoveSong: (Song) -> Unit = {},
     onMoveQueueItem: (Int, Int) -> Unit = { _, _ -> },
-    onAddSongs: () -> Unit = {},
+    onAddSongsClick: () -> Unit = {}, // Changed parameter name
     sheetState: SheetState = rememberModalBottomSheetState()
 ) {
     val context = LocalContext.current
@@ -1212,7 +1223,7 @@ fun QueueBottomSheet(
                 
                 // Add songs button
                 FilledTonalIconButton(
-                    onClick = onAddSongs,
+                    onClick = onAddSongsClick, // Changed onClick to use new parameter
                     colors = IconButtonDefaults.filledTonalIconButtonColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer
                     )
@@ -1227,74 +1238,77 @@ fun QueueBottomSheet(
             Spacer(modifier = Modifier.height(8.dp))
             
             if (mutableQueue.isEmpty()) {
-                EmptyQueueContent(onAddSongs)
+                EmptyQueueContent(onAddSongsClick)
             } else {
                 // Now Playing section - show current song separately
                 currentSong?.let { song ->
                     NowPlayingCard(song)
                 }
                 
-                // Queue header for upcoming songs
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "UP NEXT",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    
-                    Spacer(modifier = Modifier.width(8.dp))
-                    
-                    HorizontalDivider(
+                // Only show "UP NEXT" and the rest of the queue if there's more than one song
+                if (mutableQueue.size > 1) {
+                    // Queue header for upcoming songs
+                    Row(
                         modifier = Modifier
-                            .weight(1f)
-                            .padding(horizontal = 8.dp),
-                        thickness = 1.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant
-                    )
-                }
-                
-                // Queue list with reordering
-                LazyColumn(
-                    state = reorderableState.listState,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .reorderable(reorderableState),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    itemsIndexed(
-                        items = mutableQueue,
-                        key = { _, song -> song.id }
-                    ) { index, song ->
-                        // Skip the current song as it's already shown in the NowPlayingCard
-                        if (currentSong == null || song.id != currentSong.id) {
-                            ReorderableItem(reorderableState, key = song.id) { isDragging ->
-                                QueueItem(
-                                    song = song,
-                                    index = index,
-                                    isDragging = isDragging,
-                                    onSongClick = { onSongClick(song) },
-                                    onRemove = { 
-                                        try {
-                                            // First update local UI state for immediate feedback
-                                            val indexToRemove = mutableQueue.indexOf(song)
-                                            if (indexToRemove >= 0 && indexToRemove < mutableQueue.size) {
-                                                mutableQueue.removeAt(indexToRemove)
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "UP NEXT",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        
+                        Spacer(modifier = Modifier.width(8.dp))
+                        
+                        HorizontalDivider(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(horizontal = 8.dp),
+                            thickness = 1.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant
+                        )
+                    }
+                    
+                    // Queue list with reordering
+                    LazyColumn(
+                        state = reorderableState.listState,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .reorderable(reorderableState),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        itemsIndexed(
+                            items = mutableQueue,
+                            key = { _, song -> song.id }
+                        ) { index, song ->
+                            // Skip the current song as it's already shown in the NowPlayingCard
+                            if (currentSong == null || song.id != currentSong.id) {
+                                ReorderableItem(reorderableState, key = song.id) { isDragging ->
+                                    QueueItem(
+                                        song = song,
+                                        index = index,
+                                        isDragging = isDragging,
+                                        onSongClick = { onSongClick(song) },
+                                        onRemove = { 
+                                            try {
+                                                // First update local UI state for immediate feedback
+                                                val indexToRemove = mutableQueue.indexOf(song)
+                                                if (indexToRemove >= 0 && indexToRemove < mutableQueue.size) {
+                                                    mutableQueue.removeAt(indexToRemove)
+                                                }
+                                                // Then update the actual queue via ViewModel
+                                                onRemoveSong(song)
+                                            } catch (e: Exception) {
+                                                Log.e("QueueBottomSheet", "Error removing item", e)
                                             }
-                                            // Then update the actual queue via ViewModel
-                                            onRemoveSong(song)
-                                        } catch (e: Exception) {
-                                            Log.e("QueueBottomSheet", "Error removing item", e)
-                                        }
-                                    },
-                                    reorderableState = reorderableState
-                                )
+                                        },
+                                        reorderableState = reorderableState
+                                    )
+                                }
                             }
                         }
                     }
@@ -1305,7 +1319,7 @@ fun QueueBottomSheet(
 }
 
 @Composable
-private fun EmptyQueueContent(onAddSongs: () -> Unit) {
+private fun EmptyQueueContent(onAddSongsClick: () -> Unit) { // Changed parameter name
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -1333,7 +1347,7 @@ private fun EmptyQueueContent(onAddSongs: () -> Unit) {
             
             Spacer(modifier = Modifier.height(8.dp))
             
-            OutlinedButton(onClick = onAddSongs) {
+            OutlinedButton(onClick = onAddSongsClick) { // Changed onClick to use new parameter
                 Icon(
                     imageVector = Icons.Default.Add,
                     contentDescription = null,

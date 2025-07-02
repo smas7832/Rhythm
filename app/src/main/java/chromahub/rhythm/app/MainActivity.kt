@@ -22,6 +22,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -61,6 +62,7 @@ import androidx.compose.material.icons.filled.DarkMode // New import for Dark Mo
 import chromahub.rhythm.app.ui.navigation.RhythmNavigation
 import chromahub.rhythm.app.ui.theme.RhythmTheme
 import chromahub.rhythm.app.viewmodel.ThemeViewModel
+import chromahub.rhythm.app.viewmodel.AppUpdaterViewModel // Import AppUpdaterViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
@@ -100,6 +102,11 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import chromahub.rhythm.app.data.AppSettings // Import AppSettings
+import java.util.Locale // Import Locale
+import androidx.compose.material.icons.filled.Public // Import Public icon
+import androidx.compose.material.icons.filled.BugReport // Import BugReport icon
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 
 enum class OnboardingStep {
     WELCOME,
@@ -113,6 +120,7 @@ class MainActivity : ComponentActivity() {
     private val TAG = "MainActivity"
     private val musicViewModel: MusicViewModel by viewModels()
     private val themeViewModel: ThemeViewModel by viewModels()
+    private val appUpdaterViewModel: AppUpdaterViewModel by viewModels() // Inject AppUpdaterViewModel
     private lateinit var appSettings: AppSettings // Declare AppSettings
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -149,11 +157,20 @@ class MainActivity : ComponentActivity() {
                 ) {
                     // Show splash screen first, then transition to the app
                     var showSplash by remember { mutableStateOf(true) }
-                    
+                    val hasShownBetaPopup by appSettings.hasShownBetaPopup.collectAsState()
+                    var showBetaPopup by remember { mutableStateOf(false) }
+                    val currentAppVersion by appUpdaterViewModel.currentVersion.collectAsState() // Observe current version
+                    val updateChannel by appUpdaterViewModel.updateChannel.collectAsState() // Observe update channel
+
                     // Animate the splash screen out after a delay
                     LaunchedEffect(Unit) {
                         delay(3000) // Increased delay for a longer gap between splash and onboarding
                         showSplash = false
+
+                        // Show beta popup if it hasn't been shown before AND the current version is a pre-release
+                        if (!hasShownBetaPopup && currentAppVersion.isPreRelease) {
+                            showBetaPopup = true
+                        }
                         
                         // Handle intent after splash screen disappears and app is initialized
                         if (startupIntent?.action == Intent.ACTION_VIEW && startupIntent.data != null) {
@@ -186,6 +203,18 @@ class MainActivity : ComponentActivity() {
                             exit = fadeOut(animationSpec = tween(1000, easing = androidx.compose.animation.core.EaseInCubic))
                         ) {
                             SplashScreen()
+                        }
+
+                        // Beta Program Popup
+                        AnimatedVisibility(
+                            visible = showBetaPopup,
+                            enter = fadeIn() + scaleIn(initialScale = 0.8f),
+                            exit = fadeOut() + scaleOut(targetScale = 0.8f)
+                        ) {
+                            BetaProgramPopup(onDismiss = {
+                                showBetaPopup = false
+                                appSettings.setHasShownBetaPopup(true)
+                            })
                         }
                     }
                 }
@@ -424,114 +453,102 @@ fun PermissionHandler(
     
     val permissionsState = rememberMultiplePermissionsState(allPermissions)
     
-    // This state will trigger a re-evaluation of permissions and potentially a new request
-    var permissionCheckTrigger by remember { mutableStateOf(0) }
     val lifecycleOwner = LocalLifecycleOwner.current
 
-        // Function to check and update permission status
-        val checkPermissionsAndProceed: suspend () -> Unit = {
+    // Function to check and update permission status
+    val checkPermissionsAndProceed: suspend () -> Unit = {
+        val allStoragePermissionsGranted = permissionsState.permissions
+            .filter { it.permission in storagePermissions }
+            .all { it.status.isGranted }
+
+        if (allStoragePermissionsGranted) {
+            shouldShowSettingsRedirect = false
+            if (!onboardingCompleted) {
+                currentOnboardingStep = OnboardingStep.THEMING
+            } else {
+                currentOnboardingStep = OnboardingStep.COMPLETE
+                isInitializingApp = true
+            }
+            val intent = Intent(context, chromahub.rhythm.app.service.MediaPlaybackService::class.java)
+            intent.action = chromahub.rhythm.app.service.MediaPlaybackService.ACTION_INIT_SERVICE
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+            delay(1000)
+            isLoading = false
+            isInitializingApp = false
+        } else {
+            val ungrantedStoragePermissions = permissionsState.permissions
+                .filter { it.permission in storagePermissions && !it.status.isGranted }
+
+            shouldShowSettingsRedirect = ungrantedStoragePermissions.isNotEmpty() &&
+                                         ungrantedStoragePermissions.all { !it.status.shouldShowRationale }
+            currentOnboardingStep = OnboardingStep.PERMISSIONS
+            isLoading = false
+            isInitializingApp = false
+        }
+    }
+
+    // LaunchedEffect to handle initial permission check and subsequent changes
+    LaunchedEffect(permissionsState.allPermissionsGranted, permissionsState.shouldShowRationale, onboardingCompleted) {
+        // This effect runs when permission state changes (e.g., after user interacts with dialog)
+        // or when onboarding status changes.
+        if (currentOnboardingStep == OnboardingStep.PERMISSIONS || (onboardingCompleted && currentOnboardingStep != OnboardingStep.COMPLETE)) {
             val allStoragePermissionsGranted = permissionsState.permissions
                 .filter { it.permission in storagePermissions }
                 .all { it.status.isGranted }
 
-            if (allStoragePermissionsGranted) {
-                shouldShowSettingsRedirect = false
-                if (!onboardingCompleted) {
-                    currentOnboardingStep = OnboardingStep.THEMING
-                } else {
-                    // Onboarding is complete, transition to app with a loading screen
-                    currentOnboardingStep = OnboardingStep.COMPLETE
-                    isInitializingApp = true // Start app initialization loading
-                }
-                // Initialize media service
-                val intent = Intent(context, chromahub.rhythm.app.service.MediaPlaybackService::class.java)
-                intent.action = chromahub.rhythm.app.service.MediaPlaybackService.ACTION_INIT_SERVICE
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    context.startForegroundService(intent)
-                } else {
-                    context.startService(intent)
-                }
-                delay(1000) // Give service time to initialize
-                isLoading = false // Stop general loading
-                isInitializingApp = false // Stop app initialization loading
+            if (!allStoragePermissionsGranted) {
+                isLoading = true // Show loader while permission dialog is active
+                permissionsState.launchMultiplePermissionRequest()
+                // Do NOT set isLoading to false here. It will be set by checkPermissionsAndProceed
+                // when the permission dialog is dismissed and onResume triggers a re-check.
             } else {
-                // Permissions are not granted. Stay on permissions screen.
-                val ungrantedStoragePermissions = permissionsState.permissions
-                    .filter { it.permission in storagePermissions && !it.status.isGranted }
-
-                shouldShowSettingsRedirect = ungrantedStoragePermissions.isNotEmpty() &&
-                                             ungrantedStoragePermissions.all { !it.status.shouldShowRationale }
-                currentOnboardingStep = OnboardingStep.PERMISSIONS // Explicitly stay on permissions
-                isLoading = false // Stop loading, show permission screen again
-                isInitializingApp = false // Ensure this is false if we're on permissions
-            }
-        }
-
-        // LaunchedEffect to trigger initial permission request or re-request
-        LaunchedEffect(permissionCheckTrigger, onboardingCompleted) {
-            // This effect is triggered when the user explicitly requests permissions or on initial load
-            if (currentOnboardingStep == OnboardingStep.PERMISSIONS) {
-                val allStoragePermissionsGranted = permissionsState.permissions
-                    .filter { it.permission in storagePermissions }
-                    .all { it.status.isGranted }
-
-                if (!allStoragePermissionsGranted) {
-                    // Only launch request if permissions are not granted
-                    isLoading = true // Show loader while permission dialog is active
-                    permissionsState.launchMultiplePermissionRequest()
-                    isLoading = false // Immediately set to false after launching request, as the dialog is now external
-                } else {
-                    // If permissions are already granted (e.g., on initial load or after a previous request)
-                    checkPermissionsAndProceed()
-                }
-            } else if (onboardingCompleted && currentOnboardingStep != OnboardingStep.COMPLETE) {
-                // If onboarding is completed, and we are not already in COMPLETE state,
-                // check permissions and proceed to app if granted.
-                isLoading = true // Start loading when checking permissions on resume for completed onboarding
                 checkPermissionsAndProceed()
             }
         }
+    }
 
-        // LaunchedEffect to observe lifecycle and re-check permissions on resume
-        LaunchedEffect(lifecycleOwner) {
-            lifecycleOwner.lifecycle.addObserver(object : androidx.lifecycle.DefaultLifecycleObserver {
-                override fun onResume(owner: androidx.lifecycle.LifecycleOwner) {
-                    super.onResume(owner)
-                    // When activity resumes, if we are on the permissions step, re-check
-                    if (currentOnboardingStep == OnboardingStep.PERMISSIONS || (onboardingCompleted && currentOnboardingStep != OnboardingStep.COMPLETE)) {
-                        // Small delay to ensure system permission dialogs are fully dismissed
-                        // and permission state is updated by the system.
-                        launch {
-                            delay(500)
-                            isLoading = true // Start loading when re-checking permissions on resume
-                            checkPermissionsAndProceed()
-                        }
+    // LaunchedEffect to observe lifecycle and re-check permissions on resume
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.lifecycle.addObserver(object : androidx.lifecycle.DefaultLifecycleObserver {
+            override fun onResume(owner: androidx.lifecycle.LifecycleOwner) {
+                super.onResume(owner)
+                // When activity resumes, if we are on the permissions step, re-check
+                if (currentOnboardingStep == OnboardingStep.PERMISSIONS || (onboardingCompleted && currentOnboardingStep != OnboardingStep.COMPLETE)) {
+                    launch {
+                        delay(500) // Small delay to ensure system permission dialogs are fully dismissed
+                        isLoading = true // Start loading when re-checking permissions on resume
+                        checkPermissionsAndProceed()
                     }
                 }
-            })
-        }
-
-        // New LaunchedEffect to specifically observe permission state changes and move to theming/updater/complete
-        LaunchedEffect(permissionsState.allPermissionsGranted, permissionsState.shouldShowRationale) {
-            // This effect runs when permission state changes (e.g., after user interacts with dialog)
-            if (currentOnboardingStep == OnboardingStep.PERMISSIONS) {
-                isLoading = false // Explicitly stop loading as soon as permission dialog is dismissed
-                // Re-evaluate permissions and update UI state
-                checkPermissionsAndProceed()
             }
-        }
+        })
+    }
 
-        Box(modifier = Modifier.fillMaxSize()) {
-            AnimatedVisibility(
-                visible = currentOnboardingStep == OnboardingStep.COMPLETE && !isInitializingApp, // Show app when complete AND not initializing
-                enter = fadeIn(animationSpec = tween(1000, easing = androidx.compose.animation.core.EaseOutCubic)) +
-                       slideInVertically(
-                           initialOffsetY = { it / 3 },
-                           animationSpec = tween(1000, easing = androidx.compose.animation.core.EaseOutCubic)
-                       )
-            ) {
-                onPermissionsGranted()
-            }
+    // LaunchedEffect to specifically observe permission state changes and move to theming/updater/complete
+    LaunchedEffect(permissionsState.allPermissionsGranted, permissionsState.shouldShowRationale) {
+        // This effect runs when permission state changes (e.g., after user interacts with dialog)
+        if (currentOnboardingStep == OnboardingStep.PERMISSIONS) {
+            isLoading = false // Explicitly stop loading as soon as permission dialog is dismissed
+            // Re-evaluate permissions and update UI state
+            checkPermissionsAndProceed()
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        AnimatedVisibility(
+            visible = currentOnboardingStep == OnboardingStep.COMPLETE && !isInitializingApp, // Show app when complete AND not initializing
+            enter = fadeIn(animationSpec = tween(1000, easing = androidx.compose.animation.core.EaseOutCubic)) +
+                   slideInVertically(
+                       initialOffsetY = { it / 3 },
+                       animationSpec = tween(1000, easing = androidx.compose.animation.core.EaseOutCubic)
+                   )
+        ) {
+            onPermissionsGranted()
+        }
 
             AnimatedVisibility(
                 visible = (isLoading && currentOnboardingStep != OnboardingStep.COMPLETE) || isInitializingApp, // Show loading if general loading OR app initializing
@@ -560,7 +577,7 @@ fun PermissionHandler(
                             OnboardingStep.PERMISSIONS -> {
                                 // When "Grant Permissions" is clicked, set loading to true and trigger permission request
                                 isLoading = true
-                                permissionCheckTrigger++
+                                permissionsState.launchMultiplePermissionRequest() // Directly launch request
                             }
                             OnboardingStep.THEMING -> currentOnboardingStep = OnboardingStep.UPDATER // Move to updater
                             OnboardingStep.UPDATER -> {
@@ -575,7 +592,7 @@ fun PermissionHandler(
                     onRequestAgain = {
                         // This is for "Open App Settings" or re-requesting permissions
                         isLoading = true // Set loading to true when requesting again
-                        permissionCheckTrigger++ // Trigger a new permission check
+                        permissionsState.launchMultiplePermissionRequest() // Directly launch request
                     },
                     shouldShowSettingsRedirect = shouldShowSettingsRedirect,
                     isParentLoading = isLoading,
@@ -713,7 +730,7 @@ fun PermissionHandler(
             modifier = Modifier.fillMaxWidth()
         ) {
             Icon(
-                imageVector = Icons.Filled.Warning,
+                imageVector = RhythmIcons.Actions.List,
                 contentDescription = "Permissions Required",
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(64.dp).padding(bottom = 16.dp)
@@ -997,7 +1014,9 @@ fun PermissionHandler(
         onNextStep: () -> Unit
     ) {
         val autoCheckForUpdates by appSettings.autoCheckForUpdates.collectAsState()
-    
+        val updateChannel by appSettings.updateChannel.collectAsState()
+        var showChannelDropdown by remember { mutableStateOf(false) }
+
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.fillMaxWidth()
@@ -1021,7 +1040,7 @@ fun PermissionHandler(
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(bottom = 24.dp)
             )
-    
+
             Card(
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
@@ -1062,7 +1081,7 @@ fun PermissionHandler(
                             modifier = Modifier.size(24.dp)
                         )
                     }
-    
+
                     Column(
                         modifier = Modifier
                             .weight(1f)
@@ -1079,7 +1098,7 @@ fun PermissionHandler(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-    
+
                     Switch(
                         checked = autoCheckForUpdates,
                         onCheckedChange = { appSettings.setAutoCheckForUpdates(it) },
@@ -1092,7 +1111,47 @@ fun PermissionHandler(
                     )
                 }
             }
-    
+
+            AnimatedVisibility(
+                visible = autoCheckForUpdates,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    SettingsClickableItem(
+                        title = "Update Channel",
+                        description = "Current: ${updateChannel.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }}",
+                        icon = if (updateChannel == "beta") Icons.Default.BugReport else Icons.Default.Public,
+                        iconTint = if (updateChannel == "beta") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                        onClick = { showChannelDropdown = true }
+                    )
+
+                    DropdownMenu(
+                        expanded = showChannelDropdown,
+                        onDismissRequest = { showChannelDropdown = false },
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier
+                            .align(Alignment.TopEnd) // Align to the end of the clickable item
+                            .width(150.dp) // Adjust width as needed
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Stable") },
+                            onClick = {
+                                appSettings.setUpdateChannel("stable")
+                                showChannelDropdown = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Beta") },
+                            onClick = {
+                                appSettings.setUpdateChannel("beta")
+                                showChannelDropdown = false
+                            }
+                        )
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
             FilledTonalButton(
                 onClick = onNextStep,
@@ -1123,5 +1182,126 @@ fun PermissionHandler(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+
+    @Composable
+    fun SettingsClickableItem(
+        title: String,
+        description: String,
+        icon: androidx.compose.ui.graphics.vector.ImageVector,
+        iconTint: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primary,
+        onClick: () -> Unit
+    ) {
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainer
+            ),
+            elevation = CardDefaults.cardElevation(
+                defaultElevation = 1.dp
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 6.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .clickable(onClick = onClick)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = iconTint,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 16.dp)
+                ) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+
+                    Text(
+                        text = description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Icon(
+                    imageVector = RhythmIcons.Forward,
+                    contentDescription = "Open",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+
+    @Composable
+    fun BetaProgramPopup(onDismiss: () -> Unit) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.6f))
+                .clickable(onClick = onDismiss), // Dismiss on outside click
+            contentAlignment = Alignment.Center
+        ) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth(0.85f)
+                    .padding(16.dp)
+                    .clickable(enabled = false) { /* Prevent dismissal when clicking inside card */ },
+                shape = MaterialTheme.shapes.large,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Warning,
+                        contentDescription = "Beta Program Warning",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(64.dp).padding(bottom = 16.dp)
+                    )
+                    Text(
+                        text = "Welcome to the Beta Program!",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    Text(
+                        text = "You are currently using the beta release of Rhythm. This version is still in development and may contain bugs, incomplete features, or unexpected behavior. Your feedback is highly appreciated ;)",
+                        style = MaterialTheme.typography.bodyLarge,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(bottom = 24.dp)
+                    )
+                    FilledTonalButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp)
+                    ) {
+                        Text("Got It!", style = MaterialTheme.typography.labelLarge)
+                    }
+                }
+            }
         }
     }

@@ -75,6 +75,9 @@ class AppSettings private constructor(context: Context) {
         // App Updater Settings
         private const val KEY_AUTO_CHECK_FOR_UPDATES = "auto_check_for_updates"
         private const val KEY_UPDATE_CHANNEL = "update_channel" // New key for update channel
+
+        // Beta Program
+        private const val KEY_HAS_SHOWN_BETA_POPUP = "has_shown_beta_popup"
         
         @Volatile
         private var INSTANCE: AppSettings? = null
@@ -287,6 +290,10 @@ class AppSettings private constructor(context: Context) {
 
     private val _updateChannel = MutableStateFlow(prefs.getString(KEY_UPDATE_CHANNEL, "stable") ?: "stable")
     val updateChannel: StateFlow<String> = _updateChannel.asStateFlow()
+
+    // Beta Program
+    private val _hasShownBetaPopup = MutableStateFlow(prefs.getBoolean(KEY_HAS_SHOWN_BETA_POPUP, false))
+    val hasShownBetaPopup: StateFlow<Boolean> = _hasShownBetaPopup.asStateFlow()
     
     // Playback Settings Methods
     fun setHighQualityAudio(enable: Boolean) {
@@ -494,5 +501,11 @@ class AppSettings private constructor(context: Context) {
     fun setUpdateChannel(channel: String) {
         prefs.edit().putString(KEY_UPDATE_CHANNEL, channel).apply()
         _updateChannel.value = channel
+    }
+
+    // Beta Program Methods
+    fun setHasShownBetaPopup(shown: Boolean) {
+        prefs.edit().putBoolean(KEY_HAS_SHOWN_BETA_POPUP, shown).apply()
+        _hasShownBetaPopup.value = shown
     }
 }

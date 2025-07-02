@@ -867,7 +867,15 @@ fun RhythmNavigation(
                             viewModel.moveQueueItem(fromIndex, toIndex)
                         },
                         onAddSongsToQueue = {
+                            // This parameter is now unused in PlayerScreen, as navigation is handled directly
+                            // within the QueueBottomSheet's onAddSongsClick.
+                            // However, keeping it here for API compatibility if needed elsewhere.
                             viewModel.addSongsToQueue()
+                        },
+                        onNavigateToLibrary = { tab ->
+                            // Navigate to the LibraryScreen with the specified tab
+                            navController.navigate(Screen.Library.createRoute(tab))
+                            selectedTab = 1 // Assuming Library is tab 1
                         },
                         showAddToPlaylistSheet = showAddToPlaylistSheet.value,
                         onAddToPlaylistSheetDismiss = {
