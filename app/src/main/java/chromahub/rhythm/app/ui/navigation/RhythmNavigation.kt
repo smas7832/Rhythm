@@ -286,7 +286,6 @@ fun RhythmNavigation(
                                                 .weight(1f)
                                                 .fillMaxHeight()
                                                 .clickable {
-                                                    selectedTab = index
                                                     navController.navigate(route) {
                                                         popUpTo(navController.graph.findStartDestination().id) {
                                                             saveState = true
@@ -462,7 +461,7 @@ fun RhythmNavigation(
                         onNavigateToLibrary = {
                             // Navigate to library with playlists tab selected
                             navController.navigate(Screen.Library.createRoute(LibraryTab.PLAYLISTS))
-                            selectedTab = 0 // Assuming tab 0 is playlists
+                            selectedTab = 1 // Library is tab 1
                         },
                         onNavigateToPlaylist = { playlistId ->
                             // Navigate to the specified playlist
