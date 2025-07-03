@@ -170,14 +170,14 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
         _updateChannel = MutableStateFlow("stable")
         _currentVersion = MutableStateFlow(
             AppVersion(
-                versionName = "2.1.107.269 Beta",
-                versionCode = 20207269, // Updated to reflect major*10M + minor*100K + patch*1K + buildNumber
-                releaseDate = "2025-07-02",
+                versionName = "2.1.108.274 Beta",
+                versionCode = 20208274, // Updated to reflect major*10M + minor*100K + patch*1K + buildNumber
+                releaseDate = "2025-07-03",
                 whatsNew = emptyList(),
                 knownIssues = emptyList(),
                 downloadUrl = "",
                 isPreRelease = true,
-                buildNumber = 269
+                buildNumber = 274
             )
         )
         _latestVersion = MutableStateFlow<AppVersion?>(null)

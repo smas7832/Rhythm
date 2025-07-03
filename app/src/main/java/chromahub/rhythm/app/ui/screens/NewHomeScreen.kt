@@ -2003,10 +2003,9 @@ private fun UpdateAvailableSection(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (isDownloading) {
-                        androidx.compose.material3.CircularProgressIndicator(
-                            color = MaterialTheme.colorScheme.primaryContainer,
+                        chromahub.rhythm.app.ui.components.M3FourColorCircularLoader(
                             modifier = Modifier.size(20.dp),
-                            strokeWidth = 2.dp
+                            strokeWidth = 2.dp.value
                         )
                     } else {
                         Icon(

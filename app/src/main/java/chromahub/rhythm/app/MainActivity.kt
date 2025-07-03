@@ -71,9 +71,6 @@ import com.google.accompanist.permissions.shouldShowRationale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.Image
-import chromahub.rhythm.app.ui.components.M3CircularLoader
-import chromahub.rhythm.app.ui.components.M3FourColorCircularLoader
-import chromahub.rhythm.app.ui.components.M3PulseLoader
 import chromahub.rhythm.app.data.Song
 import chromahub.rhythm.app.util.MediaUtils
 import kotlinx.coroutines.Dispatchers
@@ -107,6 +104,7 @@ import androidx.compose.material.icons.filled.Public // Import Public icon
 import androidx.compose.material.icons.filled.BugReport // Import BugReport icon
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import chromahub.rhythm.app.ui.components.M3FourColorCircularLoader // Import M3FourColorCircularLoader
 
 enum class OnboardingStep {
     WELCOME,
@@ -114,6 +112,14 @@ enum class OnboardingStep {
     THEMING,
     UPDATER, // New state for app updater settings
     COMPLETE
+}
+
+sealed class PermissionScreenState {
+    object Loading : PermissionScreenState()
+    object PermissionsRequired : PermissionScreenState()
+    object ShowRationale : PermissionScreenState()
+    object RedirectToSettings : PermissionScreenState()
+    object PermissionsGranted : PermissionScreenState()
 }
 
 class MainActivity : ComponentActivity() {
@@ -162,10 +168,16 @@ class MainActivity : ComponentActivity() {
                     val currentAppVersion by appUpdaterViewModel.currentVersion.collectAsState() // Observe current version
                     val updateChannel by appUpdaterViewModel.updateChannel.collectAsState() // Observe update channel
 
+                    // State for permission handling and app initialization
+                    var shouldShowSettingsRedirect by remember { mutableStateOf(false) }
+                    var isLoading by remember { mutableStateOf(true) } // Start as true to show loading during splash/initial checks
+                    var isInitializingApp by remember { mutableStateOf(false) }
+
                     // Animate the splash screen out after a delay
                     LaunchedEffect(Unit) {
                         delay(3000) // Increased delay for a longer gap between splash and onboarding
                         showSplash = false
+                        isLoading = false // Stop initial loading after splash
 
                         // Show beta popup if it hasn't been shown before AND the current version is a pre-release
                         if (!hasShownBetaPopup && currentAppVersion.isPreRelease) {
@@ -190,11 +202,15 @@ class MainActivity : ComponentActivity() {
                                     RhythmNavigation(
                                         viewModel = musicViewModel,
                                         themeViewModel = themeViewModel,
-                                        appSettings = appSettings // Pass appSettings here
+                                        appSettings = appSettings
                                     )
                                 },
-                                themeViewModel = themeViewModel, // Pass themeViewModel here
-                                appSettings = appSettings // Pass appSettings here
+                                themeViewModel = themeViewModel,
+                                appSettings = appSettings,
+                                isLoading = isLoading,
+                                isInitializingApp = isInitializingApp,
+                                onSetIsLoading = { isLoading = it },
+                                onSetIsInitializingApp = { isInitializingApp = it }
                             )
                         }
                         
@@ -397,14 +413,17 @@ fun SplashScreen() {
 @Composable
 fun PermissionHandler(
     onPermissionsGranted: @Composable () -> Unit,
-    themeViewModel: ThemeViewModel, // Add this parameter
-    appSettings: AppSettings // Add this parameter
+    themeViewModel: ThemeViewModel,
+    appSettings: AppSettings,
+    isLoading: Boolean, // Pass as parameter
+    isInitializingApp: Boolean, // Pass as parameter
+    onSetIsLoading: (Boolean) -> Unit, // Callback to update state
+    onSetIsInitializingApp: (Boolean) -> Unit // Callback to update state
 ) {
     val context = LocalContext.current
-    var isLoading by remember { mutableStateOf(false) } // Overall loading state for the PermissionHandler (primarily for permission dialogs)
-    var isInitializingApp by remember { mutableStateOf(false) } // New loading state for post-onboarding initialization
-    var shouldShowSettingsRedirect by remember { mutableStateOf(false) }
-    val onboardingCompleted by appSettings.onboardingCompleted.collectAsState() // Read onboarding status
+    val onboardingCompleted by appSettings.onboardingCompleted.collectAsState()
+    var permissionScreenState by remember { mutableStateOf<PermissionScreenState>(PermissionScreenState.Loading) }
+    var permissionRequestLaunched by remember { mutableStateOf(false) } // New state to track if permission request has been launched
 
     var currentOnboardingStep by remember {
         mutableStateOf(
@@ -455,87 +474,103 @@ fun PermissionHandler(
     
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    // Function to check and update permission status
-    val checkPermissionsAndProceed: suspend () -> Unit = {
+    // Centralized function to evaluate permission status and update onboarding step
+    val evaluatePermissionsAndSetStep: suspend () -> Unit = {
         val allStoragePermissionsGranted = permissionsState.permissions
             .filter { it.permission in storagePermissions }
             .all { it.status.isGranted }
 
         if (allStoragePermissionsGranted) {
-            shouldShowSettingsRedirect = false
+            permissionScreenState = PermissionScreenState.PermissionsGranted
             if (!onboardingCompleted) {
                 currentOnboardingStep = OnboardingStep.THEMING
             } else {
                 currentOnboardingStep = OnboardingStep.COMPLETE
-                isInitializingApp = true
+                onSetIsInitializingApp(true) // Start app initialization
+                val intent = Intent(context, chromahub.rhythm.app.service.MediaPlaybackService::class.java)
+                intent.action = chromahub.rhythm.app.service.MediaPlaybackService.ACTION_INIT_SERVICE
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
+                delay(1000) // Give service time to initialize
+                onSetIsInitializingApp(false) // End app initialization
             }
-            val intent = Intent(context, chromahub.rhythm.app.service.MediaPlaybackService::class.java)
-            intent.action = chromahub.rhythm.app.service.MediaPlaybackService.ACTION_INIT_SERVICE
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
-            delay(1000)
-            isLoading = false
-            isInitializingApp = false
+            onSetIsLoading(false) // Always set loading to false after evaluation
         } else {
+            // Permissions are NOT granted.
+            // Permissions are NOT granted.
             val ungrantedStoragePermissions = permissionsState.permissions
                 .filter { it.permission in storagePermissions && !it.status.isGranted }
 
-            shouldShowSettingsRedirect = ungrantedStoragePermissions.isNotEmpty() &&
-                                         ungrantedStoragePermissions.all { !it.status.shouldShowRationale }
+            val shouldShowRationaleForAny = ungrantedStoragePermissions.any { it.status.shouldShowRationale }
+            val allDeniedWithoutRationale = ungrantedStoragePermissions.isNotEmpty() && ungrantedStoragePermissions.all { !it.status.shouldShowRationale }
+
+            // Determine the correct permission screen state
+            if (!permissionRequestLaunched && !onboardingCompleted) {
+                // This is the very first time the app is asking for permissions on a fresh install/first run.
+                // The system permission dialog has not been shown yet.
+                permissionScreenState = PermissionScreenState.PermissionsRequired
+            } else if (shouldShowRationaleForAny) {
+                // Permissions were denied, but not permanently. We should show rationale.
+                permissionScreenState = PermissionScreenState.ShowRationale
+            } else if (allDeniedWithoutRationale) {
+                // Permissions were denied permanently (either by user checking "don't ask again" or revoking from settings).
+                permissionScreenState = PermissionScreenState.RedirectToSettings
+            } else {
+                // Fallback for any other unhandled state, assume permissions are required
+                // This might catch cases where permissions were revoked after onboarding, but not permanently.
+                permissionScreenState = PermissionScreenState.PermissionsRequired
+            }
             currentOnboardingStep = OnboardingStep.PERMISSIONS
-            isLoading = false
-            isInitializingApp = false
+            onSetIsLoading(false) // Always set loading to false after evaluation
         }
     }
 
-    // LaunchedEffect to handle initial permission check and subsequent changes
-    LaunchedEffect(permissionsState.allPermissionsGranted, permissionsState.shouldShowRationale, onboardingCompleted) {
-        // This effect runs when permission state changes (e.g., after user interacts with dialog)
-        // or when onboarding status changes.
-        if (currentOnboardingStep == OnboardingStep.PERMISSIONS || (onboardingCompleted && currentOnboardingStep != OnboardingStep.COMPLETE)) {
-            val allStoragePermissionsGranted = permissionsState.permissions
-                .filter { it.permission in storagePermissions }
-                .all { it.status.isGranted }
-
-            if (!allStoragePermissionsGranted) {
-                isLoading = true // Show loader while permission dialog is active
+    // Effect to trigger permission request when entering PERMISSIONS step
+    LaunchedEffect(currentOnboardingStep, permissionScreenState) { // Add permissionScreenState as a key
+        if (currentOnboardingStep == OnboardingStep.PERMISSIONS) {
+            // Only set loading and launch request if we are in PermissionsRequired state
+            if (permissionScreenState == PermissionScreenState.PermissionsRequired && !permissionRequestLaunched) {
+                onSetIsLoading(true) // Show loader on the button
                 permissionsState.launchMultiplePermissionRequest()
-                // Do NOT set isLoading to false here. It will be set by checkPermissionsAndProceed
-                // when the permission dialog is dismissed and onResume triggers a re-check.
-            } else {
-                checkPermissionsAndProceed()
+                permissionRequestLaunched = true
+            } else if (permissionScreenState == PermissionScreenState.Loading) {
+                // If still in loading, re-evaluate to determine the correct state
+                evaluatePermissionsAndSetStep()
             }
         }
     }
 
-    // LaunchedEffect to observe lifecycle and re-check permissions on resume
+    // Effect to re-evaluate permissions after a request or on resume
+    LaunchedEffect(permissionsState.allPermissionsGranted, permissionsState.shouldShowRationale) {
+        // This effect runs when permission state changes (e.g., after user interacts with dialog)
+        // or when the app resumes.
+        // Only re-evaluate if we are currently on the permissions step or if onboarding is complete
+        // but permissions somehow became ungranted (e.g., user revoked from settings).
+        if (currentOnboardingStep == OnboardingStep.PERMISSIONS || (onboardingCompleted && permissionScreenState != PermissionScreenState.PermissionsGranted)) {
+            onSetIsLoading(true) // Start loading when re-checking permissions
+            evaluatePermissionsAndSetStep()
+        }
+    }
+
+    // Effect to observe lifecycle and re-check permissions on resume
     LaunchedEffect(lifecycleOwner) {
         lifecycleOwner.lifecycle.addObserver(object : androidx.lifecycle.DefaultLifecycleObserver {
             override fun onResume(owner: androidx.lifecycle.LifecycleOwner) {
                 super.onResume(owner)
                 // When activity resumes, if we are on the permissions step, re-check
-                if (currentOnboardingStep == OnboardingStep.PERMISSIONS || (onboardingCompleted && currentOnboardingStep != OnboardingStep.COMPLETE)) {
+                if (currentOnboardingStep == OnboardingStep.PERMISSIONS || (onboardingCompleted && permissionScreenState != PermissionScreenState.PermissionsGranted)) {
                     launch {
                         delay(500) // Small delay to ensure system permission dialogs are fully dismissed
-                        isLoading = true // Start loading when re-checking permissions on resume
-                        checkPermissionsAndProceed()
+                        onSetIsLoading(true) // Start loading when re-checking permissions on resume
+                        evaluatePermissionsAndSetStep()
+                        permissionRequestLaunched = false // Reset for next time
                     }
                 }
             }
         })
-    }
-
-    // LaunchedEffect to specifically observe permission state changes and move to theming/updater/complete
-    LaunchedEffect(permissionsState.allPermissionsGranted, permissionsState.shouldShowRationale) {
-        // This effect runs when permission state changes (e.g., after user interacts with dialog)
-        if (currentOnboardingStep == OnboardingStep.PERMISSIONS) {
-            isLoading = false // Explicitly stop loading as soon as permission dialog is dismissed
-            // Re-evaluate permissions and update UI state
-            checkPermissionsAndProceed()
-        }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -550,65 +585,71 @@ fun PermissionHandler(
             onPermissionsGranted()
         }
 
-            AnimatedVisibility(
-                visible = (isLoading && currentOnboardingStep != OnboardingStep.COMPLETE) || isInitializingApp, // Show loading if general loading OR app initializing
-                exit = fadeOut(animationSpec = tween(800, easing = androidx.compose.animation.core.EaseInCubic))
+        AnimatedVisibility(
+            visible = isInitializingApp || (isLoading && currentOnboardingStep != OnboardingStep.COMPLETE && currentOnboardingStep != OnboardingStep.PERMISSIONS), // Show loading if app initializing, or general loading not on permission screen
+            exit = fadeOut(animationSpec = tween(800, easing = androidx.compose.animation.core.EaseInCubic))
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    M3FourColorCircularLoader(
-                        modifier = Modifier.size(64.dp)
-                    )
-                }
-            }
-
-            AnimatedVisibility(
-                visible = !isLoading && !isInitializingApp && currentOnboardingStep != OnboardingStep.COMPLETE, // Show onboarding if not loading AND not initializing AND not complete
-                enter = fadeIn(animationSpec = tween(800, easing = androidx.compose.animation.core.EaseOutCubic)) +
-                       scaleIn(initialScale = 0.95f, animationSpec = tween(800, easing = androidx.compose.animation.core.EaseOutCubic))
-            ) {
-                OnboardingScreen(
-                    currentStep = currentOnboardingStep,
-                    onNextStep = {
-                        when (currentOnboardingStep) {
-                            OnboardingStep.WELCOME -> currentOnboardingStep = OnboardingStep.PERMISSIONS
-                            OnboardingStep.PERMISSIONS -> {
-                                // When "Grant Permissions" is clicked, set loading to true and trigger permission request
-                                isLoading = true
-                                permissionsState.launchMultiplePermissionRequest() // Directly launch request
-                            }
-                            OnboardingStep.THEMING -> currentOnboardingStep = OnboardingStep.UPDATER // Move to updater
-                            OnboardingStep.UPDATER -> {
-                                appSettings.setOnboardingCompleted(true) // Mark onboarding as complete
-                                currentOnboardingStep = OnboardingStep.COMPLETE // Move to complete
-                                // The checkPermissionsAndProceed will handle setting isInitializingApp = true
-                                // and then false after service init.
-                            }
-                            OnboardingStep.COMPLETE -> { /* Should not happen */ }
-                        }
-                    },
-                    onRequestAgain = {
-                        // This is for "Open App Settings" or re-requesting permissions
-                        isLoading = true // Set loading to true when requesting again
-                        permissionsState.launchMultiplePermissionRequest() // Directly launch request
-                    },
-                    shouldShowSettingsRedirect = shouldShowSettingsRedirect,
-                    isParentLoading = isLoading,
-                    themeViewModel = themeViewModel,
-                    appSettings = appSettings // Pass appSettings to OnboardingScreen
+                M3FourColorCircularLoader(
+                    modifier = Modifier.size(64.dp)
                 )
             }
         }
+
+        AnimatedVisibility(
+            visible = !isLoading && !isInitializingApp && currentOnboardingStep != OnboardingStep.COMPLETE, // Show onboarding if not loading AND not initializing AND not complete
+            enter = fadeIn(animationSpec = tween(800, easing = androidx.compose.animation.core.EaseOutCubic)) +
+                   scaleIn(initialScale = 0.95f, animationSpec = tween(800, easing = androidx.compose.animation.core.EaseOutCubic))
+        ) {
+            OnboardingScreen(
+                currentStep = currentOnboardingStep,
+                onNextStep = {
+                    when (currentOnboardingStep) {
+                        OnboardingStep.WELCOME -> currentOnboardingStep = OnboardingStep.PERMISSIONS
+                        OnboardingStep.PERMISSIONS -> {
+                            // This branch is now only for the "Grant Access" button click
+                            // which should trigger the permission request.
+                            onSetIsLoading(true) // Set loading to true when requesting
+                            permissionsState.launchMultiplePermissionRequest() // Directly launch request
+                            permissionRequestLaunched = true // Mark as launched
+                        }
+                        OnboardingStep.THEMING -> currentOnboardingStep = OnboardingStep.UPDATER // Move to updater
+                        OnboardingStep.UPDATER -> {
+                            appSettings.setOnboardingCompleted(true) // Mark onboarding as complete
+                            currentOnboardingStep = OnboardingStep.COMPLETE // Move to complete
+                            // The evaluatePermissionsAndSetStep will handle setting isInitializingApp = true
+                            // and then false after service init.
+                        }
+                        OnboardingStep.COMPLETE -> { /* Should not happen */ }
+                    }
+                },
+                onRequestAgain = {
+                    // This is for "Open App Settings" or re-requesting permissions
+                    // This will be called when the user clicks "Grant Access" or "Open Settings"
+                    // in the PermissionContent.
+                    onSetIsLoading(true) // Set loading to true when requesting again
+                    // The action (launching settings or re-requesting) will be handled inside PermissionContent
+                    // based on permissionScreenState.
+                    // No need to launchMultiplePermissionRequest here, as it's handled by the button click in PermissionContent
+                },
+                permissionScreenState = permissionScreenState, // Pass the state
+                isParentLoading = isLoading,
+                themeViewModel = themeViewModel,
+                appSettings = appSettings // Pass appSettings to OnboardingScreen
+            )
+        }
     }
+}
     
     @Composable
     fun OnboardingScreen(
         currentStep: OnboardingStep, // New parameter
         onNextStep: () -> Unit, // New parameter
         onRequestAgain: () -> Unit, // Keep this for permission re-request
-        shouldShowSettingsRedirect: Boolean,
+        permissionScreenState: PermissionScreenState, // New parameter
         isParentLoading: Boolean,
         themeViewModel: ThemeViewModel, // New parameter
         appSettings: AppSettings // New parameter
@@ -660,8 +701,9 @@ fun PermissionHandler(
                             when (step) {
                                 OnboardingStep.WELCOME -> WelcomeContent(onNextStep)
                                 OnboardingStep.PERMISSIONS -> PermissionContent(
-                                    onRequestAgain = onRequestAgain,
-                                    shouldShowSettingsRedirect = shouldShowSettingsRedirect,
+                                    permissionScreenState = permissionScreenState, // Pass the state
+                                    onGrantAccess = onNextStep, // This will trigger the permission request in PermissionHandler
+                                    onOpenSettings = onRequestAgain, // This will trigger opening settings
                                     isButtonLoading = isParentLoading // Pass isParentLoading directly
                                 )
                                 OnboardingStep.THEMING -> ThemingContent(
@@ -720,8 +762,9 @@ fun PermissionHandler(
     
     @Composable
     fun PermissionContent(
-        onRequestAgain: () -> Unit,
-        shouldShowSettingsRedirect: Boolean,
+        permissionScreenState: PermissionScreenState, // New parameter
+        onGrantAccess: () -> Unit, // Callback for "Grant Access"
+        onOpenSettings: () -> Unit, // Callback for "Open Settings"
         isButtonLoading: Boolean // Receive this from OnboardingScreen
     ) {
         val context = LocalContext.current
@@ -737,7 +780,12 @@ fun PermissionHandler(
             )
     
             Text(
-                text = "Grant Permissions",
+                text = when (permissionScreenState) {
+                    PermissionScreenState.PermissionsRequired -> "Grant Permissions"
+                    PermissionScreenState.ShowRationale -> "Permissions Needed"
+                    PermissionScreenState.RedirectToSettings -> "Permissions Denied"
+                    else -> "Permissions" // Should not happen
+                },
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
@@ -745,7 +793,12 @@ fun PermissionHandler(
             )
     
             Text(
-                text = "Rhythm needs a few permissions to access your music and connect to devices.",
+                text = when (permissionScreenState) {
+                    PermissionScreenState.PermissionsRequired -> "Rhythm needs a few permissions to access your music and connect to devices."
+                    PermissionScreenState.ShowRationale -> "Rhythm needs access to your music files and Bluetooth to function properly. Please grant the necessary permissions."
+                    PermissionScreenState.RedirectToSettings -> "Permissions permanently denied. Please enable them in app settings to use Rhythm."
+                    else -> "" // Should not happen
+                },
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(bottom = 24.dp)
@@ -764,16 +817,19 @@ fun PermissionHandler(
     
             FilledTonalButton(
                 onClick = {
-                    if (shouldShowSettingsRedirect) {
-                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                            data = Uri.fromParts("package", context.packageName, null)
+                    when (permissionScreenState) {
+                        PermissionScreenState.PermissionsRequired, PermissionScreenState.ShowRationale -> onGrantAccess()
+                        PermissionScreenState.RedirectToSettings -> {
+                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.fromParts("package", context.packageName, null)
+                            }
+                            context.startActivity(intent)
+                            onOpenSettings() // Call the callback to update loading state
                         }
-                        context.startActivity(intent)
-                    } else {
-                        onRequestAgain()
+                        else -> { /* Do nothing */ }
                     }
                 },
-                enabled = !isButtonLoading, // Use the passed-down state to enable/disable
+                enabled = !isButtonLoading,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)
@@ -787,7 +843,11 @@ fun PermissionHandler(
                         )
                     } else {
                         Text(
-                            text = if (shouldShowSettingsRedirect) "Open Settings" else "Grant Access",
+                            text = when (permissionScreenState) {
+                                PermissionScreenState.PermissionsRequired, PermissionScreenState.ShowRationale -> "Grant Access"
+                                PermissionScreenState.RedirectToSettings -> "Open Settings"
+                                else -> "Continue"
+                            },
                             style = MaterialTheme.typography.labelLarge
                         )
                     }
@@ -799,16 +859,6 @@ fun PermissionHandler(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 8.dp)
-                )
-            }
-    
-            if (shouldShowSettingsRedirect) {
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = "Permissions permanently denied. Please enable them in app settings.",
-                    style = MaterialTheme.typography.bodySmall,
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.error
                 )
             }
         }
