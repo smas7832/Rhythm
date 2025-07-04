@@ -128,7 +128,7 @@ object ImageUtils {
         data: Any?,
         name: String?,
         cacheDir: File,
-        type: PlaceholderType = PlaceholderType.GENERAL
+        type: M3PlaceholderType = M3PlaceholderType.GENERAL
     ): ImageRequest.Builder.() -> Unit = {
         // Set the main data source
         data(data)
@@ -178,18 +178,4 @@ object ImageUtils {
         memoryCachePolicy(coil.request.CachePolicy.ENABLED)
     }
     
-    /**
-     * Enum defining the type of placeholder to use
-     * 
-     * @deprecated Use M3PlaceholderType instead for new Compose components
-     */
-    @Deprecated("Use M3PlaceholderType instead for new Compose components", 
-                ReplaceWith("M3PlaceholderType", "chromahub.rhythm.app.ui.components.M3PlaceholderType"))
-    enum class PlaceholderType {
-        ALBUM,
-        ARTIST,
-        TRACK,
-        PLAYLIST,
-        GENERAL
-    }
-} 
+}

@@ -96,6 +96,7 @@ import java.util.Locale
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Info // Added import for Info icon
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
@@ -429,8 +430,8 @@ fun SettingsScreen(
                 var showChannelDropdown by remember { mutableStateOf(false) }
 
                 SettingsToggleItem(
-                    title = "Auto check for updates",
-                    description = "Check for updates from GitHub automatically",
+                    title = "Auto Check",
+                    description = "Check for updates from Rhythm's GitHub repo automatically",
                     icon = RhythmIcons.Actions.Update,
                     checked = autoCheckForUpdates,
                     onCheckedChange = {
@@ -541,7 +542,18 @@ fun SettingsScreen(
                                     .padding(top = 8.dp)
                                     .weight(1f)
                             ) {
-                                Text("About")
+                                Row( // Added Row for icon and text
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Icon( // Added Info icon
+                                        imageVector = Icons.Default.Info,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp)) // Spacer between icon and text
+                                    Text("About")
+                                }
                             }
 
                             Button(

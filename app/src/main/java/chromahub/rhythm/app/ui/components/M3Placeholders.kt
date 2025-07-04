@@ -13,7 +13,7 @@ import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.AudioFile
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.QueueMusic
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -63,7 +63,7 @@ fun M3Placeholder(
             getColorForName(name, MaterialTheme.colorScheme.surfaceVariant)
         )
         M3PlaceholderType.PLAYLIST -> Triple(
-            Icons.Filled.QueueMusic,
+            Icons.AutoMirrored.Filled.QueueMusic,
             RoundedCornerShape(8.dp),
             getColorForName(name, MaterialTheme.colorScheme.surfaceVariant)
         )
@@ -165,4 +165,4 @@ fun PlaylistPlaceholder(name: String? = null, modifier: Modifier = Modifier) {
         name = name,
         modifier = modifier
     )
-} 
+}

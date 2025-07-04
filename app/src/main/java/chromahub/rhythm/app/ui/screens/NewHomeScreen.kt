@@ -92,6 +92,7 @@ import chromahub.rhythm.app.data.Artist
 import chromahub.rhythm.app.data.Song
 import chromahub.rhythm.app.ui.components.MiniPlayer
 import chromahub.rhythm.app.ui.components.RhythmIcons
+import chromahub.rhythm.app.ui.components.M3PlaceholderType
 import chromahub.rhythm.app.util.ImageUtils
 import chromahub.rhythm.app.viewmodel.AppUpdaterViewModel
 import chromahub.rhythm.app.viewmodel.AppVersion
@@ -220,16 +221,8 @@ fun NewHomeScreen(
                 },
                 actions = {
                     // Settings icon
-                    IconButton(onClick = onSettingsClick) {
-                        Icon(
-                            imageVector = RhythmIcons.Settings,
-                            contentDescription = "Settings"
-                        )
-                    }
-                    
-                    // Search button
                     FilledIconButton(
-                        onClick = onSearchClick,
+                        onClick = onSettingsClick,
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer,
                             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -237,8 +230,8 @@ fun NewHomeScreen(
                         modifier = Modifier.padding(end = 16.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.Search,
-                            contentDescription = "Search"
+                            imageVector = RhythmIcons.Settings,
+                            contentDescription = "Settings"
                         )
                     }
                 },
@@ -786,105 +779,121 @@ private fun QuickActionButton(
 @Composable
 private fun ListeningStatsSection() {
     val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
-    val songs by viewModel.songs.collectAsState()
-    val artists by viewModel.artists.collectAsState()
     val recentlyPlayed by viewModel.recentlyPlayed.collectAsState()
-    
-    // Calculate total listening time in hours (for a real app, this would come from actual playback history)
-    // Here we're estimating based on recently played songs
+
     val listeningTimeHours = remember(recentlyPlayed) {
         val totalMillis = recentlyPlayed.sumOf { it.duration }
         val hours = totalMillis / (1000 * 60 * 60)
         if (hours < 1) "< 1h" else "${hours}h"
     }
-    
-    // Calculate number of songs played (using recently played as an approximation)
+
     val songsPlayed = remember(recentlyPlayed) {
         recentlyPlayed.size.toString()
     }
-    
-    // Get unique artists count
+
     val uniqueArtists = remember(recentlyPlayed) {
         recentlyPlayed.map { it.artist }.distinct().size.toString()
     }
-    
-    Surface(
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        shape = RoundedCornerShape(16.dp),
+
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
     ) {
+        Text(
+            text = "Your Listening Stats",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceAround,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            StatCard(
-                value = listeningTimeHours,
-                label = "This Week",
-                icon = RhythmIcons.Player.Timer
-            )
-            
-            HorizontalDivider(
-                modifier = Modifier
-                    .height(40.dp)
-                    .width(1.dp)
-                    .align(Alignment.CenterVertically),
-                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.2f)
-            )
-            
-            StatCard(
-                value = songsPlayed,
-                label = "Songs Played",
-                icon = RhythmIcons.Music.MusicNote
-            )
-            
-            HorizontalDivider(
-                modifier = Modifier
-                    .height(40.dp)
-                    .width(1.dp)
-                    .align(Alignment.CenterVertically),
-                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.2f)
-            )
-            
-            StatCard(
-                value = uniqueArtists,
-                label = "Artists",
-                icon = RhythmIcons.Artist
-            )
+            // Stat Card 1: Listening Time
+            Surface(
+                onClick = { /* Optional: navigate to detailed stats */ },
+                modifier = Modifier.weight(1f),
+                color = MaterialTheme.colorScheme.primaryContainer,
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                StatCardContent(
+                    value = listeningTimeHours,
+                    label = "This Week",
+                    icon = RhythmIcons.Player.Timer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // Stat Card 2: Songs Played
+            Surface(
+                onClick = { /* Optional: navigate to detailed stats */ },
+                modifier = Modifier.weight(1f),
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                StatCardContent(
+                    value = songsPlayed,
+                    label = "Songs Played",
+                    icon = RhythmIcons.Music.MusicNote,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // Stat Card 3: Artists
+            Surface(
+                onClick = { /* Optional: navigate to detailed stats */ },
+                modifier = Modifier.weight(1f),
+                color = MaterialTheme.colorScheme.tertiaryContainer,
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                StatCardContent(
+                    value = uniqueArtists,
+                    label = "Artists",
+                    icon = RhythmIcons.Artist,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun StatCard(
+private fun StatCardContent(
     value: String,
     label: String,
-    icon: ImageVector
+    icon: ImageVector,
+    contentColor: Color
 ) {
     Column(
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.padding(vertical = 16.dp, horizontal = 8.dp)
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSecondaryContainer,
-            modifier = Modifier.size(24.dp)
+            tint = contentColor,
+            modifier = Modifier.size(28.dp)
         )
-        
+
+        Spacer(modifier = Modifier.height(8.dp))
+
         Text(
             text = value,
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSecondaryContainer
+            color = contentColor
         )
-        
+
         Text(
             text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+            style = MaterialTheme.typography.bodyMedium,
+            color = contentColor.copy(alpha = 0.7f)
         )
     }
 }
@@ -1219,7 +1228,7 @@ private fun EnhancedRecentChip(
                             song.artworkUri,
                             song.title,
                             context.cacheDir,
-                            ImageUtils.PlaceholderType.TRACK
+                            M3PlaceholderType.TRACK
                         ))
                         .build(),
                     contentDescription = null,
@@ -1286,7 +1295,7 @@ private fun QuickPickCard(
                             song.artworkUri,
                             song.title,
                             context.cacheDir,
-                            ImageUtils.PlaceholderType.TRACK
+                            M3PlaceholderType.TRACK
                         ))
                         .build(),
                     contentDescription = null,
@@ -1401,7 +1410,7 @@ private fun FeaturedCard(
                         album.artworkUri,
                         album.title,
                         context.cacheDir,
-                        ImageUtils.PlaceholderType.ALBUM
+                        M3PlaceholderType.ALBUM
                     ))
                     .build(),
                 contentDescription = null,
@@ -1586,7 +1595,7 @@ private fun NewAlbumCard(
                             album.artworkUri,
                             album.title,
                             context.cacheDir,
-                            ImageUtils.PlaceholderType.ALBUM
+                            M3PlaceholderType.ALBUM
                         ))
                         .build(),
                     contentDescription = null,
@@ -1673,7 +1682,7 @@ private fun NewArtistCard(
                             artist.artworkUri,
                             artist.name,
                             context.cacheDir,
-                            ImageUtils.PlaceholderType.ARTIST
+                            M3PlaceholderType.ARTIST
                         ))
                         .build(),
                     contentDescription = null,
@@ -1797,7 +1806,7 @@ private fun RecommendedSongItem(
                             song.artworkUri,
                             song.title,
                             context.cacheDir,
-                            ImageUtils.PlaceholderType.TRACK
+                            M3PlaceholderType.TRACK
                         ))
                         .build(),
                     contentDescription = null,

@@ -106,6 +106,7 @@ import chromahub.rhythm.app.data.Song
 import chromahub.rhythm.app.ui.components.WaveSlider
 import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.ui.theme.PlayerButtonColor
+import chromahub.rhythm.app.ui.components.M3PlaceholderType
 import chromahub.rhythm.app.util.ImageUtils
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -582,11 +583,11 @@ fun PlayerScreen(
                                             model = ImageRequest.Builder(context)
                                                 .apply(ImageUtils.buildImageRequest(
                                                     song.artworkUri,
-                                                    song.title,
-                                                    context.cacheDir,
-                                                    ImageUtils.PlaceholderType.TRACK
-                                                ))
-                                                .build(),
+                            song.title,
+                            context.cacheDir,
+                            M3PlaceholderType.TRACK
+                        ))
+                        .build(),
                                             contentDescription = "Album artwork for ${song.title}",
                                             contentScale = ContentScale.Crop,
                                             modifier = Modifier
@@ -1400,12 +1401,12 @@ private fun NowPlayingCard(song: Song) {
                     AsyncImage(
                         model = ImageRequest.Builder(context)
                             .apply(ImageUtils.buildImageRequest(
-                                song.artworkUri,
-                                song.title,
-                                context.cacheDir,
-                                ImageUtils.PlaceholderType.TRACK
-                            ))
-                            .build(),
+                            song.artworkUri,
+                            song.title,
+                            context.cacheDir,
+                            M3PlaceholderType.TRACK
+                        ))
+                        .build(),
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
@@ -1516,7 +1517,7 @@ private fun SongToAddCard(song: Song) {
                             song.artworkUri,
                             song.title,
                             LocalContext.current.cacheDir,
-                            ImageUtils.PlaceholderType.TRACK
+                            M3PlaceholderType.TRACK
                         ))
                         .build(),
                     contentDescription = null,
@@ -2037,7 +2038,7 @@ private fun QueueItem(
                             song.artworkUri,
                             song.title,
                             context.cacheDir,
-                            ImageUtils.PlaceholderType.TRACK
+                            M3PlaceholderType.TRACK
                         ))
                         .build(),
                     contentDescription = null,

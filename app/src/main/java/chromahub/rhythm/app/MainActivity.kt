@@ -76,7 +76,7 @@ import chromahub.rhythm.app.util.MediaUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner // Corrected import for LocalLifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner // Corrected import for LocalLifecycleOwner
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer

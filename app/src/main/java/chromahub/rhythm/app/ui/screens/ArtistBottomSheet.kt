@@ -31,6 +31,7 @@ import chromahub.rhythm.app.data.Album
 import chromahub.rhythm.app.data.Artist
 import chromahub.rhythm.app.data.Song
 import chromahub.rhythm.app.ui.components.RhythmIcons
+import chromahub.rhythm.app.ui.components.M3PlaceholderType
 import chromahub.rhythm.app.util.ImageUtils
 import chromahub.rhythm.app.viewmodel.MusicViewModel
 import coil.compose.AsyncImage
@@ -111,7 +112,7 @@ fun ArtistBottomSheet(
                                 artist.artworkUri,
                                 artist.name,
                                 context.cacheDir,
-                                ImageUtils.PlaceholderType.ARTIST
+                                M3PlaceholderType.ARTIST
                             ))
                             .build(),
                         contentDescription = "Artist image for ${artist.name}",
@@ -364,7 +365,7 @@ private fun ArtistAlbumCard(
                             album.artworkUri,
                             album.title,
                             context.cacheDir,
-                            ImageUtils.PlaceholderType.ALBUM
+                            M3PlaceholderType.ALBUM
                         ))
                         .build(),
                     contentDescription = null,
@@ -459,7 +460,7 @@ private fun ArtistSongItem(
                             song.artworkUri,
                             song.title,
                             context.cacheDir,
-                            ImageUtils.PlaceholderType.TRACK
+                            M3PlaceholderType.TRACK
                         ))
                         .build(),
                     contentDescription = null,
@@ -489,4 +490,4 @@ private fun ArtistSongItem(
             containerColor = Color.Transparent
         )
     )
-} 
+}

@@ -64,6 +64,7 @@ import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.ui.LocalMiniPlayerPadding
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import chromahub.rhythm.app.ui.components.M3PlaceholderType
 import chromahub.rhythm.app.util.ImageUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -287,7 +288,7 @@ fun PlaylistDetailScreen(
                                         playlist.artworkUri,
                                         playlist.name,
                                         context.cacheDir,
-                                        ImageUtils.PlaceholderType.PLAYLIST
+                                        M3PlaceholderType.PLAYLIST
                                     ))
                                     .build(),
                                 contentDescription = null,
@@ -405,7 +406,7 @@ fun PlaylistSongItem(
                             song.artworkUri,
                             song.title,
                             context.cacheDir,
-                            ImageUtils.PlaceholderType.TRACK
+                            M3PlaceholderType.TRACK
                         ))
                         .build(),
                     contentDescription = null,

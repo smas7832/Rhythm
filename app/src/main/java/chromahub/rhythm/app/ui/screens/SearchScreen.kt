@@ -3,6 +3,7 @@ package chromahub.rhythm.app.ui.screens
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import chromahub.rhythm.app.ui.components.M3PlaceholderType
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -766,7 +767,7 @@ fun SearchSongItem(
                             song.artworkUri,
                             song.title,
                             context.cacheDir,
-                            ImageUtils.PlaceholderType.TRACK
+                            M3PlaceholderType.TRACK
                         ))
                         .build(),
                     contentDescription = null,
@@ -853,7 +854,7 @@ fun SearchAlbumItem(
                             album.artworkUri,
                             album.title,
                             context.cacheDir,
-                            ImageUtils.PlaceholderType.ALBUM
+                            M3PlaceholderType.ALBUM
                         ))
                         .build(),
                     contentDescription = null,
@@ -922,7 +923,7 @@ fun SearchArtistItem(
                             artist.artworkUri,
                             artist.name,
                             context.cacheDir,
-                            ImageUtils.PlaceholderType.ARTIST
+                            M3PlaceholderType.ARTIST
                         ))
                         .build(),
                     contentDescription = null,
@@ -1020,7 +1021,7 @@ fun SearchPlaylistItem(
                                 playlist.artworkUri,
                                 playlist.name,
                                 context.cacheDir,
-                                ImageUtils.PlaceholderType.PLAYLIST
+                                M3PlaceholderType.PLAYLIST
                             ))
                             .build(),
                         contentDescription = null,
@@ -1153,7 +1154,7 @@ fun RecommendedAlbumItem(
                             album.artworkUri,
                             album.title,
                             LocalContext.current.cacheDir,
-                            ImageUtils.PlaceholderType.ALBUM
+                            M3PlaceholderType.ALBUM
                         ))
                         .build(),
                     contentDescription = null,
@@ -1320,7 +1321,7 @@ private fun EnhancedRecentChip(
                             song.artworkUri,
                             song.title,
                             LocalContext.current.cacheDir,
-                            ImageUtils.PlaceholderType.TRACK
+                            M3PlaceholderType.TRACK
                         ))
                         .build(),
                     contentDescription = null,

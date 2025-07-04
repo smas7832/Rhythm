@@ -317,37 +317,7 @@ fun AppUpdaterScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // Report Bug button
-                        Button(
-                            onClick = {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/cromaguy/Rhythm/issues"))
-                                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                context.startActivity(intent)
-                            },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary
-                            ),
-                            modifier = Modifier.fillMaxWidth(0.8f)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(vertical = 4.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.BugReport, // Using BugReport icon for Report Bug
-                                    contentDescription = "Report Bug",
-                                    modifier = Modifier.size(18.dp)
-                                )
-
-                                Spacer(modifier = Modifier.width(8.dp))
-
-                                Text(
-                                    text = "Report Bug",
-                                    style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
+                        // Report Bug button was here, moved to bottom
                     }
                 }
 
@@ -386,29 +356,29 @@ fun AppUpdaterScreen(
                             )
                         } else if (updateAvailable && latestVersion != null) {
                             // Update available
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primaryContainer),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = RhythmIcons.Download,
-                                    contentDescription = "Update available",
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.size(24.dp)
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF4CAF50)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = RhythmIcons.Download,
+                                        contentDescription = "Update available",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Text(
+                                    text = "Update Available",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF4CAF50)
                                 )
-                            }
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            Text(
-                                text = "Update Available",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
 
                             Spacer(modifier = Modifier.height(4.dp))
 
@@ -597,13 +567,13 @@ fun AppUpdaterScreen(
                                     modifier = Modifier
                                         .size(40.dp)
                                         .clip(CircleShape)
-                                        .background(MaterialTheme.colorScheme.tertiaryContainer),
+                                        .background(Color(0xFF4CAF50)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         imageVector = RhythmIcons.Check,
                                         contentDescription = "Up to date",
-                                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                        tint = Color.White,
                                         modifier = Modifier.size(24.dp)
                                     )
                                 }
@@ -614,7 +584,7 @@ fun AppUpdaterScreen(
                                     text = "You are on the latest version",
                                     style = MaterialTheme.typography.titleLarge,
                                     fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.tertiary
+                                    color = Color(0xFF4CAF50)
                                 )
 
                                 Spacer(modifier = Modifier.height(16.dp))
@@ -904,6 +874,42 @@ fun AppUpdaterScreen(
 
             // Extra space at bottom
             item {
+                Spacer(modifier = Modifier.height(16.dp)) // Add some space before the button
+
+                // Report Bug button (moved to bottom)
+                Button(
+                    onClick = {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/cromaguy/Rhythm/issues"))
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        context.startActivity(intent)
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp) // Add padding to the bottom
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.BugReport, // Using BugReport icon for Report Bug
+                            contentDescription = "Report Bug",
+                            modifier = Modifier.size(18.dp)
+                        )
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        Text(
+                            text = "Report Bug",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(80.dp))
             }
         }
