@@ -374,11 +374,10 @@ fun PlayerScreen(
                                 .height(4.dp)
                                 .clip(RoundedCornerShape(2.dp))
                                 .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
-                                .padding(bottom = 8.dp)
                         )
                         
                         // Small spacing after the pill
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(8.dp)) // Increased spacing
                         
                         AnimatedVisibility(
                             visible = song != null,
@@ -410,10 +409,10 @@ fun PlayerScreen(
                 },
                 navigationIcon = {
                     // Increased horizontal padding for better edge spacing
-                    Box(modifier = Modifier.padding(start = 8.dp)) {
+                    Box(modifier = Modifier.padding(start = 16.dp)) { // Changed to 16.dp
                         FilledTonalIconButton(
                             onClick = onBack,
-                            modifier = Modifier.size(40.dp),
+                            modifier = Modifier.size(48.dp), // Changed to 48.dp
                             colors = IconButtonDefaults.filledTonalIconButtonColors(
                                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -430,10 +429,10 @@ fun PlayerScreen(
                 actions = {
                     if (showLyrics && song != null) {
                         // Increased horizontal padding for better edge spacing
-                        Box(modifier = Modifier.padding(end = 8.dp)) {
+                        Box(modifier = Modifier.padding(end = 16.dp)) { // Changed to 16.dp
                             FilledTonalIconButton(
                                 onClick = { showLyricsView = !showLyricsView },
-                                modifier = Modifier.size(40.dp),
+                                modifier = Modifier.size(48.dp), // Changed to 48.dp
                                 colors = IconButtonDefaults.filledTonalIconButtonColors(
                                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -447,11 +446,11 @@ fun PlayerScreen(
                             }
                         }
                     } else {
-                        Spacer(modifier = Modifier.width(48.dp)) // Match the size of the button + padding
+                        Spacer(modifier = Modifier.width(80.dp)) // Match the size of the button + padding (48dp + 16dp*2)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background, // Changed to background color
+                    containerColor = MaterialTheme.colorScheme.background,
                     titleContentColor = MaterialTheme.colorScheme.onBackground
                 )
             )
@@ -549,11 +548,11 @@ fun PlayerScreen(
                         Spacer(modifier = Modifier.height(dynamicTopPadding))
                     }
                     
-                    // Album artwork or lyrics view with reduced top padding
+                    // Album artwork or lyrics view with increased top padding
                     ElevatedCard(
                         modifier = Modifier
                             .fillMaxWidth(albumArtSize)
-                            .padding(horizontal = 16.dp, vertical = 8.dp), // Reduced vertical padding
+                            .padding(horizontal = 16.dp, vertical = 16.dp), // Increased vertical padding
                         shape = RoundedCornerShape(28.dp),
                         elevation = CardDefaults.elevatedCardElevation(
                             defaultElevation = 8.dp
@@ -677,10 +676,10 @@ fun PlayerScreen(
                         exit = fadeOut() + slideOutVertically { it }
                     ) {
                         if (song != null) {
-                            // Song info with reduced padding
+                            // Song info with increased vertical padding
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier.padding(horizontal = 32.dp, vertical = 4.dp) // Reduced vertical padding
+                                modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp) // Increased vertical padding
                             ) {
                                 Text(
                                     text = song.title,
@@ -698,7 +697,7 @@ fun PlayerScreen(
                                     textAlign = TextAlign.Center,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.padding(vertical = 2.dp) // Reduced vertical padding
+                                    modifier = Modifier.padding(vertical = 4.dp) // Increased vertical padding
                                 )
                             }
                         }
@@ -723,7 +722,7 @@ fun PlayerScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 8.dp, vertical = 2.dp), // Reduced vertical padding
+                                .padding(horizontal = 8.dp, vertical = 8.dp), // Increased vertical padding
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
@@ -881,7 +880,7 @@ fun PlayerScreen(
                     Card(
                         modifier = Modifier
                             .fillMaxWidth(0.9f)
-                            .padding(horizontal = 16.dp, vertical = 2.dp), // Reduced vertical padding
+                            .padding(horizontal = 16.dp, vertical = 8.dp), // Increased vertical padding
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                         ),
@@ -890,7 +889,7 @@ fun PlayerScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 4.dp), // Reduced vertical padding
+                                .padding(horizontal = 16.dp, vertical = 12.dp), // Increased vertical padding
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             // Mute button
@@ -1815,10 +1814,10 @@ fun PlayerLocationsScreen(
                 },
                 navigationIcon = {
                     // Consistent button style with PlayerScreen
-                    Box(modifier = Modifier.padding(start = 8.dp)) {
+                    Box(modifier = Modifier.padding(start = 16.dp)) { // Changed to 16.dp
                         FilledTonalIconButton(
                             onClick = onBack,
-                            modifier = Modifier.size(40.dp),
+                            modifier = Modifier.size(48.dp), // Changed to 48.dp
                             colors = IconButtonDefaults.filledTonalIconButtonColors(
                                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -1996,7 +1995,7 @@ private fun QueueItem(
             // Queue position with drag handle - make it obvious it can be dragged
             Box(
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(40.dp) // Increased size to 40.dp
                     .clip(CircleShape)
                     .background(
                         if (isDragging) MaterialTheme.colorScheme.primaryContainer
@@ -2010,8 +2009,8 @@ private fun QueueItem(
                     Icon(
                         imageVector = Icons.Default.DragHandle,
                         contentDescription = "Drag to reorder",
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer, // Changed tint
-                        modifier = Modifier.size(20.dp)
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(24.dp) // Increased icon size
                     )
                 } else {
                     // Show position number when not dragging
