@@ -385,26 +385,27 @@ fun SongsTab(
             icon = RhythmIcons.Song
         )
     } else {
-        LazyColumn(
-            contentPadding = PaddingValues(bottom = LocalMiniPlayerPadding.current.calculateBottomPadding()),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            shape = MaterialTheme.shapes.large,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
-
-            item {
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceContainer,
-                    tonalElevation = 1.dp,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .clip(MaterialTheme.shapes.large)
-                ) {
+            LazyColumn(
+                contentPadding = PaddingValues(
+                    top = 8.dp,
+                    bottom = LocalMiniPlayerPadding.current.calculateBottomPadding() + 16.dp
+                ),
+                verticalArrangement = Arrangement.spacedBy(0.dp)
+            ) {
+                item {
                     Row(
                         modifier = Modifier.padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Surface(
-                            color = MaterialTheme.colorScheme.surfaceContainer,
+                            color = MaterialTheme.colorScheme.background,
                             shape = CircleShape,
                             modifier = Modifier.size(48.dp)
                         ) {
@@ -412,7 +413,7 @@ fun SongsTab(
                                 Icon(
                                     imageVector = RhythmIcons.Song,
                                     contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
                                     modifier = Modifier.size(24.dp)
                                 )
                             }
@@ -422,37 +423,37 @@ fun SongsTab(
                         
                         Column {
                             Text(
-                                text = "All Songs",
+                                text = "On-Device Tracks",
                                 style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                             
                             Text(
                                 text = "${songs.size} songs in your library",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                             )
                         }
                     }
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
-                
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-            
-            items(
-                items = songs,
-                key = { it.id }
-            ) { song ->
-                LibrarySongItem(
-                    song = song,
-                    onClick = { onSongClick(song) },
-                    onMoreClick = { onAddToPlaylist(song) },
-                    onAddToQueue = { onAddToQueue(song) }
-                )
+                items(
+                    items = songs,
+                    key = { it.id }
+                ) { song ->
+                    LibrarySongItem(
+                        song = song,
+                        onClick = { onSongClick(song) },
+                        onMoreClick = { onAddToPlaylist(song) },
+                        onAddToQueue = { onAddToQueue(song) }
+                    )
+                }
             }
         }
     }
-}
+    }
+
 
 @Composable
 fun PlaylistsTab(
@@ -480,10 +481,10 @@ fun PlaylistsTab(
                 item {
                     Surface(
                         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = MaterialTheme.shapes.large,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 8.dp)
+                            .padding(horizontal = 8.dp, vertical = 8.dp)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -523,10 +524,10 @@ fun PlaylistsTab(
                 item {
                     Surface(
                         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = MaterialTheme.shapes.large,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 8.dp)
+                            .padding(horizontal = 8.dp, vertical = 8.dp)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -576,125 +577,119 @@ fun LibrarySongItem(
     val context = LocalContext.current
     var showDropdown by remember { mutableStateOf(false) }
 
-    Surface(
-        onClick = onClick,
-        color = Color.Transparent,
+    ListItem(
+        headlineContent = {
+            Text(
+                text = song.title,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium
+            )
+        },
+        supportingContent = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = song.artist,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Text(
+                    text = " • ",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Text(
+                    text = song.album,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        },
+        leadingContent = {
+            Surface(
+                shape = MaterialTheme.shapes.large,
+                modifier = Modifier.size(56.dp)
+            ) {
+                M3ImageUtils.TrackImage(
+                    imageUrl = song.artworkUri,
+                    trackName = song.title,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+        },
+        trailingContent = {
+            Row {
+                FilledIconButton(
+                    onClick = { onAddToQueue() },
+                    modifier = Modifier.size(36.dp),
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                ) {
+                    Icon(
+                        imageVector = RhythmIcons.Queue,
+                        contentDescription = "Add to queue",
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                FilledIconButton(
+                    onClick = { showDropdown = true },
+                    modifier = Modifier.size(36.dp),
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                ) {
+                    Icon(
+                        imageVector = RhythmIcons.More,
+                        contentDescription = "More options",
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                DropdownMenu(
+                    expanded = showDropdown,
+                    onDismissRequest = { showDropdown = false },
+                    modifier = Modifier,
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Add to playlist") },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
+                                contentDescription = null
+                            )
+                        },
+                        onClick = {
+                            showDropdown = false
+                            onMoreClick()
+                        }
+                    )
+                }
+            }
+        },
+        colors = ListItemDefaults.colors(
+            containerColor = Color.Transparent
+        ),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 2.dp)
-    ) {
-        ListItem(
-            headlineContent = {
-                Text(
-                    text = song.title,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium
-                )
-            },
-            supportingContent = {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = song.artist,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
-                    Box(
-                        modifier = Modifier
-                            .padding(horizontal = 4.dp)
-                            .size(4.dp)
-                            .clip(CircleShape)
-                            .background(Color.Transparent)
-                    )
-
-                    Text(
-                        text = song.album,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            },
-            leadingContent = {
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.size(56.dp)
-                ) {
-                    M3ImageUtils.TrackImage(
-                        imageUrl = song.artworkUri,
-                        trackName = song.title,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-            },
-            trailingContent = {
-                Row {
-                    FilledIconButton(
-                        onClick = { onAddToQueue() },
-                        modifier = Modifier.size(36.dp),
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    ) {
-                        Icon(
-                            imageVector = RhythmIcons.Queue,
-                            contentDescription = "Add to queue",
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    FilledIconButton(
-                        onClick = { showDropdown = true },
-                        modifier = Modifier.size(36.dp),
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
-                    ) {
-                        Icon(
-                            imageVector = RhythmIcons.More,
-                            contentDescription = "More options",
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-
-                    DropdownMenu(
-                        expanded = showDropdown,
-                        onDismissRequest = { showDropdown = false },
-                        modifier = Modifier,
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Add to playlist") },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
-                                    contentDescription = null
-                                )
-                            },
-                            onClick = {
-                                showDropdown = false
-                                onMoreClick()
-                            }
-                        )
-                    }
-                }
-            },
-            colors = ListItemDefaults.colors(
-                containerColor = Color.Transparent
-            )
-        )
-    }
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -707,72 +702,66 @@ fun PlaylistItem(
         onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 1.dp),
-        shape = MaterialTheme.shapes.large,  // Increased corner radius
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        tonalElevation = 0.dp
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Playlist artwork
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .clip(MaterialTheme.shapes.large)  // Increased corner radius to match container
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),  // Slightly reduced opacity
-                contentAlignment = Alignment.Center
-            ) {
-                if (playlist.artworkUri != null) {
-                    M3ImageUtils.PlaylistImage(
-                        imageUrl = playlist.artworkUri,
-                        playlistName = playlist.name,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } else {
-                    Icon(
-                        imageVector = RhythmIcons.List,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-            }
-            
-            // Playlist info
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 16.dp)
-            ) {
+        ListItem(
+            headlineContent = {
                 Text(
                     text = playlist.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                
+            },
+            supportingContent = {
                 Text(
                     text = "${playlist.songs.size} ${if (playlist.songs.size == 1) "song" else "songs"}",
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-            }
-            
-            // Chevron icon
-            Icon(
-                imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
-                contentDescription = "Open playlist",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(24.dp)
+            },
+            leadingContent = {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(MaterialTheme.shapes.medium)
+                        .background(MaterialTheme.colorScheme.background),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (playlist.artworkUri != null) {
+                        M3ImageUtils.PlaylistImage(
+                            imageUrl = playlist.artworkUri,
+                            playlistName = playlist.name,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        Icon(
+                            imageVector = RhythmIcons.List,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                }
+            },
+            trailingContent = {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                    contentDescription = "Open playlist",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(24.dp)
+                )
+            },
+            colors = ListItemDefaults.colors(
+                containerColor = MaterialTheme.colorScheme.surface
             )
-        }
+        )
     }
 }
 
@@ -787,7 +776,7 @@ fun LibraryAlbumItem(
     
     Card(
         onClick = onClick,
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer
         ),
@@ -819,7 +808,7 @@ fun LibraryAlbumItem(
                 Box(
                     modifier = Modifier
                         .size(56.dp)
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(MaterialTheme.shapes.large)
                         .background(MaterialTheme.colorScheme.surfaceContainer),
                     contentAlignment = Alignment.Center
                 ) {
