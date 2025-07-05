@@ -1,14 +1,42 @@
-# Rhythm - Offline Music App
-
 <div align="center">
-  <img src="assets/Rhythm.png" alt="Rhythm Logo" width="400"/>
+  <h1>🎵 Rhythm - Offline Music Player</h1>
+  
+  [![GitHub release (latest by date)](https://img.shields.io/github/v/release/cromaguy/Rhythm?style=for-the-badge&logo=github&color=9c27b0)](https://github.com/cromaguy/Rhythm/releases/latest)
+  [![IzzyOnDroid](https://img.shields.io/endpoint?url=https://apt.izzysoft.de/fdroid/api/v1/shield/chromahub.rhythm.app&style=for-the-badge&logo=android&label=IzzySoft&color=3f51b5)](https://apt.izzysoft.de/fdroid/index/apk/chromahub.rhythm.app)
+  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge&logo=open-source-initiative&logoColor=white)](LICENSE)
+  
+  <img src="assets/Rhythm.png" alt="Rhythm Logo" width="300"/>
+  
+  ### A modern, feature-rich Android music player built with Jetpack Compose and Material 3
 </div>
 
-## Overview
+## ✨ Features
 
-Rhythm is a music player for Android that delivers a seamless audio experience with a beautiful Material You design. Enjoy your music collection with advanced playback features, intuitive controls, and comprehensive audio format support.
+### 🎵 Core Experience
+- **Beautiful Material You Design** - Dynamic theming that adapts to your device's color scheme
+- **Seamless Playback** - Gapless playback, crossfade, and audio normalization
+- **Comprehensive Format Support** - MP3, AAC, FLAC, OGG, WAV, and more
+- **Smart Audio** - Equalizer, bass boost, and volume normalization
+- **Background Playback** - Keep listening with the notification player
 
-## Screenshots
+### 🎨 Interface
+- **Modern UI** - Built with Jetpack Compose and Material 3
+- **Dark & Light Themes** - Automatic switching based on system settings
+- **Customizable Home Screen** - Organize your music the way you like
+- **Now Playing Widget** - Quick controls from your home screen
+
+### 🎶 Music Management
+- **Smart Playlists** - Automatic playlists for recently added, most played, and more
+- **Tag Editor** - Edit song metadata directly in the app
+- **Folder Browsing** - Browse your music by folders
+- **Search** - Find any song, album, or artist instantly
+
+### ⚡ Performance
+- **Lightweight** - Minimal battery and resource usage
+- **Optimized for Android 8.0+** - Smooth performance on all devices
+- **Fast Loading** - Quick access to your music library
+
+## 📱 Screenshots
 
 <table>
   <tr>
@@ -86,48 +114,126 @@ Rhythm is a music player for Android that delivers a seamless audio experience w
 - 🔄 **Auto-Resume**: Remembers playback state and queue
 - 🎨 **Adaptive UI**: Beautiful transitions and responsive design
 
-## Technical Stack
+## 🛠 Technical Stack
 
-- **Language**: Kotlin with Coroutines
+### Core Technologies
+- **Language**: Kotlin with Coroutines & Flow
 - **UI Framework**: Jetpack Compose
 - **Design System**: Material 3 (Material You)
+- **Architecture**: MVVM with Clean Architecture
+- **Dependency Injection**: Hilt
+
+### Media & Audio
 - **Media Playback**: Media3 ExoPlayer
 - **Audio Processing**: Media3 Session, Audio Effects
-- **Navigation**: Compose Navigation
-- **Image Loading**: Coil for async image loading
+- **Equalizer**: Android Audio Effects API
+
+### Data & Storage
+- **Local Storage**: Room Database
+- **Preferences**: DataStore
+- **File Access**: Storage Access Framework
 - **Networking**: Retrofit2, OkHttp3
-- **JSON Parsing**: Gson
+
+### UI Components
+- **Navigation**: Compose Navigation
+- **Image Loading**: Coil
 - **Animations**: Compose Animation with Physics
-- **Drag & Drop**: Reorderable Compose
-- **Permissions**: Accompanist Permissions
-- **Device Integration**: MediaRouter, Bluetooth APIs
-- **Storage**: Android Storage Access Framework
-- **Background Services**: Foreground Service for playback
+- **Charts**: Custom Compose implementations
 
-### Requirements
+### Utilities
+- **Dependency Injection**: Hilt
+- **Concurrency**: Coroutines & Flow
+- **Logging**: Timber
+- **Testing**: JUnit, MockK, Espresso
 
+## 📥 Installation
+
+### Prerequisites
 - Android 8.0+ (API level 26)
 - 50MB+ free storage space
 - Internet connection for online features
 
-### Installation
+### Download Options
 
-Download the latest release APK from the [Releases](https://github.com/cromaguy/Rhythm/releases) page.
+#### Option 1: GitHub Releases
+1. Visit the [Releases](https://github.com/cromaguy/Rhythm/releases) page
+2. Download the latest APK
+3. Open the downloaded file to install
 
-## Project Structure
+#### Option 2: IzzySoft F-Droid
+1. Add the IzzySoft repository to your F-Droid client:
+   ```
+   https://apt.izzysoft.de/fdroid/repo
+   ```
+2. Search for "Rhythm"
+3. Install the app
+
+#### Option 3: Build from Source
+```bash
+git clone https://github.com/cromaguy/Rhythm.git
+cd Rhythm
+./gradlew assembleDebug
+```
+
+### Permissions
+Rhythm requires the following permissions:
+- **Storage**: To access your music files
+- **Internet**: For online features like lyrics and updates
+- **Foreground Service**: For background playback
+- **Install Packages**: For in-app updates
+
+## 🏗 Project Structure
 
 ```
 app/
 ├── src/
 │   ├── main/
-│   │   ├── java/           # Kotlin source files
-│   │   ├── res/           # Resources
-│   │   └── AndroidManifest.xml
-│   ├── test/              # Unit tests
-│   └── androidTest/       # Instrumentation tests
-├── build.gradle.kts       # App-level build configuration
-└── proguard-rules.pro    # ProGuard rules
+│   │   ├── java/chromahub/rhythm/app/
+│   │   │   ├── di/                # Dependency Injection modules
+│   │   │   ├── player/            # Media player components
+│   │   │   ├── ui/                # All UI components
+│   │   │   │   ├── components/    # Reusable UI components
+│   │   │   │   ├── screens/       # App screens
+│   │   │   │   └── theme/        # Theming and styling
+│   │   │   ├── utils/            # Utility classes
+│   │   │   └── MainActivity.kt   # App entry point
+│   │   ├── res/                  # Resources
+│   │   └── AndroidManifest.xml   # App manifest
+│   ├── test/                     # Unit tests
+│   └── androidTest/              # Instrumentation tests
+├── build.gradle.kts              # App-level build configuration
+└── proguard-rules.pro           # ProGuard rules
 ```
+
+## 🤝 Contributing
+
+Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
+
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+### Code Style
+- Follow [Kotlin Coding Conventions](https://kotlinlang.org/docs/coding-conventions.html)
+- Use descriptive variable and function names
+- Add comments for complex logic
+- Write unit tests for new features
+
+### Reporting Issues
+Found a bug? Please let us know by [opening an issue](https://github.com/cromaguy/Rhythm/issues).
+
+## 📄 License
+
+Distributed under the MIT License. See `LICENSE` for more information.
+
+## 🙏 Acknowledgments
+
+- [Jetpack Compose](https://developer.android.com/jetpack/compose)
+- [Media3](https://developer.android.com/guide/topics/media/media3)
+- [Material Design 3](https://m3.material.io/)
+- [Coil](https://coil-kt.github.io/coil/)
 
 ## Permissions
 
