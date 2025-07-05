@@ -49,8 +49,8 @@
       <b>🎵 Home Screen 2</b>
     </td>
     <td align="center">
-      <img src="assets/ScreenShots/Home3.png" alt="Home Screen" width="200"><br>
-      <b>🎵 Home Screen 3</b>
+      <img src="assets/ScreenShots/Artist.png" alt="Home Screen" width="200"><br>
+      <b>🎵 Artist</b>
     </td>
   </tr>
   <tr>
