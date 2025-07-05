@@ -148,9 +148,14 @@ The app requires the following permissions:
 
 Rhythm is available under the MIT license. See the [LICENSE](LICENSE) file for more info.
 
+## Download
+
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/cromaguy/Rhythm?style=for-the-badge&logo=github)](https://github.com/cromaguy/Rhythm/releases/latest)
+[![IzzyOnDroid](https://img.shields.io/endpoint?url=https://apt.izzysoft.de/fdroid/api/v1/shield/chromahub.rhythm.app&style=for-the-badge&logo=android)](https://apt.izzysoft.de/fdroid/index/apk/chromahub.rhythm.app)
+
 ## Version
 
-Current version: 2.1.106.267
+Current version: 2.1.109.283
 
 ## Support
 
