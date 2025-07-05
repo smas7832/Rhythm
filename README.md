@@ -10,31 +10,22 @@
   ### A modern, feature-rich Android music player built with Jetpack Compose and Material 3
 </div>
 
-## ✨ Features
+## Features
 
-### 🎵 Core Experience
-- **Beautiful Material You Design** - Dynamic theming that adapts to your device's color scheme
-- **Seamless Playback** - Gapless playback, crossfade, and audio normalization
-- **Comprehensive Format Support** - MP3, AAC, FLAC, OGG, WAV, and more
-- **Smart Audio** - Equalizer, bass boost, and volume normalization
-- **Background Playback** - Keep listening with the notification player
-
-### 🎨 Interface
-- **Modern UI** - Built with Jetpack Compose and Material 3
-- **Dark & Light Themes** - Automatic switching based on system settings
-- **Customizable Home Screen** - Organize your music the way you like
-- **Now Playing Widget** - Quick controls from your home screen
-
-### 🎶 Music Management
-- **Smart Playlists** - Automatic playlists for recently added, most played, and more
-- **Tag Editor** - Edit song metadata directly in the app
-- **Folder Browsing** - Browse your music by folders
-- **Search** - Find any song, album, or artist instantly
-
-### ⚡ Performance
-- **Lightweight** - Minimal battery and resource usage
-- **Optimized for Android 8.0+** - Smooth performance on all devices
-- **Fast Loading** - Quick access to your music library
+- 🎨 **Modern UI**: Built with Jetpack Compose and Material 3 design
+- 🎵 **Comprehensive Audio Support**: Plays various formats including MP3, AAC, FLAC, OGG, WAV
+- 📱 **Android Support**: Targets Android API 34 with compatibility down to Android 8.0
+- 🎯 **Media3 Integration**: Robust media playback using ExoPlayer
+- 📂 **Advanced Playlist Management**: Create, edit, and organize playlists
+- 🔄 **Background Playback**: Continuous playback with foreground service
+- 🎨 **Dynamic Theming**: Material You/Monet theming and fluid animations
+- 🔊 **Smart Audio**: Gapless playback, crossfade, audio normalization
+- 🎵 **Advanced Features**: Equalizer, high-quality mode, replay gain
+- 🔊 **Output Control**: Seamless audio device and Bluetooth switching
+- 📊 **Personalization**: Listening stats, mood-based playlists
+- 🌐 **Online Integration**: Automatic updates, online lyrics
+- 🔄 **Auto-Resume**: Remembers playback state and queue
+- 🎨 **Adaptive UI**: Beautiful transitions and responsive design
 
 ## 📱 Screenshots
 
@@ -97,23 +88,6 @@
   </tr>
 </table>
 
-## Features
-
-- 🎨 **Modern UI**: Built with Jetpack Compose and Material 3 design
-- 🎵 **Comprehensive Audio Support**: Plays various formats including MP3, AAC, FLAC, OGG, WAV
-- 📱 **Android Support**: Targets Android API 34 with compatibility down to Android 8.0
-- 🎯 **Media3 Integration**: Robust media playback using ExoPlayer
-- 📂 **Advanced Playlist Management**: Create, edit, and organize playlists
-- 🔄 **Background Playback**: Continuous playback with foreground service
-- 🎨 **Dynamic Theming**: Material You/Monet theming and fluid animations
-- 🔊 **Smart Audio**: Gapless playback, crossfade, audio normalization
-- 🎵 **Advanced Features**: Equalizer, high-quality mode, replay gain
-- 🔊 **Output Control**: Seamless audio device and Bluetooth switching
-- 📊 **Personalization**: Listening stats, mood-based playlists
-- 🌐 **Online Integration**: Automatic updates, online lyrics
-- 🔄 **Auto-Resume**: Remembers playback state and queue
-- 🎨 **Adaptive UI**: Beautiful transitions and responsive design
-
 ## 🛠 Technical Stack
 
 ### Core Technologies
@@ -168,20 +142,6 @@
 2. Search for "Rhythm"
 3. Install the app
 
-#### Option 3: Build from Source
-```bash
-git clone https://github.com/cromaguy/Rhythm.git
-cd Rhythm
-./gradlew assembleDebug
-```
-
-### Permissions
-Rhythm requires the following permissions:
-- **Storage**: To access your music files
-- **Internet**: For online features like lyrics and updates
-- **Foreground Service**: For background playback
-- **Install Packages**: For in-app updates
-
 ## 🏗 Project Structure
 
 ```
@@ -220,9 +180,6 @@ Contributions are what make the open source community such an amazing place to l
 - Use descriptive variable and function names
 - Add comments for complex logic
 - Write unit tests for new features
-
-### Reporting Issues
-Found a bug? Please let us know by [opening an issue](https://github.com/cromaguy/Rhythm/issues).
 
 ## 📄 License
 
