@@ -5,7 +5,7 @@
   [![IzzyOnDroid](https://img.shields.io/endpoint?url=https://apt.izzysoft.de/fdroid/api/v1/shield/chromahub.rhythm.app&style=for-the-badge&logo=android&label=IzzySoft&color=3f51b5)](https://apt.izzysoft.de/fdroid/index/apk/chromahub.rhythm.app)
   [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge&logo=open-source-initiative&logoColor=white)](LICENSE)
   
-  <img src="assets/Banner.png" alt="Rhythm Logo" width="300"/>
+  <img src="assets/Banner.png" alt="Rhythm Logo" width="600"/>
   
   ### A modern, feature-rich Android music player built with Jetpack Compose and Material 3
 </div>
