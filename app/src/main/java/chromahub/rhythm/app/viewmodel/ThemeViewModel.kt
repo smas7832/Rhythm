@@ -20,7 +20,7 @@ class ThemeViewModel(application: Application) : AndroidViewModel(application) {
     val darkMode: StateFlow<Boolean> = _darkMode.asStateFlow()
     
     // Dynamic color state (for Monet theme)
-    private val _useDynamicColors = MutableStateFlow(appSettings.useSystemTheme.value)
+    private val _useDynamicColors = MutableStateFlow(appSettings.useDynamicColors.value)
     val useDynamicColors: StateFlow<Boolean> = _useDynamicColors.asStateFlow()
     
     init {
@@ -28,7 +28,6 @@ class ThemeViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             appSettings.useSystemTheme.collect { useSystem ->
                 _useSystemTheme.value = useSystem
-                _useDynamicColors.value = useSystem
             }
         }
         
@@ -37,19 +36,29 @@ class ThemeViewModel(application: Application) : AndroidViewModel(application) {
                 _darkMode.value = isDark
             }
         }
+        
+        viewModelScope.launch {
+            appSettings.useDynamicColors.collect { useDynamic ->
+                _useDynamicColors.value = useDynamic
+            }
+        }
     }
     
     // Function to update system theme usage
     fun setUseSystemTheme(useSystem: Boolean) {
         appSettings.setUseSystemTheme(useSystem)
         _useSystemTheme.value = useSystem
-        // When system theme is enabled, also enable dynamic colors (Monet)
-        _useDynamicColors.value = useSystem
     }
     
     // Function to update dark mode
     fun setDarkMode(isDark: Boolean) {
         appSettings.setDarkMode(isDark)
         _darkMode.value = isDark
+    }
+    
+    // Function to update dynamic colors
+    fun setUseDynamicColors(useDynamic: Boolean) {
+        appSettings.setUseDynamicColors(useDynamic)
+        _useDynamicColors.value = useDynamic
     }
 } 

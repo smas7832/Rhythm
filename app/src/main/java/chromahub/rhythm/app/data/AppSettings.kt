@@ -30,6 +30,7 @@ class AppSettings private constructor(context: Context) {
         // Theme Settings
         private const val KEY_USE_SYSTEM_THEME = "use_system_theme"
         private const val KEY_DARK_MODE = "dark_mode"
+        private const val KEY_USE_DYNAMIC_COLORS = "use_dynamic_colors"
         
         // Audio Device Settings
         private const val KEY_LAST_AUDIO_DEVICE = "last_audio_device"
@@ -123,6 +124,9 @@ class AppSettings private constructor(context: Context) {
     
     private val _darkMode = MutableStateFlow(prefs.getBoolean(KEY_DARK_MODE, true))
     val darkMode: StateFlow<Boolean> = _darkMode.asStateFlow()
+    
+    private val _useDynamicColors = MutableStateFlow(prefs.getBoolean(KEY_USE_DYNAMIC_COLORS, true))
+    val useDynamicColors: StateFlow<Boolean> = _useDynamicColors.asStateFlow()
     
     // Audio Device Settings
     private val _lastAudioDevice = MutableStateFlow(prefs.getString(KEY_LAST_AUDIO_DEVICE, null))
@@ -346,6 +350,11 @@ class AppSettings private constructor(context: Context) {
     fun setDarkMode(dark: Boolean) {
         prefs.edit().putBoolean(KEY_DARK_MODE, dark).apply()
         _darkMode.value = dark
+    }
+    
+    fun setUseDynamicColors(use: Boolean) {
+        prefs.edit().putBoolean(KEY_USE_DYNAMIC_COLORS, use).apply()
+        _useDynamicColors.value = use
     }
     
     // Audio Device Settings Methods

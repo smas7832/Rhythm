@@ -24,6 +24,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -98,12 +100,20 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
 import chromahub.rhythm.app.data.AppSettings // Import AppSettings
 import java.util.Locale // Import Locale
 import androidx.compose.material.icons.filled.Public // Import Public icon
 import androidx.compose.material.icons.filled.BugReport // Import BugReport icon
+import androidx.compose.material.icons.filled.Check // Import Check icon
+import androidx.compose.material.icons.filled.MusicNote // Import MusicNote icon
+import androidx.compose.material.icons.filled.Palette // Import Palette icon
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.runtime.rememberCoroutineScope
 import chromahub.rhythm.app.ui.components.M3FourColorCircularLoader // Import M3FourColorCircularLoader
 
 enum class OnboardingStep {
@@ -333,6 +343,17 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
     }
+    
+    // Helper function to get step name for accessibility
+    private fun getStepName(step: OnboardingStep): String {
+        return when (step) {
+            OnboardingStep.WELCOME -> "Welcome"
+            OnboardingStep.PERMISSIONS -> "Permissions"
+            OnboardingStep.THEMING -> "Theming"
+            OnboardingStep.UPDATER -> "Updates"
+            OnboardingStep.COMPLETE -> "Complete"
+        }
+    }
 }
 
 @Composable
@@ -433,22 +454,14 @@ fun PermissionHandler(
 
     // For Android 13+, we need READ_MEDIA_AUDIO, for older versions we need READ_EXTERNAL_STORAGE
     val storagePermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        // Android 13+ requires granular media permissions
         listOf(
-            Manifest.permission.READ_MEDIA_AUDIO,
-            Manifest.permission.READ_MEDIA_IMAGES,
-            Manifest.permission.FOREGROUND_SERVICE,
-            Manifest.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK
-        )
-    } else if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) { // Android 10 (Q) and below need WRITE_EXTERNAL_STORAGE
-        listOf(
-            Manifest.permission.READ_EXTERNAL_STORAGE,
-            Manifest.permission.WRITE_EXTERNAL_STORAGE,
-            Manifest.permission.FOREGROUND_SERVICE
+            Manifest.permission.READ_MEDIA_AUDIO
         )
     } else {
+        // Android 12 and below use legacy storage permissions
         listOf(
-            Manifest.permission.READ_EXTERNAL_STORAGE,
-            Manifest.permission.FOREGROUND_SERVICE
+            Manifest.permission.READ_EXTERNAL_STORAGE
         )
     }
     
@@ -467,20 +480,21 @@ fun PermissionHandler(
         )
     }
     
-    // Combine all required permissions
-    val allPermissions = storagePermissions + bluetoothPermissions
+    // Only request essential permissions that are actually needed
+    val essentialPermissions = storagePermissions + bluetoothPermissions
     
-    val permissionsState = rememberMultiplePermissionsState(allPermissions)
+    val permissionsState = rememberMultiplePermissionsState(essentialPermissions)
     
     val lifecycleOwner = LocalLifecycleOwner.current
 
     // Centralized function to evaluate permission status and update onboarding step
     val evaluatePermissionsAndSetStep: suspend () -> Unit = {
-        val allStoragePermissionsGranted = permissionsState.permissions
-            .filter { it.permission in storagePermissions }
-            .all { it.status.isGranted }
+        // Check if we have the essential storage permissions
+        val hasStoragePermissions = storagePermissions.all { permission ->
+            permissionsState.permissions.find { it.permission == permission }?.status?.isGranted == true
+        }
 
-        if (allStoragePermissionsGranted) {
+        if (hasStoragePermissions) {
             permissionScreenState = PermissionScreenState.PermissionsGranted
             if (!onboardingCompleted) {
                 currentOnboardingStep = OnboardingStep.THEMING
@@ -499,28 +513,32 @@ fun PermissionHandler(
             }
             onSetIsLoading(false) // Always set loading to false after evaluation
         } else {
-            // Permissions are NOT granted.
-            // Permissions are NOT granted.
-            val ungrantedStoragePermissions = permissionsState.permissions
-                .filter { it.permission in storagePermissions && !it.status.isGranted }
+            // Check denied permissions state
+            val deniedStoragePermissions = storagePermissions.filter { permission ->
+                permissionsState.permissions.find { it.permission == permission }?.status?.isGranted != true
+            }
 
-            val shouldShowRationaleForAny = ungrantedStoragePermissions.any { it.status.shouldShowRationale }
-            val allDeniedWithoutRationale = ungrantedStoragePermissions.isNotEmpty() && ungrantedStoragePermissions.all { !it.status.shouldShowRationale }
+            val shouldShowRationaleForAny = deniedStoragePermissions.any { permission ->
+                permissionsState.permissions.find { it.permission == permission }?.status?.shouldShowRationale == true
+            }
+            
+            val allDeniedPermanently = deniedStoragePermissions.isNotEmpty() && deniedStoragePermissions.all { permission ->
+                val permissionState = permissionsState.permissions.find { it.permission == permission }
+                permissionState?.status?.shouldShowRationale == false && permissionRequestLaunched
+            }
 
             // Determine the correct permission screen state
             if (!permissionRequestLaunched && !onboardingCompleted) {
-                // This is the very first time the app is asking for permissions on a fresh install/first run.
-                // The system permission dialog has not been shown yet.
+                // First time asking for permissions
                 permissionScreenState = PermissionScreenState.PermissionsRequired
             } else if (shouldShowRationaleForAny) {
-                // Permissions were denied, but not permanently. We should show rationale.
+                // User denied but we can show rationale
                 permissionScreenState = PermissionScreenState.ShowRationale
-            } else if (allDeniedWithoutRationale) {
-                // Permissions were denied permanently (either by user checking "don't ask again" or revoking from settings).
+            } else if (allDeniedPermanently) {
+                // User denied permanently
                 permissionScreenState = PermissionScreenState.RedirectToSettings
             } else {
-                // Fallback for any other unhandled state, assume permissions are required
-                // This might catch cases where permissions were revoked after onboarding, but not permanently.
+                // Default state
                 permissionScreenState = PermissionScreenState.PermissionsRequired
             }
             currentOnboardingStep = OnboardingStep.PERMISSIONS
@@ -529,13 +547,19 @@ fun PermissionHandler(
     }
 
     // Effect to trigger permission request when entering PERMISSIONS step
-    LaunchedEffect(currentOnboardingStep, permissionScreenState) { // Add permissionScreenState as a key
+    LaunchedEffect(currentOnboardingStep, permissionScreenState) {
         if (currentOnboardingStep == OnboardingStep.PERMISSIONS) {
             // Only set loading and launch request if we are in PermissionsRequired state
             if (permissionScreenState == PermissionScreenState.PermissionsRequired && !permissionRequestLaunched) {
                 onSetIsLoading(true) // Show loader on the button
-                permissionsState.launchMultiplePermissionRequest()
-                permissionRequestLaunched = true
+                try {
+                    permissionsState.launchMultiplePermissionRequest()
+                    permissionRequestLaunched = true
+                } catch (e: Exception) {
+                    // Handle permission request failure
+                    onSetIsLoading(false)
+                    permissionScreenState = PermissionScreenState.ShowRationale
+                }
             } else if (permissionScreenState == PermissionScreenState.Loading) {
                 // If still in loading, re-evaluate to determine the correct state
                 evaluatePermissionsAndSetStep()
@@ -646,20 +670,32 @@ fun PermissionHandler(
     
     @Composable
     fun OnboardingScreen(
-        currentStep: OnboardingStep, // New parameter
-        onNextStep: () -> Unit, // New parameter
-        onRequestAgain: () -> Unit, // Keep this for permission re-request
-        permissionScreenState: PermissionScreenState, // New parameter
+        currentStep: OnboardingStep,
+        onNextStep: () -> Unit,
+        onRequestAgain: () -> Unit,
+        permissionScreenState: PermissionScreenState,
         isParentLoading: Boolean,
-        themeViewModel: ThemeViewModel, // New parameter
-        appSettings: AppSettings // New parameter
+        themeViewModel: ThemeViewModel,
+        appSettings: AppSettings
     ) {
         val context = LocalContext.current
+        val scope = rememberCoroutineScope()
+        
+        // Get current step index for progress
+        val stepIndex = when (currentStep) {
+            OnboardingStep.WELCOME -> 0
+            OnboardingStep.PERMISSIONS -> 1
+            OnboardingStep.THEMING -> 2
+            OnboardingStep.UPDATER -> 3
+            OnboardingStep.COMPLETE -> 4
+        }
+        
+        val totalSteps = 4 // Welcome, Permissions, Theming, Updater
         
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(32.dp),
+                .padding(24.dp),
             contentAlignment = Alignment.Center
         ) {
             Column(
@@ -667,55 +703,87 @@ fun PermissionHandler(
                 verticalArrangement = Arrangement.Center,
                 modifier = Modifier.fillMaxSize()
             ) {
-                // App name and logo above the card
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier.padding(bottom = 32.dp)
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.rhythm_logo),
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp)
-                    )
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Text(
-                        text = "Rhythm",
-                        style = MaterialTheme.typography.displaySmall,
-                        color = MaterialTheme.colorScheme.onBackground,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-                
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh, // Use a higher surface variant for more contrast
-                    shape = MaterialTheme.shapes.extraLarge,
-                    tonalElevation = 4.dp,
-                    modifier = Modifier.fillMaxWidth(0.9f) // Make the card slightly wider
+                // Enhanced header with progress
+                AnimatedVisibility(
+                    visible = true,
+                    enter = fadeIn() + slideInVertically(initialOffsetY = { -it / 2 })
                 ) {
                     Column(
-                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(bottom = 32.dp)
+                    ) {
+                        // App name and logo
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                            modifier = Modifier.padding(bottom = 24.dp)
+                        ) {
+                            Image(
+                                painter = painterResource(id = R.drawable.rhythm_logo),
+                                contentDescription = null,
+                                modifier = Modifier.size(56.dp)
+                            )
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Text(
+                                text = "Rhythm",
+                                style = MaterialTheme.typography.displaySmall,
+                                color = MaterialTheme.colorScheme.onBackground,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        
+                        // Progress indicator
+                        OnboardingProgressIndicator(
+                            currentStep = stepIndex,
+                            totalSteps = totalSteps
+                        )
+                    }
+                }
+                
+                // Enhanced main card with better animations
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    shape = MaterialTheme.shapes.extraLarge,
+                    modifier = Modifier
+                        .fillMaxWidth(0.92f)
+                        .animateContentSize(
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessLow
+                            )
+                        )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(28.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Crossfade(targetState = currentStep, label = "onboardingStepTransition") { step ->
+                        // Enhanced step transition with slide animations
+                        Crossfade(
+                            targetState = currentStep,
+                            animationSpec = tween(
+                                durationMillis = 500,
+                                easing = androidx.compose.animation.core.EaseInOutCubic
+                            ),
+                            label = "onboardingStepTransition"
+                        ) { step ->
                             when (step) {
-                                OnboardingStep.WELCOME -> WelcomeContent(onNextStep)
-                                OnboardingStep.PERMISSIONS -> PermissionContent(
-                                    permissionScreenState = permissionScreenState, // Pass the state
-                                    onGrantAccess = onNextStep, // This will trigger the permission request in PermissionHandler
-                                    onOpenSettings = onRequestAgain, // This will trigger opening settings
-                                    isButtonLoading = isParentLoading // Pass isParentLoading directly
+                                OnboardingStep.WELCOME -> EnhancedWelcomeContent(onNextStep)
+                                OnboardingStep.PERMISSIONS -> EnhancedPermissionContent(
+                                    permissionScreenState = permissionScreenState,
+                                    onGrantAccess = onNextStep,
+                                    onOpenSettings = onRequestAgain,
+                                    isButtonLoading = isParentLoading
                                 )
-                                OnboardingStep.THEMING -> ThemingContent(
+                                OnboardingStep.THEMING -> EnhancedThemingContent(
                                     themeViewModel = themeViewModel,
                                     onNextStep = onNextStep
-                            )
-                            OnboardingStep.UPDATER -> UpdaterContent(
-                                appSettings = appSettings,
-                                onNextStep = onNextStep
-                            )
-                            OnboardingStep.COMPLETE -> { /* Should not be visible here */ }
-                        }
+                                )
+                                OnboardingStep.UPDATER -> EnhancedUpdaterContent(
+                                    appSettings = appSettings,
+                                    onNextStep = onNextStep
+                                )
+                                OnboardingStep.COMPLETE -> { /* Should not be visible here */ }
+                            }
                         }
                     }
                 }
@@ -724,96 +792,295 @@ fun PermissionHandler(
     }
     
     @Composable
-    fun WelcomeContent(onNext: () -> Unit) {
+    fun EnhancedWelcomeContent(onNextStep: () -> Unit) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Icon(
-                imageVector = Icons.Filled.WavingHand, // Reverted to WavingHand icon
-                contentDescription = "Welcome",
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(64.dp).padding(bottom = 16.dp)
-            )
+            // Enhanced icon with animation
+            AnimatedVisibility(
+                visible = true,
+                enter = scaleIn(
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessLow
+                    )
+                ) + fadeIn()
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.WavingHand,
+                        contentDescription = "Welcome",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(40.dp)
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
             Text(
                 text = "Welcome to Rhythm",
-                style = MaterialTheme.typography.headlineSmall,
+                style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(bottom = 8.dp)
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(bottom = 12.dp)
             )
+            
             Text(
-                text = "Your personalized music journey begins here. Let's get started.",
+                text = "Your personalized music journey begins here.",
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(bottom = 24.dp)
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 8.dp)
             )
+            
+            Text(
+                text = "Let's set up your perfect music experience in just a few simple steps.",
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 32.dp)
+            )
+            
+            // Feature highlights
+            Column(
+                modifier = Modifier.padding(bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                FeatureHighlight(
+                    icon = Icons.Filled.MusicNote,
+                    text = "Access your entire music library"
+                )
+                FeatureHighlight(
+                    icon = RhythmIcons.Devices.Bluetooth,
+                    text = "Connect to Bluetooth devices seamlessly"
+                )
+                FeatureHighlight(
+                    icon = Icons.Filled.Palette,
+                    text = "Customize your theme and appearance"
+                )
+            }
+            
             FilledTonalButton(
-                onClick = onNext,
+                onClick = onNextStep,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)
             ) {
-                Text("Continue", style = MaterialTheme.typography.labelLarge)
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Get Started", style = MaterialTheme.typography.labelLarge)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Icon(
+                        imageVector = RhythmIcons.Forward,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
             }
         }
     }
-    
+
     @Composable
-    fun PermissionContent(
-        permissionScreenState: PermissionScreenState, // New parameter
-        onGrantAccess: () -> Unit, // Callback for "Grant Access"
-        onOpenSettings: () -> Unit, // Callback for "Open Settings"
-        isButtonLoading: Boolean // Receive this from OnboardingScreen
+    fun FeatureHighlight(
+        icon: androidx.compose.ui.graphics.vector.ImageVector,
+        text: String
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+    
+    @OptIn(ExperimentalPermissionsApi::class)
+    @Composable
+    fun EnhancedPermissionContent(
+        permissionScreenState: PermissionScreenState,
+        onGrantAccess: () -> Unit,
+        onOpenSettings: () -> Unit,
+        isButtonLoading: Boolean
     ) {
         val context = LocalContext.current
+        
+        // Define permissions based on Android version within the composable
+        val storagePermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            listOf(Manifest.permission.READ_MEDIA_AUDIO)
+        } else {
+            listOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+        }
+        
+        val bluetoothPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            listOf(
+                Manifest.permission.BLUETOOTH_CONNECT,
+                Manifest.permission.BLUETOOTH_SCAN
+            )
+        } else {
+            listOf(
+                Manifest.permission.BLUETOOTH,
+                Manifest.permission.BLUETOOTH_ADMIN
+            )
+        }
+        
+        val essentialPermissions = storagePermissions + bluetoothPermissions
+        val permissionsState = rememberMultiplePermissionsState(essentialPermissions)
+        
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Icon(
-                imageVector = RhythmIcons.Actions.List,
-                contentDescription = "Permissions Required",
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(64.dp).padding(bottom = 16.dp)
-            )
+            // Enhanced icon with dynamic state
+            AnimatedVisibility(
+                visible = true,
+                enter = scaleIn() + fadeIn()
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clip(CircleShape)
+                        .background(
+                            when (permissionScreenState) {
+                                PermissionScreenState.RedirectToSettings -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+                                else -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                            }
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = RhythmIcons.Actions.List,
+                        contentDescription = "Permissions Required",
+                        tint = when (permissionScreenState) {
+                            PermissionScreenState.RedirectToSettings -> MaterialTheme.colorScheme.error
+                            else -> MaterialTheme.colorScheme.primary
+                        },
+                        modifier = Modifier.size(40.dp)
+                    )
+                }
+            }
+    
+            Spacer(modifier = Modifier.height(24.dp))
     
             Text(
                 text = when (permissionScreenState) {
                     PermissionScreenState.PermissionsRequired -> "Grant Permissions"
                     PermissionScreenState.ShowRationale -> "Permissions Needed"
                     PermissionScreenState.RedirectToSettings -> "Permissions Denied"
-                    else -> "Permissions" // Should not happen
+                    else -> "Permissions"
                 },
-                style = MaterialTheme.typography.headlineSmall,
+                style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(bottom = 8.dp)
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(bottom = 12.dp)
             )
     
             Text(
                 text = when (permissionScreenState) {
-                    PermissionScreenState.PermissionsRequired -> "Rhythm needs a few permissions to access your music and connect to devices."
-                    PermissionScreenState.ShowRationale -> "Rhythm needs access to your music files and Bluetooth to function properly. Please grant the necessary permissions."
-                    PermissionScreenState.RedirectToSettings -> "Permissions permanently denied. Please enable them in app settings to use Rhythm."
-                    else -> "" // Should not happen
+                    PermissionScreenState.PermissionsRequired -> {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            "Rhythm needs specific permissions to access your music files and connect to devices."
+                        } else {
+                            "Rhythm needs a few permissions to provide you with the best music experience."
+                        }
+                    }
+                    PermissionScreenState.ShowRationale -> "These permissions are essential for Rhythm to function properly. Please grant access to continue."
+                    PermissionScreenState.RedirectToSettings -> "It looks like permissions were denied. Please enable them in app settings to enjoy Rhythm."
+                    else -> ""
                 },
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(bottom = 24.dp)
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) 16.dp else 32.dp)
             )
+            
+            // Android 13+ permission notice
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && permissionScreenState == PermissionScreenState.PermissionsRequired) {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                    ),
+                    shape = MaterialTheme.shapes.small,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 24.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = RhythmIcons.Actions.List,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Android 13+ uses granular media permissions for better privacy",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
+                }
+            }
     
-            PermissionExplanationRow(
-                icon = RhythmIcons.Music.Audiotrack,
-                description = "Access music files on your device."
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            PermissionExplanationRow(
-                icon = RhythmIcons.Devices.Bluetooth,
-                description = "Detect Bluetooth audio devices."
-            )
-            Spacer(modifier = Modifier.height(24.dp))
+            // Enhanced permission explanation cards
+            Column(
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.padding(bottom = 32.dp)
+            ) {
+                EnhancedPermissionCard(
+                    icon = RhythmIcons.Music.Audiotrack,
+                    title = "Music Access",
+                    description = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        "Access your audio files to play your music collection"
+                    } else {
+                        "Read and play your music files from device storage"
+                    },
+                    isGranted = storagePermissions.all { permission ->
+                        permissionsState.permissions.find { it.permission == permission }?.status?.isGranted == true
+                    }
+                )
+                EnhancedPermissionCard(
+                    icon = RhythmIcons.Devices.Bluetooth,
+                    title = "Bluetooth Access",
+                    description = "Connect and control Bluetooth audio devices",
+                    isGranted = bluetoothPermissions.all { permission ->
+                        permissionsState.permissions.find { it.permission == permission }?.status?.isGranted == true
+                    }
+                )
+            }
     
             FilledTonalButton(
                 onClick = {
@@ -824,7 +1091,7 @@ fun PermissionHandler(
                                 data = Uri.fromParts("package", context.packageName, null)
                             }
                             context.startActivity(intent)
-                            onOpenSettings() // Call the callback to update loading state
+                            onOpenSettings()
                         }
                         else -> { /* Do nothing */ }
                     }
@@ -836,230 +1103,319 @@ fun PermissionHandler(
             ) {
                 Crossfade(targetState = isButtonLoading, label = "buttonLoading") { requesting ->
                     if (requesting) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            strokeWidth = 2.dp
-                        )
+                        Row(
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Processing...", style = MaterialTheme.typography.labelLarge)
+                        }
                     } else {
-                        Text(
-                            text = when (permissionScreenState) {
-                                PermissionScreenState.PermissionsRequired, PermissionScreenState.ShowRationale -> "Grant Access"
-                                PermissionScreenState.RedirectToSettings -> "Open Settings"
-                                else -> "Continue"
-                            },
-                            style = MaterialTheme.typography.labelLarge
-                        )
+                        Row(
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = when (permissionScreenState) {
+                                    PermissionScreenState.PermissionsRequired, PermissionScreenState.ShowRationale -> "Grant Access"
+                                    PermissionScreenState.RedirectToSettings -> "Open Settings"
+                                    else -> "Continue"
+                                },
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Icon(
+                                imageVector = RhythmIcons.Forward,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     }
                 }
             }
-    
-            if (isButtonLoading) {
-                LinearProgressIndicator(
+        }
+    }
+
+    @Composable
+    fun EnhancedPermissionCard(
+        icon: androidx.compose.ui.graphics.vector.ImageVector,
+        title: String,
+        description: String,
+        isGranted: Boolean = false
+    ) {
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = if (isGranted) {
+                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                } else {
+                    MaterialTheme.colorScheme.surfaceContainer
+                }
+            ),
+            shape = MaterialTheme.shapes.medium,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp)
-                )
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (isGranted) {
+                                MaterialTheme.colorScheme.primaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                            }
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isGranted) {
+                        Icon(
+                            imageVector = Icons.Filled.Check,
+                            contentDescription = "Permission granted",
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    } else {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        if (isGranted) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Icon(
+                                imageVector = Icons.Filled.Check,
+                                contentDescription = "Granted",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                    Text(
+                        text = description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }
     
     @Composable
-    fun ThemingContent(
+    fun EnhancedThemingContent(
         themeViewModel: ThemeViewModel,
-        onNextStep: () -> Unit // To signal completion
+        onNextStep: () -> Unit
     ) {
         val useSystemTheme by themeViewModel.useSystemTheme.collectAsState()
         val darkMode by themeViewModel.darkMode.collectAsState()
+        val useDynamicColors by themeViewModel.useDynamicColors.collectAsState()
     
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Icon(
-                imageVector = RhythmIcons.Settings, // A relevant icon for theming
-                contentDescription = "Theming Settings",
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(64.dp).padding(bottom = 16.dp)
-            )
-            Text(
-                text = "Customize Your Theme",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-            Text(
-                text = "Set up your preferred look and feel for Rhythm.",
-                style = MaterialTheme.typography.bodyLarge,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(bottom = 24.dp)
-            )
-    
-            // Use system theme toggle
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer
-                ),
-                elevation = CardDefaults.cardElevation(
-                    defaultElevation = 1.dp
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 6.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .clickable { themeViewModel.setUseSystemTheme(!useSystemTheme) }
+            // Enhanced theming icon
+            AnimatedVisibility(
+                visible = true,
+                enter = scaleIn() + fadeIn()
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp)
+                Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (useSystemTheme)
-                                    MaterialTheme.colorScheme.primaryContainer
-                                else
-                                    MaterialTheme.colorScheme.surfaceVariant
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = RhythmIcons.Settings, // Reverted to Settings icon
-                            contentDescription = null,
-                            tint = if (useSystemTheme)
-                                MaterialTheme.colorScheme.onPrimaryContainer
-                            else
-                                MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-    
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(horizontal = 16.dp)
-                    ) {
-                        Text(
-                            text = "System theme",
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            text = "Match system theme or use app's default colors.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-    
-                    Switch(
-                        checked = useSystemTheme,
-                        onCheckedChange = { themeViewModel.setUseSystemTheme(it) },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = MaterialTheme.colorScheme.primary,
-                            checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
-                            uncheckedThumbColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                            uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
+                    Icon(
+                        imageVector = Icons.Filled.Palette,
+                        contentDescription = "Theming Settings",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(40.dp)
                     )
                 }
             }
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            Text(
+                text = "Customize Your Experience",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+            
+            Text(
+                text = "Choose how Rhythm looks and feels to match your style.",
+                style = MaterialTheme.typography.bodyLarge,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 32.dp)
+            )
     
-            // Dark mode toggle (only visible if not using system theme)
-            AnimatedVisibility(
-                visible = !useSystemTheme,
-                enter = fadeIn() + expandVertically(),
-                exit = fadeOut() + shrinkVertically()
+            // Enhanced theme options
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.padding(bottom = 32.dp)
             ) {
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer
-                    ),
-                    elevation = CardDefaults.cardElevation(
-                        defaultElevation = 1.dp
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 6.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .clickable { themeViewModel.setDarkMode(!darkMode) }
+                // System theme toggle
+                EnhancedThemeOption(
+                    icon = RhythmIcons.Settings,
+                    title = "System theme",
+                    description = "Follow your device's theme settings",
+                    isChecked = useSystemTheme,
+                    onCheckedChange = { themeViewModel.setUseSystemTheme(it) }
+                )
+    
+                // Dark mode toggle (only visible if not using system theme)
+                AnimatedVisibility(
+                    visible = !useSystemTheme,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically()
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (darkMode)
-                                        MaterialTheme.colorScheme.primaryContainer
-                                    else
-                                        MaterialTheme.colorScheme.surfaceVariant
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.DarkMode, // Changed to DarkMode icon
-                                contentDescription = null,
-                                tint = if (darkMode)
-                                    MaterialTheme.colorScheme.onPrimaryContainer
-                                else
-                                    MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-    
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(horizontal = 16.dp)
-                        ) {
-                            Text(
-                                text = "Dark mode",
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Text(
-                                text = "Enable dark mode for a darker interface.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-    
-                        Switch(
-                            checked = darkMode,
-                            onCheckedChange = { themeViewModel.setDarkMode(it) },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = MaterialTheme.colorScheme.primary,
-                                checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
-                                uncheckedThumbColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
-                            )
-                        )
-                    }
+                    EnhancedThemeOption(
+                        icon = Icons.Filled.DarkMode,
+                        title = "Dark mode",
+                        description = "Use dark colors for better night viewing",
+                        isChecked = darkMode,
+                        onCheckedChange = { themeViewModel.setDarkMode(it) }
+                    )
+                }
+                
+                // Dynamic colors (Material You) - only show on Android 12+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    EnhancedThemeOption(
+                        icon = Icons.Filled.Palette,
+                        title = "Dynamic colors",
+                        description = "Use colors from your wallpaper",
+                        isChecked = useDynamicColors,
+                        onCheckedChange = { themeViewModel.setUseDynamicColors(it) }
+                    )
                 }
             }
-    
-            Spacer(modifier = Modifier.height(24.dp))
+            
             FilledTonalButton(
                 onClick = onNextStep,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)
             ) {
-                Text("Next", style = MaterialTheme.typography.labelLarge)
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Continue", style = MaterialTheme.typography.labelLarge)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Icon(
+                        imageVector = RhythmIcons.Forward,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+    }
+
+    @Composable
+    fun EnhancedThemeOption(
+        icon: androidx.compose.ui.graphics.vector.ImageVector,
+        title: String,
+        description: String,
+        isChecked: Boolean,
+        onCheckedChange: (Boolean) -> Unit
+    ) {
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainer
+            ),
+            shape = MaterialTheme.shapes.medium,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(MaterialTheme.shapes.medium)
+                .clickable { onCheckedChange(!isChecked) }
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (isChecked)
+                                MaterialTheme.colorScheme.primaryContainer
+                            else
+                                MaterialTheme.colorScheme.surfaceVariant
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = if (isChecked)
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                
+                Spacer(modifier = Modifier.width(16.dp))
+                
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                
+                Switch(
+                    checked = isChecked,
+                    onCheckedChange = onCheckedChange,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.primary,
+                        checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                        uncheckedThumbColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                )
             }
         }
     }
     
     @Composable
-    fun UpdaterContent(
+    fun EnhancedUpdaterContent(
         appSettings: AppSettings,
         onNextStep: () -> Unit
     ) {
@@ -1071,145 +1427,285 @@ fun PermissionHandler(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Icon(
-                imageVector = RhythmIcons.Actions.Update, // Using the new Update icon from Actions
-                contentDescription = "App Updates",
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(64.dp).padding(bottom = 16.dp)
-            )
+            // Enhanced updater icon
+            AnimatedVisibility(
+                visible = true,
+                enter = scaleIn() + fadeIn()
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = RhythmIcons.Actions.Update,
+                        contentDescription = "App Updates",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(40.dp)
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
             Text(
-                text = "App Updates Settings",
-                style = MaterialTheme.typography.headlineSmall,
+                text = "Stay Up to Date",
+                style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(bottom = 8.dp)
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(bottom = 12.dp)
             )
+            
             Text(
-                text = "Manage how Rhythm checks for app updates from GitHub.",
+                text = "Configure how Rhythm checks for updates and new features.",
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(bottom = 24.dp)
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 32.dp)
             )
 
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer
-                ),
-                elevation = CardDefaults.cardElevation(
-                    defaultElevation = 1.dp
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 6.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .clickable { appSettings.setAutoCheckForUpdates(!autoCheckForUpdates) }
+            // Enhanced update options
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.padding(bottom = 32.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp)
+                // Auto check toggle
+                EnhancedUpdateOption(
+                    icon = RhythmIcons.Actions.Update,
+                    title = "Auto check for updates",
+                    description = "Automatically check for new versions",
+                    isChecked = autoCheckForUpdates,
+                    onCheckedChange = { appSettings.setAutoCheckForUpdates(it) }
+                )
+
+                // Update channel selection (only visible if auto check is enabled)
+                AnimatedVisibility(
+                    visible = autoCheckForUpdates,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically()
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (autoCheckForUpdates)
-                                    MaterialTheme.colorScheme.primaryContainer
-                                else
-                                    MaterialTheme.colorScheme.surfaceVariant
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = RhythmIcons.Actions.Update, // Using the new Update icon from Actions
-                            contentDescription = null,
-                            tint = if (autoCheckForUpdates)
-                                MaterialTheme.colorScheme.onPrimaryContainer
-                            else
-                                MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(horizontal = 16.dp)
-                    ) {
-                        Text(
-                            text = "Auto check",
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            text = "Automatically check for new app versions.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    Switch(
-                        checked = autoCheckForUpdates,
-                        onCheckedChange = { appSettings.setAutoCheckForUpdates(it) },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = MaterialTheme.colorScheme.primary,
-                            checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
-                            uncheckedThumbColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                            uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
+                    EnhancedUpdateChannelOption(
+                        currentChannel = updateChannel,
+                        onChannelChange = { appSettings.setUpdateChannel(it) }
                     )
                 }
             }
 
-            AnimatedVisibility(
-                visible = autoCheckForUpdates,
-                enter = fadeIn() + expandVertically(),
-                exit = fadeOut() + shrinkVertically()
-            ) {
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    SettingsClickableItem(
-                        title = "Update Channel",
-                        description = "Current: ${updateChannel.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }}",
-                        icon = if (updateChannel == "beta") Icons.Default.BugReport else Icons.Default.Public,
-                        iconTint = if (updateChannel == "beta") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                        onClick = { showChannelDropdown = true }
-                    )
-
-                    DropdownMenu(
-                        expanded = showChannelDropdown,
-                        onDismissRequest = { showChannelDropdown = false },
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier
-                            .align(Alignment.TopEnd) // Align to the end of the clickable item
-                            .width(150.dp) // Adjust width as needed
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Stable") },
-                            onClick = {
-                                appSettings.setUpdateChannel("stable")
-                                showChannelDropdown = false
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Beta") },
-                            onClick = {
-                                appSettings.setUpdateChannel("beta")
-                                showChannelDropdown = false
-                            }
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
             FilledTonalButton(
                 onClick = onNextStep,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)
             ) {
-                Text("Finish", style = MaterialTheme.typography.labelLarge)
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Complete Setup", style = MaterialTheme.typography.labelLarge)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Icon(
+                        imageVector = Icons.Filled.Check,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+    }
+
+    @Composable
+    fun EnhancedUpdateOption(
+        icon: androidx.compose.ui.graphics.vector.ImageVector,
+        title: String,
+        description: String,
+        isChecked: Boolean,
+        onCheckedChange: (Boolean) -> Unit
+    ) {
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainer
+            ),
+            shape = MaterialTheme.shapes.medium,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(MaterialTheme.shapes.medium)
+                .clickable { onCheckedChange(!isChecked) }
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (isChecked)
+                                MaterialTheme.colorScheme.primaryContainer
+                            else
+                                MaterialTheme.colorScheme.surfaceVariant
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = if (isChecked)
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                
+                Spacer(modifier = Modifier.width(16.dp))
+                
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                
+                Switch(
+                    checked = isChecked,
+                    onCheckedChange = onCheckedChange,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.primary,
+                        checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                        uncheckedThumbColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                )
+            }
+        }
+    }
+
+    @Composable
+    fun EnhancedUpdateChannelOption(
+        currentChannel: String,
+        onChannelChange: (String) -> Unit
+    ) {
+        var showChannelDropdown by remember { mutableStateOf(false) }
+        
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainer
+            ),
+            shape = MaterialTheme.shapes.medium,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(MaterialTheme.shapes.medium)
+                .clickable { showChannelDropdown = true }
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (currentChannel == "beta") Icons.Default.BugReport else Icons.Default.Public,
+                        contentDescription = null,
+                        tint = if (currentChannel == "beta") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                
+                Spacer(modifier = Modifier.width(16.dp))
+                
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Update Channel",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Current: ${currentChannel.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                
+                Icon(
+                    imageVector = RhythmIcons.Forward,
+                    contentDescription = "Change channel",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            
+            DropdownMenu(
+                expanded = showChannelDropdown,
+                onDismissRequest = { showChannelDropdown = false },
+                shape = MaterialTheme.shapes.medium
+            ) {
+                DropdownMenuItem(
+                    text = { 
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Public,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text("Stable")
+                                Text(
+                                    "Stable releases only",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    },
+                    onClick = {
+                        onChannelChange("stable")
+                        showChannelDropdown = false
+                    }
+                )
+                DropdownMenuItem(
+                    text = { 
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.BugReport,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text("Beta")
+                                Text(
+                                    "Get early access to new features",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    },
+                    onClick = {
+                        onChannelChange("beta")
+                        showChannelDropdown = false
+                    }
+                )
             }
         }
     }
@@ -1247,9 +1743,6 @@ fun PermissionHandler(
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainer
-            ),
-            elevation = CardDefaults.cardElevation(
-                defaultElevation = 1.dp
             ),
             modifier = Modifier
                 .fillMaxWidth()
@@ -1353,5 +1846,67 @@ fun PermissionHandler(
                     }
                 }
             }
+        }
+    }
+
+    @Composable
+    fun OnboardingProgressIndicator(
+        currentStep: Int,
+        totalSteps: Int,
+        modifier: Modifier = Modifier
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = modifier
+        ) {
+            // Step indicator dots
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                repeat(totalSteps) { index ->
+                    val isCompleted = index < currentStep
+                    val isCurrent = index == currentStep
+                    
+                    AnimatedVisibility(
+                        visible = true,
+                        enter = scaleIn() + fadeIn(),
+                        exit = scaleOut() + fadeOut()
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(if (isCurrent) 12.dp else 8.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    when {
+                                        isCompleted -> MaterialTheme.colorScheme.primary
+                                        isCurrent -> MaterialTheme.colorScheme.primary
+                                        else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                                    }
+                                )
+                                .animateContentSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isCompleted) {
+                                Icon(
+                                    imageVector = Icons.Filled.Check,
+                                    contentDescription = "Completed",
+                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                    modifier = Modifier.size(6.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Progress text
+            Text(
+                text = "Step ${currentStep + 1} of $totalSteps",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
