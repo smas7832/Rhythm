@@ -845,17 +845,32 @@ class MusicRepository(private val context: Context) {
 
     suspend fun getSongsForAlbum(albumId: String): List<Song> {
         val songs = loadSongs()
+        val albums = loadAlbums()
+        
         Log.d("MusicRepository", "Getting songs for album ID: $albumId")
+        
+        // First, find the album by ID to get its title
+        val album = albums.find { it.id == albumId }
+        if (album == null) {
+            Log.e("MusicRepository", "Album not found with ID: $albumId")
+            return emptyList()
+        }
+        
+        Log.d("MusicRepository", "Found album: ${album.title} (ID: $albumId)")
+        
+        // Now find songs that match the album title
         val albumSongs = songs.filter { song ->
-            val albumMatch = song.album == albumId
+            val albumMatch = song.album == album.title
             if (albumMatch) {
-                Log.d("MusicRepository", "Found song ${song.title} matching album name: ${song.album}")
+                Log.d("MusicRepository", "Found song ${song.title} matching album title: ${song.album}")
             }
             albumMatch
         }
         
+        Log.d("MusicRepository", "Found ${albumSongs.size} songs for album: ${album.title}")
+        
         if (albumSongs.isEmpty()) {
-            Log.d("MusicRepository", "No songs found for album ID: $albumId")
+            Log.d("MusicRepository", "No songs found for album title: ${album.title}, trying direct lookup")
             return loadSongsForAlbumDirect(albumId)
         }
         
@@ -933,7 +948,30 @@ class MusicRepository(private val context: Context) {
 
     suspend fun getSongsForArtist(artistId: String): List<Song> {
         val songs = loadSongs()
-        return songs.filter { it.artist == artistId }
+        val artists = loadArtists()
+        
+        Log.d("MusicRepository", "Getting songs for artist ID: $artistId")
+        
+        // First, find the artist by ID to get the name
+        val artist = artists.find { it.id == artistId }
+        if (artist == null) {
+            Log.e("MusicRepository", "Artist not found with ID: $artistId")
+            return emptyList()
+        }
+        
+        Log.d("MusicRepository", "Found artist: ${artist.name} (ID: $artistId)")
+        
+        // Now find songs that match the artist name
+        val artistSongs = songs.filter { song ->
+            val artistMatch = song.artist == artist.name
+            if (artistMatch) {
+                Log.d("MusicRepository", "Found song ${song.title} by artist: ${song.artist}")
+            }
+            artistMatch
+        }
+        
+        Log.d("MusicRepository", "Found ${artistSongs.size} songs for artist: ${artist.name}")
+        return artistSongs
     }
 
     suspend fun getAlbumsForArtist(artistId: String): List<Album> {

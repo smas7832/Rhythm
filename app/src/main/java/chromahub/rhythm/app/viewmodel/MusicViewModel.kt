@@ -183,6 +183,15 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _isInitialized = MutableStateFlow(false)
     val isInitialized: StateFlow<Boolean> = _isInitialized.asStateFlow()
 
+    // Queue operation state
+    private val _queueOperationError = MutableStateFlow<String?>(null)
+    val queueOperationError: StateFlow<String?> = _queueOperationError.asStateFlow()
+    
+    // Clear queue operation error
+    fun clearQueueOperationError() {
+        _queueOperationError.value = null
+    }
+
     enum class SortOrder {
         TITLE_ASC,
         TITLE_DESC,
@@ -219,7 +228,13 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             // Step 5: Fetch supplementary data from the internet
             fetchArtworkFromInternet()
 
-            // Step 5: Mark as initialized
+            // Step 6: Ensure queue is properly initialized
+            if (_currentQueue.value.songs.isEmpty()) {
+                Log.d(TAG, "Queue is empty, initializing with empty state")
+                _currentQueue.value = Queue(emptyList(), -1)
+            }
+
+            // Step 7: Mark as initialized
             _isInitialized.value = true
             Log.d(TAG, "Data initialization complete")
         }
@@ -452,6 +467,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 // Check if we have a current song after initializing controller
                 updateCurrentSong()
                 
+                // Debug the queue state after initialization
+                debugQueueState()
+                
                 // Check if we have a pending queue to play
                 pendingQueueToPlay?.let { songs ->
                     Log.d(TAG, "Playing pending queue with ${songs.size} songs")
@@ -538,13 +556,31 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                     // Update favorite status
                     _isFavorite.value = _favoriteSongs.value.contains(song.id)
                     
-                    // Update queue position
-                    val currentQueueSongs = _currentQueue.value.songs
-                    val songIndexInQueue = currentQueueSongs.indexOfFirst { it.id == songId }
+                    // Update queue position - comprehensive logic from both listeners
+                    val currentQueue = _currentQueue.value
+                    val newIndex = currentQueue.songs.indexOfFirst { it.id == songId }
                     
-                    if (songIndexInQueue != -1) {
-                        _currentQueue.value = _currentQueue.value.copy(currentIndex = songIndexInQueue)
-                        Log.d(TAG, "Updated queue position to $songIndexInQueue")
+                    if (newIndex != -1 && newIndex != currentQueue.currentIndex) {
+                        // Only update if the index actually changed
+                        Log.d(TAG, "Updating queue index from ${currentQueue.currentIndex} to $newIndex")
+                        _currentQueue.value = currentQueue.copy(currentIndex = newIndex)
+                    } else if (newIndex == -1) {
+                        // Song not found in current queue - sync with MediaController
+                        Log.d(TAG, "Song not in queue, syncing queue from MediaController for: ${song.title}")
+                        mediaController?.let { controller ->
+                            val mediaItems = (0 until controller.mediaItemCount).map { index ->
+                                controller.getMediaItemAt(index)
+                            }
+                            val mediaItemSongs = mediaItems.mapNotNull { mediaItem ->
+                                _songs.value.find { it.id == mediaItem.mediaId }
+                            }
+                            
+                            if (mediaItemSongs.isNotEmpty()) {
+                                val currentMediaIndex = controller.currentMediaItemIndex
+                                _currentQueue.value = Queue(mediaItemSongs, currentMediaIndex.coerceAtLeast(0))
+                                Log.d(TAG, "Synced queue with MediaController: ${mediaItemSongs.size} songs, index: $currentMediaIndex")
+                            }
+                        }
                     }
                     
                     // Fetch lyrics for the new song
@@ -625,14 +661,20 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                     _isFavorite.value = _favoriteSongs.value.contains(song.id)
                     
                     // Check if the song is in the current queue
-                    val songIndexInQueue = _currentQueue.value.songs.indexOfFirst { queueSong -> queueSong.id == song.id }
+                    val currentQueue = _currentQueue.value
+                    val songIndexInQueue = currentQueue.songs.indexOfFirst { queueSong -> queueSong.id == song.id }
+                    
                     if (songIndexInQueue != -1) {
-                        // Update the queue position if the song is in the queue
-                        _currentQueue.value = _currentQueue.value.copy(currentIndex = songIndexInQueue)
+                        // Song is in queue - update position if different
+                        if (songIndexInQueue != currentQueue.currentIndex) {
+                            _currentQueue.value = currentQueue.copy(currentIndex = songIndexInQueue)
+                            Log.d(TAG, "Updated queue position to $songIndexInQueue on song restore")
+                        }
                     } else {
-                        // If the song is not in the queue, create a new queue with just this song
-                        // This can happen if the song was played directly without using playQueue
-                        _currentQueue.value = Queue(listOf(song), 0)
+                        // Song is not in queue - this can happen when resuming from a previous session
+                        // or when playing external files. Sync the entire queue with MediaController
+                        Log.d(TAG, "Song not in queue, syncing entire queue from MediaController for: ${song.title}")
+                        syncQueueWithMediaController()
                     }
                     
                     // Update duration and progress for the current song
@@ -645,6 +687,16 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                     
                     // Fetch lyrics for the current song
                     fetchLyricsForCurrentSong()
+                } else {
+                    Log.w(TAG, "Could not find song with ID: $id")
+                }
+            } ?: run {
+                Log.d(TAG, "No current media item in controller")
+                // Clear current song and queue if no media item
+                _currentSong.value = null
+                if (_currentQueue.value.songs.isNotEmpty()) {
+                    _currentQueue.value = Queue(emptyList(), -1)
+                    Log.d(TAG, "Cleared queue as no media item is active")
                 }
             }
         }
@@ -679,17 +731,28 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 // Song is already in the queue, just play it
                 controller.seekToDefaultPosition(songIndexInQueue)
                 _currentQueue.value = _currentQueue.value.copy(currentIndex = songIndexInQueue)
+                Log.d(TAG, "Playing existing song in queue at position $songIndexInQueue")
             } else {
-                // Song is not in the queue, add it after the current song
-                val currentIndex = _currentQueue.value.currentIndex
-                val insertIndex = if (currentQueueSongs.isEmpty() || currentIndex == -1) 0 else (currentIndex + 1).coerceAtMost(currentQueueSongs.size)
-                currentQueueSongs.add(insertIndex, song)
+                // Song is not in the queue, create a contextual queue
+                val contextualQueue = createContextualQueue(song)
+                if (contextualQueue.size > 1) {
+                    // If we have a contextual queue, play that instead
+                    Log.d(TAG, "Creating contextual queue with ${contextualQueue.size} songs")
+                    playQueue(contextualQueue)
+                    return
+                } else {
+                    // Fallback: add single song to current queue
+                    val currentIndex = _currentQueue.value.currentIndex
+                    val insertIndex = if (currentQueueSongs.isEmpty() || currentIndex == -1) 0 else (currentIndex + 1).coerceAtMost(currentQueueSongs.size)
+                    currentQueueSongs.add(insertIndex, song)
 
-                val mediaItem = song.toMediaItem()
-                controller.addMediaItem(insertIndex, mediaItem)
+                    val mediaItem = song.toMediaItem()
+                    controller.addMediaItem(insertIndex, mediaItem)
 
-                _currentQueue.value = Queue(currentQueueSongs, insertIndex)
-                controller.seekToDefaultPosition(insertIndex)
+                    _currentQueue.value = Queue(currentQueueSongs, insertIndex)
+                    controller.seekToDefaultPosition(insertIndex)
+                    Log.d(TAG, "Added single song to queue at position $insertIndex")
+                }
             }
 
             controller.prepare()
@@ -700,6 +763,134 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             _isFavorite.value = _favoriteSongs.value.contains(song.id)
             startProgressUpdates()
         }
+    }
+
+    /**
+     * Create a contextual queue based on the song's context (album, artist, recently played, etc.)
+     */
+    private fun createContextualQueue(song: Song): List<Song> {
+        // Try to determine the best context for this song
+        
+        // Check if song is from recently played - if so, create queue from recently played
+        if (_recentlyPlayed.value.any { it.id == song.id }) {
+            val recentlyPlayedSongs = _recentlyPlayed.value.take(20) // Limit to recent 20
+            val startIndex = recentlyPlayedSongs.indexOfFirst { it.id == song.id }
+            if (startIndex != -1) {
+                // Reorder so the selected song is first, followed by remaining recently played
+                val reorderedList = listOf(song) + recentlyPlayedSongs.filter { it.id != song.id }
+                Log.d(TAG, "Created queue from recently played with ${reorderedList.size} songs")
+                return reorderedList
+            }
+        }
+        
+        // Check if song is part of an album with multiple tracks
+        val albumSongs = _songs.value.filter { it.album == song.album && it.artist == song.artist }
+        if (albumSongs.size > 1) {
+            // Sort by track number if available, otherwise by title
+            val sortedAlbumSongs = albumSongs.sortedWith { a, b ->
+                when {
+                    a.trackNumber != null && b.trackNumber != null -> a.trackNumber.compareTo(b.trackNumber)
+                    a.trackNumber != null -> -1
+                    b.trackNumber != null -> 1
+                    else -> a.title.compareTo(b.title)
+                }
+            }
+            val startIndex = sortedAlbumSongs.indexOfFirst { it.id == song.id }
+            if (startIndex != -1) {
+                // Reorder so the selected song is first, followed by rest of album
+                val reorderedList = listOf(song) + sortedAlbumSongs.filter { it.id != song.id }
+                Log.d(TAG, "Created queue from album '${song.album}' with ${reorderedList.size} songs")
+                return reorderedList
+            }
+        }
+        
+        // Check if song is by an artist with multiple tracks
+        val artistSongs = _songs.value.filter { it.artist == song.artist }
+        if (artistSongs.size > 1) {
+            // Get a reasonable subset of artist songs (popular ones first if available)
+            val limitedArtistSongs = if (artistSongs.size > 25) {
+                // Sort by play count if available, then take top 25
+                artistSongs.sortedByDescending { _songPlayCounts.value[it.id] ?: 0 }.take(25)
+            } else {
+                artistSongs
+            }
+            val reorderedList = listOf(song) + limitedArtistSongs.filter { it.id != song.id }.shuffled()
+            Log.d(TAG, "Created queue from artist '${song.artist}' with ${reorderedList.size} songs")
+            return reorderedList
+        }
+        
+        // Fallback: return just the single song
+        Log.d(TAG, "No context found, returning single song queue")
+        return listOf(song)
+    }
+
+    /**
+     * Play a song with options for queue behavior
+     */
+    fun playSongWithQueueOption(song: Song, replaceQueue: Boolean = false, shuffleQueue: Boolean = false) {
+        Log.d(TAG, "Playing song with queue option: ${song.title}, replaceQueue: $replaceQueue")
+        
+        if (replaceQueue) {
+            // Replace the entire queue with this song and context
+            val queueSongs = if (shuffleQueue) {
+                // Get all songs from the same context (album/playlist) and shuffle
+                val contextSongs = _songs.value.filter { it.album == song.album }
+                if (contextSongs.size > 1) {
+                    val shuffled = contextSongs.shuffled()
+                    // Ensure the selected song is first
+                    listOf(song) + shuffled.filter { it.id != song.id }
+                } else {
+                    listOf(song)
+                }
+            } else {
+                // Create contextual queue for the song
+                createContextualQueue(song)
+            }
+            playQueue(queueSongs)
+        } else {
+            // Add to the current queue and play immediately
+            addSongToQueue(song)
+            // Seek to the newly added song
+            val newIndex = _currentQueue.value.songs.indexOfFirst { it.id == song.id }
+            if (newIndex != -1) {
+                mediaController?.seekToDefaultPosition(newIndex)
+                mediaController?.play()
+            }
+        }
+    }
+
+    /**
+     * Play a song from a specific context (playlist, album, etc.)
+     * This ensures the queue reflects the context the song was played from
+     */
+    fun playSongFromContext(song: Song, contextSongs: List<Song>, contextName: String? = null) {
+        Log.d(TAG, "Playing song from context: ${song.title}, context: $contextName, contextSize: ${contextSongs.size}")
+        
+        if (contextSongs.isEmpty()) {
+            // Fallback to regular playSong
+            playSong(song)
+            return
+        }
+        
+        // Find the position of the song in the context
+        val songIndex = contextSongs.indexOfFirst { it.id == song.id }
+        if (songIndex != -1) {
+            // Reorder the context so the selected song plays first, followed by the rest
+            val reorderedQueue = listOf(song) + contextSongs.filter { it.id != song.id }
+            playQueue(reorderedQueue)
+        } else {
+            // Song not found in context, add it to the front and play
+            val newQueue = listOf(song) + contextSongs
+            playQueue(newQueue)
+        }
+    }
+
+    /**
+     * Add songs from a specific context (album, artist, etc.) to queue
+     */
+    fun addContextToQueue(contextSongs: List<Song>, shuffled: Boolean = false) {
+        val songsToAdd = if (shuffled) contextSongs.shuffled() else contextSongs
+        addSongsToQueue(songsToAdd)
     }
 
     private fun updateRecentlyPlayed(song: Song) {
@@ -783,16 +974,21 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 playQueue(songs)
             } else {
                 Log.e(TAG, "No songs found for album: ${album.title} (ID: ${album.id})")
+                debugQueueState()
             }
         }
     }
 
     fun playArtist(artist: Artist) {
         viewModelScope.launch {
-            Log.d(TAG, "Playing artist: ${artist.name}")
+            Log.d(TAG, "Playing artist: ${artist.name} (ID: ${artist.id})")
             val songs = repository.getSongsForArtist(artist.id)
+            Log.d(TAG, "Found ${songs.size} songs for artist")
             if (songs.isNotEmpty()) {
                 playQueue(songs)
+            } else {
+                Log.e(TAG, "No songs found for artist: ${artist.name} (ID: ${artist.id})")
+                debugQueueState()
             }
         }
     }
@@ -814,10 +1010,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         
         mediaController?.let { controller ->
             try {
-                // Clear existing queue
+                // Clear existing queue first
                 controller.clearMediaItems()
                 
-                // Create media items from songs
+                // Create media items from songs and add them to controller
                 songs.forEach { song ->
                     val mediaItem = MediaItem.Builder()
                         .setMediaId(song.id)
@@ -835,7 +1031,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                     controller.addMediaItem(mediaItem)
                 }
                 
-                // Set the queue in the view model
+                // Set the queue in the view model immediately for UI responsiveness
                 _currentQueue.value = Queue(songs, 0)
                 
                 // Start playback from the first song
@@ -843,27 +1039,41 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 controller.prepare()
                 controller.play()
                 
-                // Update current song
-                _currentSong.value = songs.firstOrNull()
+                // Update current song and state
+                val firstSong = songs.firstOrNull()
+                _currentSong.value = firstSong
                 _isPlaying.value = true
                 
                 // Add first song to recently played
-                _currentSong.value?.let { updateRecentlyPlayed(it) }
+                firstSong?.let { updateRecentlyPlayed(it) }
                 
                 // Update favorite status
-                _isFavorite.value = _currentSong.value?.let { song -> 
+                _isFavorite.value = firstSong?.let { song -> 
                     _favoriteSongs.value.contains(song.id) 
                 } ?: false
                 
                 startProgressUpdates()
                 
-                // Add a listener to update the queue position when the media item changes
-                controller.removeListener(mediaItemTransitionListener)
-                controller.addListener(mediaItemTransitionListener)
-                
                 Log.d(TAG, "Successfully started playback of queue with ${songs.size} songs")
+                
+                // Debug queue state
+                debugQueueState()
+                
+                // Double-check queue sync after a short delay to ensure consistency
+                viewModelScope.launch {
+                    delay(500) // Wait for MediaController to be ready
+                    if (controller.mediaItemCount != songs.size) {
+                        Log.w(TAG, "Queue size mismatch after playback start - syncing")
+                        syncQueueWithMediaController()
+                        debugQueueState()
+                    }
+                }
+                
             } catch (e: Exception) {
                 Log.e(TAG, "Error playing queue", e)
+                // Reset queue state on error
+                _currentQueue.value = Queue(emptyList(), -1)
+                _queueOperationError.value = "Error playing queue: ${e.message}"
             }
         } ?: run {
             Log.e(TAG, "Cannot play queue - media controller is null")
@@ -875,28 +1085,6 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // Store a reference to the listener to avoid adding multiple listeners
-    private val mediaItemTransitionListener = object : Player.Listener {
-        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-            super.onMediaItemTransition(mediaItem, reason)
-            
-            // Update the queue position based on the current media item
-            mediaItem?.let { item ->
-                val songId = item.mediaId
-                val newIndex = _currentQueue.value.songs.indexOfFirst { it.id == songId }
-                if (newIndex != -1) {
-                    _currentQueue.value = _currentQueue.value.copy(currentIndex = newIndex)
-                    
-                    // Also update the current song
-                    val song = _currentQueue.value.songs[newIndex]
-                    _currentSong.value = song
-                    
-                    // Add to recently played
-                    updateRecentlyPlayed(song)
-                }
-            }
-        }
-    }
     
     // Store pending queue to play when controller becomes available
     private var pendingQueueToPlay: List<Song>? = null
@@ -927,6 +1115,19 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 val nextSongId = nextMediaItem.mediaId
                 val nextSong = _songs.value.find { it.id == nextSongId }
                 
+                // Update the current queue position first for immediate UI feedback
+                val currentQueue = _currentQueue.value
+                if (currentQueue.songs.isNotEmpty()) {
+                    val currentIndex = currentQueue.currentIndex
+                    val newIndex = (currentIndex + 1) % currentQueue.songs.size
+                    _currentQueue.value = currentQueue.copy(currentIndex = newIndex)
+                    
+                    // Reset progress to 0 for immediate UI feedback
+                    _progress.value = 0f
+                    
+                    Log.d(TAG, "Updated queue position from $currentIndex to $newIndex")
+                }
+                
                 // Update the current song immediately for better UX
                 if (nextSong != null) {
                     _currentSong.value = nextSong
@@ -938,18 +1139,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                     fetchLyricsForCurrentSong()
                 }
                 
-                // Update the current queue position
-                val songs = _currentQueue.value.songs
-                if (songs.isNotEmpty()) {
-                    val newIndex = (_currentQueue.value.currentIndex + 1) % songs.size
-                    _currentQueue.value = _currentQueue.value.copy(currentIndex = newIndex)
-                    
-                    // Reset progress to 0 for immediate UI feedback
-                    _progress.value = 0f
-                }
-                
                 // Now perform the actual seek operation
                 controller.seekToNext()
+            } else {
+                Log.d(TAG, "No next song available")
             }
         }
     }
@@ -969,6 +1162,23 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 val prevSongId = prevMediaItem.mediaId
                 val prevSong = _songs.value.find { it.id == prevSongId }
                 
+                // Update the current queue position first for immediate UI feedback
+                val currentQueue = _currentQueue.value
+                if (currentQueue.songs.isNotEmpty()) {
+                    val currentIndex = currentQueue.currentIndex
+                    val newIndex = if (currentIndex > 0) 
+                        currentIndex - 1 
+                    else 
+                        currentQueue.songs.size - 1
+                    
+                    _currentQueue.value = currentQueue.copy(currentIndex = newIndex)
+                    
+                    // Reset progress to 0 for immediate UI feedback
+                    _progress.value = 0f
+                    
+                    Log.d(TAG, "Updated queue position from $currentIndex to $newIndex")
+                }
+                
                 // Update the current song immediately for better UX
                 if (prevSong != null) {
                     _currentSong.value = prevSong
@@ -980,19 +1190,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                     fetchLyricsForCurrentSong()
                 }
                 
-                // Update the current queue position
-                val newIndex = if (_currentQueue.value.currentIndex > 0) 
-                    _currentQueue.value.currentIndex - 1 
-                else 
-                    _currentQueue.value.songs.size - 1
-                
-                _currentQueue.value = _currentQueue.value.copy(currentIndex = newIndex)
-                
-                // Reset progress to 0 for immediate UI feedback
-                _progress.value = 0f
-                
                 // Now perform the actual seek operation
                 controller.seekToPrevious()
+            } else {
+                Log.d(TAG, "No previous song available")
             }
         }
     }
@@ -1527,37 +1728,57 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun addSongToQueue(song: Song) {
         Log.d(TAG, "Adding song to queue: ${song.title}")
+        
+        // Clear any previous error
+        _queueOperationError.value = null
+        
         mediaController?.let { controller ->
-            val mediaItem = MediaItem.Builder()
-                .setMediaId(song.id)
-                .setUri(song.uri)
-                .setMediaMetadata(
-                    MediaMetadata.Builder()
-                        .setTitle(song.title)
-                        .setArtist(song.artist)
-                        .setAlbumTitle(song.album)
-                        .setArtworkUri(song.artworkUri)
-                        .build()
-                )
-                .build()
-            
-            // Add to media controller queue
-            controller.addMediaItem(mediaItem)
-            
-            // If nothing is currently playing, start playback
-            if (controller.playbackState == Player.STATE_IDLE || controller.playbackState == Player.STATE_ENDED) {
-                controller.prepare()
-                controller.play()
+            try {
+                val mediaItem = MediaItem.Builder()
+                    .setMediaId(song.id)
+                    .setUri(song.uri)
+                    .setMediaMetadata(
+                        MediaMetadata.Builder()
+                            .setTitle(song.title)
+                            .setArtist(song.artist)
+                            .setAlbumTitle(song.album)
+                            .setArtworkUri(song.artworkUri)
+                            .build()
+                    )
+                    .build()
+                
+                // Add to media controller queue
+                controller.addMediaItem(mediaItem)
+                
+                // If nothing is currently playing, start playback
+                if (controller.playbackState == Player.STATE_IDLE || controller.playbackState == Player.STATE_ENDED) {
+                    controller.prepare()
+                    controller.play()
+                }
+                
+                // Update the queue in our state - make a defensive copy
+                val currentQueueSongs = _currentQueue.value.songs.toMutableList()
+                currentQueueSongs.add(song)
+                
+                // Make sure current index is valid
+                val currentIndex = if (_currentQueue.value.currentIndex == -1 && currentQueueSongs.size == 1) {
+                    // First song added to empty queue
+                    0
+                } else {
+                    _currentQueue.value.currentIndex
+                }
+                
+                _currentQueue.value = Queue(currentQueueSongs, currentIndex)
+                
+                Log.d(TAG, "Successfully added '${song.title}'. Queue now has ${currentQueueSongs.size} songs, current index: $currentIndex")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error adding song to queue", e)
+                _queueOperationError.value = "Failed to add '${song.title}' to queue: ${e.message}"
             }
-            
-            // Update the queue in our state - make a defensive copy
-            val currentQueueSongs = _currentQueue.value.songs.toMutableList()
-            currentQueueSongs.add(song)
-            _currentQueue.value = Queue(currentQueueSongs, _currentQueue.value.currentIndex)
-            
-            Log.d(TAG, "Updated queue: now has ${currentQueueSongs.size} songs")
         } ?: run {
-            Log.e(TAG, "Cannot add song to queue - media controller is null")
+            val errorMsg = "Cannot add song to queue - media controller is null"
+            Log.e(TAG, errorMsg)
+            _queueOperationError.value = errorMsg
         }
     }
 
@@ -1566,19 +1787,25 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun removeFromQueue(song: Song) {
         Log.d(TAG, "Removing song from queue: ${song.title}")
+        
+        // Clear any previous error
+        _queueOperationError.value = null
+        
         val currentQueue = _currentQueue.value
         val currentSong = _currentSong.value
         val songIndex = currentQueue.songs.indexOfFirst { it.id == song.id }
         
         // Check if the song is in the queue
         if (songIndex == -1) {
-            Log.d(TAG, "Song not found in queue")
+            Log.d(TAG, "Song '${song.title}' not found in queue")
+            _queueOperationError.value = "Song '${song.title}' not found in queue"
             return
         }
         
         // Don't remove the currently playing song
         if (currentSong != null && song.id == currentSong.id) {
-            Log.d(TAG, "Cannot remove currently playing song")
+            Log.d(TAG, "Cannot remove currently playing song: ${song.title}")
+            _queueOperationError.value = "Cannot remove the currently playing song"
             return
         }
         
@@ -1590,7 +1817,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                     Log.d(TAG, "Removing media item at position $songIndex")
                     controller.removeMediaItem(songIndex)
                 } else {
-                    Log.e(TAG, "Media item index out of bounds: $songIndex, controller has ${controller.mediaItemCount} items")
+                    throw IndexOutOfBoundsException("Media item index out of bounds: $songIndex, controller has ${controller.mediaItemCount} items")
                 }
                 
                 // Update the local queue state - this ensures UI is still updated even if controller fails
@@ -1605,13 +1832,16 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                     currentQueue.currentIndex
                 }
                 
-                Log.d(TAG, "Updated queue: ${updatedSongs.size} songs, current index: $newIndex")
+                Log.d(TAG, "Successfully removed '${song.title}'. Queue now has ${updatedSongs.size} songs, current index: $newIndex")
                 _currentQueue.value = Queue(updatedSongs, newIndex)
             } catch (e: Exception) {
                 Log.e(TAG, "Error removing song from queue", e)
+                _queueOperationError.value = "Failed to remove '${song.title}' from queue: ${e.message}"
             }
         } ?: run {
-            Log.e(TAG, "Cannot remove song - media controller is null")
+            val errorMsg = "Cannot remove song - media controller is null"
+            Log.e(TAG, errorMsg)
+            _queueOperationError.value = errorMsg
         }
     }
     
@@ -1620,39 +1850,39 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun moveQueueItem(fromIndex: Int, toIndex: Int) {
         Log.d(TAG, "Moving queue item from $fromIndex to $toIndex")
+        
+        // Clear any previous error
+        _queueOperationError.value = null
+        
         val currentQueue = _currentQueue.value
         val songs = currentQueue.songs.toMutableList()
         
         // Input validation to prevent index out of bounds
         if (fromIndex < 0 || fromIndex >= songs.size || toIndex < 0 || toIndex >= songs.size) {
-            Log.e(TAG, "Cannot move queue item - invalid indices: from=$fromIndex, to=$toIndex, size=${songs.size}")
+            val errorMsg = "Cannot move queue item - invalid indices: from=$fromIndex, to=$toIndex, size=${songs.size}"
+            Log.e(TAG, errorMsg)
+            _queueOperationError.value = errorMsg
+            return
+        }
+        
+        // Additional validation for edge cases
+        if (fromIndex == toIndex) {
+            Log.d(TAG, "Moving queue item to same position, ignoring")
             return
         }
         
         // Safely update local state first
         try {
+            // Store original state for rollback
+            val originalSongs = songs.toList()
+            val originalCurrentIndex = currentQueue.currentIndex
+            
             // Apply the move in the local queue
             val song = songs.removeAt(fromIndex)
             songs.add(toIndex, song)
             
-            // Also move it in the MediaController
-            mediaController?.let { controller ->
-                try {
-                    if (fromIndex < controller.mediaItemCount && toIndex < controller.mediaItemCount) {
-                        Log.d(TAG, "Moving media item in controller from $fromIndex to $toIndex")
-                        controller.moveMediaItem(fromIndex, toIndex)
-                    } else {
-                        Log.e(TAG, "Cannot move media item - index out of bounds in controller: from=$fromIndex, to=$toIndex, count=${controller.mediaItemCount}")
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error moving media item in controller", e)
-                }
-            } ?: run {
-                Log.e(TAG, "Cannot move queue item - media controller is null")
-            }
-            
-            // Adjust current index if needed
-            val newIndex = when {
+            // Calculate new current index with better logic
+            val newCurrentIndex = when {
                 // If we moved the current song
                 fromIndex == currentQueue.currentIndex -> toIndex
                 // If we moved a song from before the current song to after it
@@ -1663,21 +1893,110 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                     currentQueue.currentIndex + 1
                 // Otherwise, current index doesn't change
                 else -> currentQueue.currentIndex
+            }.coerceIn(0, songs.size - 1) // Ensure index is always valid
+            
+            // Update local state optimistically
+            _currentQueue.value = Queue(songs, newCurrentIndex)
+            
+            // Also move it in the MediaController with proper error handling
+            mediaController?.let { controller ->
+                try {
+                    // Validate controller state
+                    if (controller.mediaItemCount != originalSongs.size) {
+                        Log.w(TAG, "MediaController item count mismatch: expected ${originalSongs.size}, got ${controller.mediaItemCount}")
+                    }
+                    
+                    if (fromIndex < controller.mediaItemCount && toIndex < controller.mediaItemCount) {
+                        Log.d(TAG, "Moving media item in controller from $fromIndex to $toIndex")
+                        controller.moveMediaItem(fromIndex, toIndex)
+                        Log.d(TAG, "Successfully moved queue item from $fromIndex to $toIndex, new current index: $newCurrentIndex")
+                    } else {
+                        throw IndexOutOfBoundsException("Cannot move media item - index out of bounds in controller: from=$fromIndex, to=$toIndex, count=${controller.mediaItemCount}")
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error moving media item in controller, rolling back UI state", e)
+                    // Rollback to original state
+                    _currentQueue.value = Queue(originalSongs, originalCurrentIndex)
+                    _queueOperationError.value = "Failed to move queue item: ${e.message}"
+                    return
+                }
+            } ?: run {
+                Log.e(TAG, "Cannot move queue item - media controller is null, rolling back UI state")
+                // Rollback to original state
+                _currentQueue.value = Queue(originalSongs, originalCurrentIndex)
+                _queueOperationError.value = "Cannot move queue item - media controller is null"
+                return
             }
             
-            Log.d(TAG, "Updated queue position: $newIndex")
-            _currentQueue.value = Queue(songs, newIndex)
         } catch (e: Exception) {
             Log.e(TAG, "Error moving queue item", e)
+            _queueOperationError.value = "Failed to move queue item: ${e.message}"
         }
     }
     
     /**
-     * Add songs to the queue
+     * Add multiple songs to the queue
+     */
+    fun addSongsToQueue(songs: List<Song>) {
+        Log.d(TAG, "Adding ${songs.size} songs to queue")
+        
+        if (songs.isEmpty()) {
+            Log.d(TAG, "No songs to add to queue")
+            return
+        }
+        
+        // Clear any previous error
+        _queueOperationError.value = null
+        
+        mediaController?.let { controller ->
+            try {
+                // Add each song to the media controller
+                songs.forEach { song ->
+                    val mediaItem = MediaItem.Builder()
+                        .setMediaId(song.id)
+                        .setUri(song.uri)
+                        .setMediaMetadata(
+                            MediaMetadata.Builder()
+                                .setTitle(song.title)
+                                .setArtist(song.artist)
+                                .setAlbumTitle(song.album)
+                                .setArtworkUri(song.artworkUri)
+                                .build()
+                        )
+                        .build()
+                    
+                    controller.addMediaItem(mediaItem)
+                }
+                
+                // If nothing is currently playing, start playback
+                if (controller.playbackState == Player.STATE_IDLE || controller.playbackState == Player.STATE_ENDED) {
+                    controller.prepare()
+                    controller.play()
+                }
+                
+                // Update the queue in our state - make a defensive copy
+                val currentQueueSongs = _currentQueue.value.songs.toMutableList()
+                currentQueueSongs.addAll(songs)
+                _currentQueue.value = Queue(currentQueueSongs, _currentQueue.value.currentIndex)
+                
+                Log.d(TAG, "Successfully added ${songs.size} songs. Queue now has ${currentQueueSongs.size} songs")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error adding songs to queue", e)
+                _queueOperationError.value = "Failed to add ${songs.size} songs to queue: ${e.message}"
+            }
+        } ?: run {
+            val errorMsg = "Cannot add songs to queue - media controller is null"
+            Log.e(TAG, errorMsg)
+            _queueOperationError.value = errorMsg
+        }
+    }
+
+    /**
+     * Add songs to the queue (legacy method for single song - keeping for backward compatibility)
      */
     fun addSongsToQueue() {
-        // This would typically show a dialog or navigate to a screen to select songs
-        // For now, it's a placeholder for the UI to connect to
+        // This method is now a placeholder for UI navigation
+        // The actual song addition should use addSongsToQueue(songs: List<Song>)
     }
 
     // Search history methods
@@ -1748,7 +2067,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             // Try to reconnect to the service
             connectToMediaService()
             
-            // Create a delayed job to retry playback once connected
+            // Create a delayed job to retry playback once we have a controller
             viewModelScope.launch {
                 var attempts = 0
                 val maxAttempts = 15  // Increased from 10 to 15 attempts for cold starts
@@ -1937,7 +2256,6 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             song.genre?.let { genre ->
                 val count = currentGenrePrefs.getOrDefault(genre, 0) + 1
                 currentGenrePrefs[genre] = count
-                _genrePreferences.value = currentGenrePrefs
                 appSettings.setGenrePreferences(currentGenrePrefs)
             }
 
@@ -2078,6 +2396,88 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         } catch (e: Exception) {
             Log.e(TAG, "Error initializing from persistence", e)
         }
+    }
+
+    /**
+     * Get current queue info for debugging
+     */
+    fun getQueueInfo(): String {
+        val queue = _currentQueue.value
+        return "Queue: ${queue.songs.size} songs, current index: ${queue.currentIndex}, current song: ${_currentSong.value?.title}"
+    }
+
+    /**
+     * Force sync the queue state with MediaController
+     * This is useful for debugging queue inconsistencies
+     */
+    fun syncQueueWithMediaController() {
+        mediaController?.let { controller ->
+            Log.d(TAG, "Syncing queue with MediaController")
+            Log.d(TAG, "MediaController: ${controller.mediaItemCount} items, current index: ${controller.currentMediaItemIndex}")
+            Log.d(TAG, "ViewModel queue: ${_currentQueue.value.songs.size} songs, current index: ${_currentQueue.value.currentIndex}")
+            
+            if (controller.mediaItemCount > 0) {
+                val mediaItems = (0 until controller.mediaItemCount).map { index ->
+                    controller.getMediaItemAt(index)
+                }
+                val mediaItemSongs = mediaItems.mapNotNull { mediaItem ->
+                    _songs.value.find { it.id == mediaItem.mediaId }
+                }
+                
+                val currentMediaIndex = controller.currentMediaItemIndex.coerceAtLeast(0)
+                _currentQueue.value = Queue(mediaItemSongs, currentMediaIndex)
+                
+                // Update current song if needed
+                if (mediaItemSongs.isNotEmpty() && currentMediaIndex < mediaItemSongs.size) {
+                    val currentSong = mediaItemSongs[currentMediaIndex]
+                    _currentSong.value = currentSong
+                    _isFavorite.value = _favoriteSongs.value.contains(currentSong.id)
+                }
+                
+                Log.d(TAG, "Synced queue: ${mediaItemSongs.size} songs, index: $currentMediaIndex")
+            } else {
+                // No items in MediaController, clear queue
+                _currentQueue.value = Queue(emptyList(), -1)
+                _currentSong.value = null
+                Log.d(TAG, "Cleared queue - no items in MediaController")
+            }
+        } ?: run {
+            Log.w(TAG, "Cannot sync queue - MediaController is null")
+        }
+    }
+
+    /**
+     * Debug function to print current queue state
+     */
+    fun debugQueueState() {
+        Log.d(TAG, "=== QUEUE DEBUG INFO ===")
+        Log.d(TAG, "ViewModel queue: ${_currentQueue.value.songs.size} songs, current index: ${_currentQueue.value.currentIndex}")
+        if (_currentQueue.value.songs.isNotEmpty()) {
+            Log.d(TAG, "Queue songs:")
+            _currentQueue.value.songs.forEachIndexed { index, song ->
+                val marker = if (index == _currentQueue.value.currentIndex) " -> " else "    "
+                Log.d(TAG, "$marker$index: ${song.title} by ${song.artist}")
+            }
+        }
+        
+        mediaController?.let { controller ->
+            Log.d(TAG, "MediaController: ${controller.mediaItemCount} items, current index: ${controller.currentMediaItemIndex}")
+            Log.d(TAG, "MediaController state: ${controller.playbackState}, isPlaying: ${controller.isPlaying}")
+            if (controller.mediaItemCount > 0) {
+                Log.d(TAG, "MediaController songs:")
+                for (i in 0 until controller.mediaItemCount) {
+                    val mediaItem = controller.getMediaItemAt(i)
+                    val marker = if (i == controller.currentMediaItemIndex) " -> " else "    "
+                    Log.d(TAG, "$marker$i: ${mediaItem.mediaId} (${mediaItem.mediaMetadata.title})")
+                }
+            }
+        } ?: run {
+            Log.d(TAG, "MediaController: null")
+        }
+        
+        Log.d(TAG, "Current song: ${_currentSong.value?.title ?: "none"}")
+        Log.d(TAG, "Is playing: ${_isPlaying.value}")
+        Log.d(TAG, "========================")
     }
 
     companion object {

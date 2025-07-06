@@ -214,6 +214,7 @@ object RhythmIcons {
     val Edit = Actions.Edit
     val Delete = Actions.Delete
     val AddToPlaylist = Music.Playlist
+    val AddToQueue = Icons.AutoMirrored.Rounded.PlaylistAdd
     val More = Actions.More
     val Queue = Player.Queue
     val MusicNote = Music.MusicNote

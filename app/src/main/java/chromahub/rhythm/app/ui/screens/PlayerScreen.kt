@@ -314,7 +314,7 @@ fun PlayerScreen(
                     queueSheetState.hide()
                 }.invokeOnCompletion {
                     if (!queueSheetState.isVisible) {
-                        // Navigate to the LibraryScreen (Songs tab)
+                        // Navigate to the LibraryScreen (Songs tab) with a hint about adding songs
                         onNavigateToLibrary(LibraryTab.SONGS)
                     }
                 }
@@ -1151,20 +1151,44 @@ fun QueueBottomSheet(
     // Create a mutable queue for reordering that updates when the queue changes
     val mutableQueue = remember(queue) { queue.toMutableStateList() }
     
+    // Track if we're currently performing a reorder operation to prevent conflicts
+    var isReordering by remember { mutableStateOf(false) }
+    
     // Set up reorderable state for drag and drop functionality
     val reorderableState = rememberReorderableLazyListState(
         onMove = { from, to ->
+            if (isReordering) {
+                Log.w("QueueBottomSheet", "Reorder already in progress, ignoring")
+                return@rememberReorderableLazyListState
+            }
+            
             try {
-                if (from.index < mutableQueue.size && to.index < mutableQueue.size) {
-                    // Move the item in the UI first for immediate feedback
-                    mutableQueue.apply {
-                        add(to.index, removeAt(from.index))
-                    }
-                    // Call the callback to update the actual queue in ViewModel
-                    onMoveQueueItem(from.index, to.index)
+                isReordering = true
+                
+                // Validate indices
+                if (from.index < 0 || from.index >= mutableQueue.size || 
+                    to.index < 0 || to.index >= mutableQueue.size) {
+                    Log.e("QueueBottomSheet", "Invalid reorder indices: from=${from.index}, to=${to.index}, size=${mutableQueue.size}")
+                    return@rememberReorderableLazyListState
                 }
+                
+                // Store original state for potential rollback
+                val originalQueue = mutableQueue.toList()
+                
+                // Move the item in the UI first for immediate feedback
+                val item = mutableQueue.removeAt(from.index)
+                mutableQueue.add(to.index, item)
+                
+                // Call the callback to update the actual queue in ViewModel
+                // Note: We don't await this since it's a callback, but we should handle failures
+                onMoveQueueItem(from.index, to.index)
+                
+                Log.d("QueueBottomSheet", "Successfully reordered queue item from ${from.index} to ${to.index}")
             } catch (e: Exception) {
                 Log.e("QueueBottomSheet", "Error during drag reorder", e)
+                // TODO: Consider implementing rollback mechanism if ViewModel operation fails
+            } finally {
+                isReordering = false
             }
         }
     )
@@ -1226,8 +1250,18 @@ fun QueueBottomSheet(
                     NowPlayingCard(song)
                 }
                 
-                // Only show "UP NEXT" and the rest of the queue if there's more than one song
-                if (mutableQueue.size > 1) {
+                // Filter out the current song from the queue to show upcoming songs
+                // Use index-based filtering to handle duplicate songs correctly
+                val upcomingQueue = mutableQueue.mapIndexed { index, song -> 
+                    IndexedValue(index, song) 
+                }.filter { indexedSong ->
+                    // Only show songs that come after the current song's position in queue
+                    val currentSongIndexInQueue = currentQueueIndex.coerceAtLeast(0)
+                    indexedSong.index > currentSongIndexInQueue
+                }
+                
+                // Show "UP NEXT" section if there are upcoming songs
+                if (upcomingQueue.isNotEmpty()) {
                     // Queue header for upcoming songs
                     Row(
                         modifier = Modifier
@@ -1263,36 +1297,39 @@ fun QueueBottomSheet(
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         itemsIndexed(
-                            items = mutableQueue,
-                            key = { _, song -> song.id }
-                        ) { index, song ->
-                            // Skip the current song as it's already shown in the NowPlayingCard
-                            if (currentSong == null || song.id != currentSong.id) {
-                                ReorderableItem(reorderableState, key = song.id) { isDragging ->
-                                    QueueItem(
-                                        song = song,
-                                        index = index,
-                                        isDragging = isDragging,
-                                        onSongClick = { onSongClick(song) },
-                                        onRemove = { 
-                                            try {
-                                                // First update local UI state for immediate feedback
-                                                val indexToRemove = mutableQueue.indexOf(song)
-                                                if (indexToRemove >= 0 && indexToRemove < mutableQueue.size) {
-                                                    mutableQueue.removeAt(indexToRemove)
-                                                }
-                                                // Then update the actual queue via ViewModel
-                                                onRemoveSong(song)
-                                            } catch (e: Exception) {
-                                                Log.e("QueueBottomSheet", "Error removing item", e)
+                            items = upcomingQueue,
+                            key = { _, indexedSong -> "${indexedSong.index}_${indexedSong.value.id}" }
+                        ) { _, indexedSong ->
+                            // Find the original index in the full queue for proper ordering
+                            val originalIndex = indexedSong.index
+                            val song = indexedSong.value
+                            ReorderableItem(reorderableState, key = "${originalIndex}_${song.id}") { isDragging ->
+                                QueueItem(
+                                    song = song,
+                                    index = originalIndex,
+                                    isDragging = isDragging,
+                                    onSongClick = { onSongClick(song) },
+                                    onRemove = { 
+                                        try {
+                                            // First update local UI state for immediate feedback
+                                            val indexToRemove = mutableQueue.indexOf(song)
+                                            if (indexToRemove >= 0 && indexToRemove < mutableQueue.size) {
+                                                mutableQueue.removeAt(indexToRemove)
                                             }
-                                        },
-                                        reorderableState = reorderableState
-                                    )
-                                }
+                                            // Then update the actual queue via ViewModel
+                                            onRemoveSong(song)
+                                        } catch (e: Exception) {
+                                            Log.e("QueueBottomSheet", "Error removing item", e)
+                                        }
+                                    },
+                                    reorderableState = reorderableState
+                                )
                             }
                         }
                     }
+                } else if (currentSong != null) {
+                    // Show empty up next content when only current song is in queue
+                    EmptyUpNextContent(onAddSongsClick)
                 }
             }
         }
@@ -1348,7 +1385,7 @@ private fun NowPlayingCard(song: Song) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 24.dp, vertical = 8.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer
         ),
@@ -2083,6 +2120,54 @@ private fun QueueItem(
                     contentDescription = "Remove from queue",
                     modifier = Modifier.size(24.dp)
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyUpNextContent(onAddSongsClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(120.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = RhythmIcons.Queue,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                modifier = Modifier.size(32.dp)
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Text(
+                text = "No more songs in queue",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                textAlign = TextAlign.Center
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            FilledTonalButton(
+                onClick = onAddSongsClick,
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Add more")
             }
         }
     }
