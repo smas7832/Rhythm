@@ -42,6 +42,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.rememberTopAppBarState
@@ -76,7 +77,7 @@ import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.ui.screens.AppUpdaterScreen
 import chromahub.rhythm.app.ui.screens.LibraryScreen
 import chromahub.rhythm.app.ui.screens.NewHomeScreen
-import chromahub.rhythm.app.ui.screens.PlayerLocationsScreen
+
 import chromahub.rhythm.app.ui.screens.PlayerScreen
 import chromahub.rhythm.app.ui.screens.PlaylistDetailScreen
 import chromahub.rhythm.app.ui.screens.SearchScreen
@@ -123,7 +124,6 @@ sealed class Screen(val route: String) {
     object Player : Screen("player")
     object Settings : Screen("settings")
     object AddToPlaylist : Screen("add_to_playlist")
-    object PlayerLocations : Screen("player_locations")
     object AppUpdater : Screen("app_updater?autoDownload={autoDownload}") {
         fun createRoute(autoDownload: Boolean = false) = "app_updater?autoDownload=$autoDownload"
     }
@@ -170,9 +170,11 @@ fun RhythmNavigation(
     val onSeek = { value: Float -> viewModel.seekTo(value) }
     val onPlaySong = { song: chromahub.rhythm.app.data.Song -> viewModel.playSong(song) }
     val onPlayAlbum = { album: chromahub.rhythm.app.data.Album -> viewModel.playAlbum(album) }
+    val onPlayAlbumShuffled = { album: chromahub.rhythm.app.data.Album -> viewModel.playAlbumShuffled(album) }
     val onPlayArtist = { artist: chromahub.rhythm.app.data.Artist -> viewModel.playArtist(artist) }
     val onPlayPlaylist =
         { playlist: chromahub.rhythm.app.data.Playlist -> viewModel.playPlaylist(playlist) }
+    val onPlayPlaylistShuffled = { playlist: chromahub.rhythm.app.data.Playlist -> viewModel.playPlaylistShuffled(playlist) }
     val onToggleShuffle = { viewModel.toggleShuffle() }
     val onToggleRepeat = { viewModel.toggleRepeatMode() }
     val onToggleFavorite = { viewModel.toggleFavorite() }
@@ -197,14 +199,37 @@ fun RhythmNavigation(
         }
     }
 
-    // Provide dynamic mini-player padding to all destinations
+    // Provide dynamic mini-player padding with comprehensive navigation handling
     val showMiniPlayer = currentSong != null && currentRoute != Screen.Player.route
     val showNavBar = currentRoute == Screen.Home.route || currentRoute.startsWith("library")
-    val miniPlayerPaddingValues = remember(showMiniPlayer, showNavBar) {
+    
+    // Get navigation bar height for proper spacing calculations
+    val navigationBarHeight = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    
+    val miniPlayerPaddingValues = remember(showMiniPlayer, showNavBar, navigationBarHeight) {
         PaddingValues(
             bottom = when {
-                showMiniPlayer -> UiConstants.MiniPlayerHeight + if (showNavBar) UiConstants.NavBarHeight else 0.dp
-                showNavBar -> UiConstants.NavBarHeight
+                showMiniPlayer && showNavBar -> {
+                    // When both mini player and nav bar are shown - provide adequate spacing
+                    UiConstants.MiniPlayerHeight + UiConstants.NavBarHeight + 
+                    when {
+                        navigationBarHeight > 48.dp -> 20.dp // 3-button nav needs more space
+                        navigationBarHeight > 0.dp -> 16.dp  // Gesture nav with hint bar
+                        else -> 12.dp // Gesture nav without visible bar
+                    }
+                }
+                showMiniPlayer -> {
+                    // Only mini player shown - the mini player handles its own positioning
+                    UiConstants.MiniPlayerHeight + 8.dp // Just add small buffer for content
+                }
+                showNavBar -> {
+                    // Only nav bar shown
+                    UiConstants.NavBarHeight + when {
+                        navigationBarHeight > 48.dp -> 12.dp // 3-button nav
+                        navigationBarHeight > 0.dp -> 8.dp   // Gesture nav with hint
+                        else -> 8.dp // Gesture nav without hint
+                    }
+                }
                 else -> 0.dp
             }
         )
@@ -228,12 +253,23 @@ fun RhythmNavigation(
 
                     // Navigation bar shown only on specific routes
                     if (showNavBar) {
+                        // Add subtle separator when mini player is visible for better visual separation
+                        if (showMiniPlayer) {
+                            HorizontalDivider(
+                                thickness = 1.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
+                                modifier = Modifier.padding(horizontal = 32.dp)
+                            )
+                        }
 
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 24.dp)
-                                .padding(bottom = 8.dp),
+                                .padding(
+                                    top = if (showMiniPlayer) 2.dp else 8.dp, // Minimal top padding when mini player is visible
+                                    bottom = if (navigationBarHeight > 48.dp) 4.dp else 8.dp // Account for different navigation types
+                                ),
                             contentAlignment = Alignment.Center
                         ) {
                             Surface(
@@ -436,15 +472,12 @@ fun RhythmNavigation(
                         onViewAllSongs = {
                             // Navigate to songs screen
                             navController.navigate(Screen.Library.createRoute(LibraryTab.SONGS))
-                            selectedTab = 1
                         },
                         onViewAllAlbums = {
                             navController.navigate(Screen.Library.createRoute(LibraryTab.PLAYLISTS))
-                            selectedTab = 1
                         },
                         onViewAllArtists = {
                             navController.navigate(Screen.Library.createRoute(LibraryTab.PLAYLISTS))
-                            selectedTab = 1
                         },
                         onSkipNext = onSkipNext,
                         onSearchClick = {
@@ -461,13 +494,18 @@ fun RhythmNavigation(
                         onNavigateToLibrary = {
                             // Navigate to library with playlists tab selected
                             navController.navigate(Screen.Library.createRoute(LibraryTab.PLAYLISTS))
-                            selectedTab = 1 // Library is tab 1
                         },
                         onNavigateToPlaylist = { playlistId ->
                             // Navigate to the specified playlist
                             // For "favorites", we'll use the ID "1" which is the favorites playlist
                             val id = if (playlistId == "favorites") "1" else playlistId
                             navController.navigate(Screen.PlaylistDetail.createRoute(id))
+                        },
+                        onAddToQueue = { song ->
+                            viewModel.addSongToQueue(song)
+                        },
+                        onAddSongToPlaylist = { song, playlistId ->
+                            viewModel.addSongToPlaylist(song, playlistId)
                         }
                     )
                 }
@@ -583,14 +621,6 @@ fun RhythmNavigation(
                         onShowOnlineOnlyLyricsChange = { onlineOnly ->
                             viewModel.setShowOnlineOnlyLyrics(onlineOnly)
                         },
-                        useSystemTheme = useSystemTheme,
-                        darkMode = darkMode,
-                        onUseSystemThemeChange = { use ->
-                            themeViewModel.setUseSystemTheme(use)
-                        },
-                        onDarkModeChange = { dark ->
-                            themeViewModel.setDarkMode(dark)
-                        },
                         onOpenSystemEqualizer = {
                             viewModel.openSystemEqualizer()
                         },
@@ -705,6 +735,7 @@ fun RhythmNavigation(
                             // This is now handled internally with the dialog
                         },
                         onAlbumClick = onPlayAlbum,
+                        onAlbumShufflePlay = onPlayAlbumShuffled,
                         onSort = {
                             // Implement sort functionality
                             viewModel.sortLibrary()
@@ -850,6 +881,16 @@ fun RhythmNavigation(
                         onToggleMute = {
                             viewModel.toggleMute()
                         },
+                        onRefreshDevices = {
+                            viewModel.startDeviceMonitoringOnDemand()
+                        },
+                        onStopDeviceMonitoring = {
+                            viewModel.stopDeviceMonitoringOnDemand()
+                        },
+                        locations = viewModel.locations.collectAsState().value,
+                        onLocationSelect = { location ->
+                            viewModel.setCurrentDevice(location)
+                        },
                         onMaxVolume = {
                             viewModel.maxVolume()
                         },
@@ -874,7 +915,6 @@ fun RhythmNavigation(
                         onNavigateToLibrary = { tab ->
                             // Navigate to the LibraryScreen with the specified tab
                             navController.navigate(Screen.Library.createRoute(tab))
-                            selectedTab = 1 // Assuming Library is tab 1
                         },
                         showAddToPlaylistSheet = showAddToPlaylistSheet.value,
                         onAddToPlaylistSheetDismiss = {
@@ -893,22 +933,6 @@ fun RhythmNavigation(
                     )
                 }
 
-                // Player Locations screen
-                composable(Screen.PlayerLocations.route) {
-                    PlayerLocationsScreen(
-                        locations = viewModel.locations.collectAsState().value,
-                        currentLocation = currentDevice,
-                        onLocationSelect = { location ->
-                            // Set the selected location
-                            viewModel.setCurrentDevice(location)
-                            navController.popBackStack()
-                        },
-                        onBack = {
-                            navController.popBackStack()
-                        }
-                    )
-                }
-
                 // Add playlist detail screen
                 @OptIn(ExperimentalMaterial3Api::class)
                 composable(
@@ -917,7 +941,44 @@ fun RhythmNavigation(
                         navArgument("playlistId") {
                             type = NavType.StringType
                         }
-                    )
+                    ),
+                    // Zoom transition for playlist detail screen
+                    enterTransition = {
+                        fadeIn(animationSpec = tween(350)) + 
+                        scaleIn(
+                            initialScale = 0.85f,
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessMedium
+                            )
+                        )
+                    },
+                    exitTransition = {
+                        fadeOut(animationSpec = tween(300)) + 
+                        scaleOut(
+                            targetScale = 0.85f,
+                            animationSpec = tween(300)
+                        )
+                    }
+                    
+                    // Alternative slide transition option:
+                    // enterTransition = {
+                    //     fadeIn(animationSpec = tween(350)) + 
+                    //     slideInHorizontally(
+                    //         initialOffsetX = { it / 3 },
+                    //         animationSpec = spring(
+                    //             dampingRatio = Spring.DampingRatioMediumBouncy,
+                    //             stiffness = Spring.StiffnessMedium
+                    //         )
+                    //     )
+                    // },
+                    // exitTransition = {
+                    //     fadeOut(animationSpec = tween(300)) + 
+                    //     slideOutHorizontally(
+                    //         targetOffsetX = { it / 3 },
+                    //         animationSpec = tween(300)
+                    //     )
+                    // }
                 ) { backStackEntry ->
                     val playlistId = backStackEntry.arguments?.getString("playlistId") ?: ""
                     val playlist = playlists.find { it.id == playlistId }
@@ -934,6 +995,10 @@ fun RhythmNavigation(
                             },
                             onPlayAll = {
                                 onPlayPlaylist(playlist)
+                            },
+                            onShufflePlay = {
+                                // Play shuffled playlist songs using the proper shuffled playlist playback
+                                onPlayPlaylistShuffled(playlist)
                             },
                             onSongClick = onPlaySong,
                             onBack = {

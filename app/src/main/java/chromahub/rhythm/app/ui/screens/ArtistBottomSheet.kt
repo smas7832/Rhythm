@@ -46,6 +46,10 @@ fun ArtistBottomSheet(
     onDismiss: () -> Unit,
     onSongClick: (Song) -> Unit,
     onAlbumClick: (Album) -> Unit,
+    onPlayAll: () -> Unit,
+    onShufflePlay: () -> Unit,
+    onAddToQueue: (Song) -> Unit,
+    onAddSongToPlaylist: (Song) -> Unit,
     sheetState: SheetState = rememberModalBottomSheetState()
 ) {
     val context = LocalContext.current
@@ -152,22 +156,22 @@ fun ArtistBottomSheet(
                             )
                     )
                     
-                    // Close button with improved design
-                    IconButton(
+                    // Enhanced close button with better design
+                    FilledIconButton(
                         onClick = onDismiss,
                         modifier = Modifier
-                            .padding(16.dp)
+                            .padding(20.dp)
                             .align(Alignment.TopEnd)
-                            .size(40.dp)
-                            .background(
-                                MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
-                                CircleShape
-                            )
+                            .size(44.dp),
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        )
                     ) {
                         Icon(
                             imageVector = RhythmIcons.Close,
                             contentDescription = "Close",
-                            tint = MaterialTheme.colorScheme.onSurface
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                     
@@ -192,20 +196,18 @@ fun ArtistBottomSheet(
                         
                         Spacer(modifier = Modifier.height(16.dp))
                         
-                        // Action buttons row
+                        // Enhanced Action buttons row
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            // Play All button
-                            FilledTonalButton(
-                                onClick = { 
-                                    // Create a queue of all artist songs and play from start
-                                    viewModel.playQueue(artistSongs)
-                                },
-                                colors = ButtonDefaults.filledTonalButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            // Play All button with better functionality
+                            Button(
+                                onClick = onPlayAll,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
                                 ),
+                                shape = RoundedCornerShape(24.dp),
                                 modifier = Modifier.weight(1f)
                             ) {
                                 Icon(
@@ -214,25 +216,26 @@ fun ArtistBottomSheet(
                                     modifier = Modifier.size(20.dp)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Play All")
+                                Text(
+                                    "Play All",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                             
-                            // Shuffle button
+                            // Shuffle button with enhanced functionality
                             FilledIconButton(
-                                onClick = { 
-                                    // Enable shuffle and play shuffled artist songs
-                                    viewModel.toggleShuffle()
-                                    viewModel.playQueue(artistSongs.shuffled())
-                                },
+                                onClick = onShufflePlay,
                                 colors = IconButtonDefaults.filledIconButtonColors(
                                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
                                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
+                                ),
+                                modifier = Modifier.size(48.dp)
                             ) {
                                 Icon(
                                     imageVector = RhythmIcons.Shuffle,
                                     contentDescription = "Shuffle play",
-                                    modifier = Modifier.size(20.dp)
+                                    modifier = Modifier.size(24.dp)
                                 )
                             }
                         }
@@ -314,9 +317,11 @@ fun ArtistBottomSheet(
                 }
                 
                 items(artistSongs) { song ->
-                    ArtistSongItem(
+                    EnhancedArtistSongItem(
                         song = song,
                         onClick = { onSongClick(song) },
+                        onAddToQueue = { onAddToQueue(song) },
+                        onAddToPlaylist = { onAddSongToPlaylist(song) },
                         modifier = Modifier.graphicsLayer { 
                             alpha = contentAlpha
                             translationY = contentTranslation
@@ -423,12 +428,15 @@ private fun ArtistAlbumCard(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ArtistSongItem(
+private fun EnhancedArtistSongItem(
     song: Song,
     onClick: () -> Unit,
+    onAddToQueue: () -> Unit,
+    onAddToPlaylist: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    var showDropdown by remember { mutableStateOf(false) }
     
     ListItem(
         headlineContent = {
@@ -437,17 +445,37 @@ private fun ArtistSongItem(
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurface
             )
         },
         supportingContent = {
-            Text(
-                text = song.album,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = song.album,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                
+                if (song.duration > 0) {
+                    Text(
+                        text = " • ",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    
+                    val durationText = formatDuration(song.duration)
+                    Text(
+                        text = durationText,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         },
         leadingContent = {
             Surface(
@@ -470,19 +498,58 @@ private fun ArtistSongItem(
             }
         },
         trailingContent = {
-            FilledIconButton(
-                onClick = onClick,
-                modifier = Modifier.size(36.dp),
-                colors = IconButtonDefaults.filledIconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(
-                    imageVector = RhythmIcons.Play,
-                    contentDescription = "Play song",
-                    modifier = Modifier.size(20.dp)
-                )
+                FilledIconButton(
+                    onClick = onAddToQueue,
+                    modifier = Modifier.size(36.dp),
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f),
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                ) {
+                    Icon(
+                        imageVector = RhythmIcons.Queue,
+                        contentDescription = "Add to queue",
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                FilledIconButton(
+                    onClick = { showDropdown = true },
+                    modifier = Modifier.size(36.dp),
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.8f),
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                ) {
+                    Icon(
+                        imageVector = RhythmIcons.More,
+                        contentDescription = "More options",
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                DropdownMenu(
+                    expanded = showDropdown,
+                    onDismissRequest = { showDropdown = false },
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Add to playlist") },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = RhythmIcons.AddToPlaylist,
+                                contentDescription = null
+                            )
+                        },
+                        onClick = {
+                            showDropdown = false
+                            onAddToPlaylist()
+                        }
+                    )
+                }
             }
         },
         modifier = modifier.clickable(onClick = onClick),
@@ -491,3 +558,17 @@ private fun ArtistSongItem(
         )
     )
 }
+
+// Helper function to format duration
+private fun formatDuration(durationMs: Long): String {
+    val seconds = (durationMs / 1000) % 60
+    val minutes = (durationMs / (1000 * 60)) % 60
+    val hours = (durationMs / (1000 * 60 * 60))
+    
+    return if (hours > 0) {
+        String.format("%d:%02d:%02d", hours, minutes, seconds)
+    } else {
+        String.format("%d:%02d", minutes, seconds)
+    }
+}
+

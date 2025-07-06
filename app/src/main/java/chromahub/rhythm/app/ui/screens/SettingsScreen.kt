@@ -38,6 +38,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
@@ -48,6 +49,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.LargeTopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -68,6 +70,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import chromahub.rhythm.app.data.Song
+import chromahub.rhythm.app.data.AlbumViewType
 import chromahub.rhythm.app.ui.components.MiniPlayer
 import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.R
@@ -97,6 +100,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Info // Added import for Info icon
+import androidx.compose.material.icons.filled.Palette // Added import for Palette icon
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
@@ -118,152 +122,40 @@ fun SettingsScreen(
     showOnlineOnlyLyrics: Boolean,
     onShowLyricsChange: (Boolean) -> Unit,
     onShowOnlineOnlyLyricsChange: (Boolean) -> Unit,
-    useSystemTheme: Boolean,
-    darkMode: Boolean,
-    onUseSystemThemeChange: (Boolean) -> Unit,
-    onDarkModeChange: (Boolean) -> Unit,
     onOpenSystemEqualizer: () -> Unit,
     onBack: () -> Unit,
     onCheckForUpdates: () -> Unit
 ) {
     val context = LocalContext.current
     val appSettings = remember { AppSettings.getInstance(context) }
+    
+    // Use AppSettings for theme settings
+    val useSystemTheme by appSettings.useSystemTheme.collectAsState()
+    val darkMode by appSettings.darkMode.collectAsState()
+    val useDynamicColors by appSettings.useDynamicColors.collectAsState()
+    
     val spotifyKey by appSettings.spotifyApiKey.collectAsState()
     val scope = rememberCoroutineScope()
-    var showApiKeyDialog by remember { mutableStateOf(false) }
-    var apiKeyInput by remember { mutableStateOf(spotifyKey ?: "") }
     var showAboutDialog by remember { mutableStateOf(false) }
-    var isChecking by remember { mutableStateOf(false) }
-    var checkResult: Boolean? by remember { mutableStateOf(null) } // null not checked
-    var errorCode: Int? by remember { mutableStateOf(null) } // hold HTTP error for messaging
+    var showApiBottomSheet by remember { mutableStateOf(false) }
 
     val updaterViewModel: AppUpdaterViewModel = viewModel()
     val currentAppVersion by updaterViewModel.currentVersion.collectAsState()
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
 
-    if (showApiKeyDialog) {
-        AlertDialog(
-            onDismissRequest = { if(!isChecking) showApiKeyDialog = false },
-            title = {
-                Text(
-                    text = "Spotify RapidAPI Key",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-            },
-            text = {
-                Column {
-                    Text(
-                        "Obtain a free RapidAPI key for the Spotify23 API (\u2192 Open the \u201cPlayground\u201d and copy your Personal key).",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    val linkColor = MaterialTheme.colorScheme.primary
-                    val annotatedLink = buildAnnotatedString {
-                        append("More info")
-                        addStyle(SpanStyle(color = linkColor, fontWeight = FontWeight.Medium), 0, length)
-                        addStringAnnotation("URL", "https://rapidapi.com/Glavier/api/spotify23/playground", 0, length)
-                    }
-                    ClickableText(text = annotatedLink, style = MaterialTheme.typography.bodySmall) { offset ->
-                        annotatedLink.getStringAnnotations("URL", offset, offset).firstOrNull()?.let { anno ->
-                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(anno.item))
-                            context.startActivity(intent)
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = apiKeyInput,
-                        onValueChange = {
-                            apiKeyInput = it
-                            checkResult = null // reset result when editing
-                        },
-                        singleLine = true,
-                        placeholder = { Text("Enter API key") },
-                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    when {
-                        isChecking -> {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                CircularProgressIndicator(modifier = Modifier.size(20.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Verifying key…")
-                            }
-                        }
-                        checkResult == true -> {
-                            Text("Key valid!", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
-                        }
-                        checkResult == false -> {
-                            val msg = when (errorCode) {
-                                429 -> "Monthly limit exceeded for this key. Using default key."
-                                500 -> "RapidAPI server error. Please try again later."
-                                else -> "Key invalid. We'll keep using the default key."
-                            }
-                            Text(msg, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Medium)
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (isChecking) return@Button
-                        isChecking = true
-                        checkResult = null
-                        scope.launch {
-                            val code = verifySpotifyKey(apiKeyInput.trim())
-                            val ok = code == HttpURLConnection.HTTP_OK
-                            checkResult = ok
-                            errorCode = if (ok) null else code
-                            if (ok) {
-                                appSettings.setSpotifyApiKey(apiKeyInput.trim())
-                                showApiKeyDialog = false
-                            } else {
-                                appSettings.setSpotifyApiKey(null) // fallback
-                            }
-                            isChecking = false
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer)
-                ) {
-                    Text(if (isChecking) "Verifying…" else "Save")
-                }
-            },
-            dismissButton = {
-                Row {
-                    TextButton(onClick = { if(!isChecking) showApiKeyDialog = false }) {
-                        Text("Cancel")
-                    }
-                    if (!spotifyKey.isNullOrBlank()) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Button(
-                            onClick = {
-                                if (isChecking) return@Button
-                                scope.launch {
-                                    appSettings.setSpotifyApiKey(null)
-                                    showApiKeyDialog = false
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
-                        ) {
-                            Text("Remove")
-                        }
-                    }
-                }
-            },
-            shape = RoundedCornerShape(20.dp)
-        )
-    }
-
     if (showAboutDialog) {
         AboutDialog(
             onDismiss = { showAboutDialog = false },
             onCheckForUpdates = onCheckForUpdates,
             currentAppVersion = currentAppVersion
+        )
+    }
+
+    if (showApiBottomSheet) {
+        ApiManagementBottomSheet(
+            onDismiss = { showApiBottomSheet = false },
+            appSettings = appSettings
         )
     }
 
@@ -337,11 +229,21 @@ fun SettingsScreen(
 
                 SettingsToggleItem(
                     title = "Use system theme",
-                    description = "Use Android's Monet theme colors when on, app's colors when off",
+                    description = "Use Android's Material You colors when available",
                     icon = RhythmIcons.Settings,
                     checked = useSystemTheme,
                     onCheckedChange = {
-                        onUseSystemThemeChange(it)
+                        appSettings.setUseSystemTheme(it)
+                    }
+                )
+
+                SettingsToggleItem(
+                    title = "Dynamic colors",
+                    description = "Use wallpaper-based colors (Android 12+)",
+                    icon = Icons.Default.Palette,
+                    checked = useDynamicColors,
+                    onCheckedChange = {
+                        appSettings.setUseDynamicColors(it)
                     }
                 )
 
@@ -356,10 +258,29 @@ fun SettingsScreen(
                         icon = RhythmIcons.LocationFilled,
                         checked = darkMode,
                         onCheckedChange = {
-                            onDarkModeChange(it)
+                            appSettings.setDarkMode(it)
                         }
                     )
                 }
+
+                SettingsDivider()
+            }
+            
+            // Library section
+            item {
+                SettingsSectionHeader(title = "Library")
+
+                val albumViewType by appSettings.albumViewType.collectAsState()
+                
+                SettingsClickableItem(
+                    title = "Album view type",
+                    description = "Choose how albums are displayed: ${albumViewType.name.lowercase().replaceFirstChar { it.uppercase() }}",
+                    icon = RhythmIcons.Album,
+                    onClick = {
+                        val newViewType = if (albumViewType == AlbumViewType.LIST) AlbumViewType.GRID else AlbumViewType.LIST
+                        appSettings.setAlbumViewType(newViewType)
+                    }
+                )
 
                 SettingsDivider()
             }
@@ -404,17 +325,16 @@ fun SettingsScreen(
                 SettingsDivider()
             }
 
-            // Integrations section
+            // API Management section
             item {
-                SettingsSectionHeader(title = "Integrations")
+                SettingsSectionHeader(title = "API Management")
 
                 SettingsClickableItem(
-                    title = "Spotify RapidAPI Key",
-                    description = if (spotifyKey.isNullOrBlank()) "No key set" else "Key set (tap to change)",
+                    title = "Manage API Settings",
+                    description = "Configure external API keys and services",
                     icon = RhythmIcons.Settings,
                     onClick = {
-                        apiKeyInput = spotifyKey ?: ""
-                        showApiKeyDialog = true
+                        showApiBottomSheet = true
                     }
                 )
 
@@ -427,7 +347,6 @@ fun SettingsScreen(
 
                 val autoCheckForUpdates by appSettings.autoCheckForUpdates.collectAsState()
                 val updateChannel by appSettings.updateChannel.collectAsState()
-                var showChannelDropdown by remember { mutableStateOf(false) }
 
                 SettingsToggleItem(
                     title = "Auto Check",
@@ -444,39 +363,10 @@ fun SettingsScreen(
                     enter = fadeIn() + expandVertically(),
                     exit = fadeOut() + shrinkVertically()
                 ) {
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        SettingsClickableItem(
-                            title = "Update Channel",
-                            description = "Current: ${updateChannel.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }}",
-                            icon = if (updateChannel == "beta") Icons.Default.BugReport else Icons.Default.Public,
-                            iconTint = if (updateChannel == "beta") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                            onClick = { showChannelDropdown = true }
-                        )
-
-                        DropdownMenu(
-                            expanded = showChannelDropdown,
-                            onDismissRequest = { showChannelDropdown = false },
-                            shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier
-                                .align(Alignment.TopEnd) // Align to the end of the clickable item
-                                .width(150.dp) // Adjust width as needed
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Stable") },
-                                onClick = {
-                                    appSettings.setUpdateChannel("stable")
-                                    showChannelDropdown = false
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Beta") },
-                                onClick = {
-                                    appSettings.setUpdateChannel("beta")
-                                    showChannelDropdown = false
-                                }
-                            )
-                        }
-                    }
+                    EnhancedUpdateChannelOption(
+                        currentChannel = updateChannel,
+                        onChannelChange = { appSettings.setUpdateChannel(it) }
+                    )
                 }
 
                 SettingsDivider()
@@ -1052,5 +942,503 @@ suspend fun verifySpotifyKey(key: String): Int? {
             conn.readTimeout = 5000
             conn.responseCode
         }.getOrNull()
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ApiManagementBottomSheet(
+    onDismiss: () -> Unit,
+    appSettings: AppSettings
+) {
+    val bottomSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    
+    // API states
+    val spotifyKey by appSettings.spotifyApiKey.collectAsState()
+    var showSpotifyDialog by remember { mutableStateOf(false) }
+    var apiKeyInput by remember { mutableStateOf(spotifyKey ?: "") }
+    var isChecking by remember { mutableStateOf(false) }
+    var checkResult: Boolean? by remember { mutableStateOf(null) }
+    var errorCode: Int? by remember { mutableStateOf(null) }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = bottomSheetState,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        containerColor = MaterialTheme.colorScheme.surface,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 16.dp)
+        ) {
+            // Header
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    imageVector = RhythmIcons.Settings,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(28.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = "API Management",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Text(
+                text = "Configure external API services for enhanced features",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // API Services List
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Spotify RapidAPI
+                item {
+                    ApiServiceCard(
+                        title = "Spotify RapidAPI",
+                        description = "Enhanced artist images, album artwork, and lyrics",
+                        status = if (spotifyKey.isNullOrBlank()) "Not configured" else "Active",
+                        isConfigured = !spotifyKey.isNullOrBlank(),
+                        icon = Icons.Default.Public,
+                        onClick = {
+                            apiKeyInput = spotifyKey ?: ""
+                            showSpotifyDialog = true
+                        }
+                    )
+                }
+
+                // LRCLib
+                item {
+                    ApiServiceCard(
+                        title = "LRCLib",
+                        description = "Free lyrics service - no configuration needed",
+                        status = "Always active",
+                        isConfigured = true,
+                        icon = RhythmIcons.Queue,
+                        onClick = { /* No action needed */ }
+                    )
+                }
+
+                // MusicBrainz
+                item {
+                    ApiServiceCard(
+                        title = "MusicBrainz",
+                        description = "Music metadata and artist information",
+                        status = "Always active",
+                        isConfigured = true,
+                        icon = RhythmIcons.Album,
+                        onClick = { /* No action needed */ }
+                    )
+                }
+
+                // CoverArt Archive
+                item {
+                    ApiServiceCard(
+                        title = "CoverArt Archive",
+                        description = "Album artwork from the community",
+                        status = "Always active",
+                        isConfigured = true,
+                        icon = RhythmIcons.Song,
+                        onClick = { /* No action needed */ }
+                    )
+                }
+
+                // Last.fm
+                item {
+                    ApiServiceCard(
+                        title = "Last.fm",
+                        description = "Artist images and music information",
+                        status = "Always active",
+                        isConfigured = true,
+                        icon = RhythmIcons.Artist,
+                        onClick = { /* No action needed */ }
+                    )
+                }
+
+                // GitHub (for updates)
+                item {
+                    ApiServiceCard(
+                        title = "GitHub API",
+                        description = "App updates and release information",
+                        status = "Always active",
+                        isConfigured = true,
+                        icon = RhythmIcons.Download,
+                        onClick = { /* No action needed */ }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Close button
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Close")
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+
+    // Spotify API Key Dialog
+    if (showSpotifyDialog) {
+        AlertDialog(
+            onDismissRequest = { if(!isChecking) showSpotifyDialog = false },
+            title = {
+                Text(
+                    text = "Spotify RapidAPI Key",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        "Obtain a free RapidAPI key for the Spotify23 API (\u2192 Open the \u201cPlayground\u201d and copy your Personal key).",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    val linkColor = MaterialTheme.colorScheme.primary
+                    val annotatedLink = buildAnnotatedString {
+                        append("More info")
+                        addStyle(SpanStyle(color = linkColor, fontWeight = FontWeight.Medium), 0, length)
+                        addStringAnnotation("URL", "https://rapidapi.com/Glavier/api/spotify23/playground", 0, length)
+                    }
+                    ClickableText(text = annotatedLink, style = MaterialTheme.typography.bodySmall) { offset ->
+                        annotatedLink.getStringAnnotations("URL", offset, offset).firstOrNull()?.let { anno ->
+                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(anno.item))
+                            context.startActivity(intent)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = apiKeyInput,
+                        onValueChange = {
+                            apiKeyInput = it
+                            checkResult = null // reset result when editing
+                        },
+                        singleLine = true,
+                        placeholder = { Text("Enter API key") },
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    when {
+                        isChecking -> {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Verifying key…")
+                            }
+                        }
+                        checkResult == true -> {
+                            Text("Key valid!", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
+                        }
+                        checkResult == false -> {
+                            val msg = when (errorCode) {
+                                429 -> "Monthly limit exceeded for this key. Using default key."
+                                500 -> "RapidAPI server error. Please try again later."
+                                else -> "Key invalid. We'll keep using the default key."
+                            }
+                            Text(msg, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (isChecking) return@Button
+                        isChecking = true
+                        checkResult = null
+                        scope.launch {
+                            val code = verifySpotifyKey(apiKeyInput.trim())
+                            val ok = code == HttpURLConnection.HTTP_OK
+                            checkResult = ok
+                            errorCode = if (ok) null else code
+                            if (ok) {
+                                appSettings.setSpotifyApiKey(apiKeyInput.trim())
+                                showSpotifyDialog = false
+                            } else {
+                                appSettings.setSpotifyApiKey(null) // fallback
+                            }
+                            isChecking = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer)
+                ) {
+                    Text(if (isChecking) "Verifying…" else "Save")
+                }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = { if(!isChecking) showSpotifyDialog = false }) {
+                        Text("Cancel")
+                    }
+                    if (!spotifyKey.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = {
+                                if (isChecking) return@Button
+                                scope.launch {
+                                    appSettings.setSpotifyApiKey(null)
+                                    showSpotifyDialog = false
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
+                        ) {
+                            Text("Remove")
+                        }
+                    }
+                }
+            },
+            shape = RoundedCornerShape(20.dp)
+        )
+    }
+}
+
+@Composable
+fun ApiServiceCard(
+    title: String,
+    description: String,
+    status: String,
+    isConfigured: Boolean,
+    icon: ImageVector,
+    onClick: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 2.dp
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(16.dp)
+        ) {
+            // Icon
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (isConfigured)
+                            MaterialTheme.colorScheme.primaryContainer
+                        else
+                            MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = if (isConfigured)
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    else
+                        MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // Content
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Surface(
+                        color = if (isConfigured)
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                        else
+                            MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            text = status,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (isConfigured)
+                                MaterialTheme.colorScheme.primary
+                            else
+                                MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // Arrow icon (only for configurable services)
+            if (title == "Spotify RapidAPI") {
+                Icon(
+                    imageVector = RhythmIcons.Forward,
+                    contentDescription = "Configure",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun EnhancedUpdateChannelOption(
+    currentChannel: String,
+    onChannelChange: (String) -> Unit
+) {
+    var showChannelDropdown by remember { mutableStateOf(false) }
+    
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        ),
+        shape = MaterialTheme.shapes.medium,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.medium)
+            .clickable { showChannelDropdown = true }
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (currentChannel == "beta") Icons.Default.BugReport else Icons.Default.Public,
+                    contentDescription = null,
+                    tint = if (currentChannel == "beta") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Update Channel",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "Current: ${currentChannel.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
+            Icon(
+                imageVector = RhythmIcons.Forward,
+                contentDescription = "Change channel",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        
+        DropdownMenu(
+            expanded = showChannelDropdown,
+            onDismissRequest = { showChannelDropdown = false },
+            shape = MaterialTheme.shapes.medium
+        ) {
+            DropdownMenuItem(
+                text = { 
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Public,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("Stable")
+                            Text(
+                                "Stable releases only",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                },
+                onClick = {
+                    onChannelChange("stable")
+                    showChannelDropdown = false
+                }
+            )
+            DropdownMenuItem(
+                text = { 
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.BugReport,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("Beta")
+                            Text(
+                                "Get early access to new features",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                },
+                onClick = {
+                    onChannelChange("beta")
+                    showChannelDropdown = false
+                }
+            )
+        }
     }
 }

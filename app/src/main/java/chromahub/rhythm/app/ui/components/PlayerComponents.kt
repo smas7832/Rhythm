@@ -1,9 +1,14 @@
 package chromahub.rhythm.app.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -55,9 +60,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import chromahub.rhythm.app.data.Song
 import chromahub.rhythm.app.ui.theme.PlayerButtonColor
 import chromahub.rhythm.app.ui.theme.PlayerProgressColor
@@ -83,6 +91,7 @@ import chromahub.rhythm.app.ui.components.M3LinearLoader
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.windowInsetsPadding
 
@@ -422,6 +431,7 @@ fun MiniPlayer(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val density = LocalDensity.current
     val haptic = LocalHapticFeedback.current
     val animatedProgress by animateFloatAsState(
         targetValue = progress,
@@ -486,8 +496,36 @@ fun MiniPlayer(
         }
     }
 
-    // Get the navigation bar insets
-    val navigationBarPadding = WindowInsets.navigationBars.asPaddingValues()
+    // Enhanced navigation bar handling for proper positioning across all navigation types
+    val navigationBarInsets = WindowInsets.navigationBars
+    val systemBarInsets = WindowInsets.systemBars
+    val navigationBarHeight = with(density) {
+        navigationBarInsets.getBottom(density).toDp()
+    }
+    val systemBarsBottom = with(density) {
+        systemBarInsets.getBottom(density).toDp()
+    }
+    
+    // Comprehensive bottom padding calculation that handles all scenarios
+    val bottomPadding = when {
+        // Check if we're in fullscreen mode or gesture navigation without visible navbar
+        navigationBarHeight <= 0.dp -> 16.dp // No navigation bar, use generous padding from bottom edge
+        
+        // 3-button navigation (high navbar)
+        navigationBarHeight > 48.dp -> {
+            // Add more generous padding above 3-button navigation to prevent overlap and provide breathing room
+            navigationBarHeight + 12.dp
+        }
+        
+        // Gesture navigation with visible hint bar (low navbar)
+        navigationBarHeight > 0.dp && navigationBarHeight <= 48.dp -> {
+            // Position just above the gesture hint bar with some breathing room
+            navigationBarHeight + 8.dp
+        }
+        
+        // Fallback for edge cases
+        else -> 16.dp
+    }
 
     Card(
         onClick = {
@@ -497,20 +535,19 @@ fun MiniPlayer(
                 onPlayerClick()
             }
         },
-        shape = RoundedCornerShape(28.dp),
+        shape = RoundedCornerShape(24.dp), // Slightly reduced corner radius for better visual balance
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
             contentColor = MaterialTheme.colorScheme.onSurface
         ),
         elevation = CardDefaults.cardElevation(
-            defaultElevation = 0.dp,
-            pressedElevation = 0.dp
+            defaultElevation = 0.dp, // Remove elevation as requested
+            pressedElevation = 0.dp  // Remove press elevation too
         ),
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
-            // Add padding for navigation bar to prevent overlap
-            .windowInsetsPadding(WindowInsets.navigationBars)
+            .padding(bottom = bottomPadding) // Use our calculated smart bottom padding
             .scale(scale)
             .graphicsLayer { 
                 // Apply translation based on swipe gesture
@@ -578,49 +615,62 @@ fun MiniPlayer(
         val dragDownIndicatorAlpha = if (offsetY > 0) minOf((offsetY / swipeDownThreshold) * 0.3f, 0.3f) else 0f
         
         Column {
-            // Drag handle indicator to show it's swipeable
+            // Enhanced drag handle indicator with better visual feedback
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 12.dp, bottom = 8.dp),
+                    .padding(top = 8.dp, bottom = 4.dp),
                 contentAlignment = Alignment.Center
             ) {
                 HorizontalDivider(
                     modifier = Modifier
-                        .width(32.dp)
+                        .width(40.dp) // Slightly wider for better touch target
                         .height(4.dp)
                         .clip(RoundedCornerShape(2.dp)),
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                        alpha = 0.3f + dragUpIndicatorAlpha + dragDownIndicatorAlpha
+                        alpha = 0.4f + dragUpIndicatorAlpha + dragDownIndicatorAlpha
                     )
                 )
             }
             
-            // Visual indicator for swipe actions
-            if (offsetY < -20f) {
+            // Visual indicator for swipe actions with improved positioning
+            AnimatedVisibility(
+                visible = offsetY < -20f,
+                enter = fadeIn() + slideInVertically(),
+                exit = fadeOut() + slideOutVertically()
+            ) {
                 Text(
-                    text = "Swipe up for player",
+                    text = "⬆ Swipe up for full player",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = (-offsetY / swipeUpThreshold).coerceIn(0f, 1f)),
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = (-offsetY / swipeUpThreshold).coerceIn(0f, 0.8f)),
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .padding(bottom = 4.dp)
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-            } else if (offsetY > 20f) {
-                Text(
-                    text = "Swipe down to dismiss",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.error.copy(alpha = (offsetY / swipeDownThreshold).coerceIn(0f, 1f)),
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                )
-                Spacer(modifier = Modifier.height(4.dp))
             }
             
-            // Update the progress indicator to use M3LinearLoader
+            AnimatedVisibility(
+                visible = offsetY > 20f,
+                enter = fadeIn() + slideInVertically(),
+                exit = fadeOut() + slideOutVertically()
+            ) {
+                Text(
+                    text = "⬇ Swipe down to dismiss",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error.copy(alpha = (offsetY / swipeDownThreshold).coerceIn(0f, 0.8f)),
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .padding(bottom = 4.dp)
+                )
+            }
+            
+            // Enhanced progress indicator with more visual appeal
             M3LinearLoader(
                 progress = animatedProgress,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = 20.dp) // Increased padding for better visual balance
+                    .padding(bottom = 8.dp),
                 color = MaterialTheme.colorScheme.primary,
                 trackColor = MaterialTheme.colorScheme.surfaceVariant,
                 showTrackGap = true,
@@ -630,17 +680,17 @@ fun MiniPlayer(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(horizontal = 20.dp, vertical = 16.dp), // Increased padding for better spacing
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = spacedBy(16.dp)
             ) {
-                // Album art with elevation
+                // Enhanced album art with no shadows as requested
                 Surface(
                     modifier = Modifier
-                        .size(64.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    shadowElevation = 4.dp,
-                    tonalElevation = 4.dp,
+                        .size(56.dp), // Slightly smaller for better proportion
+                    shape = RoundedCornerShape(14.dp), // Adjusted corner radius
+                    shadowElevation = 0.dp, // Remove shadow as requested
+                    tonalElevation = 2.dp, // Keep subtle tonal elevation for depth
                     color = MaterialTheme.colorScheme.surfaceVariant
                 ) {
                     Box {
@@ -654,117 +704,138 @@ fun MiniPlayer(
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                                    .background(
+                                        brush = androidx.compose.ui.graphics.Brush.linearGradient(
+                                            colors = listOf(
+                                                MaterialTheme.colorScheme.primaryContainer,
+                                                MaterialTheme.colorScheme.secondaryContainer
+                                            )
+                                        )
+                                    ),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = RhythmIcons.Album,
                                     contentDescription = null,
-                                    modifier = Modifier.size(28.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    modifier = Modifier.size(24.dp),
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
                                 )
                             }
                         }
                         
-                        // Show a "live" badge if needed
+                        // Enhanced "live" badge with better styling
                         if (song?.title?.contains("LIVE", ignoreCase = true) == true || 
                             song?.genre?.contains("live", ignoreCase = true) == true) {
                             Badge(
                                 modifier = Modifier
                                     .align(Alignment.TopEnd)
-                                    .padding(4.dp),
+                                    .padding(2.dp),
                                 containerColor = MaterialTheme.colorScheme.error
                             ) {
                                 Text(
                                     "LIVE",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onError,
+                                    fontSize = 8.sp
                                 )
                             }
                         }
                     }
                 }
                 
-                // Song info with vertical spacing
+                // Enhanced song info with better typography and spacing
                 Column(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = spacedBy(4.dp)
+                    verticalArrangement = spacedBy(2.dp) // Tighter spacing
                 ) {
                     Text(
                         text = song?.title ?: "No song playing",
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.SemiBold
+                        ),
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = spacedBy(8.dp)
+                        horizontalArrangement = spacedBy(6.dp)
                     ) {
-                        // Artist info
+                        // Artist info with enhanced styling
                         Text(
                             text = song?.artist ?: "",
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontWeight = FontWeight.Medium
+                            ),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f, fill = false)
                         )
                         
-                        // Time indicator (current / total)
-                        if (song != null) {
-                            Text(
-                                text = "${formatDuration((progress * (song.duration)).toLong())} / ${formatDuration(song.duration)}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                            )
+                        // Compact time indicator with better styling
+                        if (song != null && progress > 0) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = "${formatDuration((progress * song.duration).toLong())}/${formatDuration(song.duration)}",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.Medium
+                                    ),
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
                         }
                     }
                 }
                 
-                // Controls with improved visual hierarchy
+                // Enhanced controls with better visual hierarchy and spacing
                 Row(
-                    horizontalArrangement = spacedBy(8.dp),
+                    horizontalArrangement = spacedBy(10.dp), // Increased spacing
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Play/pause button
+                    // Dynamic shape play/pause button - rounded square for pause, circle for play
                     FilledIconButton(
                         onClick = {
                             // Enhanced haptic feedback for primary action
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             onPlayPause()
                         },
-                        modifier = Modifier.size(48.dp),
-                        shape = RoundedCornerShape(20.dp),
+                        modifier = Modifier.size(44.dp), // Slightly smaller for better proportion
+                        shape = if (isPlaying) RoundedCornerShape(18.dp) else CircleShape, // Dynamic shape based on state
                         colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
                         )
                     ) {
                         Icon(
                             imageVector = if (isPlaying) RhythmIcons.Pause else RhythmIcons.Play,
                             contentDescription = if (isPlaying) "Pause" else "Play",
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                     
-                    // Next track button
+                    // Enhanced next track button with better styling
                     FilledTonalIconButton(
                         onClick = { 
                             // Strong haptic feedback for next track
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             onSkipNext() 
                         },
-                        modifier = Modifier.size(40.dp),
+                        modifier = Modifier.size(36.dp), // Smaller secondary button
                         colors = IconButtonDefaults.filledTonalIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f),
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
                             contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                         )
                     ) {
                         Icon(
                             imageVector = RhythmIcons.SkipNext,
                             contentDescription = "Next track",
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }

@@ -27,7 +27,6 @@ class MusicRepository(private val context: Context) {
     private val lastFmApiService = NetworkClient.lastFmApiService
     private val lastFmApiKey = NetworkClient.getLastFmApiKey()
     private val genericHttpClient = NetworkClient.genericHttpClient
-    private val apiKey = NetworkClient.getSpotifyApiKey()
 
     // Cache for artist images to avoid redundant API calls
     private val artistImageCache = mutableMapOf<String, Uri?>()
@@ -153,13 +152,20 @@ class MusicRepository(private val context: Context) {
                 
                 Log.d(TAG, "Loaded album: $title by $artist with artwork URI: $albumArtUri")
 
+                // Get songs for this album
+                val albumSongs = withContext(Dispatchers.IO) {
+                    val allSongs = loadSongs()
+                    allSongs.filter { it.album == title }
+                }
+
                 val album = Album(
                     id = id.toString(),
                     title = title,
                     artist = artist,
                     artworkUri = albumArtUri,
                     year = year,
-                    numberOfSongs = songsCount
+                    songs = albumSongs,
+                    numberOfSongs = albumSongs.size
                 )
                 albums.add(album)
             }
@@ -267,11 +273,7 @@ class MusicRepository(private val context: Context) {
     suspend fun fetchArtistImages(artists: List<Artist>): List<Artist> = withContext(Dispatchers.IO) {
         val updatedArtists = mutableListOf<Artist>()
     
-        // If Spotify API key is missing we will skip the Spotify lookup, but we still
-        // want to attempt the other fall-backs (MusicBrainz, CoverArtArchive, Wiki, placeholder).
-        if (apiKey.isBlank()) {
-            Log.w(TAG, "Spotify API key not set – will skip Spotify lookup and try alternate sources.")
-        }
+        // NetworkClient will handle API key dynamically (user-provided or fallback to default)
         
         for (artist in artists) {
             try {
@@ -315,13 +317,12 @@ class MusicRepository(private val context: Context) {
                 
                 // Only try online fetch if network is available
                 if (isNetworkAvailable()) {
-                    if (apiKey.isNotBlank()) {
-                        Log.d(TAG, "Searching for artist on Spotify: ${artist.name}")
-                        try {
-                            val searchResponse = spotifyApiService.searchArtists(artist.name)
-                            val spotifyArtist = searchResponse.artists.items.firstOrNull()
-    
-                            if (spotifyArtist != null) {
+                    Log.d(TAG, "Searching for artist on Spotify: ${artist.name}")
+                    try {
+                        val searchResponse = spotifyApiService.searchArtists(artist.name)
+                        val spotifyArtist = searchResponse.artists.items.firstOrNull()
+
+                        if (spotifyArtist != null) {
                                 Log.d(TAG, "Found Spotify artist: ${spotifyArtist.data.profile.name}")
                                 val avatarImage = spotifyArtist.data.visuals.avatarImage
                                 if (avatarImage != null && avatarImage.sources.isNotEmpty()) {
@@ -342,11 +343,8 @@ class MusicRepository(private val context: Context) {
                             Log.w(TAG, "Spotify lookup failed for ${artist.name}: ${e.message}")
                         }
                     } else {
-                        Log.d(TAG, "Skipping Spotify lookup for ${artist.name} due to missing API key")
+                        Log.d(TAG, "No network connection available while fetching ${artist.name} image")
                     }
-                } else {
-                    Log.d(TAG, "No network connection available while fetching ${artist.name} image")
-                }
                 
                 // ----- Fallback using MusicBrainz + CoverArtArchive -----
                 try {
@@ -367,48 +365,6 @@ class MusicRepository(private val context: Context) {
                     }
                 } catch (e: Exception) {
                     Log.w(TAG, "MusicBrainz/CoverArt fallback failed for ${artist.name}: ${e.message}")
-                }
-
-                // -------- Fallback using Wikipedia / Wikidata --------
-                try {
-                    var wikiImage: Uri? = null
-                    val mbidWiki = try {
-                        musicBrainzApiService.searchArtists("artist:\"${artist.name}\"").artists.firstOrNull()?.id
-                    } catch (e: Exception) { null }
-
-                    if (mbidWiki != null) {
-                        val details = musicBrainzApiService.getArtistDetails(mbidWiki)
-                        val wikiUrl = details.relations.firstOrNull {
-                            val t = it.type?.lowercase()
-                            t == "wikidata" || t == "wikipedia"
-                        }?.url?.resource
-                        if (!wikiUrl.isNullOrEmpty()) {
-                            wikiImage = fetchImageFromWiki(wikiUrl)
-                        }
-                    }
-
-                    if (wikiImage == null) {
-                        val primaryTitle = artist.name.split("[,&()].+".toRegex())[0].trim().replace(" ", "_")
-                        if (primaryTitle.isNotEmpty()) {
-                            val wikiRes = "https://en.wikipedia.org/wiki/" + URLEncoder.encode(primaryTitle, "UTF-8")
-                            Log.d(TAG, "Trying direct Wikipedia lookup: $wikiRes")
-                            wikiImage = fetchImageFromWiki(wikiRes)
-                        }
-                    }
-
-                    // --- Final attempt: Wikipedia search API ---
-                    if (wikiImage == null) {
-                        wikiImage = fetchImageFromWikiSearch(artist.name)
-                    }
-
-                    if (wikiImage != null) {
-                        artistImageCache[artist.name] = wikiImage
-                        saveLocalArtistImage(artist.name, wikiImage.toString())
-                        updatedArtists.add(artist.copy(artworkUri = wikiImage))
-                        continue
-                    }
-                } catch (e: Exception) {
-                    Log.w(TAG, "Wiki fallback failed for ${artist.name}: ${e.message}")
                 }
 
                 // -------- Final fallback using Last.fm (moved to end) --------
@@ -470,123 +426,6 @@ class MusicRepository(private val context: Context) {
         
         updatedArtists
     }
-
-    /**
-     * Tries to fetch an image URL from Wikipedia or Wikidata given a resource URL.
-     */
-    private fun fetchImageFromWiki(resourceUrl: String): Uri? {
-        return try {
-            if (resourceUrl.contains("wikidata.org")) {
-                // Query Wikidata for image (P18)
-                val qid = resourceUrl.substringAfterLast("/")
-                val wdUrl = "https://www.wikidata.org/wiki/Special:EntityData/${qid}.json"
-                val req = Request.Builder().url(wdUrl).build()
-                genericHttpClient.newCall(req).execute().use { resp ->
-                    if (!resp.isSuccessful) return null
-                    val body = resp.body?.string() ?: return null
-                    val json = JsonParser.parseString(body).asJsonObject
-                    val fileName = json
-                        .getAsJsonObject("entities").getAsJsonObject(qid)
-                        .getAsJsonObject("claims").getAsJsonArray("P18")?.firstOrNull()?.asJsonObject
-                        ?.getAsJsonObject("mainsnak")?.getAsJsonObject("datavalue")?.get("value")?.asString
-                        ?: return null
-                    val encoded = URLEncoder.encode(fileName, "UTF-8")
-                    return Uri.parse("https://commons.wikimedia.org/wiki/Special:FilePath/${encoded}?width=500")
-                }
-            } else if (resourceUrl.contains("wikipedia.org")) {
-                // Query Wikipedia API for lead image
-                val title = resourceUrl.substringAfterLast("/")
-                val wikiApi = "https://en.wikipedia.org/w/api.php?action=query&titles=${title}&prop=pageimages&format=json&pithumbsize=500"
-                val req = Request.Builder().url(wikiApi).build()
-                genericHttpClient.newCall(req).execute().use { resp ->
-                    if (!resp.isSuccessful) return null
-                    val body = resp.body?.string() ?: return null
-                    val root = JsonParser.parseString(body).asJsonObject
-                    val pages = root.getAsJsonObject("query").getAsJsonObject("pages")
-                    for (pageEntry in pages.entrySet()) {
-                        val pageObj = pageEntry.value.asJsonObject
-                        val thumbObj = pageObj.getAsJsonObject("thumbnail") ?: continue
-                        val imgUrl = thumbObj.get("source").asString
-                        if (imgUrl.isNotBlank()) return Uri.parse(imgUrl)
-                    }
-                }
-            }
-            null
-        } catch (e: Exception) {
-            Log.e(TAG, "Error fetching wiki image: ${e.message}", e)
-            null
-        }
-    }
-
-    /**
-     * Uses Wikipedia search API to find a relevant page for the artist, validates it,
-     * and then retrieves its lead image.
-     */
-    private fun fetchImageFromWikiSearch(artistName: String): Uri? {
-        try {
-            Log.d(TAG, "Attempting Wikipedia search for '$artistName'")
-            // Step 1: Search for the artist on Wikipedia
-            val searchUrl = "https://en.wikipedia.org/w/api.php?action=query&list=search&srlimit=5&srsearch=" +
-                    URLEncoder.encode(artistName, "UTF-8") + "&format=json"
-            val searchReq = Request.Builder().url(searchUrl).build()
-
-            val searchResponse = genericHttpClient.newCall(searchReq).execute()
-            if (!searchResponse.isSuccessful) {
-                Log.w(TAG, "Wikipedia search request failed for '$artistName' with code: ${searchResponse.code}")
-                return null
-            }
-
-            val searchBody = searchResponse.body?.string() ?: return null
-            val searchJson = JsonParser.parseString(searchBody).asJsonObject
-            val searchResults = searchJson.getAsJsonObject("query")?.getAsJsonArray("search") ?: return null
-
-            // Step 2: Find the best matching page by checking for artist-related keywords in the snippet
-            val artistKeywords = setOf("musician", "singer", "band", "rapper", "dj", "group", "vocalist", "guitarist", "drummer", "pianist", "songwriter", "composer", "artist")
-            var bestTitle: String? = null
-
-            for (resultElement in searchResults) {
-                val resultObj = resultElement.asJsonObject
-                val title = resultObj.get("title").asString
-                val snippet = resultObj.get("snippet").asString.lowercase()
-
-                if (artistKeywords.any { snippet.contains(it) }) {
-                    Log.d(TAG, "Found potential Wiki page for '$artistName': '$title'")
-                    bestTitle = title.replace(" ", "_")
-                    break // Found a good match, stop searching
-                }
-            }
-
-            if (bestTitle == null) {
-                Log.d(TAG, "No suitable Wikipedia page found for '$artistName' after checking search results.")
-                return null
-            }
-
-            // Step 3: Fetch the image for the selected page title
-            val wikiApi = "https://en.wikipedia.org/w/api.php?action=query&titles=${bestTitle}&prop=pageimages&format=json&pithumbsize=500"
-            val imgReq = Request.Builder().url(wikiApi).build()
-            genericHttpClient.newCall(imgReq).execute().use { imgResp ->
-                if (!imgResp.isSuccessful) return null
-                val imgBody = imgResp.body?.string() ?: return null
-                val root = JsonParser.parseString(imgBody).asJsonObject
-                val pages = root.getAsJsonObject("query")?.getAsJsonObject("pages") ?: return null
-                for (pageEntry in pages.entrySet()) {
-                    if (pageEntry.key == "-1") continue // Ignore invalid pages
-                    val pageObj = pageEntry.value.asJsonObject
-                    val thumbObj = pageObj.getAsJsonObject("thumbnail") ?: continue
-                    val imgUrl = thumbObj.get("source").asString
-                    if (imgUrl.isNotBlank()) {
-                        Log.d(TAG, "Successfully fetched image for '$artistName' from page '$bestTitle'")
-                        return Uri.parse(imgUrl)
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Wiki search API failed for '$artistName': ${e.message}", e)
-        }
-        return null
-    }
-
-
 
     /**
      * Fetches lyrics for a song using Spotify RapidAPI
@@ -730,11 +569,7 @@ class MusicRepository(private val context: Context) {
     suspend fun fetchAlbumArtwork(albums: List<Album>): List<Album> = withContext(Dispatchers.IO) {
         val updatedAlbums = mutableListOf<Album>()
         
-        // Check if API key is properly set
-        if (apiKey.isBlank()) {
-            Log.w(TAG, "Spotify API key not set. Skipping album artwork fetching.")
-            return@withContext albums
-        }
+        // NetworkClient will handle API key dynamically (user-provided or fallback to default)
         
         for (album in albums) {
             // Check if the album has a content:// URI and if it actually exists

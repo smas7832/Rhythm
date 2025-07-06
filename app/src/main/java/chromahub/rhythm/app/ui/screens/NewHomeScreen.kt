@@ -138,6 +138,8 @@ fun NewHomeScreen(
     onSettingsClick: () -> Unit = {},
     onAppUpdateClick: (autoDownload: Boolean) -> Unit = { onSettingsClick() },
     onNavigateToLibrary: () -> Unit = {},
+    onAddToQueue: (Song) -> Unit = {},
+    onAddSongToPlaylist: (Song, String) -> Unit = { _, _ -> },
     onNavigateToPlaylist: (String) -> Unit = {},
     updaterViewModel: AppUpdaterViewModel = viewModel()
 ) {
@@ -198,6 +200,24 @@ fun NewHomeScreen(
             onAlbumClick = { album: Album ->
                 showArtistSheet = false
                 onAlbumClick(album)
+            },
+            onPlayAll = {
+                // Play all songs from this artist
+                val artistSongs = songs.filter { it.artist == selectedArtist?.name }
+                artistSongs.firstOrNull()?.let { onSongClick(it) }
+                showArtistSheet = false
+            },
+            onShufflePlay = {
+                // Play shuffled songs from this artist
+                val artistSongs = songs.filter { it.artist == selectedArtist?.name }
+                artistSongs.shuffled().firstOrNull()?.let { onSongClick(it) }
+                showArtistSheet = false
+            },
+            onAddToQueue = { song ->
+                onAddToQueue(song)
+            },
+            onAddSongToPlaylist = { song ->
+                onAddSongToPlaylist(song, "")
             },
             sheetState = artistSheetState
         )
@@ -1977,7 +1997,7 @@ private fun UpdateAvailableSection(
                     modifier = Modifier.size(36.dp)
                 )
                 
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(8.dp))
                 
                 Text(
                     text = "Rhythm",

@@ -9,6 +9,13 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 
 /**
+ * Enum for album view types in the library
+ */
+enum class AlbumViewType {
+    LIST, GRID
+}
+
+/**
  * Singleton class to manage all app settings using SharedPreferences
  */
 class AppSettings private constructor(context: Context) {
@@ -31,6 +38,9 @@ class AppSettings private constructor(context: Context) {
         private const val KEY_USE_SYSTEM_THEME = "use_system_theme"
         private const val KEY_DARK_MODE = "dark_mode"
         private const val KEY_USE_DYNAMIC_COLORS = "use_dynamic_colors"
+        
+        // Library Settings
+        private const val KEY_ALBUM_VIEW_TYPE = "album_view_type"
         
         // Audio Device Settings
         private const val KEY_LAST_AUDIO_DEVICE = "last_audio_device"
@@ -127,6 +137,12 @@ class AppSettings private constructor(context: Context) {
     
     private val _useDynamicColors = MutableStateFlow(prefs.getBoolean(KEY_USE_DYNAMIC_COLORS, true))
     val useDynamicColors: StateFlow<Boolean> = _useDynamicColors.asStateFlow()
+    
+    // Library Settings
+    private val _albumViewType = MutableStateFlow(
+        AlbumViewType.valueOf(prefs.getString(KEY_ALBUM_VIEW_TYPE, AlbumViewType.LIST.name) ?: AlbumViewType.LIST.name)
+    )
+    val albumViewType: StateFlow<AlbumViewType> = _albumViewType.asStateFlow()
     
     // Audio Device Settings
     private val _lastAudioDevice = MutableStateFlow(prefs.getString(KEY_LAST_AUDIO_DEVICE, null))
@@ -355,6 +371,12 @@ class AppSettings private constructor(context: Context) {
     fun setUseDynamicColors(use: Boolean) {
         prefs.edit().putBoolean(KEY_USE_DYNAMIC_COLORS, use).apply()
         _useDynamicColors.value = use
+    }
+    
+    // Library Settings Methods
+    fun setAlbumViewType(viewType: AlbumViewType) {
+        prefs.edit().putString(KEY_ALBUM_VIEW_TYPE, viewType.name).apply()
+        _albumViewType.value = viewType
     }
     
     // Audio Device Settings Methods

@@ -128,6 +128,13 @@ fun AppUpdaterScreen(
         }
     }
 
+    // Reset download progress when returning to screen if download was cancelled or completed
+    LaunchedEffect(Unit) {
+        if (downloadedFile == null && !isDownloading) {
+            updaterViewModel.resetDownloadProgress()
+        }
+    }
+
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
 
     Scaffold(
@@ -216,7 +223,7 @@ fun AppUpdaterScreen(
                                 modifier = Modifier.size(48.dp)
                             )
 
-                            Spacer(modifier = Modifier.width(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
 
                             Text(
                                 text = "Rhythm",
@@ -354,8 +361,8 @@ fun AppUpdaterScreen(
                                 style = MaterialTheme.typography.bodyLarge,
                                 textAlign = TextAlign.Center
                             )
-                        } else if (updateAvailable && latestVersion != null) {
-                            // Update available
+                        } else if (updateAvailable && latestVersion != null && downloadedFile == null) {
+                            // Update available - only show when no file is downloaded
                                 Box(
                                     modifier = Modifier
                                         .size(40.dp)
@@ -476,25 +483,41 @@ fun AppUpdaterScreen(
                                     }
                                 }
                             } else if (downloadedFile != null) {
-                                // Show install button if download complete
+                                // Show install button if download complete - this replaces the update available section
                                 Column(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
-                                    Icon(
-                                        imageVector = RhythmIcons.Check,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(40.dp)
-                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .size(40.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFF4CAF50)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = RhythmIcons.Check,
+                                            contentDescription = "Download complete",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
 
                                     Spacer(modifier = Modifier.height(8.dp))
 
                                     Text(
-                                        text = "Download Complete",
-                                        style = MaterialTheme.typography.titleMedium,
+                                        text = "Update Ready to Install",
+                                        style = MaterialTheme.typography.titleLarge,
                                         fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary
+                                        color = Color(0xFF4CAF50)
+                                    )
+
+                                    Spacer(modifier = Modifier.height(4.dp))
+
+                                    Text(
+                                        text = "Version ${latestVersion?.versionName}",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        textAlign = TextAlign.Center
                                     )
 
                                     Spacer(modifier = Modifier.height(4.dp))
@@ -502,7 +525,8 @@ fun AppUpdaterScreen(
                                     Text(
                                         text = downloadedFile?.name ?: "",
                                         style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.Center
                                     )
 
                                     Spacer(modifier = Modifier.height(16.dp))
@@ -524,10 +548,22 @@ fun AppUpdaterScreen(
                                                 modifier = Modifier.size(18.dp)
                                             )
 
-                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Spacer(modifier = Modifier.width(8.dp))
 
                                             Text("Install Update")
                                         }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    OutlinedButton(
+                                        onClick = { updaterViewModel.clearDownloadedFile() },
+                                        colors = ButtonDefaults.outlinedButtonColors(
+                                            contentColor = MaterialTheme.colorScheme.error
+                                        ),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text("Cancel Installation")
                                     }
                                 }
                             } else {

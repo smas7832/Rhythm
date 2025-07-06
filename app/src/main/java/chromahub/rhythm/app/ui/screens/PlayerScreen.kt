@@ -75,6 +75,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -100,6 +101,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import chromahub.rhythm.app.data.PlaybackLocation
 import chromahub.rhythm.app.data.Playlist
 import chromahub.rhythm.app.data.Song
@@ -137,6 +139,15 @@ fun PlayerScreen(
     onBack: () -> Unit,
     onLocationClick: () -> Unit,
     onQueueClick: () -> Unit,
+    locations: List<PlaybackLocation> = emptyList(),
+    onLocationSelect: (PlaybackLocation) -> Unit = {},
+    volume: Float = 0.7f,
+    isMuted: Boolean = false,
+    onVolumeChange: (Float) -> Unit = {},
+    onToggleMute: () -> Unit = {},
+    onMaxVolume: () -> Unit = {},
+    onRefreshDevices: () -> Unit = {},
+    onStopDeviceMonitoring: () -> Unit = {}, // New parameter to stop device monitoring
     onToggleShuffle: () -> Unit = {},
     onToggleRepeat: () -> Unit = {},
     onToggleFavorite: () -> Unit = {},
@@ -148,11 +159,6 @@ fun PlayerScreen(
     onlineOnlyLyrics: Boolean = false,
     lyrics: String? = null,
     isLoadingLyrics: Boolean = false,
-    volume: Float = 0.7f,
-    isMuted: Boolean = false,
-    onVolumeChange: (Float) -> Unit = {},
-    onToggleMute: () -> Unit = {},
-    onMaxVolume: () -> Unit = {},
     playlists: List<Playlist> = emptyList(),
     queue: List<Song> = emptyList(),
     onSongClick: (Song) -> Unit = {},
@@ -164,7 +170,8 @@ fun PlayerScreen(
     onAddToPlaylistSheetDismiss: () -> Unit = {},
     onAddSongToPlaylist: (Song, String) -> Unit = { _, _ -> },
     onCreatePlaylist: (String) -> Unit = { _ -> },
-    onShowCreatePlaylistDialog: () -> Unit = {}
+    onShowCreatePlaylistDialog: () -> Unit = {},
+    onClearQueue: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
@@ -189,7 +196,9 @@ fun PlayerScreen(
     // Bottom sheet states
     val queueSheetState = rememberModalBottomSheetState()
     val addToPlaylistSheetState = rememberModalBottomSheetState()
+    val deviceOutputSheetState = rememberModalBottomSheetState()
     var showQueueSheet by remember { mutableStateOf(false) }
+    var showDeviceOutputSheet by remember { mutableStateOf(false) }
     
     // For swipe down gesture detection - improved parameters
     var targetOffsetY by remember { mutableStateOf(0f) } // Target for animation
@@ -253,6 +262,17 @@ fun PlayerScreen(
         
         // Reset to album art view when song changes
         showLyricsView = false
+    }
+    
+    // Start device monitoring when player screen is shown and stop when closed
+    LaunchedEffect(Unit) {
+        onRefreshDevices() // Start device monitoring on-demand
+    }
+    
+    DisposableEffect(Unit) {
+        onDispose {
+            onStopDeviceMonitoring() // Stop device monitoring when screen is closed
+        }
     }
     
     val albumScale by animateFloatAsState(
@@ -319,6 +339,17 @@ fun PlayerScreen(
                     }
                 }
             },
+            onClearQueue = {
+                // Clear the queue and dismiss the sheet
+                onClearQueue()
+                scope.launch {
+                    queueSheetState.hide()
+                }.invokeOnCompletion {
+                    if (!queueSheetState.isVisible) {
+                        showQueueSheet = false
+                    }
+                }
+            },
             sheetState = queueSheetState
         )
     }
@@ -327,7 +358,7 @@ fun PlayerScreen(
         AddToPlaylistBottomSheet(
             song = song,
             playlists = playlists,
-            onDismiss = onAddToPlaylistSheetDismiss,
+            onDismissRequest = onAddToPlaylistSheetDismiss,
             onAddToPlaylist = { playlist ->
                 // Add the current song to the selected playlist
                 playlist.id?.let { playlistId ->
@@ -357,6 +388,43 @@ fun PlayerScreen(
                 }
             },
             sheetState = addToPlaylistSheetState
+        )
+    }
+
+    // Device Output Bottom Sheet
+    if (showDeviceOutputSheet) {
+        LaunchedEffect(showDeviceOutputSheet) {
+            if (showDeviceOutputSheet) {
+                onRefreshDevices() // Start device monitoring when sheet is shown
+            }
+        }
+        
+        DeviceOutputBottomSheet(
+            locations = locations,
+            currentLocation = location,
+            volume = volume,
+            isMuted = isMuted,
+            onLocationSelect = { selectedLocation ->
+                onLocationSelect(selectedLocation)
+                // Hide the sheet after selection
+                scope.launch {
+                    deviceOutputSheetState.hide()
+                }.invokeOnCompletion {
+                    if (!deviceOutputSheetState.isVisible) {
+                        showDeviceOutputSheet = false
+                        onStopDeviceMonitoring() // Stop device monitoring when sheet is closed
+                    }
+                }
+            },
+            onVolumeChange = onVolumeChange,
+            onToggleMute = onToggleMute,
+            onMaxVolume = onMaxVolume,
+            onRefreshDevices = onRefreshDevices,
+            onDismiss = { 
+                showDeviceOutputSheet = false
+                onStopDeviceMonitoring() // Stop device monitoring when sheet is dismissed
+            },
+            sheetState = deviceOutputSheetState
         )
     }
 
@@ -440,7 +508,7 @@ fun PlayerScreen(
                                 )
                             ) {
                                 Icon(
-                                    imageVector = if (showLyricsView) RhythmIcons.Album else RhythmIcons.Queue,
+                                    imageVector = if (showLyricsView) RhythmIcons.Album else RhythmIcons.MusicNote,
                                     contentDescription = if (showLyricsView) "Show Album Art" else "Show Lyrics",
                                     tint = MaterialTheme.colorScheme.onPrimaryContainer
                                 )
@@ -549,25 +617,30 @@ fun PlayerScreen(
                         Spacer(modifier = Modifier.height(dynamicTopPadding))
                     }
                     
-                    // Album artwork or lyrics view with increased top padding
-                    ElevatedCard(
-                        modifier = Modifier
-                            .fillMaxWidth(albumArtSize)
-                            .padding(horizontal = 16.dp, vertical = 16.dp), // Increased vertical padding
-                        shape = RoundedCornerShape(28.dp),
-                        elevation = CardDefaults.elevatedCardElevation(
-                            defaultElevation = 8.dp
-                        ),
-                        colors = CardDefaults.elevatedCardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f)
-                        )
+                    // Album artwork or lyrics view with smooth transitions
+                    AnimatedVisibility(
+                        visible = !showLyricsView,
+                        enter = fadeIn(animationSpec = tween(300)) + slideInVertically(animationSpec = tween(300)),
+                        exit = fadeOut(animationSpec = tween(300)) + slideOutVertically(animationSpec = tween(300))
                     ) {
-                        Box(
+                        // Album artwork with increased top padding
+                        ElevatedCard(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .aspectRatio(1f)
+                                .fillMaxWidth(albumArtSize)
+                                .padding(horizontal = 16.dp, vertical = 16.dp), // Increased vertical padding
+                            shape = RoundedCornerShape(28.dp),
+                            elevation = CardDefaults.elevatedCardElevation(
+                                defaultElevation = 8.dp
+                            ),
+                            colors = CardDefaults.elevatedCardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f)
+                            )
                         ) {
-                            if (!showLyricsView) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .aspectRatio(1f)
+                            ) {
                                 // Album artwork with animations
                                 Box(
                                     modifier = Modifier
@@ -611,55 +684,169 @@ fun PlayerScreen(
                                         }
                                     }
                                 }
-                            } else {
-                                // Lyrics view
+                            }
+                        }
+                    }
+                    
+                    // Lyrics view with animation
+                    AnimatedVisibility(
+                        visible = showLyricsView,
+                        enter = fadeIn(animationSpec = tween(300)) + slideInVertically(animationSpec = tween(300)),
+                        exit = fadeOut(animationSpec = tween(300)) + slideOutVertically(animationSpec = tween(300))
+                    ) {
+                        // Lyrics view - full width and height for better readability with themed background
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(if (isCompactHeight) 300.dp else 400.dp)
+                                .padding(horizontal = 16.dp, vertical = 16.dp),
+                            shape = RoundedCornerShape(28.dp),
+                            elevation = CardDefaults.cardElevation(
+                                defaultElevation = 0.dp // No elevation/shadow
+                            ),
+                            colors = CardDefaults.cardColors(
+                                containerColor = Color.Transparent // Transparent to show background
+                            )
+                        ) {
+                            // Background with album art blur effect
+                            Box(
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                // Background image with blur effect
+                                if (song?.artworkUri != null) {
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(context)
+                                            .data(song.artworkUri)
+                                            .crossfade(true)
+                                            .build(),
+                                        contentDescription = null,
+                                        contentScale = ContentScale.Crop,
+                                        alpha = 0.6f, // Reduce opacity for blur-like effect
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .clip(RoundedCornerShape(28.dp))
+                                            .graphicsLayer {
+                                                // Scale up slightly to create a softer look
+                                                scaleX = 1.1f
+                                                scaleY = 1.1f
+                                            }
+                                    )
+                                } else {
+                                    // Fallback gradient background when no album art
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(
+                                                brush = androidx.compose.ui.graphics.Brush.radialGradient(
+                                                    colors = listOf(
+                                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                                                        MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f),
+                                                        MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.1f)
+                                                    )
+                                                ),
+                                                RoundedCornerShape(28.dp)
+                                            )
+                                    )
+                                }
+                                
+                                // Overlay with semi-transparent background for text readability
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .padding(16.dp),
-                                    contentAlignment = Alignment.Center
+                                        .background(
+                                            brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                                                colors = listOf(
+                                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.70f),
+                                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.80f),
+                                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
+                                                )
+                                            ),
+                                            shape = RoundedCornerShape(28.dp)
+                                        )
+                                )
+                                
+                                // Additional subtle overlay for better text contrast
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(
+                                            brush = androidx.compose.ui.graphics.Brush.radialGradient(
+                                                colors = listOf(
+                                                    Color.Transparent,
+                                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.15f)
+                                                ),
+                                                radius = 500f
+                                            ),
+                                            shape = RoundedCornerShape(28.dp)
+                                        )
+                                )
+                                
+                                // Content area with lyrics
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(24.dp),
+                                    contentAlignment = Alignment.TopCenter
                                 ) {
                                     when {
                                         isLoadingLyrics -> {
-                                            M3CircularLoader(
-                                                modifier = Modifier.size(48.dp),
-                                                fourColor = true
-                                            )
-                                        }
-                                        lyrics.isNullOrEmpty() || lyrics == "No lyrics found for this song" -> { // Modified condition to check for null, empty, or specific string
-                                            Column(
-                                                horizontalAlignment = Alignment.CenterHorizontally
+                                            Box(
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentAlignment = Alignment.Center
                                             ) {
-                                                Icon(
-                                                    imageVector = RhythmIcons.MusicNote,
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                                    modifier = Modifier.size(48.dp)
-                                                )
-                                                Spacer(modifier = Modifier.height(8.dp))
-                                                Text(
-                                                    text = if (onlineOnlyLyrics)
-                                                        "Currently no lyrics are available for this song.\n"
-                                                    else
-                                                        "No lyrics available for this song.",
-                                                    style = MaterialTheme.typography.bodyMedium,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                                    textAlign = TextAlign.Center
+                                                M3CircularLoader(
+                                                    modifier = Modifier.size(48.dp),
+                                                    fourColor = true
                                                 )
                                             }
                                         }
-                                        else -> { // This will now only be reached if lyrics is not null, not empty, and not the specific "No lyrics found" string
-                                            // Keep scroll only for lyrics view
+                                        lyrics.isNullOrEmpty() || lyrics == "No lyrics found for this song" -> {
+                                            Box(
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Column(
+                                                    horizontalAlignment = Alignment.CenterHorizontally
+                                                ) {
+                                                    Icon(
+                                                        imageVector = RhythmIcons.MusicNote,
+                                                        contentDescription = null,
+                                                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                                                        modifier = Modifier.size(48.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.height(16.dp))
+                                                    Text(
+                                                        text = if (onlineOnlyLyrics)
+                                                            "Currently no lyrics are available for this song.\n"
+                                                        else
+                                                            "No lyrics available for this song.",
+                                                        style = MaterialTheme.typography.bodyLarge,
+                                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                                                        textAlign = TextAlign.Center
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        else -> {
+                                            // Scrollable lyrics with better typography and contrast
                                             Column(
                                                 modifier = Modifier
                                                     .fillMaxSize()
-                                                    .verticalScroll(rememberScrollState())
+                                                    .verticalScroll(rememberScrollState()),
+                                                horizontalAlignment = Alignment.CenterHorizontally
                                             ) {
                                                 Text(
                                                     text = lyrics,
-                                                    style = MaterialTheme.typography.bodyMedium,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    textAlign = TextAlign.Center
+                                                    style = MaterialTheme.typography.bodyLarge.copy(
+                                                        lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.6f,
+                                                        fontWeight = FontWeight.Medium,
+                                                        letterSpacing = 0.5.sp
+                                                    ),
+                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                    textAlign = TextAlign.Center,
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(horizontal = 8.dp)
                                                 )
                                             }
                                         }
@@ -875,78 +1062,7 @@ fun PlayerScreen(
                         }
                     }
                     
-                    Spacer(modifier = Modifier.height(if (isCompactHeight) 4.dp else 8.dp))
-                    
-                    // Volume controls with more compact design
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth(0.9f)
-                            .padding(horizontal = 16.dp, vertical = 8.dp), // Increased vertical padding
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                        ),
-                        shape = RoundedCornerShape(24.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 12.dp), // Increased vertical padding
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Mute button
-                            IconButton(
-                                onClick = { 
-                                    // Add haptic feedback
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    onToggleMute() 
-                                }
-                            ) {
-                                Icon(
-                                    imageVector = if (isMuted) RhythmIcons.VolumeOff else 
-                                                if (volume < 0.3f) RhythmIcons.VolumeMute else 
-                                                if (volume < 0.7f) RhythmIcons.VolumeDown else 
-                                                RhythmIcons.VolumeUp,
-                                    contentDescription = "Toggle mute",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            
-                            // Volume slider with haptic feedback
-                            Slider(
-                                value = if (isMuted) 0f else volume,
-                                onValueChange = { newValue ->
-                                    // Add subtle haptic feedback when dragging the slider
-                                    if (abs(newValue - volume) > 0.05f) {
-                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    }
-                                    onVolumeChange(newValue)
-                                },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(horizontal = 8.dp),
-                                colors = SliderDefaults.colors(
-                                    thumbColor = MaterialTheme.colorScheme.primary,
-                                    activeTrackColor = MaterialTheme.colorScheme.primary,
-                                    inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
-                                )
-                            )
-                            
-                            // Max volume button
-                            IconButton(
-                                onClick = { 
-                                    // Add haptic feedback
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    onMaxVolume() 
-                                }
-                            ) {
-                                Icon(
-                                    imageVector = RhythmIcons.VolumeUp,
-                                    contentDescription = "Max volume",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
+                    Spacer(modifier = Modifier.height(if (isCompactHeight) 8.dp else 16.dp))
                     
                     // Only add favorite/playlist buttons if we have space
                     if (!isCompactHeight) {
@@ -1036,12 +1152,13 @@ fun PlayerScreen(
                             .padding(horizontal = 16.dp, vertical = 16.dp),
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        // Location button with rounded pill shape like in the screenshot
+                        // Device Output button with rounded pill shape
                         Card(
                             onClick = {
                                 // Add haptic feedback 
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                onLocationClick()
+                                // Show device output sheet
+                                showDeviceOutputSheet = true
                             },
                             shape = RoundedCornerShape(24.dp), // Rounded pill shape
                             colors = CardDefaults.cardColors(
@@ -1073,7 +1190,7 @@ fun PlayerScreen(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = location?.name ?: "Choose device",
+                                    text = location?.name ?: "Device Output",
                                     style = MaterialTheme.typography.labelLarge,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                                     maxLines = 1,
@@ -1127,1047 +1244,6 @@ fun PlayerScreen(
                         }
                     }
                 }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun QueueBottomSheet(
-    currentSong: Song?,
-    queue: List<Song>,
-    currentQueueIndex: Int = 0,
-    onSongClick: (Song) -> Unit,
-    onDismiss: () -> Unit,
-    onRemoveSong: (Song) -> Unit = {},
-    onMoveQueueItem: (Int, Int) -> Unit = { _, _ -> },
-    onAddSongsClick: () -> Unit = {}, // Changed parameter name
-    sheetState: SheetState = rememberModalBottomSheetState()
-) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    
-    // Create a mutable queue for reordering that updates when the queue changes
-    val mutableQueue = remember(queue) { queue.toMutableStateList() }
-    
-    // Track if we're currently performing a reorder operation to prevent conflicts
-    var isReordering by remember { mutableStateOf(false) }
-    
-    // Set up reorderable state for drag and drop functionality
-    val reorderableState = rememberReorderableLazyListState(
-        onMove = { from, to ->
-            if (isReordering) {
-                Log.w("QueueBottomSheet", "Reorder already in progress, ignoring")
-                return@rememberReorderableLazyListState
-            }
-            
-            try {
-                isReordering = true
-                
-                // Validate indices
-                if (from.index < 0 || from.index >= mutableQueue.size || 
-                    to.index < 0 || to.index >= mutableQueue.size) {
-                    Log.e("QueueBottomSheet", "Invalid reorder indices: from=${from.index}, to=${to.index}, size=${mutableQueue.size}")
-                    return@rememberReorderableLazyListState
-                }
-                
-                // Store original state for potential rollback
-                val originalQueue = mutableQueue.toList()
-                
-                // Move the item in the UI first for immediate feedback
-                val item = mutableQueue.removeAt(from.index)
-                mutableQueue.add(to.index, item)
-                
-                // Call the callback to update the actual queue in ViewModel
-                // Note: We don't await this since it's a callback, but we should handle failures
-                onMoveQueueItem(from.index, to.index)
-                
-                Log.d("QueueBottomSheet", "Successfully reordered queue item from ${from.index} to ${to.index}")
-            } catch (e: Exception) {
-                Log.e("QueueBottomSheet", "Error during drag reorder", e)
-                // TODO: Consider implementing rollback mechanism if ViewModel operation fails
-            } finally {
-                isReordering = false
-            }
-        }
-    )
-    
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        dragHandle = { BottomSheetDefaults.DragHandle() },
-        containerColor = MaterialTheme.colorScheme.background,
-        contentColor = MaterialTheme.colorScheme.onBackground,
-        tonalElevation = 0.dp
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 24.dp)
-        ) {
-            // Header with title and actions
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Queue",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "${mutableQueue.size} songs",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                
-                // Add songs button
-                FilledTonalIconButton(
-                    onClick = onAddSongsClick, // Changed onClick to use new parameter
-                    colors = IconButtonDefaults.filledTonalIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
-                    )
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "Add songs"
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            if (mutableQueue.isEmpty()) {
-                EmptyQueueContent(onAddSongsClick)
-            } else {
-                // Now Playing section - show current song separately
-                currentSong?.let { song ->
-                    NowPlayingCard(song)
-                }
-                
-                // Filter out the current song from the queue to show upcoming songs
-                // Use index-based filtering to handle duplicate songs correctly
-                val upcomingQueue = mutableQueue.mapIndexed { index, song -> 
-                    IndexedValue(index, song) 
-                }.filter { indexedSong ->
-                    // Only show songs that come after the current song's position in queue
-                    val currentSongIndexInQueue = currentQueueIndex.coerceAtLeast(0)
-                    indexedSong.index > currentSongIndexInQueue
-                }
-                
-                // Show "UP NEXT" section if there are upcoming songs
-                if (upcomingQueue.isNotEmpty()) {
-                    // Queue header for upcoming songs
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 24.dp, vertical = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "UP NEXT",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        
-                        Spacer(modifier = Modifier.width(8.dp))
-                        
-                        HorizontalDivider(
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(horizontal = 8.dp),
-                            thickness = 1.dp,
-                            color = MaterialTheme.colorScheme.outlineVariant
-                        )
-                    }
-                    
-                    // Queue list with reordering
-                    LazyColumn(
-                        state = reorderableState.listState,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .reorderable(reorderableState),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        itemsIndexed(
-                            items = upcomingQueue,
-                            key = { _, indexedSong -> "${indexedSong.index}_${indexedSong.value.id}" }
-                        ) { _, indexedSong ->
-                            // Find the original index in the full queue for proper ordering
-                            val originalIndex = indexedSong.index
-                            val song = indexedSong.value
-                            ReorderableItem(reorderableState, key = "${originalIndex}_${song.id}") { isDragging ->
-                                QueueItem(
-                                    song = song,
-                                    index = originalIndex,
-                                    isDragging = isDragging,
-                                    onSongClick = { onSongClick(song) },
-                                    onRemove = { 
-                                        try {
-                                            // First update local UI state for immediate feedback
-                                            val indexToRemove = mutableQueue.indexOf(song)
-                                            if (indexToRemove >= 0 && indexToRemove < mutableQueue.size) {
-                                                mutableQueue.removeAt(indexToRemove)
-                                            }
-                                            // Then update the actual queue via ViewModel
-                                            onRemoveSong(song)
-                                        } catch (e: Exception) {
-                                            Log.e("QueueBottomSheet", "Error removing item", e)
-                                        }
-                                    },
-                                    reorderableState = reorderableState
-                                )
-                            }
-                        }
-                    }
-                } else if (currentSong != null) {
-                    // Show empty up next content when only current song is in queue
-                    EmptyUpNextContent(onAddSongsClick)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun EmptyQueueContent(onAddSongsClick: () -> Unit) { // Changed parameter name
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(200.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = RhythmIcons.Queue,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(48.dp)
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Text(
-                text = "Your queue is empty",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            OutlinedButton(onClick = onAddSongsClick) { // Changed onClick to use new parameter
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Add songs")
-            }
-        }
-    }
-}
-
-@Composable
-private fun NowPlayingCard(song: Song) {
-    val context = LocalContext.current
-    
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 8.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        ),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Badge(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(end = 8.dp)
-                ) {
-                    Text(
-                        text = "NOW PLAYING",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
-                }
-                
-                Spacer(modifier = Modifier.weight(1f))
-                
-                Icon(
-                    imageVector = RhythmIcons.Play,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Album art with subtle elevation
-                Surface(
-                    modifier = Modifier.size(64.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    tonalElevation = 0.dp,
-                    shadowElevation = 0.dp
-                ) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .apply(ImageUtils.buildImageRequest(
-                            song.artworkUri,
-                            song.title,
-                            context.cacheDir,
-                            M3PlaceholderType.TRACK
-                        ))
-                        .build(),
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-                
-                // Song info
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(horizontal = 16.dp)
-                ) {
-                    Text(
-                        text = song.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    
-                    Text(
-                        text = "${song.artist} • ${song.album}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun AddToPlaylistBottomSheet(
-    song: Song,
-    playlists: List<Playlist>,
-    onDismiss: () -> Unit,
-    onAddToPlaylist: (Playlist) -> Unit,
-    onCreateNewPlaylist: () -> Unit,
-    sheetState: SheetState = rememberModalBottomSheetState()
-) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        dragHandle = { BottomSheetDefaults.DragHandle() },
-        containerColor = MaterialTheme.colorScheme.background,
-        contentColor = MaterialTheme.colorScheme.onBackground,
-        tonalElevation = 0.dp
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 24.dp)
-        ) {
-            // Song card at the top
-            SongToAddCard(song)
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Create new playlist button
-            CreatePlaylistButton(onCreateNewPlaylist)
-            
-            // Your playlists section
-            if (playlists.isNotEmpty()) {
-                PlaylistsHeader(playlists.size)
-                
-                // Playlist grid
-                PlaylistGrid(
-                    playlists = playlists,
-                    onPlaylistClick = onAddToPlaylist
-                )
-            } else {
-                EmptyPlaylistsState()
-            }
-        }
-    }
-}
-
-@Composable
-private fun SongToAddCard(song: Song) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 8.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        ),
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Album art
-            Surface(
-                modifier = Modifier.size(56.dp),
-                shape = RoundedCornerShape(8.dp),
-                tonalElevation = 0.dp
-            ) {
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .apply(ImageUtils.buildImageRequest(
-                            song.artworkUri,
-                            song.title,
-                            LocalContext.current.cacheDir,
-                            M3PlaceholderType.TRACK
-                        ))
-                        .build(),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
-            
-            // Song info
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 16.dp)
-            ) {
-                Text(
-                    text = "Add to playlist",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                
-                Text(
-                    text = song.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                
-                Text(
-                    text = "${song.artist} • ${song.album}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun CreatePlaylistButton(onClick: () -> Unit) {
-    // Accent-filled card without elevation
-    Card(
-        onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 8.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-        ),
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 16.dp, horizontal = 20.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Leading accent icon
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-            
-            Spacer(modifier = Modifier.width(16.dp))
-            
-            Text(
-                text = "Create New Playlist",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                maxLines = 1
-            )
-            
-            Spacer(modifier = Modifier.weight(1f))
-            
-            Icon(
-                imageVector = RhythmIcons.Forward,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-            )
-        }
-    }
-}
-
-@Composable
-private fun PlaylistsHeader(count: Int) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = "YOUR PLAYLISTS",
-            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        
-        Spacer(modifier = Modifier.width(8.dp))
-        
-        HorizontalDivider(
-            modifier = Modifier
-                .weight(1f)
-                .padding(horizontal = 8.dp),
-            thickness = 1.dp,
-            color = MaterialTheme.colorScheme.outlineVariant
-        )
-        
-        Text(
-            text = "$count",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier
-                .background(
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    shape = CircleShape
-                )
-                .padding(horizontal = 8.dp, vertical = 4.dp)
-        )
-    }
-}
-
-@Composable
-private fun PlaylistGrid(
-    playlists: List<Playlist>,
-    onPlaylistClick: (Playlist) -> Unit
-) {
-    LazyColumn(
-        modifier = Modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        items(playlists.chunked(2)) { rowPlaylists ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                rowPlaylists.forEach { playlist ->
-                    PlaylistCard(
-                        playlist = playlist,
-                        onClick = { onPlaylistClick(playlist) },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-                
-                // If there's an odd number of playlists, add an empty space
-                if (rowPlaylists.size == 1) {
-                    Spacer(modifier = Modifier.weight(1f))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun EmptyPlaylistsState() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(180.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = RhythmIcons.Playlist,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(48.dp)
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Text(
-                text = "No playlists yet",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            Text(
-                text = "Create a playlist to add songs",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
-        }
-    }
-}
-
-@Composable
-private fun PlaylistCard(
-    playlist: Playlist,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    OutlinedCard(
-        onClick = onClick,
-        colors = CardDefaults.outlinedCardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        border = BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-        ),
-        shape = RoundedCornerShape(12.dp),
-        modifier = modifier
-            .height(170.dp)
-    ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            // Artwork or placeholder
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center
-            ) {
-                if (playlist.artworkUri != null) {
-                    AsyncImage(
-                        model = playlist.artworkUri,
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } else {
-                    Icon(
-                        imageVector = RhythmIcons.Playlist,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-            }
-            
-            // Playlist info
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surface)
-                    .padding(12.dp)
-            ) {
-                Text(
-                    text = playlist.name,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                
-                Text(
-                    text = "${playlist.songs.size} songs",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun PlayerLocationsScreen(
-    locations: List<PlaybackLocation>,
-    currentLocation: PlaybackLocation?,
-    onLocationSelect: (PlaybackLocation) -> Unit,
-    onBack: () -> Unit
-) {
-    val context = LocalContext.current
-    
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar( // Changed to CenterAlignedTopAppBar
-                title = {
-                    Text(
-                        text = "Choose Output Device",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                },
-                navigationIcon = {
-                    // Consistent button style with PlayerScreen
-                    Box(modifier = Modifier.padding(start = 16.dp)) { // Changed to 16.dp
-                        FilledTonalIconButton(
-                            onClick = onBack,
-                            modifier = Modifier.size(48.dp), // Changed to 48.dp
-                            colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        ) {
-                            Icon(
-                                imageVector = RhythmIcons.Back,
-                                contentDescription = "Back",
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background // Ensure consistent background
-                )
-            )
-        }
-    ) { paddingValues ->
-        if (locations.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "No devices available",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
-                )
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentPadding = PaddingValues(vertical = 8.dp)
-            ) {
-                items(locations) { location ->
-                    val isSelected = currentLocation?.id == location.id
-                    
-                    Surface(
-                        onClick = { onLocationSelect(location) },
-                        color = if (isSelected) 
-                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
-                        else 
-                            Color.Transparent,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 12.dp, horizontal = 16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Device icon
-                            Box(
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        if (isSelected)
-                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-                                        else
-                                            MaterialTheme.colorScheme.surfaceVariant
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                // Choose icon based on device type
-                                val icon = when {
-                                    location.id.startsWith("bt_") -> RhythmIcons.Bluetooth
-                                    location.id == "wired_headset" -> RhythmIcons.Headphones
-                                    location.id == "speaker" -> RhythmIcons.Speaker
-                                    else -> RhythmIcons.Location
-                                }
-                                
-                                Icon(
-                                    imageVector = icon,
-                                    contentDescription = null,
-                                    tint = if (isSelected) 
-                                        MaterialTheme.colorScheme.primary
-                                    else
-                                        MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                            
-                            // Device info
-                            Column(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(horizontal = 16.dp)
-                            ) {
-                                // Device name
-                                Text(
-                                    text = location.name,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (isSelected) 
-                                        MaterialTheme.colorScheme.primary
-                                    else 
-                                        MaterialTheme.colorScheme.onBackground
-                                )
-                                
-                                // Device type
-                                val deviceType = when {
-                                    location.id.startsWith("bt_") -> "Bluetooth"
-                                    location.id == "wired_headset" -> "Wired Headphones"
-                                    location.id == "speaker" -> "Built-in Speaker"
-                                    else -> "Audio Device"
-                                }
-                                
-                                Text(
-                                    text = deviceType,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
-                                )
-                            }
-                            
-                            // Selected indicator
-                            if (isSelected) {
-                                Icon(
-                                    imageVector = RhythmIcons.Check,
-                                    contentDescription = "Selected",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun QueueItem(
-    song: Song,
-    index: Int,
-    isDragging: Boolean,
-    onSongClick: () -> Unit,
-    onRemove: () -> Unit,
-    reorderableState: ReorderableLazyListState
-) {
-    val context = LocalContext.current
-    
-    OutlinedCard(
-        onClick = onSongClick,
-        colors = CardDefaults.outlinedCardColors(
-            containerColor = if (isDragging) 
-                MaterialTheme.colorScheme.surfaceVariant
-            else
-                MaterialTheme.colorScheme.surface
-        ),
-        border = BorderStroke(
-            width = 1.dp,
-            color = if (isDragging)
-                MaterialTheme.colorScheme.primary
-            else
-                MaterialTheme.colorScheme.outlineVariant
-        ),
-        shape = RoundedCornerShape(12.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 2.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Queue position with drag handle - make it obvious it can be dragged
-            Box(
-                modifier = Modifier
-                    .size(40.dp) // Increased size to 40.dp
-                    .clip(CircleShape)
-                    .background(
-                        if (isDragging) MaterialTheme.colorScheme.primaryContainer
-                        else MaterialTheme.colorScheme.surfaceVariant
-                    )
-                    .detectReorderAfterLongPress(reorderableState),
-                contentAlignment = Alignment.Center
-            ) {
-                if (isDragging) {
-                    // Show drag handle when dragging
-                    Icon(
-                        imageVector = Icons.Default.DragHandle,
-                        contentDescription = "Drag to reorder",
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(24.dp) // Increased icon size
-                    )
-                } else {
-                    // Show position number when not dragging
-                    Text(
-                        text = "${index + 1}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.width(16.dp))
-            
-            // Album art with smaller size
-            Surface(
-                modifier = Modifier
-                    .size(48.dp),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                AsyncImage(
-                    model = ImageRequest.Builder(context)
-                        .apply(ImageUtils.buildImageRequest(
-                            song.artworkUri,
-                            song.title,
-                            context.cacheDir,
-                            M3PlaceholderType.TRACK
-                        ))
-                        .build(),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop
-                )
-            }
-            
-            // Song info
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 16.dp)
-            ) {
-                Text(
-                    text = song.title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                
-                Text(
-                    text = song.artist,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            
-            // Remove button with improved style and feedback
-            IconButton(
-                onClick = onRemove,
-                colors = IconButtonDefaults.iconButtonColors(
-                    containerColor = Color.Transparent,
-                    contentColor = MaterialTheme.colorScheme.error
-                ),
-                modifier = Modifier.size(40.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Clear,
-                    contentDescription = "Remove from queue",
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun EmptyUpNextContent(onAddSongsClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(120.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = RhythmIcons.Queue,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                modifier = Modifier.size(32.dp)
-            )
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            Text(
-                text = "No more songs in queue",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-                textAlign = TextAlign.Center
-            )
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            FilledTonalButton(
-                onClick = onAddSongsClick,
-                colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer
-                )
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Add more")
             }
         }
     }

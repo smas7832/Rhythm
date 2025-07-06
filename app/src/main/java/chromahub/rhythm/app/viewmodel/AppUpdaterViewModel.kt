@@ -170,14 +170,14 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
         _updateChannel = MutableStateFlow("stable")
         _currentVersion = MutableStateFlow(
             AppVersion(
-                versionName = "2.1.109.283 Stable",
-                versionCode = 20209283, // Updated to reflect major*10M + minor*100K + patch*1K + buildNumber
-                releaseDate = "2025-07-05",
+                versionName = "2.2.116.304 Beta",
+                versionCode = 20226304, // Updated to reflect major*10M + minor*100K + patch*1K + buildNumber
+                releaseDate = "2025-07-07",
                 whatsNew = emptyList(),
                 knownIssues = emptyList(),
                 downloadUrl = "",
-                isPreRelease = false,
-                buildNumber = 283
+                isPreRelease = true,
+                buildNumber = 304
             )
         )
         _latestVersion = MutableStateFlow<AppVersion?>(null)
@@ -543,10 +543,12 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
             return // Already downloading
         }
         
+        // Reset progress and state before starting new download
         _downloadProgress.value = 0f
-        activeDownload = null
         _isDownloading.value = true
         _error.value = null
+        activeDownload = null
+        _downloadState.value = null
         
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -579,9 +581,12 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
                     downloadDir.mkdirs()
                 }
                 
-                // Create or get existing file
+                // Create file - delete existing to prevent corruption from interrupted downloads
                 val file = File(downloadDir, fileName)
-                val existingLength = if (file.exists()) file.length() else 0L
+                if (file.exists()) {
+                    file.delete()
+                }
+                file.createNewFile()
                 
                 // Create OkHttp client with longer timeouts
                 val client = OkHttpClient.Builder()
@@ -590,21 +595,11 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
                     .writeTimeout(30, TimeUnit.SECONDS)
                     .build()
                 
-                // Create request with resume support
-                val requestBuilder = Request.Builder()
+                // Create request - always start fresh download to prevent corruption
+                val request = Request.Builder()
                     .url(downloadUrl)
                     .header("User-Agent", "Rhythm-App")
-                
-                // Add range header if resuming
-                if (existingLength > 0 && activeDownload != null) {
-                    requestBuilder.header("Range", "bytes=$existingLength-")
-                    requestBuilder.header("If-Match", activeDownload?.etag ?: "*")
-                    if (activeDownload?.lastModified != null) {
-                        requestBuilder.header("If-Unmodified-Since", activeDownload?.lastModified!!)
-                    }
-                }
-                
-                val request = requestBuilder.build()
+                    .build()
                 
                 // Execute request
                 activeCall = client.newCall(request)
@@ -622,7 +617,7 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
                     }
                     
                     override fun onResponse(call: Call, response: Response) {
-                        if (!response.isSuccessful && response.code != 206) {
+                        if (!response.isSuccessful) {
                             viewModelScope.launch {
                                 _isDownloading.value = false
                                 _error.value = "Download failed: HTTP ${response.code}"
@@ -633,29 +628,23 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
                         }
                         
                         try {
-                            // Get content length and resume info
+                            // Get content length
                             val contentLength = response.body?.contentLength() ?: -1L
-                            val totalLength = if (response.code == 206) {
-                                val range = response.header("Content-Range")
-                                range?.substringAfter("/")?.toLongOrNull() ?: contentLength
-                            } else {
-                                contentLength
-                            }
                             
-                            // Store download state
+                            // Store download state - start fresh
                             activeDownload = DownloadState(
                                 fileName = fileName,
                                 url = downloadUrl,
-                                totalBytes = totalLength,
-                                downloadedBytes = existingLength,
+                                totalBytes = contentLength,
+                                downloadedBytes = 0L,
                                 etag = response.header("ETag"),
                                 lastModified = response.header("Last-Modified"),
-                                resumePosition = existingLength
+                                resumePosition = 0L
                             )
                             _downloadState.value = activeDownload
                             
-                            // Create output stream
-                            val outputStream = FileOutputStream(file, existingLength > 0)
+                            // Create output stream - overwrite mode
+                            val outputStream = FileOutputStream(file, false)
                             
                             // Get input stream
                             val inputStream = response.body?.byteStream()
@@ -673,7 +662,7 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
                             // Create buffer
                             val buffer = ByteArray(8192)
                             var bytesRead: Int
-                            var totalBytesRead = existingLength
+                            var totalBytesRead = 0L
                             
                             // Read input stream
                             while (inputStream.read(buffer).also { bytesRead = it } != -1) {
@@ -686,11 +675,12 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
                                 totalBytesRead += bytesRead
                                 
                                 // Update progress
-                                val totalBytes = if (totalLength > 0) totalLength else contentLength
-                                if (totalBytes > 0) {
-                                    val progress = (totalBytesRead.toFloat() / totalBytes.toFloat()) * 100f
+                                if (contentLength > 0) {
+                                    val progress = (totalBytesRead.toFloat() / contentLength.toFloat()) * 100f
+                                    // Ensure progress doesn't exceed 100%
+                                    val clampedProgress = progress.coerceIn(0f, 100f)
                                     viewModelScope.launch {
-                                        _downloadProgress.value = progress
+                                        _downloadProgress.value = clampedProgress
                                         activeDownload = activeDownload?.copy(downloadedBytes = totalBytesRead)
                                         _downloadState.value = activeDownload
                                     }
@@ -773,6 +763,37 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
         _downloadProgress.value = 0f
         _downloadState.value = null
         _error.value = null
+        
+        // Clean up any partial download files
+        _downloadedFile.value?.let { file ->
+            if (file.exists() && file.length() == 0L) {
+                file.delete()
+            }
+        }
+    }
+    
+    /**
+     * Reset download progress and state (used when returning to screen)
+     */
+    fun resetDownloadProgress() {
+        if (!_isDownloading.value) {
+            _downloadProgress.value = 0f
+            _downloadState.value = null
+        }
+    }
+    
+    /**
+     * Clear downloaded file and reset state
+     */
+    fun clearDownloadedFile() {
+        _downloadedFile.value?.let { file ->
+            if (file.exists()) {
+                file.delete()
+            }
+        }
+        _downloadedFile.value = null
+        _downloadProgress.value = 0f
+        _downloadState.value = null
     }
 
     override fun onCleared() {

@@ -219,7 +219,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             initializeController()
             initializeFromPersistence()
             startProgressUpdates()
-            startDeviceMonitoring()
+            // Device monitoring will start when player screen is opened
 
             // Step 4: Populate default playlists
             populateRecentlyAddedPlaylist()
@@ -239,8 +239,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             Log.d(TAG, "Data initialization complete")
         }
         
-        // Refresh devices periodically
-        startDeviceMonitoring()
+        // Initialize audio device manager but don't start continuous monitoring
+        // Device monitoring will be started when needed (player screen, etc.)
         
         // Start tracking session
         viewModelScope.launch {
@@ -1321,6 +1321,45 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // Add controlled device monitoring that can be started/stopped
+    private var deviceMonitoringJob: Job? = null
+
+    /**
+     * Start device monitoring when needed (e.g., when player screen is open)
+     */
+    fun startDeviceMonitoringOnDemand() {
+        if (deviceMonitoringJob?.isActive == true) {
+            Log.d(TAG, "Device monitoring already running")
+            return
+        }
+        
+        Log.d(TAG, "Starting on-demand device monitoring")
+        deviceMonitoringJob = viewModelScope.launch {
+            while (isActive) {
+                // Refresh devices every 2 seconds when actively monitoring
+                audioDeviceManager.refreshDevices()
+                delay(2000)
+            }
+        }
+    }
+
+    /**
+     * Stop device monitoring when not needed
+     */
+    fun stopDeviceMonitoringOnDemand() {
+        Log.d(TAG, "Stopping on-demand device monitoring")
+        deviceMonitoringJob?.cancel()
+        deviceMonitoringJob = null
+    }
+
+    /**
+     * Refresh audio devices manually
+     */
+    fun refreshAudioDevices() {
+        Log.d(TAG, "Manually refreshing audio devices")
+        audioDeviceManager.refreshDevices()
+    }
+
     /**
      * Set the current audio output device
      */
@@ -1339,6 +1378,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         Log.d(TAG, "ViewModel being cleared")
         progressUpdateJob?.cancel()
+        deviceMonitoringJob?.cancel()
         mediaController?.release()
         controllerFuture?.let { MediaController.releaseFuture(it) }
         audioDeviceManager.cleanup()
@@ -1971,6 +2011,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 // If nothing is currently playing, start playback
                 if (controller.playbackState == Player.STATE_IDLE || controller.playbackState == Player.STATE_ENDED) {
                     controller.prepare()
+                   
                     controller.play()
                 }
                 
@@ -2491,5 +2532,44 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         private const val PREF_SHOW_LYRICS = "show_lyrics"
         private const val PREF_ONLINE_ONLY_LYRICS = "online_only_lyrics"
         private const val PREF_SONG_PLAY_COUNTS = "song_play_counts"
+    }
+
+    fun playAlbumShuffled(album: Album) {
+        viewModelScope.launch {
+            Log.d(TAG, "Playing shuffled album: ${album.title} (ID: ${album.id})")
+            val songs = repository.getSongsForAlbum(album.id)
+            Log.d(TAG, "Found ${songs.size} songs for album")
+            if (songs.isNotEmpty()) {
+                // Shuffle the songs and play them as a queue
+                val shuffledSongs = songs.shuffled()
+                playQueue(shuffledSongs)
+                
+                // Enable shuffle mode after starting playback
+                mediaController?.shuffleModeEnabled = true
+                _isShuffleEnabled.value = true
+                
+                Log.d(TAG, "Started shuffled playback of album: ${album.title}")
+            } else {
+                Log.e(TAG, "No songs found for album: ${album.title} (ID: ${album.id})")
+                debugQueueState()
+            }
+        }
+    }
+
+    fun playPlaylistShuffled(playlist: Playlist) {
+        Log.d(TAG, "Playing shuffled playlist: ${playlist.name}")
+        if (playlist.songs.isNotEmpty()) {
+            // Shuffle the songs and play them as a queue
+            val shuffledSongs = playlist.songs.shuffled()
+            playQueue(shuffledSongs)
+            
+            // Enable shuffle mode after starting playback
+            mediaController?.shuffleModeEnabled = true
+            _isShuffleEnabled.value = true
+            
+            Log.d(TAG, "Started shuffled playback of playlist: ${playlist.name}")
+        } else {
+            Log.e(TAG, "No songs found in playlist: ${playlist.name}")
+        }
     }
 }

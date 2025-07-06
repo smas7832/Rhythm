@@ -145,6 +145,9 @@ class MainActivity : ComponentActivity() {
 
         appSettings = AppSettings.getInstance(applicationContext) // Initialize AppSettings
         
+        // Initialize NetworkClient with AppSettings for dynamic API keys
+        chromahub.rhythm.app.network.NetworkClient.initialize(appSettings)
+        
         // We'll delay intent handling until after initialization
         val startupIntent = intent
         

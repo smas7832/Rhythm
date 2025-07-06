@@ -9,7 +9,7 @@ import androidx.compose.ui.unit.dp
  */
 object UiConstants {
     /** Height of the global Mini-player card (including its padding). */
-    val MiniPlayerHeight = 96.dp
+    val MiniPlayerHeight = 88.dp // Reduced from 96.dp for better proportions
     /** Height of the bottom navigation bar */
     val NavBarHeight = 64.dp
 }

@@ -552,7 +552,7 @@ fun SearchScreen(
         AddToPlaylistBottomSheet(
             song = selectedSong!!,
             playlists = playlists,
-            onDismiss = { showAddToPlaylistSheet = false },
+            onDismissRequest = { showAddToPlaylistSheet = false },
             onAddToPlaylist = { playlist ->
                 onAddSongToPlaylist(selectedSong!!, playlist.id ?: "")
                 scope.launch {

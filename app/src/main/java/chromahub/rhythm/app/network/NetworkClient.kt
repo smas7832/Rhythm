@@ -38,6 +38,13 @@ object NetworkClient {
     
     private val connectionPool = ConnectionPool(5, 30, TimeUnit.SECONDS)
     
+    // Store reference to AppSettings for dynamic API key
+    private var appSettings: chromahub.rhythm.app.data.AppSettings? = null
+    
+    fun initialize(appSettings: chromahub.rhythm.app.data.AppSettings) {
+        this.appSettings = appSettings
+    }
+    
     private val loggingInterceptor = HttpLoggingInterceptor { message ->
         Log.d(TAG, message)
     }.apply {
@@ -90,7 +97,20 @@ object NetworkClient {
         chain.proceed(request)
     }
     
+    private fun spotifyHeadersInterceptor() = Interceptor { chain ->
+        // Get the current API key from AppSettings, fallback to default if not set
+        val currentApiKey = appSettings?.spotifyApiKey?.value
+        val apiKey = if (currentApiKey.isNullOrBlank()) SPOTIFY_API_KEY else currentApiKey
+        
+        val request = chain.request().newBuilder()
+            .header("X-RapidAPI-Key", apiKey)
+            .header("X-RapidAPI-Host", "spotify23.p.rapidapi.com")
+            .build()
+        chain.proceed(request)
+    }
+    
     private val spotifyHttpClient = OkHttpClient.Builder()
+        .addInterceptor(spotifyHeadersInterceptor())
         .addInterceptor(loggingInterceptor)
         .addInterceptor(retryInterceptor)
         .connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)

@@ -6,6 +6,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
+import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.automirrored.rounded.VolumeDown
 import androidx.compose.material.icons.automirrored.rounded.VolumeMute
 import androidx.compose.material.icons.automirrored.rounded.VolumeOff
@@ -141,6 +142,7 @@ object RhythmIcons {
         val Check = Icons.Rounded.Check
         val More = Icons.Rounded.MoreVert
         val List = Icons.AutoMirrored.Rounded.List
+        val Apps = Icons.Rounded.Apps
         val Refresh = Icons.Rounded.Refresh
         val Download = Icons.Rounded.Download
         val Tune = Icons.Rounded.Tune
@@ -224,6 +226,7 @@ object RhythmIcons {
     val Forward = Navigation.Forward
     val Download = Actions.Download
     val List = Actions.List
+    val AppsGrid = Actions.Apps
     val Refresh = Actions.Refresh
     
     // Location

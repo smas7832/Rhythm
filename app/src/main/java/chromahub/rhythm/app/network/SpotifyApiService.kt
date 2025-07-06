@@ -10,10 +10,6 @@ import retrofit2.http.Query
  * Service interface for Spotify RapidAPI
  */
 interface SpotifyApiService {
-    @Headers(
-        "X-RapidAPI-Key: acd7746756msh38770eb0ec2ea68p15c583jsn5ac26c448f24",
-        "X-RapidAPI-Host: spotify23.p.rapidapi.com"
-    )
     @GET("search/")
     suspend fun searchArtists(
         @Query("q") query: String,
@@ -23,10 +19,6 @@ interface SpotifyApiService {
         @Query("numberOfTopResults") numberOfTopResults: Int = 1
     ): SearchResponse
 
-    @Headers(
-        "X-RapidAPI-Key: acd7746756msh38770eb0ec2ea68p15c583jsn5ac26c448f24",
-        "X-RapidAPI-Host: spotify23.p.rapidapi.com"
-    )
     @GET("search/")
     suspend fun searchTracks(
         @Query("q") query: String,
@@ -36,17 +28,9 @@ interface SpotifyApiService {
         @Query("numberOfTopResults") numberOfTopResults: Int = 1
     ): TrackSearchResponse
 
-    @Headers(
-        "X-RapidAPI-Key: acd7746756msh38770eb0ec2ea68p15c583jsn5ac26c448f24",
-        "X-RapidAPI-Host: spotify23.p.rapidapi.com"
-    )
     @GET("track_lyrics/")
     suspend fun getTrackLyrics(@Query("id") trackId: String): LyricsResponse
 
-    @Headers(
-        "X-RapidAPI-Key: acd7746756msh38770eb0ec2ea68p15c583jsn5ac26c448f24",
-        "X-RapidAPI-Host: spotify23.p.rapidapi.com"
-    )
     @GET("artist_overview/")
     suspend fun getArtistOverview(@Query("id") artistId: String): ArtistOverviewResponse
 }
