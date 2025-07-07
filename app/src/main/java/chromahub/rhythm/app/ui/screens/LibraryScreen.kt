@@ -729,7 +729,7 @@ fun PlaylistsTab(
                     items(albums) { album ->
                         LibraryAlbumItem(
                             album = album,
-                            onClick = { onAlbumClick(album) },
+                            onClick = { onAlbumBottomSheetClick(album) }, // Changed to open bottom sheet
                             onPlayClick = { 
                                 // Play the entire album
                                 onAlbumClick(album)
