@@ -39,6 +39,7 @@ import java.time.Duration
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import java.util.Calendar
+import chromahub.rhythm.app.data.LyricsData // Import LyricsData
 
 class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val TAG = "MusicViewModel"
@@ -72,8 +73,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     val searchHistory: StateFlow<List<String>> = _searchHistory.asStateFlow()
     
     // Lyrics
-    private val _currentLyrics = MutableStateFlow<String?>(null)
-    val currentLyrics: StateFlow<String?> = _currentLyrics.asStateFlow()
+    private val _currentLyrics = MutableStateFlow<LyricsData?>(null)
+    val currentLyrics: StateFlow<LyricsData?> = _currentLyrics.asStateFlow()
 
     private val _isLoadingLyrics = MutableStateFlow(false)
     val isLoadingLyrics: StateFlow<Boolean> = _isLoadingLyrics.asStateFlow()
@@ -1663,11 +1664,11 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _isLoadingLyrics.value = true
             try {
-                val lyrics = repository.fetchLyrics(song.artist, song.title)
-                _currentLyrics.value = lyrics
+                val lyricsData = repository.fetchLyrics(song.artist, song.title)
+                _currentLyrics.value = lyricsData
             } catch (e: Exception) {
                 Log.e(TAG, "Error fetching lyrics", e)
-                _currentLyrics.value = null
+                _currentLyrics.value = LyricsData("Error fetching lyrics", null)
             } finally {
                 _isLoadingLyrics.value = false
             }

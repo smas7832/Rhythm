@@ -2,68 +2,124 @@ package chromahub.rhythm.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Light Theme Core Colors - Refined and sophisticated palette
-val PrimaryLight = Color(0xFF5A4FCF) // Muted purple for elegance
-val SecondaryLight = Color(0xFF7B68C4) // Softer purple secondary
-val TertiaryLight = Color(0xFFA17DC6) // Gentle lavender for accent
+// Material Design 3 Color System - Light Theme
+// Primary color palette based on purple/violet for music app
+val PrimaryLight = Color(0xFF5C4AD5) // Vibrant purple - main brand color
+val OnPrimaryLight = Color(0xFFFFFFFF) // White text on primary
+val PrimaryContainerLight = Color(0xFFE6DEFF) // Lighter purple container
+val OnPrimaryContainerLight = Color(0xFF170C3E) // Dark text on primary container
 
-// Light Theme Background and Surface Colors
-val BackgroundLight = Color(0xFFFAF9FC) // Clean, neutral background
-val SurfaceLight = Color(0xFFF5F4F7) // Subtle surface distinction
-val SurfaceContainerLight = Color(0xFFF0EFFF) // Gentle container color
-val SurfaceContainerLowLight = Color(0xFFF8F7FA) // Very subtle elevation
-val SurfaceContainerHighLight = Color(0xFFEBE9F2) // Refined elevation
+// Secondary color palette - complementary teal/green
+val SecondaryLight = Color(0xFF5D5D6B) // Neutral gray-purple for balance
+val OnSecondaryLight = Color(0xFFFFFFFF) // White text on secondary
+val SecondaryContainerLight = Color(0xFFE3E1F0) // Light gray-purple container
+val OnSecondaryContainerLight = Color(0xFF1A1A25) // Dark text on secondary container
 
-// Light Theme Text and Icon Colors
-val OnPrimaryLight = Color(0xFFFFFFFF) // White text on primary color
-val OnSecondaryLight = Color(0xFFFFFFFF) // White text on secondary color
-val OnTertiaryLight = Color(0xFFFFFFFF) // White text on tertiary color
-val OnBackgroundLight = Color(0xFF1C1B1F) // Refined dark text on light background
-val OnSurfaceLight = Color(0xFF1C1B1F) // Refined dark text on light surface
-val OnSurfaceVariantLight = Color(0xFF4A4458) // Muted variant for secondary text
+// Tertiary color palette - accent orange/amber for music controls
+val TertiaryLight = Color(0xFF7E5636) // Warm brown for accent
+val OnTertiaryLight = Color(0xFFFFFFFF) // White text on tertiary
+val TertiaryContainerLight = Color(0xFFFFDDB6) // Light orange container
+val OnTertiaryContainerLight = Color(0xFF2C1600) // Dark text on tertiary container
 
-// Dark Theme Core Colors - Muted and comfortable for extended use
-val PrimaryDark = Color(0xFF9B8CE8) // Gentle purple for dark theme
-val SecondaryDark = Color(0xFFB0A1E5) // Soft purple secondary
-val TertiaryDark = Color(0xFFC8B8E3) // Muted pink/purple for accents
+// Error color palette
+val ErrorLight = Color(0xFFBA1A1A) // Standard Material error red
+val OnErrorLight = Color(0xFFFFFFFF) // White text on error
+val ErrorContainerLight = Color(0xFFFFDAD6) // Light red container
+val OnErrorContainerLight = Color(0xFF410002) // Dark text on error container
 
-// Dark Theme Background and Surface Colors
-val BackgroundDark = Color(0xFF0F0F11) // Deep, comfortable dark background
-val SurfaceDark = Color(0xFF1A1820) // Subtle surface color
-val SurfaceContainerDark = Color(0xFF211F28) // Refined container contrast
-val SurfaceContainerLowDark = Color(0xFF16141C) // Subtle elevation differences
-val SurfaceContainerHighDark = Color(0xFF2B2930) // Higher elevation elements
+// Background and surface colors
+val BackgroundLight = Color(0xFFFEFBFF) // Pure white background
+val OnBackgroundLight = Color(0xFF1B1B1F) // Dark text on background
+val SurfaceLight = Color(0xFFFEFBFF) // Surface same as background
+val OnSurfaceLight = Color(0xFF1B1B1F) // Dark text on surface
+val SurfaceVariantLight = Color(0xFFE6E1EC) // Light gray-purple surface variant
+val OnSurfaceVariantLight = Color(0xFF48454E) // Medium gray text
 
-// Dark Theme Text and Icon Colors
-val OnPrimaryDark = Color(0xFF000000) // Black text on light primary color
-val OnSecondaryDark = Color(0xFF000000) // Black text on light secondary color
-val OnTertiaryDark = Color(0xFF000000) // Black text on light tertiary color
-val OnBackgroundDark = Color(0xFFE8E6EA) // Comfortable light text on dark background
-val OnSurfaceDark = Color(0xFFE3E1E6) // Comfortable light text on dark surface
-val OnSurfaceVariantDark = Color(0xFFC4C2C7) // Muted variant for secondary text
+// Outline colors for borders and dividers
+val OutlineLight = Color(0xFF79767F) // Medium gray outline
+val OutlineVariantLight = Color(0xFFCAC6D0) // Light gray outline variant
 
-// Accent colors for the music player UI - Refined and comfortable
-val MusicPrimaryLight = Color(0xFF5A4FCF) // Matching refined primary
-val MusicPrimaryVariantLight = Color(0xFF7B68C4) // Softer purple variant
-val MusicSecondaryLight = Color(0xFF4A9B8E) // Muted teal for accents
+// Surface containers for different elevation levels
+val SurfaceContainerLowestLight = Color(0xFFFFFFFF) // Lowest elevation (pure white)
+val SurfaceContainerLowLight = Color(0xFFF8F6FA) // Low elevation
+val SurfaceContainerLight = Color(0xFFF2F0F4) // Medium elevation
+val SurfaceContainerHighLight = Color(0xFFECEAEE) // High elevation
+val SurfaceContainerHighestLight = Color(0xFFE6E4E8) // Highest elevation
 
-val MusicPrimaryDark = Color(0xFF9B8CE8) // Matching refined dark primary
-val MusicPrimaryVariantDark = Color(0xFFB0A1E5) // Softer variant in dark theme
-val MusicSecondaryDark = Color(0xFF6BB8AA) // Comfortable teal for both themes
+// Inverse colors for special cases
+val InverseSurfaceLight = Color(0xFF303033) // Dark surface for light theme
+val InverseOnSurfaceLight = Color(0xFFF3F0F4) // Light text on inverse surface
+val InversePrimaryLight = Color(0xFFCBC2FF) // Light primary on dark surface
 
-// UI Specific Colors - Refined for comfortable user interaction
-val PlayerButtonColor = Color(0xFF5A4FCF) // Matching refined primary
-val PlayerButtonColorDark = Color(0xFF9B8CE8) // Matching refined dark primary
-val PlayerProgressColor = Color(0xFF4A9B8E) // Muted teal for better comfort
-val PlayerProgressBackgroundLight = Color(0xFFE6E4F0) // Subtle background for progress bar
-val PlayerProgressBackgroundDark = Color(0xFF2B2930) // Subtle background for progress in dark mode
-val PlayerBackgroundLight = Color(0xFFFAF9FC) // Matching refined main background
-val PlayerBackgroundDark = Color(0xFF0F0F11) // Matching refined main dark background
+// Material Design 3 Color System - Dark Theme
+// Primary color palette based on purple/violet for music app
+val PrimaryDark = Color(0xFFCBC2FF) // Light purple for dark theme
+val OnPrimaryDark = Color(0xFF170C3E) // Dark text on primary
+val PrimaryContainerDark = Color(0xFF433499) // Medium purple container
+val OnPrimaryContainerDark = Color(0xFFE6DEFF) // Light text on primary container
 
-// Status colors for notifications, errors, etc. - Toned down for comfort
-val SuccessLight = Color(0xFF4A7C59) // Muted green for success states
-val SuccessDark = Color(0xFF6A9B73) // Softer green for dark theme
-val ErrorLight = Color(0xFF8B4A47) // Muted red for error states
-val ErrorDark = Color(0xFFB8716E) // Softer red for dark theme
-val WarningLight = Color(0xFFB8860B) // Muted amber for warning states
-val WarningDark = Color(0xFFD4A574) // Softer amber for dark theme
+// Secondary color palette - complementary neutral
+val SecondaryDark = Color(0xFFC7C5D4) // Light gray-purple for balance
+val OnSecondaryDark = Color(0xFF30303C) // Dark text on secondary
+val SecondaryContainerDark = Color(0xFF464653) // Medium gray-purple container
+val OnSecondaryContainerDark = Color(0xFFE3E1F0) // Light text on secondary container
+
+// Tertiary color palette - accent orange/amber for music controls
+val TertiaryDark = Color(0xFFE8BD88) // Light orange for accent
+val OnTertiaryDark = Color(0xFF432A0D) // Dark text on tertiary
+val TertiaryContainerDark = Color(0xFF624020) // Medium orange container
+val OnTertiaryContainerDark = Color(0xFFFFDDB6) // Light text on tertiary container
+
+// Error color palette
+val ErrorDark = Color(0xFFFFB4AB) // Light red for dark theme
+val OnErrorDark = Color(0xFF690005) // Dark text on error
+val ErrorContainerDark = Color(0xFF93000A) // Medium red container
+val OnErrorContainerDark = Color(0xFFFFDAD6) // Light text on error container
+
+// Background and surface colors
+val BackgroundDark = Color(0xFF131316) // Dark background
+val OnBackgroundDark = Color(0xFFE5E1E6) // Light text on background
+val SurfaceDark = Color(0xFF131316) // Surface same as background
+val OnSurfaceDark = Color(0xFFE5E1E6) // Light text on surface
+val SurfaceVariantDark = Color(0xFF48454E) // Medium gray surface variant
+val OnSurfaceVariantDark = Color(0xFFCAC6D0) // Light gray text
+
+// Outline colors for borders and dividers
+val OutlineDark = Color(0xFF938F99) // Light gray outline
+val OutlineVariantDark = Color(0xFF48454E) // Medium gray outline variant
+
+// Surface containers for different elevation levels
+val SurfaceContainerLowestDark = Color(0xFF0E0E11) // Lowest elevation
+val SurfaceContainerLowDark = Color(0xFF1B1B1F) // Low elevation
+val SurfaceContainerDark = Color(0xFF1F1F23) // Medium elevation
+val SurfaceContainerHighDark = Color(0xFF2A2A2E) // High elevation
+val SurfaceContainerHighestDark = Color(0xFF353539) // Highest elevation
+
+// Inverse colors for special cases
+val InverseSurfaceDark = Color(0xFFE5E1E6) // Light surface for dark theme
+val InverseOnSurfaceDark = Color(0xFF303033) // Dark text on inverse surface
+val InversePrimaryDark = Color(0xFF5C4AD5) // Dark primary on light surface
+
+// Legacy music-specific colors (for backward compatibility)
+val MusicPrimaryLight = PrimaryLight
+val MusicPrimaryVariantLight = PrimaryContainerLight
+val MusicSecondaryLight = TertiaryLight
+
+val MusicPrimaryDark = PrimaryDark
+val MusicPrimaryVariantDark = PrimaryContainerDark
+val MusicSecondaryDark = TertiaryDark
+
+// UI Specific Colors for player components
+val PlayerButtonColor = PrimaryLight
+val PlayerButtonColorDark = PrimaryDark
+val PlayerProgressColor = TertiaryLight
+val PlayerProgressBackgroundLight = SurfaceContainerLight
+val PlayerProgressBackgroundDark = SurfaceContainerDark
+val PlayerBackgroundLight = BackgroundLight
+val PlayerBackgroundDark = BackgroundDark
+
+// Status colors for notifications, errors, etc.
+val SuccessLight = Color(0xFF2E7D32) // Material green
+val SuccessDark = Color(0xFF66BB6A) // Light green for dark theme
+val WarningLight = Color(0xFFEF6C00) // Material orange
+val WarningDark = Color(0xFFFFB74D) // Light orange for dark theme

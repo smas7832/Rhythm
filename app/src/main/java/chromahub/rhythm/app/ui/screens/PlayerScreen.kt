@@ -121,7 +121,8 @@ import org.burnoutcrew.reorderable.rememberReorderableLazyListState
 import org.burnoutcrew.reorderable.reorderable
 import kotlin.math.abs
 import chromahub.rhythm.app.ui.components.M3CircularLoader
-import android.view.animation.OvershootInterpolator // Corrected import for OvershootInterpolator
+import android.view.animation.OvershootInterpolator
+import chromahub.rhythm.app.ui.components.SyncedLyricsView // Import SyncedLyricsView
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -147,7 +148,7 @@ fun PlayerScreen(
     onToggleMute: () -> Unit = {},
     onMaxVolume: () -> Unit = {},
     onRefreshDevices: () -> Unit = {},
-    onStopDeviceMonitoring: () -> Unit = {}, // New parameter to stop device monitoring
+    onStopDeviceMonitoring: () -> Unit = {},
     onToggleShuffle: () -> Unit = {},
     onToggleRepeat: () -> Unit = {},
     onToggleFavorite: () -> Unit = {},
@@ -157,20 +158,20 @@ fun PlayerScreen(
     isFavorite: Boolean = false,
     showLyrics: Boolean = true,
     onlineOnlyLyrics: Boolean = false,
-    lyrics: String? = null,
+    lyrics: chromahub.rhythm.app.data.LyricsData? = null,
     isLoadingLyrics: Boolean = false,
     playlists: List<Playlist> = emptyList(),
     queue: List<Song> = emptyList(),
     onSongClick: (Song) -> Unit = {},
     onRemoveFromQueue: (Song) -> Unit = {},
     onMoveQueueItem: (Int, Int) -> Unit = { _, _ -> },
-    onAddSongsToQueue: () -> Unit = {}, // This will be the navigation action
-    onNavigateToLibrary: (LibraryTab) -> Unit = {}, // New parameter for navigation
+    onAddSongsToQueue: () -> Unit = {},
+    onNavigateToLibrary: (LibraryTab) -> Unit = {},
     showAddToPlaylistSheet: Boolean = false,
     onAddToPlaylistSheetDismiss: () -> Unit = {},
     onAddSongToPlaylist: (Song, String) -> Unit = { _, _ -> },
     onCreatePlaylist: (String) -> Unit = { _ -> },
-    onShowCreatePlaylistDialog: () -> Unit = {},
+    onShowCreatePlaylistDialog: () -> Unit = {} ,
     onClearQueue: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -201,8 +202,8 @@ fun PlayerScreen(
     var showDeviceOutputSheet by remember { mutableStateOf(false) }
     
     // For swipe down gesture detection - improved parameters
-    var targetOffsetY by remember { mutableStateOf(0f) } // Target for animation
-    val animatedOffsetY by animateFloatAsState( // Animated value for translation
+    var targetOffsetY by remember { mutableStateOf(0f) }
+    val animatedOffsetY by animateFloatAsState(
         targetValue = targetOffsetY,
         animationSpec = tween(
             durationMillis = 300,
@@ -212,18 +213,18 @@ fun PlayerScreen(
         ),
         label = "animatedOffsetY"
     )
-    val swipeThreshold = 120f // Lower threshold for easier closing
+    val swipeThreshold = 120f
     
     // Animation for dismiss swipe gesture
-    val dismissProgress = (animatedOffsetY / swipeThreshold).coerceIn(0f, 1f) // Use animatedOffsetY
+    val dismissProgress = (animatedOffsetY / swipeThreshold).coerceIn(0f, 1f)
     val contentAlpha by animateFloatAsState(
-        targetValue = 1f - (dismissProgress * 0.4f), // Slightly more aggressive fade
+        targetValue = 1f - (dismissProgress * 0.4f),
         label = "contentAlpha"
     )
     
     // Scale effect for swipe
     val contentScale by animateFloatAsState(
-        targetValue = 1f - (dismissProgress * 0.05f), // Subtle scale effect
+        targetValue = 1f - (dismissProgress * 0.05f),
         label = "contentScale"
     )
     
@@ -233,7 +234,7 @@ fun PlayerScreen(
     // Handle dismissing animation
     LaunchedEffect(isDismissing) {
         if (isDismissing) {
-            delay(50) // Shorter delay for more responsive feel
+            delay(50)
             onBack()
         }
     }
@@ -266,12 +267,12 @@ fun PlayerScreen(
     
     // Start device monitoring when player screen is shown and stop when closed
     LaunchedEffect(Unit) {
-        onRefreshDevices() // Start device monitoring on-demand
+        onRefreshDevices()
     }
     
     DisposableEffect(Unit) {
         onDispose {
-            onStopDeviceMonitoring() // Stop device monitoring when screen is closed
+            onStopDeviceMonitoring()
         }
     }
     
@@ -328,7 +329,7 @@ fun PlayerScreen(
                 // Move queue item in the actual queue
                 onMoveQueueItem(fromIndex, toIndex)
             },
-            onAddSongsClick = { // Changed parameter name
+            onAddSongsClick = {
                 // Dismiss the queue sheet first
                 scope.launch {
                     queueSheetState.hide()
@@ -395,7 +396,7 @@ fun PlayerScreen(
     if (showDeviceOutputSheet) {
         LaunchedEffect(showDeviceOutputSheet) {
             if (showDeviceOutputSheet) {
-                onRefreshDevices() // Start device monitoring when sheet is shown
+                onRefreshDevices()
             }
         }
         
@@ -412,7 +413,7 @@ fun PlayerScreen(
                 }.invokeOnCompletion {
                     if (!deviceOutputSheetState.isVisible) {
                         showDeviceOutputSheet = false
-                        onStopDeviceMonitoring() // Stop device monitoring when sheet is closed
+                        onStopDeviceMonitoring()
                     }
                 }
             },
@@ -422,7 +423,7 @@ fun PlayerScreen(
             onRefreshDevices = onRefreshDevices,
             onDismiss = { 
                 showDeviceOutputSheet = false
-                onStopDeviceMonitoring() // Stop device monitoring when sheet is dismissed
+                onStopDeviceMonitoring()
             },
             sheetState = deviceOutputSheetState
         )
@@ -446,7 +447,7 @@ fun PlayerScreen(
                         )
                         
                         // Small spacing after the pill
-                        Spacer(modifier = Modifier.height(8.dp)) // Increased spacing
+                        Spacer(modifier = Modifier.height(8.dp))
                         
                         AnimatedVisibility(
                             visible = song != null,
@@ -478,10 +479,10 @@ fun PlayerScreen(
                 },
                 navigationIcon = {
                     // Increased horizontal padding for better edge spacing
-                    Box(modifier = Modifier.padding(start = 16.dp)) { // Changed to 16.dp
+                    Box(modifier = Modifier.padding(start = 16.dp)) {
                         FilledTonalIconButton(
                             onClick = onBack,
-                            modifier = Modifier.size(48.dp), // Changed to 48.dp
+                            modifier = Modifier.size(48.dp),
                             colors = IconButtonDefaults.filledTonalIconButtonColors(
                                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -498,10 +499,10 @@ fun PlayerScreen(
                 actions = {
                     if (showLyrics && song != null) {
                         // Increased horizontal padding for better edge spacing
-                        Box(modifier = Modifier.padding(end = 16.dp)) { // Changed to 16.dp
+                        Box(modifier = Modifier.padding(end = 16.dp)) {
                             FilledTonalIconButton(
                                 onClick = { showLyricsView = !showLyricsView },
-                                modifier = Modifier.size(48.dp), // Changed to 48.dp
+                                modifier = Modifier.size(48.dp),
                                 colors = IconButtonDefaults.filledTonalIconButtonColors(
                                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -515,7 +516,7 @@ fun PlayerScreen(
                             }
                         }
                     } else {
-                        Spacer(modifier = Modifier.width(80.dp)) // Match the size of the button + padding (48dp + 16dp*2)
+                        Spacer(modifier = Modifier.width(80.dp))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -527,7 +528,7 @@ fun PlayerScreen(
         modifier = Modifier
             .graphicsLayer {
                 // Apply translation and alpha effects based on swipe gesture
-                translationY = animatedOffsetY // Use animatedOffsetY
+                translationY = animatedOffsetY
                 alpha = contentAlpha
                 scaleX = contentScale
                 scaleY = contentScale
@@ -539,20 +540,20 @@ fun PlayerScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .pointerInput(Unit) {
-                    var dragAmountY = 0f // Track drag amount for current gesture
+                    var dragAmountY = 0f
                     
                     detectVerticalDragGestures(
                         onDragStart = {
                             dragAmountY = 0f
                         },
                         onVerticalDrag = { change, dragAmount ->
-                            change.consume() // Important: consume the gesture to prevent conflicts
+                            change.consume()
                             
                             // Only track downward swipes for dismissal
                             if (dragAmount > 0) {
                                 dragAmountY += dragAmount
                                 // Apply resistance effect - slower movement as user drags further
-                                targetOffsetY = (dragAmountY * 0.6f).coerceIn(0f, screenHeight / 2) // Update targetOffsetY
+                                targetOffsetY = (dragAmountY * 0.6f).coerceIn(0f, screenHeight / 2)
                             }
                         },
                         onDragEnd = {
@@ -561,25 +562,25 @@ fun PlayerScreen(
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 isDismissing = true
                             } else {
-                                targetOffsetY = 0f // Animate back to 0
+                                targetOffsetY = 0f
                             }
                         },
                         onDragCancel = {
                             // Reset position immediately if not dismissing
-                            targetOffsetY = 0f // Animate back to 0
+                            targetOffsetY = 0f
                         }
                     )
                 }
         ) {
             // Add swipe down indicator text when dragging down
-            if (animatedOffsetY > swipeThreshold * 0.3f) { // Use animatedOffsetY
+            if (animatedOffsetY > swipeThreshold * 0.3f) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 8.dp)
                 ) {
-                    val textAlpha = ((animatedOffsetY - (swipeThreshold * 0.3f)) / (swipeThreshold * 0.7f)).coerceIn(0f, 1f) // Use animatedOffsetY
+                    val textAlpha = ((animatedOffsetY - (swipeThreshold * 0.3f)) / (swipeThreshold * 0.7f)).coerceIn(0f, 1f)
                     Text(
                         text = "Release to close",
                         style = MaterialTheme.typography.labelMedium,
@@ -593,17 +594,17 @@ fun PlayerScreen(
             
             // MAIN CHANGE: Use a Column that fills the available space but anchors content to the bottom
             // This makes all content stick to the bottom of the screen
-            Column( // This outer column will now manage the vertical distribution
+            Column(
                 modifier = Modifier.fillMaxSize(),
-                horizontalAlignment = Alignment.CenterHorizontally // Keep this for horizontal centering
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // Main content column - now takes up all available space
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f), // This makes it take all available vertical space
+                        .weight(1f),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = if (isCompactHeight) Arrangement.Center else Arrangement.Top // Center content vertically on compact screens
+                    verticalArrangement = if (isCompactHeight) Arrangement.Center else Arrangement.Top
                 ) {
                     // Calculate dynamic top padding based on screen height
                     val dynamicTopPadding = with(density) {
@@ -613,7 +614,7 @@ fun PlayerScreen(
                     }
                     
                     // Add dynamic spacing at the top that expands/contracts based on screen size
-                    if (!isCompactHeight) { // Only add top padding if not compact height
+                    if (!isCompactHeight) {
                         Spacer(modifier = Modifier.height(dynamicTopPadding))
                     }
                     
@@ -627,7 +628,7 @@ fun PlayerScreen(
                         ElevatedCard(
                             modifier = Modifier
                                 .fillMaxWidth(albumArtSize)
-                                .padding(horizontal = 16.dp, vertical = 16.dp), // Increased vertical padding
+                                .padding(horizontal = 16.dp, vertical = 16.dp),
                             shape = RoundedCornerShape(28.dp),
                             elevation = CardDefaults.elevatedCardElevation(
                                 defaultElevation = 8.dp
@@ -702,10 +703,10 @@ fun PlayerScreen(
                                 .padding(horizontal = 16.dp, vertical = 16.dp),
                             shape = RoundedCornerShape(28.dp),
                             elevation = CardDefaults.cardElevation(
-                                defaultElevation = 0.dp // No elevation/shadow
+                                defaultElevation = 0.dp
                             ),
                             colors = CardDefaults.cardColors(
-                                containerColor = Color.Transparent // Transparent to show background
+                                containerColor = Color.Transparent
                             )
                         ) {
                             // Background with album art blur effect
@@ -721,7 +722,7 @@ fun PlayerScreen(
                                             .build(),
                                         contentDescription = null,
                                         contentScale = ContentScale.Crop,
-                                        alpha = 0.6f, // Reduce opacity for blur-like effect
+                                        alpha = 0.6f,
                                         modifier = Modifier
                                             .fillMaxSize()
                                             .clip(RoundedCornerShape(28.dp))
@@ -800,7 +801,9 @@ fun PlayerScreen(
                                                 )
                                             }
                                         }
-                                        lyrics.isNullOrEmpty() || lyrics == "No lyrics found for this song" -> {
+                                        lyrics == null || 
+                                        !lyrics.hasLyrics() ||
+                                        lyrics.isErrorMessage() -> {
                                             Box(
                                                 modifier = Modifier.fillMaxSize(),
                                                 contentAlignment = Alignment.Center
@@ -828,26 +831,44 @@ fun PlayerScreen(
                                             }
                                         }
                                         else -> {
-                                            // Scrollable lyrics with better typography and contrast
-                                            Column(
-                                                modifier = Modifier
-                                                    .fillMaxSize()
-                                                    .verticalScroll(rememberScrollState()),
-                                                horizontalAlignment = Alignment.CenterHorizontally
-                                            ) {
-                                                Text(
-                                                    text = lyrics,
-                                                    style = MaterialTheme.typography.bodyLarge.copy(
-                                                        lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.6f,
-                                                        fontWeight = FontWeight.Medium,
-                                                        letterSpacing = 0.5.sp
-                                                    ),
-                                                    color = MaterialTheme.colorScheme.onSurface,
-                                                    textAlign = TextAlign.Center,
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .padding(horizontal = 8.dp)
+                                            // Extract appropriate lyrics text from LyricsData object
+                                            val lyricsText = remember(lyrics) {
+                                                lyrics?.getBestLyrics() ?: ""
+                                            }
+                                            
+                                            val parsedLyrics = remember(lyricsText) {
+                                                chromahub.rhythm.app.util.LyricsParser.parseLyrics(lyricsText)
+                                            }
+                                            
+                                            if (parsedLyrics.isNotEmpty()) {
+                                                // Use SyncedLyricsView for synchronized lyrics
+                                                SyncedLyricsView(
+                                                    lyrics = lyricsText,
+                                                    currentPlaybackTime = currentTimeMs,
+                                                    modifier = Modifier.fillMaxSize()
                                                 )
+                                            } else {
+                                                // Fallback to plain text lyrics if not synchronized
+                                                Column(
+                                                    modifier = Modifier
+                                                        .fillMaxSize()
+                                                        .verticalScroll(rememberScrollState()),
+                                                    horizontalAlignment = Alignment.CenterHorizontally
+                                                ) {
+                                                    Text(
+                                                        text = lyricsText,
+                                                        style = MaterialTheme.typography.bodyLarge.copy(
+                                                            lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.6f,
+                                                            fontWeight = FontWeight.Medium,
+                                                            letterSpacing = 0.5.sp
+                                                        ),
+                                                        color = MaterialTheme.colorScheme.onSurface,
+                                                        textAlign = TextAlign.Center,
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .padding(horizontal = 8.dp)
+                                                    )
+                                                }
                                             }
                                         }
                                     }
@@ -867,7 +888,7 @@ fun PlayerScreen(
                             // Song info with increased vertical padding
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp) // Increased vertical padding
+                                modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp)
                             ) {
                                 Text(
                                     text = song.title,
@@ -885,7 +906,7 @@ fun PlayerScreen(
                                     textAlign = TextAlign.Center,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.padding(vertical = 4.dp) // Increased vertical padding
+                                    modifier = Modifier.padding(vertical = 4.dp)
                                 )
                             }
                         }
@@ -910,7 +931,7 @@ fun PlayerScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 8.dp, vertical = 8.dp), // Increased vertical padding
+                                .padding(horizontal = 8.dp, vertical = 8.dp),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
@@ -1043,14 +1064,14 @@ fun PlayerScreen(
                             ) {
                                 // Show different icons based on repeat mode
                                 val icon = when (repeatMode) {
-                                    1 -> RhythmIcons.RepeatOne  // REPEAT_MODE_ONE
-                                    2 -> RhythmIcons.Repeat     // REPEAT_MODE_ALL
-                                    else -> RhythmIcons.Repeat  // REPEAT_MODE_OFF
+                                    1 -> RhythmIcons.RepeatOne
+                                    2 -> RhythmIcons.Repeat
+                                    else -> RhythmIcons.Repeat
                                 }
                                 
                                 val tint = when (repeatMode) {
-                                    0 -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f) // OFF - dimmed
-                                    else -> MaterialTheme.colorScheme.primary                   // ON - highlighted
+                                    0 -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                    else -> MaterialTheme.colorScheme.primary
                                 }
                                 
                                 Icon(
@@ -1067,7 +1088,7 @@ fun PlayerScreen(
                     // Only add favorite/playlist buttons if we have space
                     if (!isCompactHeight) {
                         // Action buttons row - only show on taller screens with slightly reduced spacing
-                        Spacer(modifier = Modifier.height(12.dp)) // Reduced from 16.dp
+                        Spacer(modifier = Modifier.height(12.dp))
                         
                         Row(
                             modifier = Modifier
@@ -1160,7 +1181,7 @@ fun PlayerScreen(
                                 // Show device output sheet
                                 showDeviceOutputSheet = true
                             },
-                            shape = RoundedCornerShape(24.dp), // Rounded pill shape
+                            shape = RoundedCornerShape(24.dp),
                             colors = CardDefaults.cardColors(
                                 containerColor = MaterialTheme.colorScheme.primaryContainer
                             ),
