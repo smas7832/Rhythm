@@ -77,11 +77,11 @@ import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.ui.screens.AppUpdaterScreen
 import chromahub.rhythm.app.ui.screens.LibraryScreen
 import chromahub.rhythm.app.ui.screens.NewHomeScreen
-
 import chromahub.rhythm.app.ui.screens.PlayerScreen
 import chromahub.rhythm.app.ui.screens.PlaylistDetailScreen
 import chromahub.rhythm.app.ui.screens.SearchScreen
 import chromahub.rhythm.app.ui.screens.SettingsScreen
+import chromahub.rhythm.app.ui.screens.AboutScreen // Added import for AboutScreen
 import chromahub.rhythm.app.viewmodel.MusicViewModel
 import chromahub.rhythm.app.viewmodel.ThemeViewModel
 import coil.compose.AsyncImage
@@ -130,6 +130,7 @@ sealed class Screen(val route: String) {
     object PlaylistDetail : Screen("playlist/{playlistId}") {
         fun createRoute(playlistId: String) = "playlist/$playlistId"
     }
+    object About : Screen("about") // Added About screen
 }
 
 @Composable
@@ -629,6 +630,50 @@ fun RhythmNavigation(
                         },
                         onCheckForUpdates = {
                             // Navigate to the app updater screen
+                            navController.navigate(Screen.AppUpdater.createRoute(true))
+                        },
+                        onNavigateToAbout = {
+                            navController.navigate(Screen.About.route)
+                        }
+                    )
+                }
+
+                composable(
+                    route = Screen.About.route,
+                    enterTransition = {
+                        fadeIn(animationSpec = tween(350)) +
+                                scaleIn(
+                                    initialScale = 0.85f,
+                                    animationSpec = tween(400, easing = EaseOutQuint)
+                                )
+                    },
+                    exitTransition = {
+                        fadeOut(animationSpec = tween(350)) +
+                                scaleOut(
+                                    targetScale = 0.85f,
+                                    animationSpec = tween(300, easing = EaseInOutQuart)
+                                )
+                    },
+                    popEnterTransition = {
+                        fadeIn(animationSpec = tween(350)) +
+                                scaleIn(
+                                    initialScale = 0.85f,
+                                    animationSpec = tween(400, easing = EaseOutQuint)
+                                )
+                    },
+                    popExitTransition = {
+                        fadeOut(animationSpec = tween(350)) +
+                                scaleOut(
+                                    targetScale = 0.85f,
+                                    animationSpec = tween(300, easing = EaseInOutQuart)
+                                )
+                    }
+                ) {
+                    AboutScreen(
+                        onBack = {
+                            navController.popBackStack()
+                        },
+                        onCheckForUpdates = {
                             navController.navigate(Screen.AppUpdater.createRoute(true))
                         }
                     )

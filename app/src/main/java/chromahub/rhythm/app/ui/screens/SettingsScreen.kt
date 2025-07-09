@@ -124,7 +124,8 @@ fun SettingsScreen(
     onShowOnlineOnlyLyricsChange: (Boolean) -> Unit,
     onOpenSystemEqualizer: () -> Unit,
     onBack: () -> Unit,
-    onCheckForUpdates: () -> Unit
+    onCheckForUpdates: () -> Unit,
+    onNavigateToAbout: () -> Unit
 ) {
     val context = LocalContext.current
     val appSettings = remember { AppSettings.getInstance(context) }
@@ -136,21 +137,12 @@ fun SettingsScreen(
     
     val spotifyKey by appSettings.spotifyApiKey.collectAsState()
     val scope = rememberCoroutineScope()
-    var showAboutDialog by remember { mutableStateOf(false) }
     var showApiBottomSheet by remember { mutableStateOf(false) }
 
     val updaterViewModel: AppUpdaterViewModel = viewModel()
     val currentAppVersion by updaterViewModel.currentVersion.collectAsState()
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
-
-    if (showAboutDialog) {
-        AboutDialog(
-            onDismiss = { showAboutDialog = false },
-            onCheckForUpdates = onCheckForUpdates,
-            currentAppVersion = currentAppVersion
-        )
-    }
 
     if (showApiBottomSheet) {
         ApiManagementBottomSheet(
@@ -377,72 +369,98 @@ fun SettingsScreen(
                 SettingsSectionHeader(title = "About")
 
                 Card(
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surfaceContainer
                     ),
                     elevation = CardDefaults.cardElevation(
-                        defaultElevation = 1.dp
+                        defaultElevation = 4.dp
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 6.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .clickable { showAboutDialog = true }
+                        .padding(vertical = 8.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .clickable { onNavigateToAbout() }
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp)
+                            .padding(20.dp)
                     ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.rhythm_logo),
-                            contentDescription = null,
-                            modifier = Modifier.size(80.dp)
-                        )
+                        // App icon with background
+                        Box(
+                            modifier = Modifier
+                                .size(100.dp)
+                                .background(
+                                    MaterialTheme.colorScheme.primaryContainer,
+                                    shape = CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Image(
+                                painter = painterResource(id = R.drawable.rhythm_logo),
+                                contentDescription = null,
+                                modifier = Modifier.size(70.dp)
+                            )
+                        }
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
 
                         Text(
                             text = "Rhythm Music Player",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
 
                         Text(
-                            text = "Version ${currentAppVersion.versionName} | ChromaHub",
-                            style = MaterialTheme.typography.bodyMedium,
+                            text = "Version ${currentAppVersion.versionName}",
+                            style = MaterialTheme.typography.titleMedium,
+                            textAlign = TextAlign.Center,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
 
                         Spacer(modifier = Modifier.height(8.dp))
 
+                        Text(
+                            text = "by Team ChromaHub",
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        // Action buttons
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             Button(
-                                onClick = { showAboutDialog = true },
+                                onClick = onNavigateToAbout,
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                                 ),
-                                modifier = Modifier
-                                    .padding(top = 8.dp)
-                                    .weight(1f)
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(16.dp)
                             ) {
-                                Row( // Added Row for icon and text
+                                Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.Center
                                 ) {
-                                    Icon( // Added Info icon
+                                    Icon(
                                         imageVector = Icons.Default.Info,
                                         contentDescription = null,
-                                        modifier = Modifier.size(16.dp)
+                                        modifier = Modifier.size(18.dp)
                                     )
-                                    Spacer(modifier = Modifier.width(4.dp)) // Spacer between icon and text
-                                    Text("About")
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "About",
+                                        style = MaterialTheme.typography.labelLarge
+                                    )
                                 }
                             }
 
@@ -452,9 +470,8 @@ fun SettingsScreen(
                                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
                                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                                 ),
-                                modifier = Modifier
-                                    .padding(top = 8.dp)
-                                    .weight(1f)
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(16.dp)
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
@@ -463,43 +480,46 @@ fun SettingsScreen(
                                     Icon(
                                         imageVector = RhythmIcons.Download,
                                         contentDescription = null,
-                                        modifier = Modifier.size(16.dp)
+                                        modifier = Modifier.size(18.dp)
                                     )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Updates")
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Updates",
+                                        style = MaterialTheme.typography.labelLarge
+                                    )
                                 }
                             }
                         }
-                        Row(
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Button(
+                            onClick = {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/cromaguy/Rhythm/issues"))
+                                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                context.startActivity(intent)
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                            ),
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            shape = RoundedCornerShape(16.dp)
                         ) {
-                            Button(
-                                onClick = {
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/cromaguy/Rhythm/issues"))
-                                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                    context.startActivity(intent)
-                                },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
-                                ),
-                                modifier = Modifier
-                                    .padding(top = 8.dp)
-                                    .fillMaxWidth()
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
-                                ) {
-                                    Icon(
-                                        imageVector = RhythmIcons.Edit,
-                                        contentDescription = "Report Bug",
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Report Bug")
-                                }
+                                Icon(
+                                    imageVector = RhythmIcons.Edit,
+                                    contentDescription = "Report Bug",
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Report Bug",
+                                    style = MaterialTheme.typography.labelLarge
+                                )
                             }
                         }
                     }
