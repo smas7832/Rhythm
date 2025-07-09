@@ -45,7 +45,8 @@ fun WaveSlider(
     modifier: Modifier = Modifier,
     waveColor: Color = PlayerProgressColor,
     trackColor: Color = MaterialTheme.colorScheme.surfaceVariant,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    isPlaying: Boolean = true
 ) {
     var sliderPosition by remember { mutableStateOf(value) }
     
@@ -54,11 +55,11 @@ fun WaveSlider(
         sliderPosition = value
     }
     
-    // Animation for wave movement
+    // Animation for wave movement - only animate when playing
     val infiniteTransition = rememberInfiniteTransition(label = "waveAnimation")
     val animatedOffset by infiniteTransition.animateFloat(
         initialValue = 0f,
-        targetValue = 2 * PI.toFloat(),
+        targetValue = if (isPlaying) 2 * PI.toFloat() else 0f,
         animationSpec = infiniteRepeatable(
             animation = tween(3000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
@@ -93,33 +94,45 @@ fun WaveSlider(
             )
             
             if (sliderPosition > 0f) {
-                // Draw wavy progress line
                 val progressWidth = width * sliderPosition
-                val path = Path()
-                val amplitude = 5.dp.toPx() // Height of the wave
-                val period = 30.dp.toPx() // Length of one wave cycle
                 
-                // Move to the start point
-                path.moveTo(0f, centerY)
-                
-                // Create the wavy path
-                var x = 0f
-                while (x <= progressWidth) {
-                    val waveY = centerY + amplitude * sin((x / period) * 2 * PI.toFloat() + animatedOffset)
-                    path.lineTo(x, waveY)
-                    x += 2f // Increment for smoother curve
-                }
-                
-                // Draw the wavy path
-                drawPath(
-                    path = path,
-                    color = waveColor,
-                    style = Stroke(
-                        width = 4.dp.toPx(),
-                        cap = StrokeCap.Round,
-                        pathEffect = PathEffect.cornerPathEffect(16f)
+                if (isPlaying) {
+                    // Draw wavy progress line when playing
+                    val path = Path()
+                    val amplitude = 5.dp.toPx() // Height of the wave
+                    val period = 30.dp.toPx() // Length of one wave cycle
+                    
+                    // Move to the start point
+                    path.moveTo(0f, centerY)
+                    
+                    // Create the wavy path
+                    var x = 0f
+                    while (x <= progressWidth) {
+                        val waveY = centerY + amplitude * sin((x / period) * 2 * PI.toFloat() + animatedOffset)
+                        path.lineTo(x, waveY)
+                        x += 2f // Increment for smoother curve
+                    }
+                    
+                    // Draw the wavy path
+                    drawPath(
+                        path = path,
+                        color = waveColor,
+                        style = Stroke(
+                            width = 4.dp.toPx(),
+                            cap = StrokeCap.Round,
+                            pathEffect = PathEffect.cornerPathEffect(16f)
+                        )
                     )
-                )
+                } else {
+                    // Draw straight line when paused
+                    drawLine(
+                        color = waveColor,
+                        start = Offset(0f, centerY),
+                        end = Offset(progressWidth, centerY),
+                        strokeWidth = 4.dp.toPx(),
+                        cap = StrokeCap.Round
+                    )
+                }
             }
         }
         

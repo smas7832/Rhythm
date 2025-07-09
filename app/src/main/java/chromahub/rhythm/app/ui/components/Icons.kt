@@ -53,6 +53,8 @@ import androidx.compose.material.icons.rounded.RepeatOne
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material.icons.rounded.Replay10
+import androidx.compose.material.icons.rounded.Forward10
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material.icons.rounded.Speaker
@@ -60,6 +62,7 @@ import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.SystemUpdate // New import for Update icon
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.Lyrics // New import for Lyrics icon
 
 /**
  * Material Design 3 icons for the Rhythm app
@@ -74,9 +77,12 @@ object RhythmIcons {
         val Pause = Icons.Rounded.Pause
         val SkipNext = Icons.Rounded.SkipNext
         val SkipPrevious = Icons.Rounded.SkipPrevious
+        val Replay10 = Icons.Rounded.Replay10 // Assuming this icon exists or will be created
+        val Forward10 = Icons.Rounded.Forward10 // Assuming this icon exists or will be created
         val Shuffle = Icons.Rounded.Shuffle
         val Repeat = Icons.Rounded.Repeat
         val RepeatOne = Icons.Rounded.RepeatOne
+        val Lyrics = Icons.Rounded.Lyrics // Added Lyrics icon
         
         // Volume controls
         val VolumeUp = Icons.AutoMirrored.Rounded.VolumeUp
@@ -175,6 +181,8 @@ object RhythmIcons {
     val Pause = Player.Pause
     val SkipNext = Player.SkipNext
     val SkipPrevious = Player.SkipPrevious
+    val Replay10 = Player.Replay10
+    val Forward10 = Player.Forward10
     val Shuffle = Player.Shuffle
     val Repeat = Player.Repeat
     val RepeatOne = Player.RepeatOne

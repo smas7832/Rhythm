@@ -37,6 +37,11 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
@@ -44,6 +49,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -147,6 +153,11 @@ fun PlaylistDetailScreen(
     }
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
+    var contentVisible by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        contentVisible = true
+    }
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -158,7 +169,7 @@ fun PlaylistDetailScreen(
 
                     val fraction = scrollBehavior.state.collapsedFraction
                     val currentFontSize = lerp(expandedTextStyle.fontSize.value, collapsedTextStyle.fontSize.value, fraction).sp
-                    val currentFontWeight = if (fraction < 0.5f) FontWeight.Bold else FontWeight.Bold
+                    val currentFontWeight = if (fraction < 0.5f) FontWeight.Bold else FontWeight.Bold // Changed to FontWeight.Bold
 
                     Text(
                         text = playlist.name,
@@ -260,244 +271,251 @@ fun PlaylistDetailScreen(
             }
         }
     ) { paddingValues ->
-        LazyColumn( // Changed to LazyColumn to support scroll behavior
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 16.dp) // Added horizontal padding to the content
+        AnimatedVisibility(
+            visible = contentVisible,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically()
         ) {
-            item { // Wrap playlist header in an item
-                // Enhanced Playlist header with better visual hierarchy
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    val context = LocalContext.current
-
-                    // Enhanced Playlist artwork without shadows as requested
-                    Surface(
-                        modifier = Modifier
-                            .size(160.dp),
-                        shape = RoundedCornerShape(28.dp),
-                        tonalElevation = 8.dp, 
-                        shadowElevation = 16.dp
-                    ) {
-                        Box(
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (playlist.artworkUri != null) {
-                                AsyncImage(
-                                    model = ImageRequest.Builder(context)
-                                        .apply(ImageUtils.buildImageRequest(
-                                            playlist.artworkUri,
-                                            playlist.name,
-                                            context.cacheDir,
-                                            M3PlaceholderType.PLAYLIST
-                                        ))
-                                        .build(),
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            } else {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .background(
-                                            MaterialTheme.colorScheme.primaryContainer,
-                                            RoundedCornerShape(20.dp)
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = RhythmIcons.AddToPlaylist,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                        modifier = Modifier.size(64.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // Playlist info section
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        // Song count with improved typography
-                        Text(
-                            text = if (playlist.songs.size == 1) "1 song" else "${playlist.songs.size} songs",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
-                        )
-
-                        Spacer(modifier = Modifier.height(20.dp))
-
-                        // Enhanced action buttons
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            if (playlist.songs.isNotEmpty()) {
-                                // Play All button with enhanced design
-                                Button(
-                                    onClick = onPlayAll,
-                                    shape = RoundedCornerShape(24.dp),
-                                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = RhythmIcons.Play,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        "Play All",
-                                        style = MaterialTheme.typography.titleMedium
-                                    )
-                                }
-
-                                // Shuffle button
-                                FilledIconButton(
-                                    onClick = onShufflePlay,
-                                    colors = IconButtonDefaults.filledIconButtonColors(
-                                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                                    ),
-                                    modifier = Modifier.size(48.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = RhythmIcons.Shuffle,
-                                        contentDescription = "Shuffle play",
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Section header for songs list
-            if (playlist.songs.isNotEmpty()) {
-                item {
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 16.dp),
-                        color = Color.Transparent
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "Songs",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onBackground
-                            )
-                            
-                            Text(
-                                text = "${playlist.songs.size}",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Songs list
-            if (playlist.songs.isEmpty()) {
-                item { // Enhanced empty state with better visual design
+            LazyColumn( // Changed to LazyColumn to support scroll behavior
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(horizontal = 16.dp) // Added horizontal padding to the content
+            ) {
+                item { // Wrap playlist header in an item
+                    // Enhanced Playlist header with better visual hierarchy
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(32.dp),
+                            .padding(vertical = 20.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // Empty state icon
+                        val context = LocalContext.current
+
+                        // Enhanced Playlist artwork without shadows as requested
                         Surface(
-                            modifier = Modifier.size(80.dp),
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            tonalElevation = 4.dp
+                            modifier = Modifier
+                                .size(160.dp),
+                            shape = RoundedCornerShape(28.dp),
+                            tonalElevation = 8.dp, 
+                            shadowElevation = 16.dp
                         ) {
                             Box(
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(
-                                    imageVector = RhythmIcons.MusicNote,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(40.dp)
-                                )
+                                if (playlist.artworkUri != null) {
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(context)
+                                            .apply(ImageUtils.buildImageRequest(
+                                                playlist.artworkUri,
+                                                playlist.name,
+                                                context.cacheDir,
+                                                M3PlaceholderType.PLAYLIST
+                                            ))
+                                            .build(),
+                                        contentDescription = null,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                } else {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(
+                                                MaterialTheme.colorScheme.primaryContainer,
+                                                RoundedCornerShape(20.dp)
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = RhythmIcons.AddToPlaylist,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            modifier = Modifier.size(64.dp)
+                                        )
+                                    }
+                                }
                             }
                         }
-                        
+
                         Spacer(modifier = Modifier.height(24.dp))
-                        
-                        // Empty state text
-                        Text(
-                            text = "No songs yet",
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                        
-                        Spacer(modifier = Modifier.height(8.dp))
-                        
-                        Text(
-                            text = "Start building your playlist by adding some songs",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-                            textAlign = TextAlign.Center
-                        )
-                        
-                        Spacer(modifier = Modifier.height(24.dp))
-                        
-                        // Call-to-action button
-                        Button(
-                            onClick = onAddSongsToPlaylist,
-                            shape = RoundedCornerShape(24.dp),
-                            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
+
+                        // Playlist info section
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Icon(
-                                imageVector = RhythmIcons.Add,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
+                            // Song count with improved typography
                             Text(
-                                "Add Songs",
-                                style = MaterialTheme.typography.titleMedium
+                                text = if (playlist.songs.size == 1) "1 song" else "${playlist.songs.size} songs",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                             )
+
+                            Spacer(modifier = Modifier.height(20.dp))
+
+                            // Enhanced action buttons
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                if (playlist.songs.isNotEmpty()) {
+                                    // Play All button with enhanced design
+                                    Button(
+                                        onClick = onPlayAll,
+                                        shape = RoundedCornerShape(24.dp),
+                                        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = RhythmIcons.Play,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            "Play All",
+                                            style = MaterialTheme.typography.titleMedium
+                                        )
+                                    }
+
+                                    // Shuffle button
+                                    FilledIconButton(
+                                        onClick = onShufflePlay,
+                                        colors = IconButtonDefaults.filledIconButtonColors(
+                                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                        ),
+                                        modifier = Modifier.size(48.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = RhythmIcons.Shuffle,
+                                            contentDescription = "Shuffle play",
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
-            } else {
-                items(playlist.songs) { song ->
-                    PlaylistSongItem(
-                        song = song,
-                        onClick = { onSongClick(song) },
-                        onRemove = { onRemoveSong(song) }
-                    )
+
+                // Section header for songs list
+                if (playlist.songs.isNotEmpty()) {
+                    item {
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 16.dp),
+                            color = Color.Transparent
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "Songs",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onBackground
+                                )
+                                
+                                Text(
+                                    text = "${playlist.songs.size}",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Songs list
+                if (playlist.songs.isEmpty()) {
+                    item { // Enhanced empty state with better visual design
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            // Empty state icon
+                            Surface(
+                                modifier = Modifier.size(80.dp),
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                tonalElevation = 4.dp
+                            ) {
+                                Box(
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = RhythmIcons.MusicNote,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(40.dp)
+                                    )
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.height(24.dp))
+                            
+                            // Empty state text
+                            Text(
+                                text = "No songs yet",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            Text(
+                                text = "Start building your playlist by adding some songs",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                                textAlign = TextAlign.Center
+                            )
+                            
+                            Spacer(modifier = Modifier.height(24.dp))
+                            
+                            // Call-to-action button
+                            Button(
+                                onClick = onAddSongsToPlaylist,
+                                shape = RoundedCornerShape(24.dp),
+                                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = RhythmIcons.Add,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    "Add Songs",
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    items(playlist.songs) { song ->
+                        PlaylistSongItem(
+                            song = song,
+                            onClick = { onSongClick(song) },
+                            onRemove = { onRemoveSong(song) }
+                        )
+                    }
+                }
+                item { // Extra bottom space for mini player
+                    Spacer(modifier = Modifier.height(LocalMiniPlayerPadding.current.calculateBottomPadding() + 16.dp))
                 }
             }
-            item { // Extra bottom space for mini player
-                Spacer(modifier = Modifier.height(LocalMiniPlayerPadding.current.calculateBottomPadding() + 16.dp))
-            }
+        }
         }
     }
-}
+
 
 @Composable
 fun PlaylistSongItem(

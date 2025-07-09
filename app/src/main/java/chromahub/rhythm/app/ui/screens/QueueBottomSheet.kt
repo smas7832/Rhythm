@@ -82,6 +82,7 @@ import chromahub.rhythm.app.data.Song
 import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.ui.components.M3PlaceholderType
 import chromahub.rhythm.app.util.ImageUtils
+import kotlin.collections.IndexedValue
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -209,6 +210,9 @@ fun QueueBottomSheet(
                             onClick = { onSongClick(song) }
                         )
                     }
+                    
+                    // Add spacing between Now Playing and the rest
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
                 
                 // Filter out the current song from the queue to show upcoming songs
@@ -305,6 +309,9 @@ fun QueueBottomSheet(
                     }
                 } else if (currentSong != null) {
                     // Show empty up next content when only current song is in queue
+                    // Add more spacing before empty state
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
                     EmptyUpNextContent(
                         onAddSongsClick = onAddSongsClick,
                         modifier = Modifier.graphicsLayer {
@@ -692,17 +699,18 @@ private fun EmptyUpNextContent(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(160.dp),
+            .height(200.dp), // Increased height for better spacing
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
+            // Enhanced empty state design
             Surface(
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.secondaryContainer,
-                modifier = Modifier.size(56.dp)
+                modifier = Modifier.size(72.dp) // Increased size
             ) {
                 Box(
                     contentAlignment = Alignment.Center,
@@ -712,33 +720,36 @@ private fun EmptyUpNextContent(
                         imageVector = RhythmIcons.Queue,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(36.dp) // Increased size
                     )
                 }
             }
             
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
             
+            // Enhanced text styling
             Text(
                 text = "No more songs in queue",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Medium,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.SemiBold
+                ),
                 color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center
             )
             
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             
             Text(
                 text = "Add more songs to keep the music playing",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 16.dp)
+                modifier = Modifier.padding(horizontal = 24.dp)
             )
             
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
             
+            // Enhanced button styling
             Surface(
                 shape = RoundedCornerShape(20.dp),
                 color = MaterialTheme.colorScheme.tertiaryContainer,
@@ -746,18 +757,20 @@ private fun EmptyUpNextContent(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Add,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Add more",
-                        style = MaterialTheme.typography.labelLarge,
+                        text = "Add more songs",
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            fontWeight = FontWeight.Medium
+                        ),
                         color = MaterialTheme.colorScheme.onTertiaryContainer
                     )
                 }

@@ -507,7 +507,7 @@ fun SongsTab(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Surface(
-                            color = MaterialTheme.colorScheme.background,
+                            color = MaterialTheme.colorScheme.primaryContainer,
                             shape = CircleShape,
                             modifier = Modifier.size(48.dp)
                         ) {
@@ -515,7 +515,7 @@ fun SongsTab(
                                 Icon(
                                     imageVector = RhythmIcons.Song,
                                     contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                     modifier = Modifier.size(24.dp)
                                 )
                             }
@@ -528,13 +528,13 @@ fun SongsTab(
                                 text = "On-Device Tracks",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             
                             Text(
                                 text = "${filteredSongs.size} of ${songs.size} songs",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -1591,7 +1591,7 @@ fun EnhancedAlbumSongItem(
                 ) {
                     if (song.trackNumber > 0) {
                         Surface(
-                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                            color = MaterialTheme.colorScheme.primaryContainer,
                             shape = CircleShape,
                             modifier = Modifier.size(20.dp)
                         ) {
