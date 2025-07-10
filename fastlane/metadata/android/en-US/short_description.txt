@@ -1,1 +1,1 @@
-music player with a beautiful interface and powerful audio playback capabilities
+A next-generation Android music player showcasing Material 3 design, modern architecture, and cutting-edge features
