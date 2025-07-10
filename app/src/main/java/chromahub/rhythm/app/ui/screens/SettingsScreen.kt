@@ -384,9 +384,6 @@ fun SettingsScreen(
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surfaceContainer
                     ),
-                    elevation = CardDefaults.cardElevation(
-                        defaultElevation = 4.dp
-                    ),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 8.dp)

@@ -233,6 +233,13 @@ fun PlayerScreen(
     // Toggle between album art and lyrics
     var showLyricsView by remember { mutableStateOf(false) }
     
+    // Reset lyrics view when lyrics are disabled
+    LaunchedEffect(showLyrics) {
+        if (!showLyrics && showLyricsView) {
+            showLyricsView = false
+        }
+    }
+    
     // Bottom sheet states
     val queueSheetState = rememberModalBottomSheetState()
     val addToPlaylistSheetState = rememberModalBottomSheetState()
@@ -1266,26 +1273,28 @@ fun PlayerScreen(
                                 )
                             }
 
-                            // Lyrics toggle button (re-added to player controls)
-                            FilledTonalIconButton(
-                                onClick = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    showLyricsView = !showLyricsView
-                                },
-                                modifier = Modifier.size(48.dp),
-                                colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            ) {
-                                    Icon(
-                                        imageVector = RhythmIcons.Player.Lyrics,
-                                        contentDescription = "Toggle lyrics",
-                                        tint = if (showLyricsView)
-                                            MaterialTheme.colorScheme.primary
-                                        else
-                                            MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                            // Lyrics toggle button (only show if lyrics are enabled)
+                            if (showLyrics) {
+                                FilledTonalIconButton(
+                                    onClick = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        showLyricsView = !showLyricsView
+                                    },
+                                    modifier = Modifier.size(48.dp),
+                                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                ) {
+                                        Icon(
+                                            imageVector = RhythmIcons.Player.Lyrics,
+                                            contentDescription = "Toggle lyrics",
+                                            tint = if (showLyricsView)
+                                                MaterialTheme.colorScheme.primary
+                                            else
+                                                MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
 
                             FilledTonalIconButton(
