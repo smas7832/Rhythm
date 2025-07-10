@@ -324,9 +324,12 @@ private fun VolumeControlCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Mute button
+                // Volume down button
                 IconButton(
-                    onClick = onToggleMute,
+                    onClick = {
+                        val newVolume = (volume - 0.1f).coerceAtLeast(0f)
+                        onVolumeChange(newVolume)
+                    },
                     modifier = Modifier
                         .size(40.dp)
                         .background(
@@ -335,11 +338,8 @@ private fun VolumeControlCard(
                         )
                 ) {
                     Icon(
-                        imageVector = if (isMuted) RhythmIcons.VolumeOff else 
-                                    if (volume < 0.3f) RhythmIcons.VolumeMute else 
-                                    if (volume < 0.7f) RhythmIcons.VolumeDown else 
-                                    RhythmIcons.VolumeUp,
-                        contentDescription = "Toggle mute",
+                        imageVector = RhythmIcons.Remove,
+                        contentDescription = "Decrease volume",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp)
                     )
@@ -359,9 +359,12 @@ private fun VolumeControlCard(
                     )
                 )
                 
-                // Max volume button
+                // Volume up button
                 IconButton(
-                    onClick = onMaxVolume,
+                    onClick = {
+                        val newVolume = (volume + 0.1f).coerceAtMost(1f)
+                        onVolumeChange(newVolume)
+                    },
                     modifier = Modifier
                         .size(40.dp)
                         .background(
@@ -370,8 +373,8 @@ private fun VolumeControlCard(
                         )
                 ) {
                     Icon(
-                        imageVector = RhythmIcons.VolumeUp,
-                        contentDescription = "Max volume",
+                        imageVector = RhythmIcons.Add,
+                        contentDescription = "Increase volume",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp)
                     )
