@@ -344,7 +344,6 @@ private fun EnhancedScrollableContent(
                 topArtists.find { it.name == artistName }
             }
             .sortedBy { it.name }
-            .take(10) // Limit for performance
             .toList()
     }
     
@@ -510,7 +509,7 @@ private fun EnhancedScrollableContent(
                 exit = slideOutVertically() + fadeOut()
             ) {
                 Column {
-                    SectionTitle(title = "Artists", viewAllAction = onViewAllArtists)
+                    SectionTitle(title = "Artists")
                     LazyRow(
                         contentPadding = PaddingValues(horizontal = 16.dp),
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
