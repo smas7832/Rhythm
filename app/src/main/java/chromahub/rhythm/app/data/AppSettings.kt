@@ -45,6 +45,7 @@ class AppSettings private constructor(context: Context) {
         // Audio Device Settings
         private const val KEY_LAST_AUDIO_DEVICE = "last_audio_device"
         private const val KEY_AUTO_CONNECT_DEVICE = "auto_connect_device"
+        private const val KEY_USE_SYSTEM_VOLUME = "use_system_volume"
         
         // Cache Settings
         private const val KEY_MAX_CACHE_SIZE = "max_cache_size"
@@ -150,6 +151,9 @@ class AppSettings private constructor(context: Context) {
     
     private val _autoConnectDevice = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CONNECT_DEVICE, true))
     val autoConnectDevice: StateFlow<Boolean> = _autoConnectDevice.asStateFlow()
+    
+    private val _useSystemVolume = MutableStateFlow(prefs.getBoolean(KEY_USE_SYSTEM_VOLUME, false))
+    val useSystemVolume: StateFlow<Boolean> = _useSystemVolume.asStateFlow()
     
     // Cache Settings
     private val _maxCacheSize = MutableStateFlow(prefs.getLong(KEY_MAX_CACHE_SIZE, 1024L * 1024L * 512L)) // 512MB default
@@ -392,6 +396,11 @@ class AppSettings private constructor(context: Context) {
     fun setAutoConnectDevice(enable: Boolean) {
         prefs.edit().putBoolean(KEY_AUTO_CONNECT_DEVICE, enable).apply()
         _autoConnectDevice.value = enable
+    }
+    
+    fun setUseSystemVolume(enable: Boolean) {
+        prefs.edit().putBoolean(KEY_USE_SYSTEM_VOLUME, enable).apply()
+        _useSystemVolume.value = enable
     }
     
     // Cache Settings Methods

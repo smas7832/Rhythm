@@ -307,6 +307,17 @@ fun SettingsScreen(
                     )
                 }
 
+                val useSystemVolume by appSettings.useSystemVolume.collectAsState()
+                SettingsToggleItem(
+                    title = "System volume control",
+                    description = "Control device media volume instead of app volume in device output",
+                    icon = RhythmIcons.VolumeUp,
+                    checked = useSystemVolume,
+                    onCheckedChange = {
+                        appSettings.setUseSystemVolume(it)
+                    }
+                )
+
                 SettingsClickableItem(
                     title = "Equalizer",
                     description = "Open system equalizer to adjust audio frequencies",

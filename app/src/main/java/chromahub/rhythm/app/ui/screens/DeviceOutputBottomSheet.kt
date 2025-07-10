@@ -1,5 +1,7 @@
 package chromahub.rhythm.app.ui.screens
 
+import android.content.Context
+import android.media.AudioManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -43,7 +45,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -51,6 +56,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -58,6 +64,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import chromahub.rhythm.app.data.PlaybackLocation
 import chromahub.rhythm.app.ui.components.RhythmIcons
+import chromahub.rhythm.app.data.AppSettings
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,10 +79,21 @@ fun DeviceOutputBottomSheet(
     onMaxVolume: () -> Unit,
     onRefreshDevices: () -> Unit,
     onDismiss: () -> Unit,
+    appSettings: AppSettings,
     sheetState: SheetState = rememberModalBottomSheetState()
 ) {
+    val context = LocalContext.current
+    
+    // Get app settings to check if system volume is enabled
+    // Note: You'll need to pass AppSettings as a parameter or inject it
+    // For now, we'll assume it's passed as a parameter
+    
     // Animation states
     var showContent by remember { mutableStateOf(false) }
+    
+    // System volume state
+    var systemVolume by remember { mutableFloatStateOf(0.5f) }
+    var systemMaxVolume by remember { mutableStateOf(15) }
     
     val contentAlpha by animateFloatAsState(
         targetValue = if (showContent) 1f else 0f,
@@ -95,9 +113,34 @@ fun DeviceOutputBottomSheet(
         label = "contentTranslation"
     )
 
+    // Initialize system volume and monitor for changes
     LaunchedEffect(Unit) {
         delay(100)
         showContent = true
+        
+        // Get system volume
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        val currentVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+        val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        systemVolume = currentVolume.toFloat() / maxVolume.toFloat()
+        systemMaxVolume = maxVolume
+    }
+    
+    // Monitor system volume changes
+    LaunchedEffect(Unit) {
+        while (true) {
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            val currentVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+            val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+            val newSystemVolume = currentVolume.toFloat() / maxVolume.toFloat()
+            
+            if (newSystemVolume != systemVolume) {
+                systemVolume = newSystemVolume
+                systemMaxVolume = maxVolume
+            }
+            
+            delay(500) // Check every 500ms
+        }
     }
 
     ModalBottomSheet(
@@ -136,9 +179,16 @@ fun DeviceOutputBottomSheet(
                 VolumeControlCard(
                     volume = volume,
                     isMuted = isMuted,
+                    systemVolume = systemVolume,
+                    systemMaxVolume = systemMaxVolume,
+                    appSettings = appSettings,
+                    context = context,
                     onVolumeChange = onVolumeChange,
                     onToggleMute = onToggleMute,
-                    onMaxVolume = onMaxVolume
+                    onMaxVolume = onMaxVolume,
+                    onSystemVolumeChange = { newVolume ->
+                        systemVolume = newVolume
+                    }
                 )
             }
             
@@ -263,11 +313,47 @@ private fun DeviceOutputHeader(
 private fun VolumeControlCard(
     volume: Float,
     isMuted: Boolean,
+    systemVolume: Float,
+    systemMaxVolume: Int,
+    appSettings: AppSettings,
+    context: Context,
     onVolumeChange: (Float) -> Unit,
     onToggleMute: () -> Unit,
     onMaxVolume: () -> Unit,
+    onSystemVolumeChange: (Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val useSystemVolume by appSettings.useSystemVolume.collectAsState()
+    
+    // Current volume values based on setting
+    val currentVolume = if (useSystemVolume) systemVolume else volume
+    val currentIsMuted = if (useSystemVolume) (systemVolume == 0f) else isMuted
+    
+    // System volume control functions
+    val setSystemVolume = { newVolume: Float ->
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        val targetVolume = (newVolume * systemMaxVolume).toInt().coerceIn(0, systemMaxVolume)
+        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, targetVolume, 0)
+        onSystemVolumeChange(newVolume)
+    }
+    
+    val toggleSystemMute = {
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        if (systemVolume > 0f) {
+            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, 0, 0)
+            onSystemVolumeChange(0f)
+        } else {
+            val halfVolume = systemMaxVolume / 2
+            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, halfVolume, 0)
+            onSystemVolumeChange(0.5f)
+        }
+    }
+    
+    val setSystemMaxVolume = {
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, systemMaxVolume, 0)
+        onSystemVolumeChange(1f)
+    }
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -288,9 +374,9 @@ private fun VolumeControlCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    imageVector = if (isMuted) RhythmIcons.VolumeOff else 
-                                if (volume < 0.3f) RhythmIcons.VolumeMute else 
-                                if (volume < 0.7f) RhythmIcons.VolumeDown else 
+                    imageVector = if (currentIsMuted) RhythmIcons.VolumeOff else 
+                                if (currentVolume < 0.3f) RhythmIcons.VolumeMute else 
+                                if (currentVolume < 0.7f) RhythmIcons.VolumeDown else 
                                 RhythmIcons.VolumeUp,
                     contentDescription = "Volume",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -300,7 +386,7 @@ private fun VolumeControlCard(
                 Spacer(modifier = Modifier.width(12.dp))
                 
                 Text(
-                    text = "Volume",
+                    text = if (useSystemVolume) "System Volume" else "App Volume",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -310,7 +396,7 @@ private fun VolumeControlCard(
                 
                 // Volume percentage
                 Text(
-                    text = "${(if (isMuted) 0f else volume * 100).toInt()}%",
+                    text = "${(if (currentIsMuted) 0f else currentVolume * 100).toInt()}%",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -327,8 +413,13 @@ private fun VolumeControlCard(
                 // Volume down button
                 IconButton(
                     onClick = {
-                        val newVolume = (volume - 0.1f).coerceAtLeast(0f)
-                        onVolumeChange(newVolume)
+                        if (useSystemVolume) {
+                            val newVolume = (systemVolume - 0.1f).coerceAtLeast(0f)
+                            setSystemVolume(newVolume)
+                        } else {
+                            val newVolume = (volume - 0.1f).coerceAtLeast(0f)
+                            onVolumeChange(newVolume)
+                        }
                     },
                     modifier = Modifier
                         .size(40.dp)
@@ -347,8 +438,14 @@ private fun VolumeControlCard(
                 
                 // Volume slider
                 Slider(
-                    value = if (isMuted) 0f else volume,
-                    onValueChange = onVolumeChange,
+                    value = if (currentIsMuted) 0f else currentVolume,
+                    onValueChange = { newVolume ->
+                        if (useSystemVolume) {
+                            setSystemVolume(newVolume)
+                        } else {
+                            onVolumeChange(newVolume)
+                        }
+                    },
                     modifier = Modifier
                         .weight(1f)
                         .padding(horizontal = 12.dp),
@@ -362,8 +459,13 @@ private fun VolumeControlCard(
                 // Volume up button
                 IconButton(
                     onClick = {
-                        val newVolume = (volume + 0.1f).coerceAtMost(1f)
-                        onVolumeChange(newVolume)
+                        if (useSystemVolume) {
+                            val newVolume = (systemVolume + 0.1f).coerceAtMost(1f)
+                            setSystemVolume(newVolume)
+                        } else {
+                            val newVolume = (volume + 0.1f).coerceAtMost(1f)
+                            onVolumeChange(newVolume)
+                        }
                     },
                     modifier = Modifier
                         .size(40.dp)

@@ -48,6 +48,8 @@ import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ElevatedCard
@@ -183,13 +185,39 @@ fun PlayerScreen(
     onAddSongToPlaylist: (Song, String) -> Unit = { _, _ -> },
     onCreatePlaylist: (String) -> Unit = { _ -> },
     onShowCreatePlaylistDialog: () -> Unit = {} ,
-    onClearQueue: () -> Unit = {}
+    onClearQueue: () -> Unit = {},
+    appSettings: chromahub.rhythm.app.data.AppSettings? = null
 ) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
     val haptic = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
+    
+    // Get AppSettings for volume control setting
+    val appSettingsInstance = appSettings ?: chromahub.rhythm.app.data.AppSettings.getInstance(context)
+    val useSystemVolume by appSettingsInstance.useSystemVolume.collectAsState()
+    
+    // System volume state
+    var systemVolume by remember { mutableFloatStateOf(0.5f) }
+    
+    // Monitor system volume changes
+    LaunchedEffect(useSystemVolume) {
+        if (useSystemVolume) {
+            while (true) {
+                val audioManager = context.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
+                val currentVolume = audioManager.getStreamVolume(android.media.AudioManager.STREAM_MUSIC)
+                val maxVolume = audioManager.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)
+                val newSystemVolume = if (maxVolume > 0) currentVolume.toFloat() / maxVolume.toFloat() else 0f
+                
+                if (newSystemVolume != systemVolume) {
+                    systemVolume = newSystemVolume
+                }
+                
+                kotlinx.coroutines.delay(500) // Check every 500ms
+            }
+        }
+    }
     
     // Calculate screen dimensions
     val screenHeight = with(density) { configuration.screenHeightDp.dp.toPx() }
@@ -437,6 +465,7 @@ fun PlayerScreen(
                 showDeviceOutputSheet = false
                 onStopDeviceMonitoring()
             },
+            appSettings = appSettings ?: chromahub.rhythm.app.data.AppSettings.getInstance(context),
             sheetState = deviceOutputSheetState
         )
     }
@@ -1382,8 +1411,10 @@ fun PlayerScreen(
                                             overflow = TextOverflow.Ellipsis,
                                             textAlign = TextAlign.Center
                                         )
+                                        val displayVolume = if (useSystemVolume) systemVolume else volume
+                                        val volumeText = if (useSystemVolume) "System" else "App"
                                         Text(
-                                            text = "${(volume * 100).toInt()}% Volume",
+                                            text = "${(displayVolume * 100).toInt()}% $volumeText",
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
                                             maxLines = 1,
