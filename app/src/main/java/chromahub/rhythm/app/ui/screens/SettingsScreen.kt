@@ -401,7 +401,7 @@ fun SettingsScreen(
                             modifier = Modifier
                                 .size(100.dp)
                                 .background(
-                                    MaterialTheme.colorScheme.primaryContainer,
+                                    MaterialTheme.colorScheme.surfaceContainerLow,
                                     shape = CircleShape
                                 ),
                             contentAlignment = Alignment.Center

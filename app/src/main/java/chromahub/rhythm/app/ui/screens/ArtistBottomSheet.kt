@@ -53,15 +53,84 @@ fun ArtistBottomSheet(
     sheetState: SheetState = rememberModalBottomSheetState()
 ) {
     val context = LocalContext.current
-    val viewModel = viewModel<MusicViewModel>()
+    // Store viewModel reference at composition level to avoid capturing it in lambdas
+    val viewModel: MusicViewModel = viewModel()
     
-    // Filter songs and albums for this artist
+    // Enhanced artist filtering with improved handling for collaborations
     val artistSongs = remember(songs, artist) {
-        songs.filter { it.artist == artist.name }
+        songs.filter { song ->
+            // Get normalized artist name
+            val artistName = artist.name.trim().lowercase()
+            
+            // Comprehensive list of separators to handle various collaboration formats
+            val separators = listOf(
+                ", ", ",", " & ", " and ", "&", " feat. ", " featuring ", " ft. ", " f. ",
+                " with ", " x ", " X ", " + ", " vs ", " VS ", " / ", ";", " · ",
+                " presents ", " pres. ", " and friends", " & friends"
+            )
+            
+            // Helper function to normalize artist names for comparison
+            fun normalizeForComparison(input: String): String {
+                return input.trim().lowercase()
+            }
+            
+            // Check if this is an exact match (main artist)
+            if (normalizeForComparison(song.artist) == artistName) {
+                return@filter true
+            }
+            
+            // Process the artist string to detect collaborations
+            var artistString = song.artist
+            separators.forEach { separator ->
+                artistString = artistString.replace(separator, "||")
+            }
+            
+            // Split by our custom separator and check if any part matches
+            val collaborators = artistString.split("||")
+                .map { normalizeForComparison(it) }
+                .filter { it.isNotEmpty() }
+            
+            // Return true if this artist is among the collaborators
+            collaborators.any { it == artistName || artistName.contains(it) || it.contains(artistName) }
+        }
     }
     
     val artistAlbums = remember(albums, artist) {
-        albums.filter { it.artist == artist.name }
+        albums.filter { album ->
+            // Get normalized artist name
+            val artistName = artist.name.trim().lowercase()
+            
+            // Comprehensive list of separators to handle various collaboration formats
+            val separators = listOf(
+                ", ", ",", " & ", " and ", "&", " feat. ", " featuring ", " ft. ", " f. ",
+                " with ", " x ", " X ", " + ", " vs ", " VS ", " / ", ";", " · ",
+                " presents ", " pres. ", " and friends", " & friends"
+            )
+            
+            // Helper function to normalize artist names for comparison
+            fun normalizeForComparison(input: String): String {
+                return input.trim().lowercase()
+            }
+            
+            // Check if this is an exact match (main artist)
+            if (normalizeForComparison(album.artist) == artistName) {
+                return@filter true
+            }
+            
+            // Process the artist string to detect collaborations
+            var artistString = album.artist
+            separators.forEach { separator ->
+                artistString = artistString.replace(separator, "||")
+            }
+            
+            // Split by our custom separator and check if any part matches
+            val collaborators = artistString.split("||")
+                .map { normalizeForComparison(it) }
+                .filter { it.isNotEmpty() }
+            
+            // Return true if this artist is among the collaborators
+            collaborators.any { it == artistName || artistName.contains(it) || it.contains(artistName) }
+        }
     }
     
     // Animation states
@@ -188,11 +257,35 @@ fun ArtistBottomSheet(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         
-                        Text(
-                            text = "${artistSongs.size} songs • ${artistAlbums.size} albums",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Enhanced statistics with better visual clarity
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                                modifier = Modifier.padding(end = 8.dp)
+                            ) {
+                                Text(
+                                    text = "${artistSongs.size} songs",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+                            
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)
+                            ) {
+                                Text(
+                                    text = "${artistAlbums.size} albums",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
                         
                         Spacer(modifier = Modifier.height(16.dp))
                         
@@ -200,9 +293,15 @@ fun ArtistBottomSheet(
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            // Play All button with better functionality
+                            // Play All button with proper queue management
                             Button(
-                                onClick = onPlayAll,
+                                onClick = {
+                                    if (artistSongs.isNotEmpty()) {
+                                        // Use the correct method to play all songs
+                                        viewModel.playQueue(artistSongs)
+                                        onPlayAll()
+                                    }
+                                },
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = MaterialTheme.colorScheme.primary,
                                     contentColor = MaterialTheme.colorScheme.onPrimary
@@ -223,9 +322,16 @@ fun ArtistBottomSheet(
                                 )
                             }
                             
-                            // Shuffle button with enhanced functionality
+                            // Shuffle button with proper queue management
                             FilledIconButton(
-                                onClick = onShufflePlay,
+                                onClick = {
+                                    if (artistSongs.isNotEmpty()) {
+                                        // Play shuffled songs using the correct method
+                                        viewModel.playQueue(artistSongs.shuffled())
+                                        viewModel.toggleShuffle() // Enable shuffle mode
+                                        onShufflePlay()
+                                    }
+                                },
                                 colors = IconButtonDefaults.filledIconButtonColors(
                                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
                                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer
@@ -453,6 +559,7 @@ private fun EnhancedArtistSongItem(
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // Display album name instead of artist for better clarity in artist context
                 Text(
                     text = song.album,
                     style = MaterialTheme.typography.bodyMedium,
@@ -516,6 +623,7 @@ private fun EnhancedArtistSongItem(
                     )
                 }
 
+                // Enhanced action menu with better UX
                 FilledIconButton(
                     onClick = { showDropdown = true },
                     modifier = Modifier.size(36.dp),
@@ -525,30 +633,19 @@ private fun EnhancedArtistSongItem(
                     )
                 ) {
                     Icon(
-                        imageVector = RhythmIcons.More,
-                        contentDescription = "More options",
+                        imageVector = RhythmIcons.AddToPlaylist,
+                        contentDescription = "Add to playlist",
                         modifier = Modifier.size(18.dp)
                     )
                 }
 
-                DropdownMenu(
-                    expanded = showDropdown,
-                    onDismissRequest = { showDropdown = false },
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("Add to playlist") },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = RhythmIcons.AddToPlaylist,
-                                contentDescription = null
-                            )
-                        },
-                        onClick = {
-                            showDropdown = false
-                            onAddToPlaylist()
-                        }
-                    )
+                // Directly handle add to playlist action for better UX
+                if (showDropdown) {
+                    // Close dropdown and trigger action
+                    LaunchedEffect(Unit) {
+                        showDropdown = false
+                        onAddToPlaylist()
+                    }
                 }
             }
         },

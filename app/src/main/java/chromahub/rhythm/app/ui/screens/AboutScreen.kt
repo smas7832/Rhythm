@@ -288,48 +288,48 @@ fun AboutScreen(
                 }
             }
 
-            item {
-                // Technology Stack Card
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer
-                    ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                    shape = RoundedCornerShape(20.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(24.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(bottom = 16.dp)
-                        ) {
-                            Icon(
-                                imageVector = RhythmIcons.Refresh,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = "Technology Stack",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
+            // item {
+            //     // Technology Stack Card
+            //     Card(
+            //         colors = CardDefaults.cardColors(
+            //             containerColor = MaterialTheme.colorScheme.surfaceContainer
+            //         ),
+            //         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            //         shape = RoundedCornerShape(20.dp),
+            //         modifier = Modifier.fillMaxWidth()
+            //     ) {
+            //         Column(
+            //             modifier = Modifier.padding(24.dp)
+            //         ) {
+            //             Row(
+            //                 verticalAlignment = Alignment.CenterVertically,
+            //                 modifier = Modifier.padding(bottom = 16.dp)
+            //             ) {
+            //                 Icon(
+            //                     imageVector = RhythmIcons.Refresh,
+            //                     contentDescription = null,
+            //                     tint = MaterialTheme.colorScheme.primary,
+            //                     modifier = Modifier.size(24.dp)
+            //                 )
+            //                 Spacer(modifier = Modifier.width(12.dp))
+            //                 Text(
+            //                     text = "Technology Stack",
+            //                     style = MaterialTheme.typography.titleLarge,
+            //                     fontWeight = FontWeight.Bold,
+            //                     color = MaterialTheme.colorScheme.onSurface
+            //                 )
+            //             }
 
-                        TechStackItem("Jetpack Compose", "Modern declarative UI toolkit")
-                        TechStackItem("Material 3", "Latest Material Design components")
-                        TechStackItem("Coroutines", "Asynchronous programming")
-                        TechStackItem("StateFlow", "Reactive state management")
-                        TechStackItem("MediaMetadataRetriever", "Audio metadata extraction")
-                        TechStackItem("Coil", "Image loading and caching")
-                        TechStackItem("Gson", "JSON serialization")
-                    }
-                }
-            }
+            //             TechStackItem("Jetpack Compose", "Modern declarative UI toolkit")
+            //             TechStackItem("Material 3", "Latest Material Design components")
+            //             TechStackItem("Coroutines", "Asynchronous programming")
+            //             TechStackItem("StateFlow", "Reactive state management")
+            //             TechStackItem("MediaMetadataRetriever", "Audio metadata extraction")
+            //             TechStackItem("Coil", "Image loading and caching")
+            //             TechStackItem("Gson", "JSON serialization")
+            //         }
+            //     }
+            // }
 
             item {
                 // Credits Card

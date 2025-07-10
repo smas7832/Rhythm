@@ -202,15 +202,11 @@ fun NewHomeScreen(
                 onAlbumClick(album)
             },
             onPlayAll = {
-                // Play all songs from this artist
-                val artistSongs = songs.filter { it.artist == selectedArtist?.name }
-                artistSongs.firstOrNull()?.let { onSongClick(it) }
+                // Queue will be managed in ArtistBottomSheet itself using proper queue setup
                 showArtistSheet = false
             },
             onShufflePlay = {
-                // Play shuffled songs from this artist
-                val artistSongs = songs.filter { it.artist == selectedArtist?.name }
-                artistSongs.shuffled().firstOrNull()?.let { onSongClick(it) }
+                // Queue will be managed in ArtistBottomSheet itself using proper queue setup
                 showArtistSheet = false
             },
             onAddToQueue = { song ->
@@ -335,14 +331,61 @@ private fun EnhancedScrollableContent(
     val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
     val allSongs by viewModel.songs.collectAsState()
     
-    // Optimize artist computation
+    // Optimize artist computation with improved filtering for collaborations
     val availableArtists = remember(allSongs, topArtists) {
-        allSongs.asSequence()
-            .map { it.artist }
-            .distinct()
-            .mapNotNull { artistName ->
-                topArtists.find { it.name == artistName }
+        // Define all possible collaboration separators
+        val collaborationSeparators = listOf(
+            ", ", ",", " & ", " and ", "&", " feat. ", " featuring ", " ft. ", 
+            " with ", " x ", " X ", " + ", " vs ", " VS ", " / ", ";", " · "
+        )
+
+        // Create a regex pattern to detect collaboration strings within artist names
+        val collaborationRegex = collaborationSeparators
+            .map { Regex.escape(it) }
+            .joinToString("|")
+            .toRegex(RegexOption.IGNORE_CASE)
+
+        // Filter out any Artist objects from the initial 'topArtists' list that appear to be collaboration strings
+        // This prevents combined artist names from appearing as single artists in the list
+        val filteredTopArtists = topArtists.filter { artist ->
+            !artist.name.contains(collaborationRegex)
+        }
+
+        // Extract individual artist names from all songs, splitting collaboration entries properly
+        val extractedArtistNames = allSongs.asSequence()
+            .flatMap { song -> 
+                var artistString = song.artist
+                // Replace all separators with a standard one for consistent splitting
+                collaborationSeparators.forEach { separator ->
+                    artistString = artistString.replace(separator, "||")
+                }
+                
+                // Split, clean up, and handle parentheses for featuring mentions
+                artistString.split("||")
+                    .map { it.trim() }
+                    .map { name ->
+                        // Remove featuring mentions in parentheses
+                        if (name.contains("(") && (name.contains("feat") || name.contains("ft") || name.contains("featuring"))) {
+                            name.substringBefore("(").trim()
+                        } else {
+                            name
+                        }
+                    }
             }
+            .filter { it.length > 1 } // Filter out very short names
+            .distinct()
+        
+        // Match extracted individual artist names to the filtered artist objects and sort alphabetically
+        extractedArtistNames
+            .mapNotNull { artistName ->
+                // Find exact matches first, then partial matches as fallback from the filtered list
+                filteredTopArtists.find { it.name.equals(artistName, ignoreCase = true) }
+                    ?: filteredTopArtists.find { 
+                        it.name.equals(artistName, ignoreCase = true) || 
+                        (artistName.length > 3 && it.name.contains(artistName, ignoreCase = true))
+                    }
+            }
+            .distinct()
             .sortedBy { it.name }
             .toList()
     }
