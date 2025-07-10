@@ -149,4 +149,129 @@ object MediaUtils {
             else -> null
         }
     }
+
+    /**
+     * Gets extended information about a song including file size, bitrate, sample rate, etc.
+     * @param context The application context
+     * @param song The song to get extended info for
+     * @return ExtendedSongInfo with additional metadata
+     */
+    fun getExtendedSongInfo(context: Context, song: Song): chromahub.rhythm.app.ui.screens.ExtendedSongInfo {
+        val contentResolver = context.contentResolver
+        val retriever = MediaMetadataRetriever()
+        
+        var fileSize = 0L
+        var bitrate = "Unknown"
+        var sampleRate = "Unknown"
+        var format = "Unknown"
+        var dateAdded = 0L
+        var dateModified = 0L
+        var filePath = ""
+        var composer = ""
+        var discNumber = 0
+        var totalTracks = 0
+        
+        try {
+            // Query ContentResolver for file information
+            val projection = arrayOf(
+                MediaStore.Audio.Media.DATA,
+                MediaStore.Audio.Media.SIZE,
+                MediaStore.Audio.Media.DATE_ADDED,
+                MediaStore.Audio.Media.DATE_MODIFIED,
+                MediaStore.Audio.Media.COMPOSER,
+                MediaStore.Audio.Media.CD_TRACK_NUMBER,
+                MediaStore.Audio.Media.TRACK
+            )
+            
+            contentResolver.query(
+                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                projection,
+                "${MediaStore.Audio.Media._ID} = ?",
+                arrayOf(song.id.toString()),
+                null
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val dataIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
+                    val sizeIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
+                    val dateAddedIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
+                    val dateModifiedIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_MODIFIED)
+                    val composerIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.COMPOSER)
+                    val trackIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK)
+                    
+                    filePath = cursor.getString(dataIndex) ?: ""
+                    fileSize = cursor.getLong(sizeIndex)
+                    dateAdded = cursor.getLong(dateAddedIndex) * 1000 // Convert to milliseconds
+                    dateModified = cursor.getLong(dateModifiedIndex) * 1000 // Convert to milliseconds
+                    composer = cursor.getString(composerIndex) ?: ""
+                    
+                    // Extract track and disc numbers from TRACK field
+                    val trackInfo = cursor.getInt(trackIndex)
+                    if (trackInfo > 0) {
+                        discNumber = trackInfo / 1000
+                        totalTracks = trackInfo % 1000
+                    }
+                }
+            }
+            
+            // Use MediaMetadataRetriever for additional audio metadata
+            if (filePath.isNotEmpty()) {
+                retriever.setDataSource(filePath)
+                
+                // Get bitrate
+                val bitrateStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE)
+                if (bitrateStr != null) {
+                    val bitrateValue = bitrateStr.toIntOrNull()
+                    if (bitrateValue != null) {
+                        bitrate = "${bitrateValue / 1000} kbps"
+                    }
+                }
+                
+                // Get sample rate (only available on API 23+)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    val sampleRateStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE)
+                    if (sampleRateStr != null) {
+                        val sampleRateValue = sampleRateStr.toIntOrNull()
+                        if (sampleRateValue != null) {
+                            sampleRate = "${sampleRateValue} Hz"
+                        }
+                    }
+                }
+                
+                // Determine format from file extension
+                val file = File(filePath)
+                val extension = file.extension.lowercase()
+                format = when (extension) {
+                    "mp3" -> "MP3"
+                    "flac" -> "FLAC"
+                    "ogg" -> "OGG"
+                    "m4a", "aac" -> "AAC"
+                    "wav" -> "WAV"
+                    "wma" -> "WMA"
+                    else -> extension.uppercase()
+                }
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting extended song info", e)
+        } finally {
+            try {
+                retriever.release()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error releasing MediaMetadataRetriever", e)
+            }
+        }
+        
+        return chromahub.rhythm.app.ui.screens.ExtendedSongInfo(
+            fileSize = fileSize,
+            bitrate = bitrate,
+            sampleRate = sampleRate,
+            format = format,
+            dateAdded = dateAdded,
+            dateModified = dateModified,
+            filePath = filePath,
+            composer = composer,
+            discNumber = discNumber,
+            totalTracks = totalTracks
+        )
+    }
 } 

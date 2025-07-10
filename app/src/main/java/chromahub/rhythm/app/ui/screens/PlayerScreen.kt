@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.BottomSheetDefaults
@@ -132,6 +133,7 @@ import chromahub.rhythm.app.ui.screens.QueueBottomSheet
 //import chromahub.rhythm.app.ui.navigation.LibraryTab
 import chromahub.rhythm.app.ui.screens.AddToPlaylistBottomSheet
 import chromahub.rhythm.app.ui.screens.DeviceOutputBottomSheet
+import chromahub.rhythm.app.ui.screens.SongInfoBottomSheet
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -209,6 +211,7 @@ fun PlayerScreen(
     val deviceOutputSheetState = rememberModalBottomSheetState()
     var showQueueSheet by remember { mutableStateOf(false) }
     var showDeviceOutputSheet by remember { mutableStateOf(false) }
+    var showSongInfoSheet by remember { mutableStateOf(false) }
     
     // For swipe down gesture detection - improved parameters
     var targetOffsetY by remember { mutableStateOf(0f) }
@@ -438,6 +441,14 @@ fun PlayerScreen(
         )
     }
 
+    // Song Info Bottom Sheet
+    if (showSongInfoSheet && song != null) {
+        SongInfoBottomSheet(
+            song = song,
+            onDismiss = { showSongInfoSheet = false }
+        )
+    }
+
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -525,8 +536,26 @@ fun PlayerScreen(
                     }
                 },
                 actions = {
-                    // Remove lyrics button from top bar, it will be moved to bottom
-                    Spacer(modifier = Modifier.width(80.dp))
+                    // About button on the top right
+                    Box(modifier = Modifier.padding(end = 16.dp)) {
+                        FilledTonalIconButton(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                showSongInfoSheet = true
+                            },
+                            modifier = Modifier.size(48.dp),
+                            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        ) {
+                            Icon(
+                                imageVector =  Icons.Rounded.Info,
+                                contentDescription = "About song",
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
@@ -1323,7 +1352,9 @@ fun PlayerScreen(
                                 modifier = Modifier.weight(1f)
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 12.dp, horizontal = 16.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.Center
                                 ) {
@@ -1386,7 +1417,9 @@ fun PlayerScreen(
                                 modifier = Modifier.weight(1f)
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth() // Add this
+                                        .padding(vertical = 12.dp, horizontal = 16.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.Center
                                 ) {
