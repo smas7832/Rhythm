@@ -3,6 +3,8 @@ package chromahub.rhythm.app.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.draw.clip
@@ -115,6 +117,7 @@ import chromahub.rhythm.app.ui.components.CreatePlaylistDialog
 import chromahub.rhythm.app.ui.components.MiniPlayer
 import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.ui.components.M3PlaceholderType
+import chromahub.rhythm.app.ui.screens.SongInfoBottomSheet
 import chromahub.rhythm.app.util.ImageUtils
 import chromahub.rhythm.app.util.M3ImageUtils
 import chromahub.rhythm.app.viewmodel.MusicViewModel
@@ -159,6 +162,7 @@ fun LibraryScreen(
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
     var showAddToPlaylistSheet by remember { mutableStateOf(false) }
     var showAlbumBottomSheet by remember { mutableStateOf(false) }
+    var showSongInfoSheet by remember { mutableStateOf(false) }
     var selectedSong by remember { mutableStateOf<Song?>(null) }
     var selectedAlbum by remember { mutableStateOf<Album?>(null) }
     val addToPlaylistSheetState = rememberModalBottomSheetState()
@@ -191,6 +195,13 @@ fun LibraryScreen(
                 onCreatePlaylist(name)
                 showCreatePlaylistDialog = false
             }
+        )
+    }
+    
+    if (showSongInfoSheet && selectedSong != null) {
+        SongInfoBottomSheet(
+            song = selectedSong!!,
+            onDismiss = { showSongInfoSheet = false }
         )
     }
     
@@ -409,7 +420,11 @@ fun LibraryScreen(
                             selectedSong = song
                             showAddToPlaylistSheet = true
                         },
-                        onAddToQueue = onAddToQueue
+                        onAddToQueue = onAddToQueue,
+                        onShowSongInfo = { song ->
+                            selectedSong = song
+                            showSongInfoSheet = true
+                        }
                     )
                     1 -> PlaylistsTab(
                         playlists = playlists,
@@ -433,7 +448,8 @@ fun SongsTab(
     songs: List<Song>,
     onSongClick: (Song) -> Unit,
     onAddToPlaylist: (Song) -> Unit,
-    onAddToQueue: (Song) -> Unit
+    onAddToQueue: (Song) -> Unit,
+    onShowSongInfo: (Song) -> Unit
 ) {
     var selectedCategory by remember { mutableStateOf("All") }
     
@@ -577,7 +593,8 @@ fun SongsTab(
                         song = song,
                         onClick = { onSongClick(song) },
                         onMoreClick = { onAddToPlaylist(song) },
-                        onAddToQueue = { onAddToQueue(song) }
+                        onAddToQueue = { onAddToQueue(song) },
+                        onShowSongInfo = { onShowSongInfo(song) }
                     )
                 }
             }
@@ -747,7 +764,8 @@ fun LibrarySongItem(
     song: Song,
     onClick: () -> Unit,
     onMoreClick: () -> Unit,
-    onAddToQueue: () -> Unit
+    onAddToQueue: () -> Unit,
+    onShowSongInfo: () -> Unit
 ) {
     val context = LocalContext.current
     var showDropdown by remember { mutableStateOf(false) }
@@ -852,6 +870,19 @@ fun LibrarySongItem(
                         onClick = {
                             showDropdown = false
                             onMoreClick()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Song info") },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Rounded.Info,
+                                contentDescription = null
+                            )
+                        },
+                        onClick = {
+                            showDropdown = false
+                            onShowSongInfo()
                         }
                     )
                 }
