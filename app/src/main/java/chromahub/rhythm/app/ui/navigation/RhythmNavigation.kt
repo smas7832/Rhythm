@@ -89,6 +89,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -240,8 +241,34 @@ fun RhythmNavigation(
         Scaffold(
             bottomBar = {
                 Column {
-                    // Global MiniPlayer (hidden on full player screen)
-                    if (currentSong != null && currentRoute != Screen.Player.route) {
+                    // Global MiniPlayer (hidden on full player screen) with bounce entrance animation
+                    AnimatedVisibility(
+                        visible = currentSong != null && currentRoute != Screen.Player.route,
+                        enter = slideInVertically(
+                            initialOffsetY = { fullHeight -> fullHeight },
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessLow
+                            )
+                        ) + fadeIn(
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessLow
+                            )
+                        ),
+                        exit = slideOutVertically(
+                            targetOffsetY = { fullHeight -> fullHeight },
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessLow
+                            )
+                        ) + fadeOut(
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessLow
+                            )
+                        )
+                    ) {
                         MiniPlayer(
                             song = currentSong,
                             isPlaying = isPlaying,
