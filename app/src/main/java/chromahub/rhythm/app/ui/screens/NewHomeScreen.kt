@@ -11,6 +11,12 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -114,6 +120,13 @@ import kotlinx.coroutines.launch
 import kotlin.math.absoluteValue
 import java.util.Calendar
 import kotlin.random.Random
+
+// Data class for time-based theming
+private data class TimeTheme(
+    val emoji: String,
+    val gradientColors: List<String>,
+    val accentEmoji: String
+)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -545,29 +558,17 @@ private fun EnhancedScrollableContent(
                 )
             }
 
-            // Artists
+            // Artists Section - Horizontal Carousel
             AnimatedVisibility(
                 visible = availableArtists.isNotEmpty(),
                 enter = slideInVertically() + fadeIn(),
                 exit = slideOutVertically() + fadeOut()
             ) {
-                Column {
-                    SectionTitle(title = "Artists")
-                    LazyRow(
-                        contentPadding = PaddingValues(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        items(
-                            items = availableArtists,
-                            key = { it.name }
-                        ) { artist ->
-                            NewArtistCard(
-                                artist = artist,
-                                onClick = { onArtistClick(artist) }
-                            )
-                        }
-                    }
-                }
+                ArtistsCarouselSection(
+                    artists = availableArtists,
+                    onArtistClick = onArtistClick,
+                    onViewAllArtists = onViewAllArtists
+                )
             }
 
             // New Releases
@@ -607,6 +608,126 @@ private fun EnhancedScrollableContent(
 }
 
 @Composable
+private fun ArtistsCarouselSection(
+    artists: List<Artist>,
+    onArtistClick: (Artist) -> Unit,
+    onViewAllArtists: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        // Section header
+        SectionTitle(
+            title = "Artists",
+            viewAllAction = onViewAllArtists
+        )
+        
+        // Horizontal carousel of artists
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            items(artists) { artist ->
+                ArtistCarouselCard(
+                    artist = artist,
+                    onClick = { onArtistClick(artist) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ArtistCarouselCard(
+    artist: Artist,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
+    
+    Column(
+        modifier = modifier
+            .width(120.dp)
+            .clickable { onClick() },
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Artist image container with play overlay
+        Box(
+            modifier = Modifier.size(120.dp)
+        ) {
+            // Artist circular image
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(CircleShape),
+                shadowElevation = 2.dp
+            ) {
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .apply(ImageUtils.buildImageRequest(
+                            artist.artworkUri,
+                            artist.name,
+                            context.cacheDir,
+                            M3PlaceholderType.ARTIST
+                        ))
+                        .build(),
+                    contentDescription = "Artist ${artist.name}",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+            
+            // Play button overlay positioned at bottom right
+            Surface(
+                onClick = { 
+                    viewModel.playArtist(artist)
+                    onClick()
+                },
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primary,
+                shadowElevation = 4.dp,
+                modifier = Modifier
+                    .size(40.dp)
+                    .align(Alignment.BottomEnd)
+                    .padding(4.dp)
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Icon(
+                        imageVector = RhythmIcons.Play,
+                        contentDescription = "Play ${artist.name}",
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        // Artist name below the image
+        Text(
+            text = artist.name,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Medium,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurface,
+            lineHeight = 18.sp
+        )
+        
+        // Track count as subtle additional info
+    }
+}
+
+@Composable
 private fun WelcomeSection(
     greeting: String,
     onSearchClick: () -> Unit
@@ -614,201 +735,355 @@ private fun WelcomeSection(
     val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
     val recentlyPlayed by viewModel.recentlyPlayed.collectAsState()
     
-    // Enhanced personalized message with more context
+    // Time-based inspirational quotes with music theme
+    val timeBasedQuote = remember {
+        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        val dayOfWeek = Calendar.getInstance().get(Calendar.DAY_OF_WEEK)
+        
+        when {
+            hour in 5..8 -> listOf(
+                "Start your day with the perfect soundtrack ✨",
+                "Let music energize your morning routine 🎵",
+                "Every morning is a new symphony waiting to begin 🌅",
+                "Rise and shine with melodies that move you 🎶",
+                "Coffee and music - the perfect morning blend ☕"
+            )
+            hour in 9..11 -> listOf(
+                "Keep the momentum going with your favorite beats 🚀",
+                "Music makes everything better, especially work 💪",
+                "Let the rhythm guide your productive morning 🎯",
+                "Turn up the focus with some great tunes 🔥",
+                "Morning motivation through music 📈"
+            )
+            hour in 12..14 -> listOf(
+                "Take a musical break and recharge 🔄",
+                "Lunch time calls for your favorite playlist 🍽️",
+                "Midday melodies to keep you going 🌞",
+                "Fuel your afternoon with some great music ⚡",
+                "The perfect soundtrack for your lunch break 🎼"
+            )
+            hour in 15..17 -> listOf(
+                "Power through the afternoon with epic tunes 💪",
+                "Let music be your afternoon energy boost 🌟",
+                "Beat the afternoon slump with your favorites 🎵",
+                "Turn up the volume and turn up the productivity 📊",
+                "Music makes the workday so much better 🎧"
+            )
+            hour in 18..20 -> listOf(
+                "Time to unwind with some soothing melodies 🌅",
+                "Let the evening soundtrack begin 🎶",
+                "Perfect time for your chill playlist 😌",
+                "Wind down with music that speaks to your soul 💫",
+                "Evening vibes call for the perfect playlist 🌆"
+            )
+            hour in 21..23 -> listOf(
+                "Night time is music time 🌙",
+                "Let the stars dance to your favorite songs ⭐",
+                "Perfect night for discovering new artists 🎭",
+                "Late night listening sessions hit different 🌃",
+                "End your day with music that moves you 💫"
+            )
+            else -> listOf(
+                "Music never sleeps, and neither do we 🌙",
+                "Late night sessions with your favorite tunes 🎵",
+                "The night is young, and so is your playlist 🌌",
+                "Midnight melodies for the soul 🎼",
+                "When the world sleeps, music keeps us company 💫"
+            )
+        }.let { quotes ->
+            // Add special weekend quotes
+            if (dayOfWeek == Calendar.SATURDAY || dayOfWeek == Calendar.SUNDAY) {
+                quotes + listOf(
+                    "Weekend vibes deserve the perfect playlist 🎉",
+                    "Saturday/Sunday soundtrack loading... 🎶",
+                    "Weekends are for music and good vibes only ✨"
+                )
+            } else quotes
+        }.random()
+    }
+    
+    // Enhanced personalized message with more context and variety
     val personalizedMessage = remember(recentlyPlayed) {
         if (recentlyPlayed.isNotEmpty()) {
             val recentArtist = recentlyPlayed.firstOrNull()?.artist
             val recentSong = recentlyPlayed.firstOrNull()?.title
+            val playCount = recentlyPlayed.size
             
             when {
                 !recentArtist.isNullOrBlank() && recentArtist != "Unknown" && !recentSong.isNullOrBlank() -> {
-                    "Continue listening to \"$recentSong\" or discover something new"
+                    val messages = listOf(
+                        "Continue where you left off with \"$recentSong\"",
+                        "Ready to dive back into \"$recentSong\"?",
+                        "\"$recentSong\" is waiting for you",
+                        "Pick up where you left off, or explore something new"
+                    )
+                    messages.random()
                 }
                 !recentArtist.isNullOrBlank() && recentArtist != "Unknown" -> {
-                    "How about more music from $recentArtist?"
+                    val messages = listOf(
+                        "More $recentArtist coming right up!",
+                        "Dive deeper into $recentArtist's discography",
+                        "Time for more amazing tracks from $recentArtist",
+                        "Continue your $recentArtist journey"
+                    )
+                    messages.random()
                 }
-                else -> "What would you like to listen to today?"
+                playCount > 5 -> {
+                    "You've been quite active! Ready for more musical adventures?"
+                }
+                else -> {
+                    val messages = listOf(
+                        "What musical journey shall we embark on today?",
+                        "Your next favorite song is just a search away",
+                        "Ready to discover your new obsession?"
+                    )
+                    messages.random()
+                }
             }
         } else {
-            "Ready to discover amazing music?"
+            val messages = listOf(
+                "Your musical adventure starts here",
+                "Every great playlist begins with a single song",
+                "Ready to create some musical memories?",
+                "Let's find your next favorite song",
+                "The perfect soundtrack to your day awaits"
+            )
+            messages.random()
         }
     }
     
-    // Dynamic emoji based on time of day
-    val greetingEmoji = remember {
+    // Enhanced dynamic theme based on time of day with more design elements
+    val timeBasedTheme = remember {
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
         when {
-            hour < 6 -> "🌙"
-            hour < 12 -> "🌅"
-            hour < 18 -> "☀️"
-            hour < 21 -> "🌆"
-            else -> "🌃"
+            hour in 5..8 -> TimeTheme(
+                emoji = "🌅",
+                gradientColors = listOf("sunrise", "morning"),
+                accentEmoji = "☀️"
+            )
+            hour in 9..11 -> TimeTheme(
+                emoji = "☀️",
+                gradientColors = listOf("morning", "midday"), 
+                accentEmoji = "💪"
+            )
+            hour in 12..14 -> TimeTheme(
+                emoji = "☀️",
+                gradientColors = listOf("midday", "afternoon"),
+                accentEmoji = "⚡"
+            )
+            hour in 15..17 -> TimeTheme(
+                emoji = "🌤️",
+                gradientColors = listOf("afternoon", "evening"),
+                accentEmoji = "🎵"
+            )
+            hour in 18..20 -> TimeTheme(
+                emoji = "🌆",
+                gradientColors = listOf("evening", "sunset"),
+                accentEmoji = "🎶"
+            )
+            hour in 21..23 -> TimeTheme(
+                emoji = "🌃",
+                gradientColors = listOf("sunset", "night"),
+                accentEmoji = "🌙"
+            )
+            else -> TimeTheme(
+                emoji = "🌙",
+                gradientColors = listOf("night", "midnight"),
+                accentEmoji = "⭐"
+            )
         }
     }
-    
-    // Animate the welcome section entrance
-    var isVisible by remember { mutableStateOf(false) }
-    
-    LaunchedEffect(Unit) {
-        isVisible = true
+
+    // Get themed decorative elements based on time
+    val decorativeElements = remember(timeBasedTheme) {
+        when (timeBasedTheme.gradientColors[0]) {
+            "sunrise" -> listOf("🌄", "🐦", "🌱")
+            "morning" -> listOf("☕", "📰", "🌻")
+            "midday" -> listOf("🌞", "🌴", "🏖️")
+            "afternoon" -> listOf("☁️", "🍃", "🌸")
+            "evening" -> listOf("🌅", "🕊️", "🌺")
+            "sunset" -> listOf("🌇", "🎨", "🦋")
+            "night" -> listOf("🌙", "⭐", "🦉")
+            else -> listOf("🌌", "✨", "💫")
+        }
     }
-    
-    AnimatedVisibility(
-        visible = isVisible,
-        enter = slideInVertically(
-            initialOffsetY = { -it },
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessMedium
-            )
-        ) + fadeIn(
-            animationSpec = tween(500)
-        )
+
+    // Simple card with enhanced design including quotes and animated emojis
+    Surface(
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .clickable { onSearchClick() }
     ) {
-        // Enhanced gradient background
-        Surface(
-            color = MaterialTheme.colorScheme.primaryContainer,
-            shape = RoundedCornerShape(28.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+        Box(
+            modifier = Modifier.fillMaxWidth()
         ) {
+            // Subtle accent background gradient
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(
-                        Brush.horizontalGradient(
+                        brush = Brush.linearGradient(
                             colors = listOf(
-                                MaterialTheme.colorScheme.primaryContainer,
-                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
-                            )
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f),
+                                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.05f),
+                                Color.Transparent
+                            ),
+                            start = androidx.compose.ui.geometry.Offset(0f, 0f),
+                            end = androidx.compose.ui.geometry.Offset(1000f, 800f)
                         )
                     )
+            )
+
+            // Background decorative elements
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 28.dp, horizontal = 24.dp)
+                decorativeElements.forEach { element ->
+                    Text(
+                        text = element,
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.alpha(0.2f)
+                    )
+                }
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp)
+            ) {
+                // Main greeting row with animated emoji
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(bottom = 12.dp)
                 ) {
-                    // Enhanced greeting with emoji and better typography
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    ) {
-                        Text(
-                            text = greetingEmoji,
-                            style = MaterialTheme.typography.headlineMedium,
-                            modifier = Modifier.padding(end = 12.dp)
-                        )
-                        
-                        AnimatedContent(
-                            targetState = greeting,
-                            transitionSpec = {
-                                fadeIn(animationSpec = tween(300)) togetherWith 
-                                fadeOut(animationSpec = tween(300))
-                            },
-                            label = "greeting_animation"
-                        ) { currentGreeting ->
+                    // Animated main emoji
+                    val infiniteTransition = rememberInfiniteTransition(label = "emoji_pulse")
+                    val emojiScale by infiniteTransition.animateFloat(
+                        initialValue = 1f,
+                        targetValue = 1.15f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(2500),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "emoji_scale"
+                    )
+                    
+                    Text(
+                        text = timeBasedTheme.emoji,
+                        style = MaterialTheme.typography.displaySmall,
+                        modifier = Modifier
+                            .padding(end = 16.dp)
+                            .graphicsLayer {
+                                scaleX = emojiScale
+                                scaleY = emojiScale
+                            }
+                    )
+                    
+                    Column(modifier = Modifier.weight(1f)) {
+                        // Greeting with accent emoji
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = currentGreeting,
-                                style = MaterialTheme.typography.headlineLarge,
+                                text = greeting,
+                                style = MaterialTheme.typography.headlineSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = timeBasedTheme.accentEmoji,
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.padding(start = 8.dp)
+                            )
+                        }
+                        
+                        // Simple message
+                        Text(
+                            text = personalizedMessage,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+
+                    // Search icon
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Search,
+                                contentDescription = "Search",
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }
-                    
-                    // Enhanced personalized message with better styling
-                    AnimatedContent(
-                        targetState = personalizedMessage,
-                        transitionSpec = {
-                            fadeIn(animationSpec = tween(300)) togetherWith 
-                            fadeOut(animationSpec = tween(300))
-                        },
-                        label = "message_animation"
-                    ) { currentMessage ->
-                        Text(
-                            text = currentMessage,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
-                            lineHeight = MaterialTheme.typography.bodyLarge.lineHeight,
-                            modifier = Modifier.padding(bottom = 20.dp)
-                        )
-                    }
-                    
-                    // Enhanced search button with gradient and better interaction
-                    Surface(
-                        onClick = onSearchClick,
-                        color = MaterialTheme.colorScheme.surface,
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .semantics {
-                                contentDescription = "Search for songs, artists, and albums"
-                            }
+                }
+
+                // Inspirational quote section with enhanced design
+                Surface(
+                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
+                        // Quote icon with animation
+                        val quoteTransition = rememberInfiniteTransition(label = "quote_pulse")
+                        val quoteScale by quoteTransition.animateFloat(
+                            initialValue = 0.9f,
+                            targetValue = 1.1f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(3000),
+                                repeatMode = RepeatMode.Reverse
+                            ),
+                            label = "quote_scale"
+                        )
+                        
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f),
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 18.dp, horizontal = 20.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                                .size(32.dp)
+                                .graphicsLayer {
+                                    scaleX = quoteScale
+                                    scaleY = quoteScale
+                                }
                         ) {
-                            // Search icon with background
-                            Surface(
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                                modifier = Modifier.size(40.dp)
-                            ) {
-                                Box(
-                                    contentAlignment = Alignment.Center,
-                                    modifier = Modifier.fillMaxSize()
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Search,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                            }
-                            
-                            Spacer(modifier = Modifier.width(16.dp))
-                            
-                            Column(
-                                modifier = Modifier.weight(1f)
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.fillMaxSize()
                             ) {
                                 Text(
-                                    text = "Search your music",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    text = "💭",
+                                    style = MaterialTheme.typography.titleMedium
                                 )
-                                Text(
-                                    text = "Songs, artists, albums & more",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                                )
-                            }
-                            
-                            // Enhanced search hint with animation
-                            Surface(
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Box(
-                                    contentAlignment = Alignment.Center,
-                                    modifier = Modifier.fillMaxSize()
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.ArrowForward,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
                             }
                         }
+                        
+                        Spacer(modifier = Modifier.width(12.dp))
+                        
+                        Text(
+                            text = timeBasedQuote,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.9f),
+                            lineHeight = 20.sp,
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                 }
             }
@@ -1139,7 +1414,7 @@ private fun MoodPlaylistCard(
                     text = "${songs.size} songs",
                     style = MaterialTheme.typography.labelMedium,
                     color = contentColor.copy(alpha = 0.6f),
-                    modifier = Modifier.padding(top = 2.dp)
+                    modifier = Modifier.padding(top = 2.dp, bottom = 16.dp)
                 )
             }
             
@@ -1804,6 +2079,163 @@ private fun NewAlbumCard(
 }
 
 @Composable
+private fun EnhancedArtistCard(
+    artist: Artist,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
+    
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        modifier = modifier
+            .width(140.dp)
+            .clickable { onClick() }
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(16.dp)
+        ) {
+            // Artist image with gradient overlay and play button
+            Box {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    modifier = Modifier.size(90.dp)
+                ) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .apply(ImageUtils.buildImageRequest(
+                                artist.artworkUri,
+                                artist.name,
+                                context.cacheDir,
+                                M3PlaceholderType.ARTIST
+                            ))
+                            .build(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+                
+                // Play button with enhanced design
+                Surface(
+                    onClick = { viewModel.playArtist(artist) },
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .size(32.dp)
+                        .align(Alignment.BottomEnd)
+                        .padding(2.dp)
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        Icon(
+                            imageVector = RhythmIcons.Play,
+                            contentDescription = "Play ${artist.name}",
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Artist name with better typography
+            Text(
+                text = artist.name,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            
+            // Additional info (songs count, etc.)
+        }
+    }
+}
+
+@Composable
+private fun CompactArtistCard(
+    artist: Artist,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
+    
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Artist image
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                modifier = Modifier.size(56.dp)
+            ) {
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .apply(ImageUtils.buildImageRequest(
+                            artist.artworkUri,
+                            artist.name,
+                            context.cacheDir,
+                            M3PlaceholderType.ARTIST
+                        ))
+                        .build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+            
+            Spacer(modifier = Modifier.width(12.dp))
+            
+            // Artist info
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = artist.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                
+            }
+            
+            // Play button
+            IconButton(
+                onClick = { viewModel.playArtist(artist) },
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    imageVector = RhythmIcons.Play,
+                    contentDescription = "Play ${artist.name}",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun NewArtistCard(
     artist: Artist,
     onClick: () -> Unit,
@@ -2057,7 +2489,7 @@ private fun UpdateAvailableSection(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)),
+                        .background(MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.1f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
