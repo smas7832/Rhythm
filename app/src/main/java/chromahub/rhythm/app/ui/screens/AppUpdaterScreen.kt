@@ -116,8 +116,7 @@ fun AppUpdaterScreen(
 
     // Check for updates when the screen is first shown, respecting the AppSettings auto-check preference
     LaunchedEffect(Unit) {
-        // The ViewModel's checkForUpdates function now handles the autoCheckForUpdates preference internally.
-        // We can call it without 'force' here, as the screen's initial load should respect user settings.
+        // Always check when the screen opens, but let the ViewModel decide based on settings
         updaterViewModel.checkForUpdates()
     }
 
@@ -128,10 +127,10 @@ fun AppUpdaterScreen(
         }
     }
 
-    // Reset download progress when returning to screen if download was cancelled or completed
-    LaunchedEffect(Unit) {
-        if (downloadedFile == null && !isDownloading) {
-            updaterViewModel.resetDownloadProgress()
+    // Clear any errors when auto-check setting changes to enabled
+    LaunchedEffect(autoCheckForUpdates) {
+        if (autoCheckForUpdates && error != null) {
+            updaterViewModel.clearError()
         }
     }
 
@@ -223,7 +222,7 @@ fun AppUpdaterScreen(
                                 modifier = Modifier.size(48.dp)
                             )
 
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(16.dp))
 
                             Text(
                                 text = "Rhythm",
@@ -361,8 +360,8 @@ fun AppUpdaterScreen(
                                 style = MaterialTheme.typography.bodyLarge,
                                 textAlign = TextAlign.Center
                             )
-                        } else if (updateAvailable && latestVersion != null && downloadedFile == null) {
-                            // Update available - only show when no file is downloaded
+                        } else if (updateAvailable && latestVersion != null) {
+                            // Update available
                                 Box(
                                     modifier = Modifier
                                         .size(40.dp)
@@ -483,41 +482,25 @@ fun AppUpdaterScreen(
                                     }
                                 }
                             } else if (downloadedFile != null) {
-                                // Show install button if download complete - this replaces the update available section
+                                // Show install button if download complete
                                 Column(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(40.dp)
-                                            .clip(CircleShape)
-                                            .background(Color(0xFF4CAF50)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = RhythmIcons.Check,
-                                            contentDescription = "Download complete",
-                                            tint = Color.White,
-                                            modifier = Modifier.size(24.dp)
-                                        )
-                                    }
+                                    Icon(
+                                        imageVector = RhythmIcons.Check,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(40.dp)
+                                    )
 
                                     Spacer(modifier = Modifier.height(8.dp))
 
                                     Text(
-                                        text = "Update Ready to Install",
-                                        style = MaterialTheme.typography.titleLarge,
+                                        text = "Download Complete",
+                                        style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF4CAF50)
-                                    )
-
-                                    Spacer(modifier = Modifier.height(4.dp))
-
-                                    Text(
-                                        text = "Version ${latestVersion?.versionName}",
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        textAlign = TextAlign.Center
+                                        color = MaterialTheme.colorScheme.primary
                                     )
 
                                     Spacer(modifier = Modifier.height(4.dp))
@@ -525,8 +508,7 @@ fun AppUpdaterScreen(
                                     Text(
                                         text = downloadedFile?.name ?: "",
                                         style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        textAlign = TextAlign.Center
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
 
                                     Spacer(modifier = Modifier.height(16.dp))
@@ -544,26 +526,13 @@ fun AppUpdaterScreen(
                                         ) {
                                             Icon(
                                                 imageVector = RhythmIcons.Check,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(18.dp)
-                                            )
+                                                contentDescription = null,                                            modifier = Modifier.size(18.dp)
+                                        )
 
-                                            Spacer(modifier = Modifier.width(8.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
 
-                                            Text("Install Update")
+                                        Text("Install Update")
                                         }
-                                    }
-
-                                    Spacer(modifier = Modifier.height(8.dp))
-
-                                    OutlinedButton(
-                                        onClick = { updaterViewModel.clearDownloadedFile() },
-                                        colors = ButtonDefaults.outlinedButtonColors(
-                                            contentColor = MaterialTheme.colorScheme.error
-                                        ),
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Text("Cancel Installation")
                                     }
                                 }
                             } else {
@@ -585,7 +554,7 @@ fun AppUpdaterScreen(
                                             modifier = Modifier.size(18.dp)
                                         )
 
-                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
 
                                         Text(
                                             text = if (latestVersion?.apkAssetName?.isNotEmpty() == true)
@@ -655,7 +624,7 @@ fun AppUpdaterScreen(
                                 Text(
                                     text = "Updates Disabled",
                                     style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold, // Corrected 'Weight' to 'FontWeight'
+                                    fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.error
                                 )
 

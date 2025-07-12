@@ -170,14 +170,14 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
         _updateChannel = MutableStateFlow("stable")
         _currentVersion = MutableStateFlow(
             AppVersion(
-                versionName = "2.2.120.332 Stable",
-                versionCode = 22120332, // Updated to reflect major*10M + minor*100K + patch*1K + buildNumber
-                releaseDate = "2025-07-10",
+                versionName = "2.1.109.283 Stable",
+                versionCode = 20209283, // Updated to reflect major*10M + minor*100K + patch*1K + buildNumber
+                releaseDate = "2025-07-05",
                 whatsNew = emptyList(),
                 knownIssues = emptyList(),
                 downloadUrl = "",
                 isPreRelease = false,
-                buildNumber = 332
+                buildNumber = 283
             )
         )
         _latestVersion = MutableStateFlow<AppVersion?>(null)
@@ -202,6 +202,12 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
      * Check for updates by fetching the latest release from GitHub
      */
     fun checkForUpdates(force: Boolean = false) {
+        // Prevent multiple concurrent update checks
+        if (_isCheckingForUpdates.value && !force) {
+            Log.d(TAG, "Update check already in progress")
+            return
+        }
+
         viewModelScope.launch {
             val autoCheckEnabled = appSettings.autoCheckForUpdates.first()
             val currentChannel = appSettings.updateChannel.first()
@@ -471,10 +477,20 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     /**
-     * Clear any error message
+     * Clear any error message and reset error state
      */
     fun clearError() {
         _error.value = null
+    }
+    
+    /**
+     * Reset download state
+     */
+    fun resetDownloadState() {
+        _downloadedFile.value = null
+        _downloadProgress.value = 0f
+        _downloadState.value = null
+        activeDownload = null
     }
     
     /**
@@ -543,12 +559,10 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
             return // Already downloading
         }
         
-        // Reset progress and state before starting new download
         _downloadProgress.value = 0f
+        activeDownload = null
         _isDownloading.value = true
         _error.value = null
-        activeDownload = null
-        _downloadState.value = null
         
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -581,12 +595,9 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
                     downloadDir.mkdirs()
                 }
                 
-                // Create file - delete existing to prevent corruption from interrupted downloads
+                // Create or get existing file
                 val file = File(downloadDir, fileName)
-                if (file.exists()) {
-                    file.delete()
-                }
-                file.createNewFile()
+                val existingLength = if (file.exists()) file.length() else 0L
                 
                 // Create OkHttp client with longer timeouts
                 val client = OkHttpClient.Builder()
@@ -595,11 +606,21 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
                     .writeTimeout(30, TimeUnit.SECONDS)
                     .build()
                 
-                // Create request - always start fresh download to prevent corruption
-                val request = Request.Builder()
+                // Create request with resume support
+                val requestBuilder = Request.Builder()
                     .url(downloadUrl)
                     .header("User-Agent", "Rhythm-App")
-                    .build()
+                
+                // Add range header if resuming
+                if (existingLength > 0 && activeDownload != null) {
+                    requestBuilder.header("Range", "bytes=$existingLength-")
+                    requestBuilder.header("If-Match", activeDownload?.etag ?: "*")
+                    if (activeDownload?.lastModified != null) {
+                        requestBuilder.header("If-Unmodified-Since", activeDownload?.lastModified!!)
+                    }
+                }
+                
+                val request = requestBuilder.build()
                 
                 // Execute request
                 activeCall = client.newCall(request)
@@ -617,7 +638,7 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
                     }
                     
                     override fun onResponse(call: Call, response: Response) {
-                        if (!response.isSuccessful) {
+                        if (!response.isSuccessful && response.code != 206) {
                             viewModelScope.launch {
                                 _isDownloading.value = false
                                 _error.value = "Download failed: HTTP ${response.code}"
@@ -628,23 +649,26 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
                         }
                         
                         try {
-                            // Get content length
+                            // Get content length and resume info
                             val contentLength = response.body?.contentLength() ?: -1L
+                            val totalLength = if (response.code == 206) {
+                                val range = response.header("Content-Range")
+                                range?.substringAfter("/")?.toLongOrNull() ?: contentLength
+                            } else {
+                                contentLength
+                            }
                             
-                            // Store download state - start fresh
+                            // Store download state
                             activeDownload = DownloadState(
                                 fileName = fileName,
                                 url = downloadUrl,
-                                totalBytes = contentLength,
-                                downloadedBytes = 0L,
+                                totalBytes = totalLength,
+                                downloadedBytes = existingLength,
                                 etag = response.header("ETag"),
                                 lastModified = response.header("Last-Modified"),
-                                resumePosition = 0L
+                                resumePosition = existingLength
                             )
                             _downloadState.value = activeDownload
-                            
-                            // Create output stream - overwrite mode
-                            val outputStream = FileOutputStream(file, false)
                             
                             // Get input stream
                             val inputStream = response.body?.byteStream()
@@ -659,49 +683,62 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
                                 return
                             }
                             
-                            // Create buffer
-                            val buffer = ByteArray(8192)
-                            var bytesRead: Int
-                            var totalBytesRead = 0L
-                            
-                            // Read input stream
-                            while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                                if (!_isDownloading.value) {
-                                    // Download was cancelled
-                                    break
-                                }
+                            // Create output stream and download with proper resource management
+                            var outputStream: FileOutputStream? = null
+                            try {
+                                outputStream = FileOutputStream(file, existingLength > 0)
                                 
-                                outputStream.write(buffer, 0, bytesRead)
-                                totalBytesRead += bytesRead
+                                // Create buffer
+                                val buffer = ByteArray(8192)
+                                var bytesRead: Int
+                                var totalBytesRead = existingLength
                                 
-                                // Update progress
-                                if (contentLength > 0) {
-                                    val progress = (totalBytesRead.toFloat() / contentLength.toFloat()) * 100f
-                                    // Ensure progress doesn't exceed 100%
-                                    val clampedProgress = progress.coerceIn(0f, 100f)
-                                    viewModelScope.launch {
-                                        _downloadProgress.value = clampedProgress
-                                        activeDownload = activeDownload?.copy(downloadedBytes = totalBytesRead)
-                                        _downloadState.value = activeDownload
+                                // Read input stream
+                                while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                                    if (!_isDownloading.value) {
+                                        // Download was cancelled
+                                        break
+                                    }
+                                    
+                                    outputStream.write(buffer, 0, bytesRead)
+                                    totalBytesRead += bytesRead
+                                    
+                                    // Update progress
+                                    val totalBytes = if (totalLength > 0) totalLength else contentLength
+                                    if (totalBytes > 0) {
+                                        val progress = (totalBytesRead.toFloat() / totalBytes.toFloat()) * 100f
+                                        viewModelScope.launch {
+                                            _downloadProgress.value = progress
+                                            activeDownload = activeDownload?.copy(downloadedBytes = totalBytesRead)
+                                            _downloadState.value = activeDownload
+                                        }
                                     }
                                 }
-                            }
-                            
-                            // Close streams
-                            outputStream.flush()
-                            outputStream.close()
-                            inputStream.close()
-                            
-                            // Download complete
-                            viewModelScope.launch {
-                                if (_isDownloading.value) {
-                                    _isDownloading.value = false
-                                    _downloadProgress.value = 100f
-                                    _downloadedFile.value = file
-                                    activeDownload = null
-                                    activeCall = null
-                                    _downloadState.value = null
-                                    Log.d(TAG, "Download complete: ${file.absolutePath}")
+                                
+                                // Download complete
+                                viewModelScope.launch {
+                                    if (_isDownloading.value) {
+                                        _isDownloading.value = false
+                                        _downloadProgress.value = 100f
+                                        _downloadedFile.value = file
+                                        activeDownload = null
+                                        activeCall = null
+                                        _downloadState.value = null
+                                        Log.d(TAG, "Download complete: ${file.absolutePath}")
+                                    }
+                                }
+                            } finally {
+                                // Ensure streams are always closed
+                                try {
+                                    outputStream?.flush()
+                                    outputStream?.close()
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "Error closing output stream", e)
+                                }
+                                try {
+                                    inputStream.close()
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "Error closing input stream", e)
                                 }
                             }
                         } catch (e: Exception) {
@@ -756,44 +793,18 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
      * Cancel the current download
      */
     fun cancelDownload() {
-        activeCall?.cancel()
-        activeCall = null
-        activeDownload = null
-        _isDownloading.value = false
-        _downloadProgress.value = 0f
-        _downloadState.value = null
-        _error.value = null
-        
-        // Clean up any partial download files
-        _downloadedFile.value?.let { file ->
-            if (file.exists() && file.length() == 0L) {
-                file.delete()
-            }
-        }
-    }
-    
-    /**
-     * Reset download progress and state (used when returning to screen)
-     */
-    fun resetDownloadProgress() {
-        if (!_isDownloading.value) {
+        try {
+            activeCall?.cancel()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error cancelling download call", e)
+        } finally {
+            activeCall = null
+            activeDownload = null
+            _isDownloading.value = false
             _downloadProgress.value = 0f
             _downloadState.value = null
+            _error.value = null
         }
-    }
-    
-    /**
-     * Clear downloaded file and reset state
-     */
-    fun clearDownloadedFile() {
-        _downloadedFile.value?.let { file ->
-            if (file.exists()) {
-                file.delete()
-            }
-        }
-        _downloadedFile.value = null
-        _downloadProgress.value = 0f
-        _downloadState.value = null
     }
 
     override fun onCleared() {

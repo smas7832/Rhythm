@@ -121,6 +121,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.absoluteValue
 import java.util.Calendar
 import kotlin.random.Random
+import androidx.core.text.HtmlCompat
 
 // Data class for time-based theming
 private data class TimeTheme(
@@ -249,34 +250,34 @@ fun NewHomeScreen(
                         ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(start = 4.dp)
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                },
+                actions = {
+                    // Settings icon
+                    FilledIconButton(
+                        onClick = onSettingsClick,
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        ),
+                        modifier = Modifier.padding(end = 16.dp)
+                    ) {
+                        Icon(
+                            imageVector = RhythmIcons.Settings,
+                            contentDescription = "Settings"
+                        )
+                    }
+                },
+                scrollBehavior = scrollBehavior,
+                colors = TopAppBarDefaults.largeTopAppBarColors(
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = Color.Transparent.copy(alpha = 0.0f),
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
+                ),
+                modifier = Modifier.padding(horizontal = 8.dp)
             )
         },
-        actions = {
-            // Settings icon
-            FilledIconButton(
-                onClick = onSettingsClick,
-                colors = IconButtonDefaults.filledIconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                ),
-                modifier = Modifier.padding(end = 16.dp)
-            ) {
-                Icon(
-                    imageVector = RhythmIcons.Settings,
-                    contentDescription = "Settings"
-                )
-            }
-        },
-        scrollBehavior = scrollBehavior,
-        colors = TopAppBarDefaults.largeTopAppBarColors(
-            containerColor = Color.Transparent,
-            scrolledContainerColor = Color.Transparent.copy(alpha = 0.0f),
-            titleContentColor = MaterialTheme.colorScheme.onSurface
-        ),
-        modifier = Modifier.padding(horizontal = 4.dp)
-    )
-},
 bottomBar = {},
 containerColor = MaterialTheme.colorScheme.background
 ) { paddingValues ->
@@ -2688,7 +2689,7 @@ private fun UpdateAvailableSection(
                 )
                 latestVersion.whatsNew.take(2).forEach { item ->
                     Text(
-                        text = "• $item",
+                        text = HtmlCompat.fromHtml(item, HtmlCompat.FROM_HTML_MODE_COMPACT).toString(),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
                         maxLines = 1,
@@ -2709,7 +2710,7 @@ private fun UpdateAvailableSection(
                 )
                 latestVersion.knownIssues.take(1).forEach { item ->
                     Text(
-                        text = "• $item",
+                        text = HtmlCompat.fromHtml(item, HtmlCompat.FROM_HTML_MODE_COMPACT).toString(),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
                         maxLines = 1,
@@ -2720,7 +2721,7 @@ private fun UpdateAvailableSection(
             } else if (latestVersion.releaseNotes.isNotEmpty() && latestVersion.whatsNew.isEmpty()) {
                 // Fallback to general release notes if no structured "What's New" and "Known Issues"
                 Text(
-                    text = latestVersion.releaseNotes,
+                    text = HtmlCompat.fromHtml(latestVersion.releaseNotes, HtmlCompat.FROM_HTML_MODE_COMPACT).toString(),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
                     maxLines = 3,
