@@ -110,6 +110,7 @@ import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.ui.components.M3PlaceholderType
 import chromahub.rhythm.app.ui.screens.ArtistBottomSheet
 import chromahub.rhythm.app.util.ImageUtils
+import chromahub.rhythm.app.util.ArtistCollaborationUtils
 import chromahub.rhythm.app.viewmodel.AppUpdaterViewModel
 import chromahub.rhythm.app.viewmodel.AppVersion
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -169,19 +170,15 @@ fun NewHomeScreen(
         albums.shuffled().take(5)
     }
     
-    // Get all unique artists from songs
+    // Get all unique artists from songs using collaboration-aware filtering
     val availableArtists = remember(songs, artists) {
-        songs.map { it.artist }
-            .distinct()
-            .mapNotNull { artistName ->
-                artists.find { it.name == artistName }
-            }
+        ArtistCollaborationUtils.extractIndividualArtists(artists, songs)
             .sortedBy { it.name } // Sort alphabetically for better navigation
     }
     
     // Quick picks can still be first few songs but used for other sections
     val quickPicks = songs.take(6)
-    val topArtists = artists
+    val topArtists = availableArtists
     
     // Filter new releases to only show albums from the current year
     val currentYear = Calendar.getInstance().get(Calendar.YEAR)
@@ -252,67 +249,67 @@ fun NewHomeScreen(
                         ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(start = 8.dp)
-                    )
-                },
-                actions = {
-                    // Settings icon
-                    FilledIconButton(
-                        onClick = onSettingsClick,
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                        ),
-                        modifier = Modifier.padding(end = 16.dp)
-                    ) {
-                        Icon(
-                            imageVector = RhythmIcons.Settings,
-                            contentDescription = "Settings"
-                        )
-                    }
-                },
-                scrollBehavior = scrollBehavior,
-                colors = TopAppBarDefaults.largeTopAppBarColors(
-                    containerColor = Color.Transparent,
-                    scrolledContainerColor = Color.Transparent.copy(alpha = 0.0f),
-                    titleContentColor = MaterialTheme.colorScheme.onSurface
-                ),
-                modifier = Modifier.padding(horizontal = 8.dp) // Added padding
+                modifier = Modifier.padding(start = 4.dp)
             )
         },
-        bottomBar = {},
-        containerColor = MaterialTheme.colorScheme.background
-    ) { paddingValues ->
-        EnhancedScrollableContent(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(bottom = if (currentSong != null) 0.dp else 0.dp),
-            featuredContent = featuredContent,
-            albums = albums,
-            topArtists = topArtists,
-            newReleases = currentYearReleases,
-            recentlyPlayed = recentlyPlayed,
-            moodBasedSongs = moodBasedSongs,
-            energeticSongs = energeticSongs,
-            relaxingSongs = relaxingSongs,
-            onSongClick = onSongClick,
-            onAlbumClick = onAlbumClick,
-            onArtistClick = { artist: Artist ->
-                selectedArtist = artist
-                showArtistSheet = true
-            },
-            onViewAllSongs = onViewAllSongs,
-            onViewAllAlbums = onViewAllAlbums,
-            onViewAllArtists = onViewAllArtists,
-            onSearchClick = onSearchClick,
-            onSettingsClick = onSettingsClick,
-            onAppUpdateClick = onAppUpdateClick,
-            onNavigateToLibrary = onNavigateToLibrary,
-            onNavigateToPlaylist = onNavigateToPlaylist,
-            updaterViewModel = updaterViewModel
-        )
-    }
+        actions = {
+            // Settings icon
+            FilledIconButton(
+                onClick = onSettingsClick,
+                colors = IconButtonDefaults.filledIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ),
+                modifier = Modifier.padding(end = 16.dp)
+            ) {
+                Icon(
+                    imageVector = RhythmIcons.Settings,
+                    contentDescription = "Settings"
+                )
+            }
+        },
+        scrollBehavior = scrollBehavior,
+        colors = TopAppBarDefaults.largeTopAppBarColors(
+            containerColor = Color.Transparent,
+            scrolledContainerColor = Color.Transparent.copy(alpha = 0.0f),
+            titleContentColor = MaterialTheme.colorScheme.onSurface
+        ),
+        modifier = Modifier.padding(horizontal = 4.dp)
+    )
+},
+bottomBar = {},
+containerColor = MaterialTheme.colorScheme.background
+) { paddingValues ->
+    EnhancedScrollableContent(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(paddingValues)
+            .padding(bottom = if (currentSong != null) 0.dp else 0.dp),
+        featuredContent = featuredContent,
+        albums = albums,
+        topArtists = topArtists,
+        newReleases = currentYearReleases,
+        recentlyPlayed = recentlyPlayed,
+        moodBasedSongs = moodBasedSongs,
+        energeticSongs = energeticSongs,
+        relaxingSongs = relaxingSongs,
+        onSongClick = onSongClick,
+        onAlbumClick = onAlbumClick,
+        onArtistClick = { artist: Artist ->
+            selectedArtist = artist
+            showArtistSheet = true
+        },
+        onViewAllSongs = onViewAllSongs,
+        onViewAllAlbums = onViewAllAlbums,
+        onViewAllArtists = onViewAllArtists,
+        onSearchClick = onSearchClick,
+        onSettingsClick = onSettingsClick,
+        onAppUpdateClick = onAppUpdateClick,
+        onNavigateToLibrary = onNavigateToLibrary,
+        onNavigateToPlaylist = onNavigateToPlaylist,
+        updaterViewModel = updaterViewModel
+    )
+}
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -490,8 +487,9 @@ private fun EnhancedScrollableContent(
         Column(
             modifier = Modifier
                 .verticalScroll(scrollState)
-                .padding(bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+                .padding(horizontal = 16.dp, vertical = 16.dp)
+                .padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(32.dp)
         ) {
             // Update card or welcome section
             AnimatedVisibility(
@@ -537,7 +535,7 @@ private fun EnhancedScrollableContent(
                 exit = slideOutVertically() + fadeOut()
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    SectionTitle(title = "Discover Albums", viewAllAction = onViewAllAlbums)
+                    SectionTitle(title = "Discover Albums", viewAllAction = onViewAllAlbums, modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp))
                     FeaturedContentSection(
                         albums = currentFeaturedAlbums,
                         pagerState = featuredPagerState,
@@ -578,10 +576,10 @@ private fun EnhancedScrollableContent(
                 exit = slideOutVertically() + fadeOut()
             ) {
                 Column {
-                    SectionTitle(title = "New Releases", viewAllAction = onViewAllAlbums)
+                    SectionTitle(title = "New Releases", viewAllAction = onViewAllAlbums, modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp))
                     LazyRow(
-                        contentPadding = PaddingValues(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        contentPadding = PaddingValues(horizontal = 5.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(newReleases) { album ->
                             NewAlbumCard(
@@ -619,13 +617,14 @@ private fun ArtistsCarouselSection(
         // Section header
         SectionTitle(
             title = "Artists",
-            viewAllAction = onViewAllArtists
+            viewAllAction = onViewAllArtists,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
         )
         
         // Horizontal carousel of artists
         LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(horizontal = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(24.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             items(artists) { artist ->
@@ -649,13 +648,13 @@ private fun ArtistCarouselCard(
     
     Column(
         modifier = modifier
-            .width(120.dp)
+            .width(128.dp)
             .clickable { onClick() },
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // Artist image container with play overlay
         Box(
-            modifier = Modifier.size(120.dp)
+            modifier = Modifier.size(128.dp)
         ) {
             // Artist circular image
             Surface(
@@ -664,7 +663,7 @@ private fun ArtistCarouselCard(
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(CircleShape),
-                shadowElevation = 2.dp
+                shadowElevation = 0.dp
             ) {
                 AsyncImage(
                     model = ImageRequest.Builder(context)
@@ -688,12 +687,12 @@ private fun ArtistCarouselCard(
                     onClick()
                 },
                 shape = CircleShape,
-                color = MaterialTheme.colorScheme.primary,
-                shadowElevation = 4.dp,
+                color = MaterialTheme.colorScheme.primaryContainer,
+                shadowElevation = 0.dp,
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(44.dp)
                     .align(Alignment.BottomEnd)
-                    .padding(4.dp)
+                    .padding(6.dp)
             ) {
                 Box(
                     contentAlignment = Alignment.Center,
@@ -702,8 +701,8 @@ private fun ArtistCarouselCard(
                     Icon(
                         imageVector = RhythmIcons.Play,
                         contentDescription = "Play ${artist.name}",
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(20.dp)
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(22.dp)
                     )
                 }
             }
@@ -910,38 +909,21 @@ private fun WelcomeSection(
 
     // Simple card with enhanced design including quotes and animated emojis
     Surface(
-        shape = RoundedCornerShape(24.dp),
-        color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = RoundedCornerShape(28.dp),
+        color = MaterialTheme.colorScheme.primaryContainer,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = 5.dp, vertical = 8.dp)
             .clickable { onSearchClick() }
     ) {
         Box(
             modifier = Modifier.fillMaxWidth()
         ) {
-            // Subtle accent background gradient
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        brush = Brush.linearGradient(
-                            colors = listOf(
-                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f),
-                                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.05f),
-                                Color.Transparent
-                            ),
-                            start = androidx.compose.ui.geometry.Offset(0f, 0f),
-                            end = androidx.compose.ui.geometry.Offset(1000f, 800f)
-                        )
-                    )
-            )
-
             // Background decorative elements
             Row(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(16.dp),
+                    .padding(20.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 decorativeElements.forEach { element ->
@@ -956,7 +938,7 @@ private fun WelcomeSection(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(20.dp)
+                    .padding(24.dp)
             ) {
                 // Main greeting row with animated emoji
                 Row(
@@ -993,7 +975,7 @@ private fun WelcomeSection(
                                 text = greeting,
                                 style = MaterialTheme.typography.headlineSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                             Text(
                                 text = timeBasedTheme.accentEmoji,
@@ -1006,7 +988,7 @@ private fun WelcomeSection(
                         Text(
                             text = personalizedMessage,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
                             modifier = Modifier.padding(top = 4.dp)
                         )
                     }
@@ -1014,7 +996,7 @@ private fun WelcomeSection(
                     // Search icon
                     Surface(
                         shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primaryContainer,
+                        color = MaterialTheme.colorScheme.surface,
                         modifier = Modifier.size(40.dp)
                     ) {
                         Box(
@@ -1024,7 +1006,7 @@ private fun WelcomeSection(
                             Icon(
                                 imageVector = Icons.Rounded.Search,
                                 contentDescription = "Search",
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                tint = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -1033,7 +1015,7 @@ private fun WelcomeSection(
 
                 // Inspirational quote section with enhanced design
                 Surface(
-                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f),
+                    color = MaterialTheme.colorScheme.surfaceContainer,
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -1080,7 +1062,7 @@ private fun WelcomeSection(
                             text = timeBasedQuote,
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.9f),
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.9f),
                             lineHeight = 20.sp,
                             modifier = Modifier.weight(1f)
                         )
@@ -1154,69 +1136,179 @@ private fun ListeningStatsSection() {
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Text(
-            text = "Your Listening Stats",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
+        // Enhanced section header
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceAround,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = "Your Listening Stats",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "This week's activity",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+            
+            Icon(
+                imageVector = RhythmIcons.Relax,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+        
+        // Enhanced stats cards with better spacing
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 5.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Stat Card 1: Listening Time
-            Surface(
+            ElevatedCard(
                 onClick = { /* Optional: navigate to detailed stats */ },
                 modifier = Modifier.weight(1f),
-                color = MaterialTheme.colorScheme.primaryContainer,
-                shape = RoundedCornerShape(16.dp)
+                colors = CardDefaults.elevatedCardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                ),
+                elevation = CardDefaults.elevatedCardElevation(
+                    defaultElevation = 0.dp,
+                    pressedElevation = 2.dp
+                ),
+                shape = RoundedCornerShape(24.dp)
             ) {
-                StatCardContent(
+                EnhancedStatCardContent(
                     value = listeningTimeHours,
-                    label = "This Week",
+                    label = "Rhythm-ed",
                     icon = RhythmIcons.Player.Timer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    backgroundColor = MaterialTheme.colorScheme.primaryContainer
                 )
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
-
             // Stat Card 2: Songs Played
-            Surface(
+            ElevatedCard(
                 onClick = { /* Optional: navigate to detailed stats */ },
                 modifier = Modifier.weight(1f),
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                shape = RoundedCornerShape(16.dp)
+                colors = CardDefaults.elevatedCardColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                ),
+                elevation = CardDefaults.elevatedCardElevation(
+                    defaultElevation = 0.dp,
+                    pressedElevation = 2.dp
+                ),
+                shape = RoundedCornerShape(24.dp)
             ) {
-                StatCardContent(
+                EnhancedStatCardContent(
                     value = songsPlayed,
                     label = "Songs Played",
                     icon = RhythmIcons.Music.MusicNote,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    backgroundColor = MaterialTheme.colorScheme.secondaryContainer
                 )
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
-
             // Stat Card 3: Artists
-            Surface(
+            ElevatedCard(
                 onClick = { /* Optional: navigate to detailed stats */ },
                 modifier = Modifier.weight(1f),
-                color = MaterialTheme.colorScheme.tertiaryContainer,
-                shape = RoundedCornerShape(16.dp)
+                colors = CardDefaults.elevatedCardColors(
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                ),
+                elevation = CardDefaults.elevatedCardElevation(
+                    defaultElevation = 0.dp,
+                    pressedElevation = 2.dp
+                ),
+                shape = RoundedCornerShape(24.dp)
             ) {
-                StatCardContent(
+                EnhancedStatCardContent(
                     value = uniqueArtists,
                     label = "Artists",
                     icon = RhythmIcons.Artist,
-                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                    backgroundColor = MaterialTheme.colorScheme.tertiaryContainer
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun EnhancedStatCardContent(
+    value: String,
+    label: String,
+    icon: ImageVector,
+    contentColor: Color,
+    backgroundColor: Color
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        backgroundColor,
+                        backgroundColor.copy(alpha = 0.8f)
+                    ),
+                    radius = 120f
+                )
+            )
+            .padding(vertical = 24.dp, horizontal = 20.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            // Icon with enhanced styling
+            Surface(
+                shape = CircleShape,
+                color = contentColor.copy(alpha = 0.15f),
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = contentColor,
+                    modifier = Modifier
+                        .size(24.dp)
+                        .padding(12.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = value,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = contentColor,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodySmall,
+                color = contentColor.copy(alpha = 0.8f),
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
@@ -1274,12 +1366,12 @@ private fun MoodBasedPlaylistsSection(
             text = "Mood & Moments",
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 12.dp)
         )
         
         LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            contentPadding = PaddingValues(horizontal = 5.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             item {
                 MoodPlaylistCard(
@@ -1374,34 +1466,45 @@ private fun MoodPlaylistCard(
 ) {
     Surface(
         color = backgroundColor,
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(32.dp),
         modifier = Modifier
-            .width(200.dp)
-            .height(220.dp) // Increased height for additional button
+            .width(240.dp)
+            .height(260.dp),
+        shadowElevation = 0.dp
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(20.dp),
+                .padding(28.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             // Top section
             Column {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = contentColor,
-                    modifier = Modifier.size(32.dp)
-                )
+                Surface(
+                    shape = CircleShape,
+                    color = contentColor.copy(alpha = 0.15f),
+                    modifier = Modifier.size(56.dp)
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = contentColor,
+                        modifier = Modifier
+                            .size(28.dp)
+                            .padding(14.dp)
+                    )
+                }
                 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(20.dp))
                 
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = contentColor
                 )
+                
+                Spacer(modifier = Modifier.height(8.dp))
                 
                 Text(
                     text = description,
@@ -1414,46 +1517,48 @@ private fun MoodPlaylistCard(
                     text = "${songs.size} songs",
                     style = MaterialTheme.typography.labelMedium,
                     color = contentColor.copy(alpha = 0.6f),
-                    modifier = Modifier.padding(top = 2.dp, bottom = 16.dp)
+                    modifier = Modifier.padding(top = 4.dp)
                 )
             }
             
-            // Action buttons
+            // Action buttons with enhanced Android 16 styling
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Add to queue button
-                FilledIconButton(
+                // Add to queue button with enhanced styling
+                Surface(
                     onClick = onAddToQueueClick,
-                    colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = contentColor.copy(alpha = 0.2f),
-                        contentColor = contentColor
-                    ),
-                    modifier = Modifier.size(40.dp)
+                    shape = CircleShape,
+                    color = contentColor.copy(alpha = 0.15f),
+                    modifier = Modifier.size(48.dp)
                 ) {
                     Icon(
                         imageVector = RhythmIcons.AddToQueue,
                         contentDescription = "Add $title to queue",
-                        modifier = Modifier.size(20.dp)
+                        tint = contentColor,
+                        modifier = Modifier
+                            .size(22.dp)
+                            .padding(0.dp)
                     )
                 }
                 
                 Spacer(modifier = Modifier.weight(1f))
                 
-                // Play button
-                FilledIconButton(
+                // Play button with enhanced styling
+                Surface(
                     onClick = onPlayClick,
-                    colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = contentColor,
-                        contentColor = backgroundColor
-                    ),
-                    modifier = Modifier.size(48.dp)
+                    shape = CircleShape,
+                    color = contentColor,
+                    modifier = Modifier.size(56.dp)
                 ) {
                     Icon(
                         imageVector = RhythmIcons.Play,
-                        contentDescription = "Play $title playlist",
-                        modifier = Modifier.size(24.dp)
+                        contentDescription = "Play $title",
+                        tint = backgroundColor,
+                        modifier = Modifier
+                            .size(24.dp)
+                            .padding(0.dp)
                     )
                 }
             }
@@ -1470,7 +1575,7 @@ private fun SectionTitle(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 0.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -1482,18 +1587,18 @@ private fun SectionTitle(
         )
         
         if (viewAllAction != null) {
-            Surface(
+            FilledIconButton(
                 onClick = viewAllAction,
-                color = MaterialTheme.colorScheme.primaryContainer,
-                shape = RoundedCornerShape(20.dp),
-                modifier = Modifier.padding(4.dp)
+                colors = IconButtonDefaults.filledIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ),
+                modifier = Modifier.size(40.dp)
             ) {
-                Text(
-                    text = "View All",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                Icon(
+                    imageVector = Icons.Rounded.ArrowForward,
+                    contentDescription = "View All",
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }
@@ -1516,7 +1621,7 @@ private fun FeaturedContentSection(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(260.dp)
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 8.dp),
             pageSpacing = 16.dp
         ) { page ->
             val album = albums[page]
@@ -1581,35 +1686,58 @@ private fun RecentlyPlayedSection(
     recentlyPlayed: List<Song>,
     onSongClick: (Song) -> Unit
 ) {
-    Surface(
-        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
-        shape = RoundedCornerShape(16.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+    Column(
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Column(
+        // Enhanced section header with gradient background
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 16.dp)
+                .background(
+                    color = MaterialTheme.colorScheme.surface,
+                    shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+                )
+                .padding(horizontal = 10.dp, vertical = 16.dp)
         ) {
-            Text(
-                text = "Recently Played",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-            )
-            
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                items(recentlyPlayed) { song ->
-                    EnhancedRecentChip(
-                        song = song,
-                        onClick = { onSongClick(song) }
+                Column {
+                    Text(
+                        text = "Recently Played",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Pick up where you left off",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 2.dp)
                     )
                 }
+                
+                Icon(
+                    imageVector = RhythmIcons.MusicNote,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+        
+        // Enhanced song cards
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            items(recentlyPlayed) { song ->
+                EnhancedRecentChip(
+                    song = song,
+                    onClick = { onSongClick(song) }
+                )
             }
         }
     }
@@ -1624,28 +1752,35 @@ private fun EnhancedRecentChip(
     val context = LocalContext.current
     val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
     
-    Card(
+    ElevatedCard(
         onClick = { 
             // Use playSongWithQueueOption to add to current queue instead of replacing
             viewModel.playSongWithQueueOption(song, replaceQueue = false)
         },
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
         ),
-        shape = RoundedCornerShape(16.dp),
-        modifier = Modifier.width(180.dp)
+        elevation = CardDefaults.elevatedCardElevation(
+            defaultElevation = 0.dp,
+            pressedElevation = 8.dp
+        ),
+        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier
+            .width(200.dp)
+            .height(80.dp)
     ) {
         Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
+                .fillMaxSize()
+                .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Song artwork
+            // Enhanced song artwork with elevation
             Surface(
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.size(40.dp),
-                color = MaterialTheme.colorScheme.surface
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.size(48.dp),
+                tonalElevation = 4.dp,
+                color = MaterialTheme.colorScheme.surfaceVariant
             ) {
                 AsyncImage(
                     model = ImageRequest.Builder(context)
@@ -1662,25 +1797,41 @@ private fun EnhancedRecentChip(
                 )
             }
             
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(16.dp))
             
-            Column {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.Center
+            ) {
                 Text(
                     text = song.title,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
+                
+                Spacer(modifier = Modifier.height(4.dp))
                 
                 Text(
                     text = song.artist,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
+            
+            // Play indicator icon
+            Icon(
+                imageVector = RhythmIcons.Player.Play,
+                contentDescription = "Play",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .size(20.dp)
+                    .alpha(0.7f)
+            )
         }
     }
 }
@@ -1729,7 +1880,8 @@ private fun QuickPickCard(
                 )
             }
             
-            // Song info with improved typography
+            Spacer(modifier = Modifier.width(16.dp))
+            
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -2002,17 +2154,18 @@ private fun NewAlbumCard(
     
     Surface(
         onClick = onClick,
-        modifier = modifier.width(160.dp),
-        shape = RoundedCornerShape(16.dp),
+        modifier = modifier.width(180.dp),
+        shape = RoundedCornerShape(24.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         shadowElevation = 0.dp
     ) {
-        Column {
-            // Album artwork
+        Column(modifier = Modifier.padding(4.dp)) {
+            // Album artwork with enhanced corner radius
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f)
+                    .clip(RoundedCornerShape(20.dp))
             ) {
                 AsyncImage(
                     model = ImageRequest.Builder(context)
@@ -2028,34 +2181,36 @@ private fun NewAlbumCard(
                     modifier = Modifier.fillMaxSize()
                 )
                 
-                // Play button overlay
+                // Enhanced play button overlay
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(12.dp)
+                        .padding(16.dp)
                 ) {
-                    FilledIconButton(
+                    Surface(
                         onClick = { viewModel.playAlbum(album) },
-                        modifier = Modifier.size(42.dp),
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        )
+                        modifier = Modifier.size(48.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        shadowElevation = 0.dp
                     ) {
                         Icon(
                             imageVector = RhythmIcons.Play,
                             contentDescription = "Play album",
-                            modifier = Modifier.size(24.dp)
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier
+                                .size(24.dp)
+                                .padding(12.dp)
                         )
                     }
                 }
             }
             
-            // Album info
+            // Album info with enhanced padding
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp)
+                    .padding(20.dp)
             ) {
                 Text(
                     text = album.title,
@@ -2065,13 +2220,14 @@ private fun NewAlbumCard(
                     overflow = TextOverflow.Ellipsis
                 )
                 
+                Spacer(modifier = Modifier.height(6.dp))
+                
                 Text(
                     text = album.artist,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 4.dp)
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
@@ -2320,7 +2476,7 @@ private fun RecommendedForYouSection(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 8.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -2337,7 +2493,7 @@ private fun RecommendedForYouSection(
             shape = RoundedCornerShape(16.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = 8.dp)
         ) {
             Column(
                 modifier = Modifier.padding(16.dp)
@@ -2450,7 +2606,7 @@ private fun UpdateAvailableSection(
         shape = RoundedCornerShape(24.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = 8.dp, vertical = 8.dp)
             .clickable(onClick = { if (!isDownloading) onUpdateClick(false) })
     ) {
         Column(
