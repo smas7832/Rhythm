@@ -16,6 +16,13 @@ enum class AlbumViewType {
 }
 
 /**
+ * Enum for artist view types in the library
+ */
+enum class ArtistViewType {
+    LIST, GRID
+}
+
+/**
  * Singleton class to manage all app settings using SharedPreferences
  */
 class AppSettings private constructor(context: Context) {
@@ -41,6 +48,7 @@ class AppSettings private constructor(context: Context) {
         
         // Library Settings
         private const val KEY_ALBUM_VIEW_TYPE = "album_view_type"
+        private const val KEY_ARTIST_VIEW_TYPE = "artist_view_type"
         
         // Audio Device Settings
         private const val KEY_LAST_AUDIO_DEVICE = "last_audio_device"
@@ -144,6 +152,11 @@ class AppSettings private constructor(context: Context) {
         AlbumViewType.valueOf(prefs.getString(KEY_ALBUM_VIEW_TYPE, AlbumViewType.LIST.name) ?: AlbumViewType.LIST.name)
     )
     val albumViewType: StateFlow<AlbumViewType> = _albumViewType.asStateFlow()
+    
+    private val _artistViewType = MutableStateFlow(
+        ArtistViewType.valueOf(prefs.getString(KEY_ARTIST_VIEW_TYPE, ArtistViewType.GRID.name) ?: ArtistViewType.GRID.name)
+    )
+    val artistViewType: StateFlow<ArtistViewType> = _artistViewType.asStateFlow()
     
     // Audio Device Settings
     private val _lastAudioDevice = MutableStateFlow(prefs.getString(KEY_LAST_AUDIO_DEVICE, null))
@@ -381,6 +394,11 @@ class AppSettings private constructor(context: Context) {
     fun setAlbumViewType(viewType: AlbumViewType) {
         prefs.edit().putString(KEY_ALBUM_VIEW_TYPE, viewType.name).apply()
         _albumViewType.value = viewType
+    }
+    
+    fun setArtistViewType(viewType: ArtistViewType) {
+        prefs.edit().putString(KEY_ARTIST_VIEW_TYPE, viewType.name).apply()
+        _artistViewType.value = viewType
     }
     
     // Audio Device Settings Methods

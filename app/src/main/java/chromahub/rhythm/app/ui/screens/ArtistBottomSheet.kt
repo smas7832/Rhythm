@@ -33,6 +33,7 @@ import chromahub.rhythm.app.data.Song
 import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.ui.components.M3PlaceholderType
 import chromahub.rhythm.app.util.ImageUtils
+import chromahub.rhythm.app.util.ArtistCollaborationUtils
 import chromahub.rhythm.app.viewmodel.MusicViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -56,81 +57,13 @@ fun ArtistBottomSheet(
     // Store viewModel reference at composition level to avoid capturing it in lambdas
     val viewModel: MusicViewModel = viewModel()
     
-    // Enhanced artist filtering with improved handling for collaborations
+    // Enhanced artist filtering using centralized utility
     val artistSongs = remember(songs, artist) {
-        songs.filter { song ->
-            // Get normalized artist name
-            val artistName = artist.name.trim().lowercase()
-            
-            // Comprehensive list of separators to handle various collaboration formats
-            val separators = listOf(
-                ", ", ",", " & ", " and ", "&", " feat. ", " featuring ", " ft. ", " f. ",
-                " with ", " x ", " X ", " + ", " vs ", " VS ", " / ", ";", " · ",
-                " presents ", " pres. ", " and friends", " & friends"
-            )
-            
-            // Helper function to normalize artist names for comparison
-            fun normalizeForComparison(input: String): String {
-                return input.trim().lowercase()
-            }
-            
-            // Check if this is an exact match (main artist)
-            if (normalizeForComparison(song.artist) == artistName) {
-                return@filter true
-            }
-            
-            // Process the artist string to detect collaborations
-            var artistString = song.artist
-            separators.forEach { separator ->
-                artistString = artistString.replace(separator, "||")
-            }
-            
-            // Split by our custom separator and check if any part matches
-            val collaborators = artistString.split("||")
-                .map { normalizeForComparison(it) }
-                .filter { it.isNotEmpty() }
-            
-            // Return true if this artist is among the collaborators
-            collaborators.any { it == artistName || artistName.contains(it) || it.contains(artistName) }
-        }
+        ArtistCollaborationUtils.filterSongsByArtist(songs, artist.name)
     }
     
     val artistAlbums = remember(albums, artist) {
-        albums.filter { album ->
-            // Get normalized artist name
-            val artistName = artist.name.trim().lowercase()
-            
-            // Comprehensive list of separators to handle various collaboration formats
-            val separators = listOf(
-                ", ", ",", " & ", " and ", "&", " feat. ", " featuring ", " ft. ", " f. ",
-                " with ", " x ", " X ", " + ", " vs ", " VS ", " / ", ";", " · ",
-                " presents ", " pres. ", " and friends", " & friends"
-            )
-            
-            // Helper function to normalize artist names for comparison
-            fun normalizeForComparison(input: String): String {
-                return input.trim().lowercase()
-            }
-            
-            // Check if this is an exact match (main artist)
-            if (normalizeForComparison(album.artist) == artistName) {
-                return@filter true
-            }
-            
-            // Process the artist string to detect collaborations
-            var artistString = album.artist
-            separators.forEach { separator ->
-                artistString = artistString.replace(separator, "||")
-            }
-            
-            // Split by our custom separator and check if any part matches
-            val collaborators = artistString.split("||")
-                .map { normalizeForComparison(it) }
-                .filter { it.isNotEmpty() }
-            
-            // Return true if this artist is among the collaborators
-            collaborators.any { it == artistName || artistName.contains(it) || it.contains(artistName) }
-        }
+        ArtistCollaborationUtils.filterAlbumsByArtist(albums, artist.name)
     }
     
     // Animation states

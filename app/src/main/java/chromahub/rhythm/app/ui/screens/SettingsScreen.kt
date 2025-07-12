@@ -71,6 +71,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import chromahub.rhythm.app.data.Song
 import chromahub.rhythm.app.data.AlbumViewType
+import chromahub.rhythm.app.data.ArtistViewType
 import chromahub.rhythm.app.ui.components.MiniPlayer
 import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.R
@@ -271,6 +272,18 @@ fun SettingsScreen(
                     onClick = {
                         val newViewType = if (albumViewType == AlbumViewType.LIST) AlbumViewType.GRID else AlbumViewType.LIST
                         appSettings.setAlbumViewType(newViewType)
+                    }
+                )
+
+                val artistViewType by appSettings.artistViewType.collectAsState()
+                
+                SettingsClickableItem(
+                    title = "Artist view type",
+                    description = "Choose how artists are displayed: ${artistViewType.name.lowercase().replaceFirstChar { it.uppercase() }}",
+                    icon = RhythmIcons.Artist,
+                    onClick = {
+                        val newViewType = if (artistViewType == ArtistViewType.LIST) ArtistViewType.GRID else ArtistViewType.LIST
+                        appSettings.setArtistViewType(newViewType)
                     }
                 )
 

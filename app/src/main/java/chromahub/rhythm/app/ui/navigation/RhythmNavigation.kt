@@ -131,7 +131,8 @@ sealed class Screen(val route: String) {
     object PlaylistDetail : Screen("playlist/{playlistId}") {
         fun createRoute(playlistId: String) = "playlist/$playlistId"
     }
-    object About : Screen("about") // Added About screen
+    object About : Screen("about")
+    object AllArtists : Screen("all_artists") // Added AllArtists screen
 }
 
 @Composable
@@ -505,7 +506,7 @@ fun RhythmNavigation(
                             navController.navigate(Screen.Library.createRoute(LibraryTab.PLAYLISTS))
                         },
                         onViewAllArtists = {
-                            navController.navigate(Screen.Library.createRoute(LibraryTab.PLAYLISTS))
+                            navController.navigate(Screen.AllArtists.route)
                         },
                         onSkipNext = onSkipNext,
                         onSearchClick = {
@@ -703,6 +704,51 @@ fun RhythmNavigation(
                         onCheckForUpdates = {
                             navController.navigate(Screen.AppUpdater.createRoute(true))
                         }
+                    )
+                }
+
+                composable(
+                    route = Screen.AllArtists.route,
+                    enterTransition = {
+                        fadeIn(animationSpec = tween(350)) +
+                                scaleIn(
+                                    initialScale = 0.85f,
+                                    animationSpec = tween(400, easing = EaseOutQuint)
+                                )
+                    },
+                    exitTransition = {
+                        fadeOut(animationSpec = tween(350)) +
+                                scaleOut(
+                                    targetScale = 0.85f,
+                                    animationSpec = tween(300, easing = EaseInOutQuart)
+                                )
+                    },
+                    popEnterTransition = {
+                        fadeIn(animationSpec = tween(350)) +
+                                scaleIn(
+                                    initialScale = 0.85f,
+                                    animationSpec = tween(400, easing = EaseOutQuint)
+                                )
+                    },
+                    popExitTransition = {
+                        fadeOut(animationSpec = tween(350)) +
+                                scaleOut(
+                                    targetScale = 0.85f,
+                                    animationSpec = tween(300, easing = EaseInOutQuart)
+                                )
+                    }
+                ) {
+                    chromahub.rhythm.app.ui.screens.AllArtistsScreen(
+                        artists = artists,
+                        songs = songs,
+                        albums = albums,
+                        onBackClick = { navController.popBackStack() },
+                        onArtistClick = onPlayArtist,
+                        onSongClick = onPlaySong,
+                        onAlbumClick = onPlayAlbum,
+                        onSearchClick = { navController.navigate(Screen.Search.route) },
+                        onAddToQueue = { song -> viewModel.addSongToQueue(song) },
+                        onAddSongToPlaylist = { song, playlistId -> viewModel.addSongToPlaylist(song, playlistId) }
                     )
                 }
 
