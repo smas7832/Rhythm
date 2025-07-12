@@ -468,6 +468,13 @@ fun PermissionHandler(
         )
     }
     
+    // Notification permissions for Android 13+
+    val notificationPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        listOf(Manifest.permission.POST_NOTIFICATIONS)
+    } else {
+        emptyList()
+    }
+    
     // Bluetooth permissions based on Android version
     val bluetoothPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         // Android 12+ requires BLUETOOTH_CONNECT and BLUETOOTH_SCAN
@@ -484,7 +491,7 @@ fun PermissionHandler(
     }
     
     // Only request essential permissions that are actually needed
-    val essentialPermissions = storagePermissions + bluetoothPermissions
+    val essentialPermissions = storagePermissions + bluetoothPermissions + notificationPermissions
     
     val permissionsState = rememberMultiplePermissionsState(essentialPermissions)
     
@@ -944,6 +951,12 @@ fun PermissionHandler(
             listOf(Manifest.permission.READ_EXTERNAL_STORAGE)
         }
         
+        val notificationPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            listOf(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            emptyList()
+        }
+        
         val bluetoothPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             listOf(
                 Manifest.permission.BLUETOOTH_CONNECT,
@@ -956,7 +969,7 @@ fun PermissionHandler(
             )
         }
         
-        val essentialPermissions = storagePermissions + bluetoothPermissions
+        val essentialPermissions = storagePermissions + bluetoothPermissions + notificationPermissions
         val permissionsState = rememberMultiplePermissionsState(essentialPermissions)
         
         Column(
@@ -1083,6 +1096,18 @@ fun PermissionHandler(
                         permissionsState.permissions.find { it.permission == permission }?.status?.isGranted == true
                     }
                 )
+                
+                // Show notification permission card for Android 13+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    EnhancedPermissionCard(
+                        icon = RhythmIcons.Notifications,
+                        title = "Notification Access",
+                        description = "Show media controls and playback information in notifications",
+                        isGranted = notificationPermissions.all { permission ->
+                            permissionsState.permissions.find { it.permission == permission }?.status?.isGranted == true
+                        }
+                    )
+                }
             }
     
             FilledTonalButton(
