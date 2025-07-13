@@ -1060,43 +1060,35 @@ fun RhythmNavigation(
                             type = NavType.StringType
                         }
                     ),
-                    // Zoom transition for playlist detail screen
+                    // Enhanced transitions to match AboutScreen pattern
                     enterTransition = {
-                        fadeIn(animationSpec = tween(350)) + 
-                        scaleIn(
-                            initialScale = 0.85f,
-                            animationSpec = spring(
-                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                stiffness = Spring.StiffnessMedium
-                            )
-                        )
+                        fadeIn(animationSpec = tween(350)) +
+                                scaleIn(
+                                    initialScale = 0.85f,
+                                    animationSpec = tween(400, easing = EaseOutQuint)
+                                )
                     },
                     exitTransition = {
-                        fadeOut(animationSpec = tween(300)) + 
-                        scaleOut(
-                            targetScale = 0.85f,
-                            animationSpec = tween(300)
-                        )
+                        fadeOut(animationSpec = tween(350)) +
+                                scaleOut(
+                                    targetScale = 0.85f,
+                                    animationSpec = tween(300, easing = EaseInOutQuart)
+                                )
+                    },
+                    popEnterTransition = {
+                        fadeIn(animationSpec = tween(350)) +
+                                scaleIn(
+                                    initialScale = 0.85f,
+                                    animationSpec = tween(400, easing = EaseOutQuint)
+                                )
+                    },
+                    popExitTransition = {
+                        fadeOut(animationSpec = tween(350)) +
+                                scaleOut(
+                                    targetScale = 0.85f,
+                                    animationSpec = tween(300, easing = EaseInOutQuart)
+                                )
                     }
-                    
-                    // Alternative slide transition option:
-                    // enterTransition = {
-                    //     fadeIn(animationSpec = tween(350)) + 
-                    //     slideInHorizontally(
-                    //         initialOffsetX = { it / 3 },
-                    //         animationSpec = spring(
-                    //             dampingRatio = Spring.DampingRatioMediumBouncy,
-                    //             stiffness = Spring.StiffnessMedium
-                    //         )
-                    //     )
-                    // },
-                    // exitTransition = {
-                    //     fadeOut(animationSpec = tween(300)) + 
-                    //     slideOutHorizontally(
-                    //         targetOffsetX = { it / 3 },
-                    //         animationSpec = tween(300)
-                    //     )
-                    // }
                 ) { backStackEntry ->
                     val playlistId = backStackEntry.arguments?.getString("playlistId") ?: ""
                     val playlist = playlists.find { it.id == playlistId }

@@ -273,7 +273,7 @@ fun PlaylistDetailScreen(
     ) { paddingValues ->
         AnimatedVisibility(
             visible = contentVisible,
-            enter = fadeIn() + expandVertically(),
+            enter = fadeIn(),
             exit = fadeOut() + shrinkVertically()
         ) {
             LazyColumn( // Changed to LazyColumn to support scroll behavior
@@ -296,9 +296,9 @@ fun PlaylistDetailScreen(
                         Surface(
                             modifier = Modifier
                                 .size(160.dp),
-                            shape = RoundedCornerShape(28.dp),
+                            shape = RoundedCornerShape(34.dp),
                             tonalElevation = 8.dp, 
-                            shadowElevation = 16.dp
+                            shadowElevation = 0.dp
                         ) {
                             Box(
                                 contentAlignment = Alignment.Center
