@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.concurrent.TimeUnit
@@ -126,69 +127,57 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
     private val appSettings = AppSettings.getInstance(application.applicationContext)
 
     // Update channel (stable or beta)
-    private lateinit var _updateChannel: MutableStateFlow<String>
-    val updateChannel: StateFlow<String> get() = _updateChannel.asStateFlow()
+    private val _updateChannel = MutableStateFlow("stable")
+    val updateChannel: StateFlow<String> = _updateChannel.asStateFlow()
     
     // Current app version info
-    private lateinit var _currentVersion: MutableStateFlow<AppVersion>
-    val currentVersion: StateFlow<AppVersion> get() = _currentVersion.asStateFlow()
+    private val _currentVersion = MutableStateFlow(
+        AppVersion(
+            versionName = "2.3.124.352 Stable",
+            versionCode = 23124352, // Updated to reflect major*10M + minor*100K + patch*1K + buildNumber
+            releaseDate = "2025-07-13",
+            whatsNew = emptyList(),
+            knownIssues = emptyList(),
+            downloadUrl = "",
+            isPreRelease = false,
+            buildNumber = 352
+        )
+    )
+    val currentVersion: StateFlow<AppVersion> = _currentVersion.asStateFlow()
     
     // Latest version info
-    private lateinit var _latestVersion: MutableStateFlow<AppVersion?>
-    val latestVersion: StateFlow<AppVersion?> get() = _latestVersion.asStateFlow()
+    private val _latestVersion = MutableStateFlow<AppVersion?>(null)
+    val latestVersion: StateFlow<AppVersion?> = _latestVersion.asStateFlow()
     
     // Update check state
-    private lateinit var _isCheckingForUpdates: MutableStateFlow<Boolean>
-    val isCheckingForUpdates: StateFlow<Boolean> get() = _isCheckingForUpdates.asStateFlow()
+    private val _isCheckingForUpdates = MutableStateFlow(false)
+    val isCheckingForUpdates: StateFlow<Boolean> = _isCheckingForUpdates.asStateFlow()
     
     // Update available state
-    private lateinit var _updateAvailable: MutableStateFlow<Boolean>
-    val updateAvailable: StateFlow<Boolean> get() = _updateAvailable.asStateFlow()
+    private val _updateAvailable = MutableStateFlow(false)
+    val updateAvailable: StateFlow<Boolean> = _updateAvailable.asStateFlow()
     
     // Error state
-    private lateinit var _error: MutableStateFlow<String?>
-    val error: StateFlow<String?> get() = _error.asStateFlow()
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error.asStateFlow()
     
     // Download state - true when actively downloading
-    private lateinit var _isDownloading: MutableStateFlow<Boolean>
-    val isDownloading: StateFlow<Boolean> get() = _isDownloading.asStateFlow()
+    private val _isDownloading = MutableStateFlow(false)
+    val isDownloading: StateFlow<Boolean> = _isDownloading.asStateFlow()
     
     // Download progress (0-100)
-    private lateinit var _downloadProgress: MutableStateFlow<Float>
-    val downloadProgress: StateFlow<Float> get() = _downloadProgress.asStateFlow()
+    private val _downloadProgress = MutableStateFlow(0f)
+    val downloadProgress: StateFlow<Float> = _downloadProgress.asStateFlow()
     
     // Downloaded file
-    private lateinit var _downloadedFile: MutableStateFlow<File?>
-    val downloadedFile: StateFlow<File?> get() = _downloadedFile.asStateFlow()
+    private val _downloadedFile = MutableStateFlow<File?>(null)
+    val downloadedFile: StateFlow<File?> = _downloadedFile.asStateFlow()
     
     // Download state for tracking download progress and resumption
-    private lateinit var _downloadState: MutableStateFlow<DownloadState?>
-    val downloadState: StateFlow<DownloadState?> get() = _downloadState.asStateFlow()
+    private val _downloadState = MutableStateFlow<DownloadState?>(null)
+    val downloadState: StateFlow<DownloadState?> = _downloadState.asStateFlow()
 
     init {
-        // Initialize all lateinit properties here
-        _updateChannel = MutableStateFlow("stable")
-        _currentVersion = MutableStateFlow(
-            AppVersion(
-                versionName = "2.1.109.283 Stable",
-                versionCode = 20209283, // Updated to reflect major*10M + minor*100K + patch*1K + buildNumber
-                releaseDate = "2025-07-05",
-                whatsNew = emptyList(),
-                knownIssues = emptyList(),
-                downloadUrl = "",
-                isPreRelease = false,
-                buildNumber = 283
-            )
-        )
-        _latestVersion = MutableStateFlow<AppVersion?>(null)
-        _isCheckingForUpdates = MutableStateFlow(false)
-        _updateAvailable = MutableStateFlow(false)
-        _error = MutableStateFlow<String?>(null)
-        _isDownloading = MutableStateFlow(false)
-        _downloadProgress = MutableStateFlow(0f)
-        _downloadedFile = MutableStateFlow<File?>(null)
-        _downloadState = MutableStateFlow<DownloadState?>(null)
-
         viewModelScope.launch {
             appSettings.updateChannel.collectLatest { channel ->
                 _updateChannel.value = channel
@@ -196,25 +185,31 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
                 checkForUpdates(force = true)
             }
         }
+        
+        // Start periodic update checks
+        startPeriodicUpdateChecks()
     }
     
     /**
      * Check for updates by fetching the latest release from GitHub
      */
     fun checkForUpdates(force: Boolean = false) {
-        // Prevent multiple concurrent update checks
-        if (_isCheckingForUpdates.value && !force) {
-            Log.d(TAG, "Update check already in progress")
-            return
-        }
-
         viewModelScope.launch {
+            val updatesEnabled = appSettings.updatesEnabled.first()
             val autoCheckEnabled = appSettings.autoCheckForUpdates.first()
             val currentChannel = appSettings.updateChannel.first()
 
+            // Master check: if updates are completely disabled, don't check unless forced
+            if (!force && !updatesEnabled) {
+                Log.d(TAG, "Skipping update check - updates are completely disabled.")
+                _isCheckingForUpdates.value = false
+                return@launch
+            }
+
+            // Auto-check setting: only applies to automatic checks, not forced checks
             if (!force && !autoCheckEnabled) {
                 Log.d(TAG, "Skipping update check - auto-check is disabled and not forced.")
-                _isCheckingForUpdates.value = false // Ensure loading state is false
+                _isCheckingForUpdates.value = false
                 return@launch
             }
 
@@ -256,8 +251,9 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
             } catch (e: Exception) {
                 Log.e(TAG, "Error checking for updates", e)
                 _error.value = "Network error: ${e.message ?: "Unknown error"}"
+            } finally {
                 _isCheckingForUpdates.value = false
-                Log.e(TAG, "Error state set: ${_error.value}")
+                lastUpdateCheck = System.currentTimeMillis()
             }
         }
     }
@@ -293,34 +289,45 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
     }
     
     /**
-     * Parse version string to semantic version object
+     * Parse version string to semantic version object with improved error handling
      */
     private fun parseVersionToSemantic(versionString: String): SemanticVersion {
         try {
-            // Remove 'v' prefix if present
-            val cleaned = versionString.replace(Regex("^v"), "")
+            // Remove 'v' prefix if present and clean up the string
+            val cleaned = versionString.trim().replace(Regex("^v"), "")
             
-            // Extract build number if present (format like "b-127")
-            val buildNumber = Regex("b-(\\d+)").find(cleaned)?.groupValues?.get(1)?.toInt() ?: 0
+            // Extract build number if present (format like "b-127" or "build-127")
+            val buildRegex = Regex("(?:b|build)-(\\d+)", RegexOption.IGNORE_CASE)
+            val buildNumber = buildRegex.find(cleaned)?.groupValues?.get(1)?.toIntOrNull() ?: 0
             
-            // Split version and remove any suffix (like -alpha)
-            val versionBase = cleaned.split(" ")[0].split("-")[0]
+            // Split version and remove any suffix (like -alpha, -beta, etc.)
+            val versionBase = cleaned.split(" ")[0].split("-")[0].split("_")[0]
             val versionParts = versionBase.split(".")
             
-            // Check if it's a pre-release
-            val isPreRelease = cleaned.contains(Regex("alpha|beta|pre|rc", RegexOption.IGNORE_CASE))
+            // Check if it's a pre-release by looking for common pre-release keywords
+            val preReleaseKeywords = listOf("alpha", "beta", "pre", "rc", "dev", "snapshot")
+            val isPreRelease = preReleaseKeywords.any { keyword ->
+                cleaned.contains(keyword, ignoreCase = true)
+            }
+            
+            // Parse version components with bounds checking
+            val major = versionParts.getOrNull(0)?.toIntOrNull() ?: 0
+            val minor = versionParts.getOrNull(1)?.toIntOrNull() ?: 0
+            val patch = versionParts.getOrNull(2)?.toIntOrNull() ?: 0
+            val subpatch = versionParts.getOrNull(3)?.toIntOrNull() ?: 0
             
             return SemanticVersion(
-                major = versionParts.getOrNull(0)?.toInt() ?: 0,
-                minor = versionParts.getOrNull(1)?.toInt() ?: 0,
-                patch = versionParts.getOrNull(2)?.toInt() ?: 0,
-                subpatch = versionParts.getOrNull(3)?.toInt() ?: 0,
-                buildNumber = buildNumber,
+                major = major.coerceAtLeast(0),
+                minor = minor.coerceAtLeast(0),
+                patch = patch.coerceAtLeast(0),
+                subpatch = subpatch.coerceAtLeast(0),
+                buildNumber = buildNumber.coerceAtLeast(0),
                 isPreRelease = isPreRelease
             )
         } catch (e: Exception) {
             Log.e(TAG, "Error parsing version: $versionString", e)
-            return SemanticVersion(0, 0, 0)
+            // Return a default semantic version instead of crashing
+            return SemanticVersion(0, 0, 0, 0, 0, false)
         }
     }
     
@@ -477,20 +484,10 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     /**
-     * Clear any error message and reset error state
+     * Clear any error message
      */
     fun clearError() {
         _error.value = null
-    }
-    
-    /**
-     * Reset download state
-     */
-    fun resetDownloadState() {
-        _downloadedFile.value = null
-        _downloadProgress.value = 0f
-        _downloadState.value = null
-        activeDownload = null
     }
     
     /**
@@ -510,31 +507,43 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
     }
     
     /**
-     * Download the update by opening the browser to the download URL
+     * Download the update by opening the browser to the download URL or starting in-app download
      */
     fun downloadUpdate() {
-        val latestVersion = _latestVersion.value
-        val downloadUrl = latestVersion?.downloadUrl
-        
-        if (downloadUrl.isNullOrBlank()) {
-            _error.value = "No download URL available"
-            return
+        viewModelScope.launch {
+            val updatesEnabled = appSettings.updatesEnabled.first()
+            
+            if (!updatesEnabled) {
+                _error.value = "Updates are disabled in settings"
+                return@launch
+            }
+
+            val latestVersion = _latestVersion.value
+            val downloadUrl = latestVersion?.downloadUrl
+            
+            if (downloadUrl.isNullOrBlank()) {
+                _error.value = "No download URL available"
+                return@launch
+            }
+            
+            // Clear any previous errors
+            _error.value = null
+            
+            // If it's not an APK file, open in browser
+            if (latestVersion?.apkAssetName.isNullOrEmpty()) {
+                openInBrowser(downloadUrl)
+                return@launch
+            }
+            
+            // Check if we have an active download
+            if (_isDownloading.value) {
+                Log.d(TAG, "Download already in progress")
+                return@launch
+            }
+            
+            // Start or resume download
+            downloadApkInApp(downloadUrl, latestVersion?.apkAssetName ?: "rhythm-update.apk")
         }
-        
-        // If it's not an APK file, open in browser
-        if (latestVersion?.apkAssetName.isNullOrEmpty()) {
-            openInBrowser(downloadUrl)
-            return
-        }
-        
-        // Check if we have an active download
-        if (_isDownloading.value) {
-            Log.d(TAG, "Download already in progress")
-            return
-        }
-        
-        // Start or resume download
-        downloadApkInApp(downloadUrl, latestVersion?.apkAssetName ?: "rhythm-update.apk")
     }
     
     /**
@@ -560,6 +569,7 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
         }
         
         _downloadProgress.value = 0f
+        _downloadedFile.value = null // Clear any previous download
         activeDownload = null
         _isDownloading.value = true
         _error.value = null
@@ -577,16 +587,20 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
                             context,
                             Manifest.permission.WRITE_EXTERNAL_STORAGE
                         ) != PackageManager.PERMISSION_GRANTED) {
-                        _error.value = "Storage permission required to download updates"
-                        _isDownloading.value = false
+                        viewModelScope.launch {
+                            _error.value = "Storage permission required to download updates"
+                            _isDownloading.value = false
+                        }
                         return@launch
                     }
                     Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
                 }
 
                 if (downloadDir == null) {
-                    _error.value = "Could not access storage"
-                    _isDownloading.value = false
+                    viewModelScope.launch {
+                        _error.value = "Could not access storage"
+                        _isDownloading.value = false
+                    }
                     return@launch
                 }
 
@@ -641,7 +655,7 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
                         if (!response.isSuccessful && response.code != 206) {
                             viewModelScope.launch {
                                 _isDownloading.value = false
-                                _error.value = "Download failed: HTTP ${response.code}"
+                                _error.value = "Download failed: HTTP ${response.code} - ${response.message}"
                                 activeDownload = null
                                 activeCall = null
                             }
@@ -668,7 +682,12 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
                                 lastModified = response.header("Last-Modified"),
                                 resumePosition = existingLength
                             )
-                            _downloadState.value = activeDownload
+                            viewModelScope.launch {
+                                _downloadState.value = activeDownload
+                            }
+                            
+                            // Create output stream
+                            val outputStream = FileOutputStream(file, existingLength > 0)
                             
                             // Get input stream
                             val inputStream = response.body?.byteStream()
@@ -683,62 +702,48 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
                                 return
                             }
                             
-                            // Create output stream and download with proper resource management
-                            var outputStream: FileOutputStream? = null
-                            try {
-                                outputStream = FileOutputStream(file, existingLength > 0)
-                                
-                                // Create buffer
-                                val buffer = ByteArray(8192)
-                                var bytesRead: Int
-                                var totalBytesRead = existingLength
-                                
-                                // Read input stream
-                                while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                                    if (!_isDownloading.value) {
-                                        // Download was cancelled
-                                        break
-                                    }
-                                    
-                                    outputStream.write(buffer, 0, bytesRead)
-                                    totalBytesRead += bytesRead
-                                    
-                                    // Update progress
-                                    val totalBytes = if (totalLength > 0) totalLength else contentLength
-                                    if (totalBytes > 0) {
-                                        val progress = (totalBytesRead.toFloat() / totalBytes.toFloat()) * 100f
-                                        viewModelScope.launch {
-                                            _downloadProgress.value = progress
-                                            activeDownload = activeDownload?.copy(downloadedBytes = totalBytesRead)
-                                            _downloadState.value = activeDownload
-                                        }
-                                    }
+                            // Create buffer
+                            val buffer = ByteArray(8192)
+                            var bytesRead: Int
+                            var totalBytesRead = existingLength
+                            
+                            // Read input stream
+                            while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                                if (!_isDownloading.value) {
+                                    // Download was cancelled
+                                    break
                                 }
                                 
-                                // Download complete
-                                viewModelScope.launch {
-                                    if (_isDownloading.value) {
-                                        _isDownloading.value = false
-                                        _downloadProgress.value = 100f
-                                        _downloadedFile.value = file
-                                        activeDownload = null
-                                        activeCall = null
-                                        _downloadState.value = null
-                                        Log.d(TAG, "Download complete: ${file.absolutePath}")
+                                outputStream.write(buffer, 0, bytesRead)
+                                totalBytesRead += bytesRead
+                                
+                                // Update progress
+                                val totalBytes = if (totalLength > 0) totalLength else contentLength
+                                if (totalBytes > 0) {
+                                    val progress = (totalBytesRead.toFloat() / totalBytes.toFloat()) * 100f
+                                    viewModelScope.launch {
+                                        _downloadProgress.value = progress.coerceIn(0f, 100f)
+                                        activeDownload = activeDownload?.copy(downloadedBytes = totalBytesRead)
+                                        _downloadState.value = activeDownload
                                     }
                                 }
-                            } finally {
-                                // Ensure streams are always closed
-                                try {
-                                    outputStream?.flush()
-                                    outputStream?.close()
-                                } catch (e: Exception) {
-                                    Log.e(TAG, "Error closing output stream", e)
-                                }
-                                try {
-                                    inputStream.close()
-                                } catch (e: Exception) {
-                                    Log.e(TAG, "Error closing input stream", e)
+                            }
+                            
+                            // Close streams
+                            outputStream.flush()
+                            outputStream.close()
+                            inputStream.close()
+                            
+                            // Download complete
+                            viewModelScope.launch {
+                                if (_isDownloading.value) {
+                                    _isDownloading.value = false
+                                    _downloadProgress.value = 100f
+                                    _downloadedFile.value = file
+                                    activeDownload = null
+                                    activeCall = null
+                                    _downloadState.value = null
+                                    Log.d(TAG, "Download complete: ${file.absolutePath}")
                                 }
                             }
                         } catch (e: Exception) {
@@ -766,13 +771,32 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
     }
     
     /**
-     * Install the downloaded APK
+     * Install the downloaded APK with improved error handling
      */
     fun installDownloadedApk() {
-        val file = _downloadedFile.value ?: return
+        val file = _downloadedFile.value
+        if (file == null || !file.exists()) {
+            _error.value = "No downloaded file found"
+            return
+        }
         
         try {
             val context = getApplication<Application>()
+            
+            // Check if the file is valid
+            if (file.length() == 0L) {
+                _error.value = "Downloaded file is corrupted"
+                return
+            }
+            
+            // For Android 8.0 and later, check if install from unknown sources is allowed
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                if (!context.packageManager.canRequestPackageInstalls()) {
+                    _error.value = "Installation from unknown sources is not allowed. Please enable it in Settings."
+                    return
+                }
+            }
+            
             val authority = "${context.packageName}.provider"
             val uri = FileProvider.getUriForFile(context, authority, file)
             
@@ -782,7 +806,12 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
             
-            context.startActivity(intent)
+            // Check if there's an app that can handle this intent
+            if (intent.resolveActivity(context.packageManager) != null) {
+                context.startActivity(intent)
+            } else {
+                _error.value = "No app available to install APK files"
+            }
         } catch (e: Exception) {
             _error.value = "Could not install APK: ${e.message ?: "Unknown error"}"
             Log.e(TAG, "Error installing APK", e)
@@ -790,25 +819,61 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
     }
     
     /**
-     * Cancel the current download
+     * Cancel the current download with proper cleanup
      */
     fun cancelDownload() {
-        try {
-            activeCall?.cancel()
-        } catch (e: Exception) {
-            Log.e(TAG, "Error cancelling download call", e)
-        } finally {
-            activeCall = null
-            activeDownload = null
-            _isDownloading.value = false
-            _downloadProgress.value = 0f
-            _downloadState.value = null
-            _error.value = null
+        Log.d(TAG, "Cancelling download")
+        activeCall?.cancel()
+        activeCall = null
+        activeDownload = null
+        _isDownloading.value = false
+        _downloadProgress.value = 0f
+        _downloadState.value = null
+        _error.value = null
+    }
+    
+    /**
+     * Reset all download states - useful for retry scenarios
+     */
+    fun resetDownloadState() {
+        cancelDownload()
+        _downloadedFile.value = null
+        _error.value = null
+    }
+
+    /**
+     * Start periodic update checks if auto-check is enabled and updates are enabled
+     */
+    private fun startPeriodicUpdateChecks() {
+        viewModelScope.launch {
+            // Combine both update settings
+            appSettings.updatesEnabled.collectLatest { updatesEnabled ->
+                if (updatesEnabled) {
+                    appSettings.autoCheckForUpdates.collectLatest { autoCheckEnabled ->
+                        if (autoCheckEnabled) {
+                            // Check immediately if it's been more than the interval
+                            val timeSinceLastCheck = System.currentTimeMillis() - lastUpdateCheck
+                            if (timeSinceLastCheck > UPDATE_CHECK_INTERVAL) {
+                                checkForUpdates(force = false)
+                            }
+                            
+                            // Schedule periodic checks
+                            while (autoCheckEnabled && appSettings.updatesEnabled.first()) {
+                                delay(UPDATE_CHECK_INTERVAL)
+                                if (appSettings.autoCheckForUpdates.first() && appSettings.updatesEnabled.first()) {
+                                    checkForUpdates(force = false)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
     override fun onCleared() {
         super.onCleared()
+        Log.d(TAG, "ViewModel cleared, cancelling any active downloads")
         cancelDownload()
     }
 }

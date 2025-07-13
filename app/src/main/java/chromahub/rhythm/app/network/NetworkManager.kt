@@ -1,6 +1,7 @@
 package chromahub.rhythm.app.network
 
 import android.content.Context
+import chromahub.rhythm.app.BuildConfig
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import okhttp3.Request
@@ -25,7 +26,12 @@ object NetworkManager {
      */
     private fun createOkHttpClient(): OkHttpClient {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            // Only enable detailed logging in debug builds
+            level = if (BuildConfig.DEBUG) {
+                HttpLoggingInterceptor.Level.BODY
+            } else {
+                HttpLoggingInterceptor.Level.BASIC
+            }
         }
         
         return OkHttpClient.Builder()

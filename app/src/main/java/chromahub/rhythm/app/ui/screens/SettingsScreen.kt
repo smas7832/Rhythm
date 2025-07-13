@@ -1,6 +1,7 @@
 package chromahub.rhythm.app.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.expandVertically
@@ -135,10 +136,24 @@ fun SettingsScreen(
     val useSystemTheme by appSettings.useSystemTheme.collectAsState()
     val darkMode by appSettings.darkMode.collectAsState()
     val useDynamicColors by appSettings.useDynamicColors.collectAsState()
+
+    // Playback Settings
+    val highQualityAudio by appSettings.highQualityAudio.collectAsState()
+    val gaplessPlayback by appSettings.gaplessPlayback.collectAsState()
+    val crossfade by appSettings.crossfade.collectAsState()
+    val crossfadeDuration by appSettings.crossfadeDuration.collectAsState()
+    val audioNormalization by appSettings.audioNormalization.collectAsState()
+    val replayGain by appSettings.replayGain.collectAsState()
+
+    // Cache Settings
+    val maxCacheSize by appSettings.maxCacheSize.collectAsState()
+    val clearCacheOnExit by appSettings.clearCacheOnExit.collectAsState()
     
     val spotifyKey by appSettings.spotifyApiKey.collectAsState()
     val scope = rememberCoroutineScope()
     var showApiBottomSheet by remember { mutableStateOf(false) }
+    var showCrossfadeDurationDialog by remember { mutableStateOf(false) }
+    var showCacheSizeDialog by remember { mutableStateOf(false) }
 
     val updaterViewModel: AppUpdaterViewModel = viewModel()
     val currentAppVersion by updaterViewModel.currentVersion.collectAsState()
@@ -149,6 +164,28 @@ fun SettingsScreen(
         ApiManagementBottomSheet(
             onDismiss = { showApiBottomSheet = false },
             appSettings = appSettings
+        )
+    }
+
+    if (showCrossfadeDurationDialog) {
+        CrossfadeDurationDialog(
+            currentDuration = crossfadeDuration,
+            onDismiss = { showCrossfadeDurationDialog = false },
+            onSave = { duration ->
+                appSettings.setCrossfadeDuration(duration)
+                showCrossfadeDurationDialog = false
+            }
+        )
+    }
+
+    if (showCacheSizeDialog) {
+        CacheSizeDialog(
+            currentSize = maxCacheSize,
+            onDismiss = { showCacheSizeDialog = false },
+            onSave = { size ->
+                appSettings.setMaxCacheSize(size)
+                showCacheSizeDialog = false
+            }
         )
     }
 
@@ -222,7 +259,7 @@ fun SettingsScreen(
 
                 SettingsToggleItem(
                     title = "Use system theme",
-                    description = "Use Android's Material You colors when available",
+                    description = "Follow system dark/light theme setting automatically",
                     icon = RhythmIcons.Settings,
                     checked = useSystemTheme,
                     onCheckedChange = {
@@ -290,9 +327,62 @@ fun SettingsScreen(
                 SettingsDivider()
             }
 
-            // Playback section (only lyrics and equalizer)
+            // Playback section
             item {
                 SettingsSectionHeader(title = "Playback")
+
+//                SettingsToggleItem(
+//                    title = "High quality audio",
+//                    description = "Enable higher bitrate audio streaming/playback",
+//                    icon = RhythmIcons.VolumeUp,
+//                    checked = highQualityAudio,
+//                    onCheckedChange = { appSettings.setHighQualityAudio(it) }
+//                )
+//
+//                SettingsToggleItem(
+//                    title = "Gapless playback",
+//                    description = "Eliminate gaps between tracks for continuous listening",
+//                    icon = RhythmIcons.Queue,
+//                    checked = gaplessPlayback,
+//                    onCheckedChange = { appSettings.setGaplessPlayback(it) }
+//                )
+//
+//                SettingsToggleItem(
+//                    title = "Crossfade",
+//                    description = "Smoothly transition between songs",
+//                    icon = RhythmIcons.Shuffle,
+//                    checked = crossfade,
+//                    onCheckedChange = { appSettings.setCrossfade(it) }
+//                )
+//
+//                AnimatedVisibility(
+//                    visible = crossfade,
+//                    enter = fadeIn() + expandVertically(),
+//                    exit = fadeOut() + shrinkVertically()
+//                ) {
+//                    SettingsClickableItem(
+//                        title = "Crossfade duration",
+//                        description = "Set crossfade duration: ${crossfadeDuration.toInt()} seconds",
+//                        icon = RhythmIcons.Player.Timer,
+//                        onClick = { showCrossfadeDurationDialog = true }
+//                    )
+//                }
+//
+//                SettingsToggleItem(
+//                    title = "Audio normalization",
+//                    description = "Adjust volume levels to a consistent loudness",
+//                    icon = RhythmIcons.VolumeUp,
+//                    checked = audioNormalization,
+//                    onCheckedChange = { appSettings.setAudioNormalization(it) }
+//                )
+//
+//                SettingsToggleItem(
+//                    title = "ReplayGain",
+//                    description = "Apply ReplayGain tags for consistent playback volume",
+//                    icon = RhythmIcons.VolumeUp,
+//                    checked = replayGain,
+//                    onCheckedChange = { appSettings.setReplayGain(it) }
+//                )
 
                 SettingsToggleItem(
                     title = "Show lyrics",
@@ -308,22 +398,21 @@ fun SettingsScreen(
                     visible = showLyrics,
                     enter = fadeIn() + expandVertically(),
                     exit = fadeOut() + shrinkVertically()
-                ) {
-                    SettingsToggleItem(
-                        title = "Online lyrics only",
-                        description = "Only fetch and display lyrics when connected to internet",
-                        icon = RhythmIcons.LocationFilled,
-                        checked = showOnlineOnlyLyrics,
-                        onCheckedChange = {
-                            onShowOnlineOnlyLyricsChange(it)
-                        }
-                    )
+                ) {                        SettingsToggleItem(
+                            title = "Online lyrics only",
+                            description = "Only show lyrics when connected to the internet",
+                            icon = RhythmIcons.LocationFilled,
+                            checked = showOnlineOnlyLyrics,
+                            onCheckedChange = {
+                                onShowOnlineOnlyLyricsChange(it)
+                            }
+                        )
                 }
 
                 val useSystemVolume by appSettings.useSystemVolume.collectAsState()
                 SettingsToggleItem(
                     title = "System volume control",
-                    description = "Control device media volume instead of app volume in device output",
+                    description = "Use device volume controls for music playback",
                     icon = RhythmIcons.VolumeUp,
                     checked = useSystemVolume,
                     onCheckedChange = {
@@ -336,6 +425,28 @@ fun SettingsScreen(
                     description = "Open system equalizer to adjust audio frequencies",
                     icon = RhythmIcons.VolumeUp,
                     onClick = onOpenSystemEqualizer
+                )
+
+                SettingsDivider()
+            }
+
+            // Cache section
+            item {
+                SettingsSectionHeader(title = "Cache")
+
+                SettingsClickableItem(
+                    title = "Max cache size",
+                    description = "Current: ${String.format("%.1f", maxCacheSize / (1024f * 1024f))} MB",
+                    icon = RhythmIcons.Settings,
+                    onClick = { showCacheSizeDialog = true }
+                )
+
+                SettingsToggleItem(
+                    title = "Clear cache on exit",
+                    description = "Automatically clear cached data when the app closes",
+                    icon = RhythmIcons.Delete,
+                    checked = clearCacheOnExit,
+                    onCheckedChange = { appSettings.setClearCacheOnExit(it) }
                 )
 
                 SettingsDivider()
@@ -363,26 +474,43 @@ fun SettingsScreen(
 
                 val autoCheckForUpdates by appSettings.autoCheckForUpdates.collectAsState()
                 val updateChannel by appSettings.updateChannel.collectAsState()
+                val updatesEnabled by appSettings.updatesEnabled.collectAsState()
 
                 SettingsToggleItem(
-                    title = "Auto Check",
-                    description = "Check for updates from Rhythm's GitHub repo automatically",
+                    title = "Enable Updates",
+                    description = "Allow the app to check for and download updates",
                     icon = RhythmIcons.Actions.Update,
-                    checked = autoCheckForUpdates,
-                    onCheckedChange = {
-                        appSettings.setAutoCheckForUpdates(it)
-                    }
+                    checked = updatesEnabled,
+                    onCheckedChange = { appSettings.setUpdatesEnabled(it) }
                 )
 
                 AnimatedVisibility(
-                    visible = autoCheckForUpdates,
+                    visible = updatesEnabled,
                     enter = fadeIn() + expandVertically(),
                     exit = fadeOut() + shrinkVertically()
                 ) {
-                    EnhancedUpdateChannelOption(
-                        currentChannel = updateChannel,
-                        onChannelChange = { appSettings.setUpdateChannel(it) }
-                    )
+                    Column {
+                        SettingsToggleItem(
+                            title = "Periodic Check",
+                            description = "Check for updates from Rhythm's GitHub repo automatically",
+                            icon = Icons.Rounded.Update,
+                            checked = autoCheckForUpdates,
+                            onCheckedChange = {
+                                appSettings.setAutoCheckForUpdates(it)
+                            }
+                        )
+
+                        AnimatedVisibility(
+                            visible = autoCheckForUpdates,
+                            enter = fadeIn() + expandVertically(),
+                            exit = fadeOut() + shrinkVertically()
+                        ) {
+                            EnhancedUpdateChannelOption(
+                                currentChannel = updateChannel,
+                                onChannelChange = { appSettings.setUpdateChannel(it) }
+                            )
+                        }
+                    }
                 }
 
                 SettingsDivider()
@@ -1482,4 +1610,115 @@ fun EnhancedUpdateChannelOption(
             )
         }
     }
+}
+
+@Composable
+fun CrossfadeDurationDialog(
+    currentDuration: Float,
+    onDismiss: () -> Unit,
+    onSave: (Float) -> Unit
+) {
+    var sliderPosition by remember { mutableFloatStateOf(currentDuration) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Crossfade Duration") },
+        text = {
+            Column {
+                Text("Set the duration for crossfading between songs.")
+                Spacer(modifier = Modifier.height(16.dp))
+                Slider(
+                    value = sliderPosition,
+                    onValueChange = { sliderPosition = it },
+                    valueRange = 0f..10f, // 0 to 10 seconds
+                    steps = 9, // 10 steps for 0-10 seconds (0, 1, 2...10)
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = "${sliderPosition.toInt()} seconds",
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onSave(sliderPosition) }) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+fun CacheSizeDialog(
+    currentSize: Long,
+    onDismiss: () -> Unit,
+    onSave: (Long) -> Unit
+) {
+    val context = LocalContext.current
+    var selectedSizeIndex by remember {
+        mutableIntStateOf(
+            when (currentSize) {
+                1024L * 1024L * 128L -> 0 // 128 MB
+                1024L * 1024L * 256L -> 1 // 256 MB
+                1024L * 1024L * 512L -> 2 // 512 MB
+                1024L * 1024L * 1024L -> 3 // 1 GB
+                else -> 2 // Default to 512MB if current size doesn't match predefined
+            }
+        )
+    }
+
+    val cacheSizes = listOf(
+        128L * 1024L * 1024L, // 128 MB
+        256L * 1024L * 1024L, // 256 MB
+        512L * 1024L * 1024L, // 512 MB
+        1024L * 1024L * 1024L // 1 GB
+    )
+
+    val cacheSizeLabels = listOf("128 MB", "256 MB", "512 MB", "1 GB")
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Max Cache Size") },
+        text = {
+            Column {
+                Text("Set the maximum size for cached audio and artwork.")
+                Spacer(modifier = Modifier.height(16.dp))
+                Column {
+                    cacheSizeLabels.forEachIndexed { index, label ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { selectedSizeIndex = index }
+                                .padding(vertical = 8.dp)
+                        ) {
+                            Switch(
+                                checked = selectedSizeIndex == index,
+                                onCheckedChange = { selectedSizeIndex = index }
+                            )
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Text(label, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onSave(cacheSizes[selectedSizeIndex]) }) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
