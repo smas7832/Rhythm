@@ -684,7 +684,7 @@ fun SettingsScreen(
 
                         Button(
                             onClick = {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/cromaguy/Rhythm/issues"))
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/RhythmSupport"))
                                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                 context.startActivity(intent)
                             },
@@ -700,13 +700,13 @@ fun SettingsScreen(
                                 horizontalArrangement = Arrangement.Center
                             ) {
                                 Icon(
-                                    imageVector = RhythmIcons.Edit,
-                                    contentDescription = "Report Bug",
+                                    imageVector = RhythmIcons.Telegram,
+                                    contentDescription = "Telegram Support",
                                     modifier = Modifier.size(18.dp)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "Report Bug",
+                                    text = "Support Group",
                                     style = MaterialTheme.typography.labelLarge
                                 )
                             }

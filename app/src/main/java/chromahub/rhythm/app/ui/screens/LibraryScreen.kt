@@ -780,10 +780,10 @@ fun PlaylistsTab(
                                     ) {
                                         Box(contentAlignment = Alignment.Center) {
                                             Icon(
-                                                imageVector = RhythmIcons.Music.Playlist,
+                                                imageVector = RhythmIcons.PlaylistFilled,
                                                 contentDescription = null,
                                                 tint = MaterialTheme.colorScheme.onPrimary,
-                                                modifier = Modifier.size(24.dp)
+                                                modifier = Modifier.size(28.dp)
                                             )
                                         }
                                     }
@@ -869,7 +869,7 @@ fun PlaylistsTab(
                                                 imageVector = RhythmIcons.Music.Album,
                                                 contentDescription = null,
                                                 tint = MaterialTheme.colorScheme.onPrimary,
-                                                modifier = Modifier.size(24.dp)
+                                                modifier = Modifier.size(28.dp)
                                             )
                                         }
                                     }
@@ -1117,7 +1117,7 @@ fun PlaylistItem(
             // Enhanced playlist artwork with proper playlist icon
             Surface(
                 modifier = Modifier.size(68.dp),
-                shape = RoundedCornerShape(18.dp),
+                shape = RoundedCornerShape(25.dp),
                 tonalElevation = 0.dp,
                 color = MaterialTheme.colorScheme.primaryContainer
             ) {
@@ -1139,10 +1139,10 @@ fun PlaylistItem(
                     } else {
                         // Use proper playlist icon from RhythmIcons
                         Icon(
-                            imageVector = RhythmIcons.Music.Playlist, // Using the proper playlist icon
+                            imageVector = RhythmIcons.PlaylistFilled, // Using the proper playlist icon
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(34.dp)
+                            modifier = Modifier.size(44.dp)
                         )
                     }
                 }
@@ -2014,8 +2014,8 @@ fun EnhancedAlbumSongItem(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 6.dp), // Increased horizontal padding
-        shape = RoundedCornerShape(16.dp), // Increased corner radius
+            .padding(horizontal = 16.dp, vertical = 4.dp), // Reduced vertical padding
+        shape = RoundedCornerShape(12.dp), // Reduced corner radius
         color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.6f),
         tonalElevation = 1.dp
     ) {
@@ -2038,7 +2038,7 @@ fun EnhancedAlbumSongItem(
                         Surface(
                             color = MaterialTheme.colorScheme.primaryContainer,
                             shape = CircleShape,
-                            modifier = Modifier.size(22.dp) // Slightly larger
+                            modifier = Modifier.size(20.dp) // Reduced size
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Text(
@@ -2050,7 +2050,7 @@ fun EnhancedAlbumSongItem(
                             }
                         }
                         
-                        Spacer(modifier = Modifier.width(10.dp)) // Increased spacing
+                        Spacer(modifier = Modifier.width(8.dp)) // Reduced spacing
                     }
                     
                     if (song.duration > 0) {
@@ -2066,8 +2066,8 @@ fun EnhancedAlbumSongItem(
             },
             leadingContent = {
                 Surface(
-                    shape = RoundedCornerShape(12.dp), // Increased corner radius
-                    modifier = Modifier.size(56.dp), // Slightly larger
+                    shape = RoundedCornerShape(8.dp), // Reduced corner radius
+                    modifier = Modifier.size(48.dp), // Reduced size
                     tonalElevation = 2.dp
                 ) {
                     AsyncImage(
@@ -2087,11 +2087,11 @@ fun EnhancedAlbumSongItem(
             },
             trailingContent = {
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp) // Increased spacing
+                    horizontalArrangement = Arrangement.spacedBy(8.dp) // Reduced spacing
                 ) {
                     FilledIconButton(
                         onClick = onAddToQueue,
-                        modifier = Modifier.size(38.dp), // Slightly larger
+                        modifier = Modifier.size(36.dp), // Reduced size
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer,
                             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -2100,13 +2100,13 @@ fun EnhancedAlbumSongItem(
                         Icon(
                             imageVector = Icons.Filled.QueueMusic,
                             contentDescription = "Add to queue",
-                            modifier = Modifier.size(20.dp) // Increased icon size
+                            modifier = Modifier.size(20.dp)
                         )
                     }
 
                     FilledIconButton(
                         onClick = { showDropdown = true },
-                        modifier = Modifier.size(38.dp), // Slightly larger
+                        modifier = Modifier.size(36.dp), // Reduced size
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = MaterialTheme.colorScheme.secondaryContainer,
                             contentColor = MaterialTheme.colorScheme.onSecondaryContainer
@@ -2115,14 +2115,14 @@ fun EnhancedAlbumSongItem(
                         Icon(
                             imageVector = Icons.Filled.MoreVert,
                             contentDescription = "More options",
-                            modifier = Modifier.size(20.dp) // Increased icon size
+                            modifier = Modifier.size(20.dp)
                         )
                     }
 
                     DropdownMenu(
                         expanded = showDropdown,
                         onDismissRequest = { showDropdown = false },
-                        shape = RoundedCornerShape(14.dp) // Increased corner radius
+                        shape = RoundedCornerShape(12.dp) // Reduced corner radius
                     ) {
                         DropdownMenuItem(
                             text = { 
@@ -2148,7 +2148,7 @@ fun EnhancedAlbumSongItem(
             colors = ListItemDefaults.colors(
                 containerColor = Color.Transparent
             ),
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp) // Added internal padding
+            modifier = Modifier.padding(horizontal = 0.dp, vertical = 0.dp) // Removed internal padding
         )
     }
 }

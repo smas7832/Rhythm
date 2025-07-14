@@ -1047,7 +1047,8 @@ fun AppUpdaterScreen(
                         context.startActivity(intent)
                     },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
                     ),
                     modifier = Modifier
                         .fillMaxWidth()

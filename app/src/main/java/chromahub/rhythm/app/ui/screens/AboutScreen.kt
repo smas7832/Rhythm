@@ -218,75 +218,75 @@ fun AboutScreen(
                 }
             }
 
-            item {
-                // Features Card
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer
-                    ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                    shape = RoundedCornerShape(20.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(24.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(bottom = 16.dp)
-                        ) {
-                            Icon(
-                                imageVector = RhythmIcons.Song,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = "Key Features",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
+            // item {
+            //     // Features Card
+            //     Card(
+            //         colors = CardDefaults.cardColors(
+            //             containerColor = MaterialTheme.colorScheme.surfaceContainer
+            //         ),
+            //         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            //         shape = RoundedCornerShape(20.dp),
+            //         modifier = Modifier.fillMaxWidth()
+            //     ) {
+            //         Column(
+            //             modifier = Modifier.padding(24.dp)
+            //         ) {
+            //             Row(
+            //                 verticalAlignment = Alignment.CenterVertically,
+            //                 modifier = Modifier.padding(bottom = 16.dp)
+            //             ) {
+            //                 Icon(
+            //                     imageVector = RhythmIcons.Song,
+            //                     contentDescription = null,
+            //                     tint = MaterialTheme.colorScheme.primary,
+            //                     modifier = Modifier.size(24.dp)
+            //                 )
+            //                 Spacer(modifier = Modifier.width(12.dp))
+            //                 Text(
+            //                     text = "Key Features",
+            //                     style = MaterialTheme.typography.titleLarge,
+            //                     fontWeight = FontWeight.Bold,
+            //                     color = MaterialTheme.colorScheme.onSurface
+            //                 )
+            //             }
 
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            FeatureItem(
-                                icon = RhythmIcons.Song,
-                                title = "Local Music Library",
-                                description = "Browse and play music from your device with fast indexing"
-                            )
-                            FeatureItem(
-                                icon = RhythmIcons.Playlist,
-                                title = "Smart Playlists",
-                                description = "Create, manage, and organize custom playlists with ease"
-                            )
-                            FeatureItem(
-                                icon = RhythmIcons.Album,
-                                title = "Album & Artist Views",
-                                description = "Organize music by albums, artists, and genres"
-                            )
-                            FeatureItem(
-                                icon = RhythmIcons.Queue,
-                                title = "Synchronized Lyrics",
-                                description = "View time-synced lyrics with online integration"
-                            )
-                            FeatureItem(
-                                icon = RhythmIcons.VolumeUp,
-                                title = "Audio Controls",
-                                description = "Advanced playback controls with equalizer support"
-                            )
-                            FeatureItem(
-                                icon = RhythmIcons.Download,
-                                title = "Auto Updates",
-                                description = "Automatic update checking with GitHub releases"
-                            )
-                        }
-                    }
-                }
-            }
+            //             Column(
+            //                 verticalArrangement = Arrangement.spacedBy(16.dp)
+            //             ) {
+            //                 FeatureItem(
+            //                     icon = RhythmIcons.Song,
+            //                     title = "Local Music Library",
+            //                     description = "Browse and play music from your device with fast indexing"
+            //                 )
+            //                 FeatureItem(
+            //                     icon = RhythmIcons.Playlist,
+            //                     title = "Smart Playlists",
+            //                     description = "Create, manage, and organize custom playlists with ease"
+            //                 )
+            //                 FeatureItem(
+            //                     icon = RhythmIcons.Album,
+            //                     title = "Album & Artist Views",
+            //                     description = "Organize music by albums, artists, and genres"
+            //                 )
+            //                 FeatureItem(
+            //                     icon = RhythmIcons.Queue,
+            //                     title = "Synchronized Lyrics",
+            //                     description = "View time-synced lyrics with online integration"
+            //                 )
+            //                 FeatureItem(
+            //                     icon = RhythmIcons.VolumeUp,
+            //                     title = "Audio Controls",
+            //                     description = "Advanced playback controls with equalizer support"
+            //                 )
+            //                 FeatureItem(
+            //                     icon = RhythmIcons.Download,
+            //                     title = "Auto Updates",
+            //                     description = "Automatic update checking with GitHub releases"
+            //                 )
+            //             }
+            //         }
+            //     }
+            // }
 
             // item {
             //     // Technology Stack Card
@@ -541,6 +541,37 @@ fun AboutScreen(
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Text(
                                     text = "Report Bug or Suggest Feature",
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                            }
+                        }
+
+                        Button(
+                            onClick = {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/RhythmSupport"))
+                                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                context.startActivity(intent)
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center,
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = RhythmIcons.Telegram,
+                                    contentDescription = "Telegram Support",
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = "Telegram Support Group",
                                     style = MaterialTheme.typography.titleMedium
                                 )
                             }

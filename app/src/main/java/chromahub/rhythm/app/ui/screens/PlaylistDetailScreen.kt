@@ -323,15 +323,15 @@ fun PlaylistDetailScreen(
                                             .fillMaxSize()
                                             .background(
                                                 MaterialTheme.colorScheme.primaryContainer,
-                                                RoundedCornerShape(20.dp)
+                                                RoundedCornerShape(38.dp)
                                             ),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
-                                            imageVector = RhythmIcons.AddToPlaylist,
+                                            imageVector = RhythmIcons.PlaylistFilled,
                                             contentDescription = null,
                                             tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                            modifier = Modifier.size(64.dp)
+                                            modifier = Modifier.size(84.dp)
                                         )
                                     }
                                 }

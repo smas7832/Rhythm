@@ -59,10 +59,13 @@ import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material.icons.rounded.Speaker
 import androidx.compose.material.icons.rounded.Speed
-import androidx.compose.material.icons.rounded.SystemUpdate // New import for Update icon
+import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material.icons.rounded.Lyrics // New import for Lyrics icon
+import androidx.compose.material.icons.rounded.Lyrics
+import androidx.compose.material.icons.rounded.PlaylistPlay
+import androidx.compose.material.icons.filled.PlaylistPlay // New import for PlaylistPlay filled icon
+import androidx.compose.material.icons.rounded.Chat // For Telegram support group
 
 /**
  * Material Design 3 icons for the Rhythm app
@@ -128,7 +131,7 @@ object RhythmIcons {
         val AlbumOutlined = Icons.Outlined.Album
         val Artist = Icons.Rounded.Person
         val ArtistOutlined = Icons.Outlined.Person
-        val Playlist = Icons.AutoMirrored.Rounded.PlaylistAdd
+        val Playlist = Icons.Rounded.PlaylistPlay
         val PlaylistOutlined = Icons.AutoMirrored.Outlined.PlaylistAdd
         val MusicNote = Icons.Rounded.MusicNote
         val Audiotrack = Icons.Rounded.Audiotrack
@@ -215,7 +218,8 @@ object RhythmIcons {
     val Artist = Music.ArtistOutlined
     val ArtistFilled = Music.Artist
     val Playlist = Music.PlaylistOutlined
-    
+    val PlaylistFilled = Music.Playlist // Added PlaylistFilled
+
     // Actions
     val Favorite = Actions.FavoriteOutlined
     val FavoriteFilled = Actions.Favorite
@@ -223,7 +227,7 @@ object RhythmIcons {
     val Remove = Actions.Remove
     val Edit = Actions.Edit
     val Delete = Actions.Delete
-    val AddToPlaylist = Music.Playlist
+    val AddToPlaylist = Icons.AutoMirrored.Rounded.PlaylistAdd
     val AddToQueue = Icons.AutoMirrored.Rounded.PlaylistAdd
     val More = Actions.More
     val Queue = Player.Queue
@@ -236,6 +240,7 @@ object RhythmIcons {
     val List = Actions.List
     val AppsGrid = Actions.Apps
     val Refresh = Actions.Refresh
+    val Telegram = Icons.Rounded.Chat // Added Telegram icon
     
     // Location
     val Location = Devices.LocationOutlined
