@@ -2628,7 +2628,7 @@ private fun UpdateAvailableSection(
                     modifier = Modifier.size(36.dp)
                 )
                 
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(3.dp))
                 
                 Text(
                     text = "Rhythm",

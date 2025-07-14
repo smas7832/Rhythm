@@ -201,7 +201,7 @@ fun AppUpdaterScreen(
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surfaceContainer
                     ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp), // Explicitly set to 0.dp for no shadow
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 8.dp)
@@ -224,7 +224,7 @@ fun AppUpdaterScreen(
                                 modifier = Modifier.size(48.dp)
                             )
 
-                            Spacer(modifier = Modifier.width(16.dp))
+                            Spacer(modifier = Modifier.width(3.dp)) // Reduced spacing from 8.dp to 4.dp
 
                             Text(
                                 text = "Rhythm",

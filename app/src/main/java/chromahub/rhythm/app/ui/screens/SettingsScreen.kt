@@ -2,6 +2,7 @@ package chromahub.rhythm.app.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.material.icons.rounded.*
+import androidx.compose.material.icons.filled.*
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.expandVertically
@@ -73,6 +74,7 @@ import androidx.compose.ui.text.style.TextAlign
 import chromahub.rhythm.app.data.Song
 import chromahub.rhythm.app.data.AlbumViewType
 import chromahub.rhythm.app.data.ArtistViewType
+import chromahub.rhythm.app.ui.screens.AlbumSortOrder
 import chromahub.rhythm.app.ui.components.MiniPlayer
 import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.R
@@ -99,10 +101,8 @@ import android.content.Intent
 import android.net.Uri
 import java.util.Locale
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Public
-import androidx.compose.material.icons.filled.BugReport
-import androidx.compose.material.icons.filled.Info // Added import for Info icon
-import androidx.compose.material.icons.filled.Palette // Added import for Palette icon
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
@@ -260,7 +260,7 @@ fun SettingsScreen(
                 SettingsToggleItem(
                     title = "Use system theme",
                     description = "Follow system dark/light theme setting automatically",
-                    icon = RhythmIcons.Settings,
+                    icon = Icons.Filled.Settings,
                     checked = useSystemTheme,
                     onCheckedChange = {
                         appSettings.setUseSystemTheme(it)
@@ -270,7 +270,7 @@ fun SettingsScreen(
                 SettingsToggleItem(
                     title = "Dynamic colors",
                     description = "Use wallpaper-based colors (Android 12+)",
-                    icon = Icons.Default.Palette,
+                    icon = Icons.Filled.Palette,
                     checked = useDynamicColors,
                     onCheckedChange = {
                         appSettings.setUseDynamicColors(it)
@@ -285,7 +285,7 @@ fun SettingsScreen(
                     SettingsToggleItem(
                         title = "Dark mode",
                         description = "Enable dark theme",
-                        icon = RhythmIcons.LocationFilled,
+                        icon = Icons.Filled.DarkMode,
                         checked = darkMode,
                         onCheckedChange = {
                             appSettings.setDarkMode(it)
@@ -298,29 +298,69 @@ fun SettingsScreen(
             
             // Library section
             item {
-                SettingsSectionHeader(title = "Library")
+                SettingsSectionHeader(title = "Personalization")
 
                 val albumViewType by appSettings.albumViewType.collectAsState()
+                var showAlbumViewDropdown by remember { mutableStateOf(false) }
                 
-                SettingsClickableItem(
+                SettingsDropdownItem(
                     title = "Album view type",
-                    description = "Choose how albums are displayed: ${albumViewType.name.lowercase().replaceFirstChar { it.uppercase() }}",
-                    icon = RhythmIcons.Album,
-                    onClick = {
-                        val newViewType = if (albumViewType == AlbumViewType.LIST) AlbumViewType.GRID else AlbumViewType.LIST
+                    description = "Choose how albums are displayed",
+                    selectedOption = albumViewType.name.lowercase().replaceFirstChar { it.uppercase() },
+                    icon = Icons.Filled.Album,
+                    options = AlbumViewType.values().map { 
+                        it.name.lowercase().replaceFirstChar { char -> char.uppercase() } 
+                    },
+                    onOptionSelected = { selectedOption ->
+                        val newViewType = AlbumViewType.values().find { 
+                            it.name.lowercase().replaceFirstChar { char -> char.uppercase() } == selectedOption 
+                        } ?: AlbumViewType.LIST
                         appSettings.setAlbumViewType(newViewType)
                     }
                 )
 
                 val artistViewType by appSettings.artistViewType.collectAsState()
                 
-                SettingsClickableItem(
+                SettingsDropdownItem(
                     title = "Artist view type",
-                    description = "Choose how artists are displayed: ${artistViewType.name.lowercase().replaceFirstChar { it.uppercase() }}",
-                    icon = RhythmIcons.Artist,
-                    onClick = {
-                        val newViewType = if (artistViewType == ArtistViewType.LIST) ArtistViewType.GRID else ArtistViewType.LIST
+                    description = "Choose how artists are displayed",
+                    selectedOption = artistViewType.name.lowercase().replaceFirstChar { it.uppercase() },
+                    icon = Icons.Filled.Person,
+                    options = ArtistViewType.values().map { 
+                        it.name.lowercase().replaceFirstChar { char -> char.uppercase() } 
+                    },
+                    onOptionSelected = { selectedOption ->
+                        val newViewType = ArtistViewType.values().find { 
+                            it.name.lowercase().replaceFirstChar { char -> char.uppercase() } == selectedOption 
+                        } ?: ArtistViewType.LIST
                         appSettings.setArtistViewType(newViewType)
+                    }
+                )
+
+                val albumSortOrder by appSettings.albumSortOrder.collectAsState()
+                
+                SettingsDropdownItem(
+                    title = "Album sort order",
+                    description = "Choose how songs are sorted on albums",
+                    selectedOption = when (AlbumSortOrder.valueOf(albumSortOrder)) {
+                        AlbumSortOrder.TRACK_NUMBER -> "Track Number"
+                        AlbumSortOrder.TITLE_ASC -> "Title A-Z"
+                        AlbumSortOrder.TITLE_DESC -> "Title Z-A"
+                        AlbumSortOrder.DURATION_ASC -> "Duration ↑"
+                        AlbumSortOrder.DURATION_DESC -> "Duration ↓"
+                    },
+                    icon = Icons.Filled.Sort,
+                    options = listOf("Track Number", "Title A-Z", "Title Z-A", "Duration ↑", "Duration ↓"),
+                    onOptionSelected = { selectedOption ->
+                        val newSortOrder = when (selectedOption) {
+                            "Track Number" -> AlbumSortOrder.TRACK_NUMBER
+                            "Title A-Z" -> AlbumSortOrder.TITLE_ASC
+                            "Title Z-A" -> AlbumSortOrder.TITLE_DESC
+                            "Duration ↑" -> AlbumSortOrder.DURATION_ASC
+                            "Duration ↓" -> AlbumSortOrder.DURATION_DESC
+                            else -> AlbumSortOrder.TRACK_NUMBER
+                        }
+                        appSettings.setAlbumSortOrder(newSortOrder.name)
                     }
                 )
 
@@ -387,7 +427,7 @@ fun SettingsScreen(
                 SettingsToggleItem(
                     title = "Show lyrics",
                     description = "Display lyrics when available",
-                    icon = RhythmIcons.Queue,
+                    icon = Icons.Filled.Lyrics,
                     checked = showLyrics,
                     onCheckedChange = {
                         onShowLyricsChange(it)
@@ -401,7 +441,7 @@ fun SettingsScreen(
                 ) {                        SettingsToggleItem(
                             title = "Online lyrics only",
                             description = "Only show lyrics when connected to the internet",
-                            icon = RhythmIcons.LocationFilled,
+                            icon = Icons.Filled.Cloud,
                             checked = showOnlineOnlyLyrics,
                             onCheckedChange = {
                                 onShowOnlineOnlyLyricsChange(it)
@@ -413,7 +453,7 @@ fun SettingsScreen(
                 SettingsToggleItem(
                     title = "System volume control",
                     description = "Use device volume controls for music playback",
-                    icon = RhythmIcons.VolumeUp,
+                    icon = Icons.Filled.VolumeUp,
                     checked = useSystemVolume,
                     onCheckedChange = {
                         appSettings.setUseSystemVolume(it)
@@ -423,7 +463,7 @@ fun SettingsScreen(
                 SettingsClickableItem(
                     title = "Equalizer",
                     description = "Open system equalizer to adjust audio frequencies",
-                    icon = RhythmIcons.VolumeUp,
+                    icon = Icons.Filled.GraphicEq,
                     onClick = onOpenSystemEqualizer
                 )
 
@@ -437,14 +477,14 @@ fun SettingsScreen(
                 SettingsClickableItem(
                     title = "Max cache size",
                     description = "Current: ${String.format("%.1f", maxCacheSize / (1024f * 1024f))} MB",
-                    icon = RhythmIcons.Settings,
+                    icon = Icons.Filled.Storage,
                     onClick = { showCacheSizeDialog = true }
                 )
 
                 SettingsToggleItem(
                     title = "Clear cache on exit",
                     description = "Automatically clear cached data when the app closes",
-                    icon = RhythmIcons.Delete,
+                    icon = Icons.Filled.ClearAll,
                     checked = clearCacheOnExit,
                     onCheckedChange = { appSettings.setClearCacheOnExit(it) }
                 )
@@ -459,7 +499,7 @@ fun SettingsScreen(
                 SettingsClickableItem(
                     title = "Manage API Settings",
                     description = "Configure external API keys and services",
-                    icon = RhythmIcons.Settings,
+                    icon = Icons.Filled.Api,
                     onClick = {
                         showApiBottomSheet = true
                     }
@@ -479,7 +519,7 @@ fun SettingsScreen(
                 SettingsToggleItem(
                     title = "Enable Updates",
                     description = "Allow the app to check for and download updates",
-                    icon = RhythmIcons.Actions.Update,
+                    icon = Icons.Filled.SystemUpdate,
                     checked = updatesEnabled,
                     onCheckedChange = { appSettings.setUpdatesEnabled(it) }
                 )
@@ -493,7 +533,7 @@ fun SettingsScreen(
                         SettingsToggleItem(
                             title = "Periodic Check",
                             description = "Check for updates from Rhythm's GitHub repo automatically",
-                            icon = Icons.Rounded.Update,
+                            icon = Icons.Filled.Update,
                             checked = autoCheckForUpdates,
                             onCheckedChange = {
                                 appSettings.setAutoCheckForUpdates(it)
@@ -881,6 +921,165 @@ fun SettingsClickableItem(
                 contentDescription = "Open",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+}
+
+@Composable
+fun SettingsDropdownItem(
+    title: String,
+    description: String,
+    selectedOption: String,
+    options: List<String>,
+    icon: ImageVector,
+    iconTint: Color = MaterialTheme.colorScheme.primary,
+    onOptionSelected: (String) -> Unit
+) {
+    var showDropdown by remember { mutableStateOf(false) }
+    
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 1.dp
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .clickable { showDropdown = true }
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp)
+        ) {
+            // Icon
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconTint,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            // Text
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 16.dp)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // Current selection badge
+            Surface(
+                color = MaterialTheme.colorScheme.primaryContainer,
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    text = selectedOption,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                )
+            }
+            
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // Dropdown arrow
+            Icon(
+                imageVector = Icons.Filled.KeyboardArrowDown,
+                contentDescription = "Show options",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        
+        // Enhanced Dropdown Menu
+        Box {
+            DropdownMenu(
+                expanded = showDropdown,
+                onDismissRequest = { showDropdown = false },
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.padding(4.dp)
+            ) {
+                options.forEach { option ->
+                    Surface(
+                        color = if (selectedOption == option) 
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+                        else 
+                            Color.Transparent,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        DropdownMenuItem(
+                            text = { 
+                                Text(
+                                    text = option,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = if (selectedOption == option) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (selectedOption == option) 
+                                        MaterialTheme.colorScheme.onPrimaryContainer 
+                                    else 
+                                        MaterialTheme.colorScheme.onSurface
+                                ) 
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = when (option) {
+                                        "Track Number" -> Icons.Filled.FormatListNumbered
+                                        "Title A-Z", "Title Z-A" -> Icons.Filled.SortByAlpha
+                                        "Duration ↑", "Duration ↓" -> Icons.Filled.AccessTime
+                                        "Stable" -> Icons.Filled.Public
+                                        "Beta" -> Icons.Filled.BugReport
+                                        "List" -> Icons.Filled.List
+                                        "Grid" -> Icons.Filled.GridView
+                                        else -> Icons.Filled.Check // Fallback
+                                    },
+                                    contentDescription = null,
+                                    tint = if (selectedOption == option) 
+                                        MaterialTheme.colorScheme.onPrimaryContainer 
+                                    else 
+                                        MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            },
+                            onClick = {
+                                onOptionSelected(option)
+                                showDropdown = false
+                            },
+                            colors = androidx.compose.material3.MenuDefaults.itemColors(
+                                textColor = if (selectedOption == option) 
+                                    MaterialTheme.colorScheme.onPrimaryContainer 
+                                else 
+                                    MaterialTheme.colorScheme.onSurface
+                            )
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -1498,118 +1697,17 @@ fun EnhancedUpdateChannelOption(
     currentChannel: String,
     onChannelChange: (String) -> Unit
 ) {
-    var showChannelDropdown by remember { mutableStateOf(false) }
-    
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer
-        ),
-        shape = MaterialTheme.shapes.medium,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(MaterialTheme.shapes.medium)
-            .clickable { showChannelDropdown = true }
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = if (currentChannel == "beta") Icons.Default.BugReport else Icons.Default.Public,
-                    contentDescription = null,
-                    tint = if (currentChannel == "beta") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-            
-            Spacer(modifier = Modifier.width(16.dp))
-            
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Update Channel",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "Current: ${currentChannel.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            
-            Icon(
-                imageVector = RhythmIcons.Forward,
-                contentDescription = "Change channel",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp)
-            )
+    SettingsDropdownItem(
+        title = "Update Channel",
+        description = "Choose how you receive updates",
+        selectedOption = currentChannel.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() },
+        icon = if (currentChannel == "beta") Icons.Default.BugReport else Icons.Default.Public,
+        iconTint = if (currentChannel == "beta") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+        options = listOf("Stable", "Beta"),
+        onOptionSelected = { selectedOption ->
+            onChannelChange(selectedOption.lowercase(Locale.ROOT))
         }
-        
-        DropdownMenu(
-            expanded = showChannelDropdown,
-            onDismissRequest = { showChannelDropdown = false },
-            shape = MaterialTheme.shapes.medium
-        ) {
-            DropdownMenuItem(
-                text = { 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Public,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text("Stable")
-                            Text(
-                                "Stable releases only",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                },
-                onClick = {
-                    onChannelChange("stable")
-                    showChannelDropdown = false
-                }
-            )
-            DropdownMenuItem(
-                text = { 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.BugReport,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text("Beta")
-                            Text(
-                                "Get early access to new features",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                },
-                onClick = {
-                    onChannelChange("beta")
-                    showChannelDropdown = false
-                }
-            )
-        }
-    }
+    )
 }
 
 @Composable
