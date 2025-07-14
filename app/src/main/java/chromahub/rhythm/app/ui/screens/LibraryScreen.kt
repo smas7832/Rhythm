@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -99,6 +100,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -125,6 +127,9 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import kotlinx.coroutines.launch
 import androidx.compose.material3.ListItemDefaults
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 
 
 enum class LibraryTab { SONGS, PLAYLISTS }
@@ -144,6 +149,9 @@ fun LibraryScreen(
     onAddPlaylist: () -> Unit,
     onAlbumClick: (Album) -> Unit,
     onAlbumShufflePlay: (Album) -> Unit = { _ -> },
+    onPlayQueue: (List<Song>) -> Unit = { _ -> }, // Added for playing a list of songs with queue replacement
+    onShuffleQueue: (List<Song>) -> Unit = { _ -> }, // Added for shuffling and playing a list of songs
+    onAlbumBottomSheetClick: (Album) -> Unit = { _ -> }, // Added for opening album bottom sheet
     onSort: () -> Unit = {},
     onSearchClick: () -> Unit = {},
     onAddSongToPlaylist: (Song, String) -> Unit = { _, _ -> },
@@ -166,7 +174,7 @@ fun LibraryScreen(
     var selectedSong by remember { mutableStateOf<Song?>(null) }
     var selectedAlbum by remember { mutableStateOf<Album?>(null) }
     val addToPlaylistSheetState = rememberModalBottomSheetState()
-    val albumBottomSheetState = rememberModalBottomSheetState()
+    val albumBottomSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
     
     // TopAppBar scroll behavior
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
@@ -241,13 +249,21 @@ fun LibraryScreen(
             album = selectedAlbum!!,
             onDismiss = { showAlbumBottomSheet = false },
             onSongClick = onSongClick,
-            onPlayAll = { 
-                // Play the entire album using the proper album playback
-                selectedAlbum?.let { onAlbumClick(it) }
+            onPlayAll = { songs ->
+                // Play the sorted album songs using proper queue replacement
+                if (songs.isNotEmpty()) {
+                    onPlayQueue(songs) // Use the new queue replacement callback
+                } else {
+                    selectedAlbum?.let { onAlbumClick(it) }
+                }
             },
-            onShufflePlay = {
-                // Play shuffled album songs using the proper shuffled album playback
-                selectedAlbum?.let { onAlbumShufflePlay(it) }
+            onShufflePlay = { songs ->
+                // Play shuffled sorted album songs with proper queue replacement
+                if (songs.isNotEmpty()) {
+                    onShuffleQueue(songs) // Use the new shuffle queue callback
+                } else {
+                    selectedAlbum?.let { onAlbumShufflePlay(it) }
+                }
             },
             onAddToQueue = onAddToQueue,
             onAddSongToPlaylist = { song ->
@@ -261,6 +277,7 @@ fun LibraryScreen(
                     }
                 }
             },
+            onPlayerClick = onPlayerClick,
             sheetState = albumBottomSheetState
         )
     }
@@ -1435,21 +1452,54 @@ fun EmptyState(
     }
 }
 
+enum class AlbumSortOrder {
+    TRACK_NUMBER,
+    TITLE_ASC,
+    TITLE_DESC,
+    DURATION_ASC,
+    DURATION_DESC
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AlbumBottomSheet(
     album: Album,
     onDismiss: () -> Unit,
     onSongClick: (Song) -> Unit,
-    onPlayAll: () -> Unit,
-    onShufflePlay: () -> Unit,
+    onPlayAll: (List<Song>) -> Unit, // Updated to pass sorted songs
+    onShufflePlay: (List<Song>) -> Unit, // Updated to pass sorted songs
     onAddToQueue: (Song) -> Unit,
     onAddSongToPlaylist: (Song) -> Unit,
+    onPlayerClick: () -> Unit,
     sheetState: SheetState
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val configuration = LocalConfiguration.current
+    val screenHeight = configuration.screenHeightDp.dp
     
-    // Animation states inspired by ArtistBottomSheet
+    // Get AppSettings for sort order persistence
+    val appSettings = remember { AppSettings.getInstance(context) }
+    val savedSortOrder by appSettings.albumSortOrder.collectAsState()
+    
+    // Sort order state with persistence
+    var sortOrder by remember { 
+        mutableStateOf(
+            try {
+                AlbumSortOrder.valueOf(savedSortOrder)
+            } catch (e: Exception) {
+                AlbumSortOrder.TRACK_NUMBER
+            }
+        )
+    }
+    var showSortMenu by remember { mutableStateOf(false) }
+    
+    // Save sort order when it changes
+    LaunchedEffect(sortOrder) {
+        appSettings.setAlbumSortOrder(sortOrder.name)
+    }
+    
+    // Animation states
     var showContent by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         showContent = true
@@ -1476,18 +1526,41 @@ fun AlbumBottomSheet(
         label = "contentTranslation"
     )
     
+    // Sort songs based on selected order
+    val sortedSongs = remember(album.songs, sortOrder) {
+        when (sortOrder) {
+            AlbumSortOrder.TRACK_NUMBER -> album.songs.sortedWith { a, b ->
+                when {
+                    a.trackNumber > 0 && b.trackNumber > 0 -> a.trackNumber.compareTo(b.trackNumber)
+                    a.trackNumber > 0 -> -1
+                    b.trackNumber > 0 -> 1
+                    else -> a.title.compareTo(b.title, ignoreCase = true)
+                }
+            }
+            AlbumSortOrder.TITLE_ASC -> album.songs.sortedBy { it.title.lowercase() }
+            AlbumSortOrder.TITLE_DESC -> album.songs.sortedByDescending { it.title.lowercase() }
+            AlbumSortOrder.DURATION_ASC -> album.songs.sortedBy { it.duration }
+            AlbumSortOrder.DURATION_DESC -> album.songs.sortedByDescending { it.duration }
+        }
+    }
+    
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-        dragHandle = null
+        dragHandle = null,
+        modifier = Modifier
+            .fillMaxHeight() // Make it full height to prevent floating
+            .imePadding() // Handle keyboard properly
     ) {
-        LazyColumn(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            // Enhanced Album Header with gradient overlay and improved layout
-            item {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .navigationBarsPadding() // Handle navigation bar properly
+            ) {
+                // Sticky Enhanced Album Header
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1532,10 +1605,10 @@ fun AlbumBottomSheet(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    imageVector = RhythmIcons.Album,
+                                    imageVector = Icons.Filled.Album,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
-                                    modifier = Modifier.size(140.dp)
+                                    modifier = Modifier.size(120.dp)
                                 )
                             }
                         }
@@ -1558,22 +1631,6 @@ fun AlbumBottomSheet(
                             )
                     )
                     
-                    // Horizontal gradient for enhanced depth
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                Brush.horizontalGradient(
-                                    colors = listOf(
-                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.4f),
-                                        Color.Transparent,
-                                        Color.Transparent,
-                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.4f)
-                                    )
-                                )
-                            )
-                    )
-                    
                     // Enhanced close button with blur effect simulation
                     FilledIconButton(
                         onClick = onDismiss,
@@ -1587,7 +1644,7 @@ fun AlbumBottomSheet(
                         )
                     ) {
                         Icon(
-                            imageVector = RhythmIcons.Close,
+                            imageVector = Icons.Filled.Close,
                             contentDescription = "Close",
                             modifier = Modifier.size(20.dp)
                         )
@@ -1659,9 +1716,26 @@ fun AlbumBottomSheet(
                             horizontalArrangement = Arrangement.spacedBy(16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Enhanced Play All button
+                            // Enhanced Play All button with sorted songs
                             Button(
-                                onClick = onPlayAll,
+                                onClick = {
+                                    // Clear queue first, then play sorted songs in order
+                                    if (sortedSongs.isNotEmpty()) {
+                                        // Pass the sorted songs to the callback for proper queue management
+                                        onPlayAll(sortedSongs)
+                                        onSongClick(sortedSongs.first()) // Start with first sorted song
+                                    } else {
+                                        onPlayAll(album.songs)
+                                    }
+                                    scope.launch {
+                                        sheetState.hide()
+                                    }.invokeOnCompletion {
+                                        if (!sheetState.isVisible) {
+                                            onDismiss()
+                                            onPlayerClick()
+                                        }
+                                    }
+                                },
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = MaterialTheme.colorScheme.primary,
                                     contentColor = MaterialTheme.colorScheme.onPrimary
@@ -1671,7 +1745,7 @@ fun AlbumBottomSheet(
                                 contentPadding = PaddingValues(vertical = 14.dp)
                             ) {
                                 Icon(
-                                    imageVector = RhythmIcons.Play,
+                                    imageVector = Icons.Filled.PlayArrow,
                                     contentDescription = null,
                                     modifier = Modifier.size(22.dp)
                                 )
@@ -1683,9 +1757,28 @@ fun AlbumBottomSheet(
                                 )
                             }
 
-                            // Enhanced Shuffle button
+                            // Enhanced Shuffle button with sorted songs
                             FilledIconButton(
-                                onClick = onShufflePlay,
+                                onClick = {
+                                    // Shuffle the sorted songs and play
+                                    if (sortedSongs.isNotEmpty()) {
+                                        // Pass the sorted and shuffled songs to the callback
+                                        val shuffledSongs = sortedSongs.shuffled()
+                                        onShufflePlay(shuffledSongs)
+                                        onSongClick(shuffledSongs.first()) // Start with first shuffled song
+                                    } else {
+                                        val shuffledSongs = album.songs.shuffled()
+                                        onShufflePlay(shuffledSongs)
+                                    }
+                                    scope.launch {
+                                        sheetState.hide()
+                                    }.invokeOnCompletion {
+                                        if (!sheetState.isVisible) {
+                                            onDismiss()
+                                            onPlayerClick()
+                                        }
+                                    }
+                                },
                                 colors = IconButtonDefaults.filledIconButtonColors(
                                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
                                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer
@@ -1693,119 +1786,214 @@ fun AlbumBottomSheet(
                                 modifier = Modifier.size(52.dp)
                             ) {
                                 Icon(
-                                    imageVector = RhythmIcons.Shuffle,
+                                    imageVector = Icons.Filled.Shuffle,
                                     contentDescription = "Shuffle play",
                                     modifier = Modifier.size(26.dp)
                                 )
                             }
                         }
+                        }
+                    }
+                
+                // Sticky Songs Header with sorting controls
+                if (sortedSongs.isNotEmpty()) {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.surface,
+                        shadowElevation = 0.dp, // Add subtle elevation when scrolled
+                        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp, vertical = 16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Songs",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text(
+                                        text = "${sortedSongs.size}",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onPrimary,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                    )
+                                }
+                                
+                                // Sort button with dropdown
+                                Box {
+                                    FilledIconButton(
+                                        onClick = { showSortMenu = true },
+                                        colors = IconButtonDefaults.filledIconButtonColors(
+                                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                        ),
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Sort,
+                                            contentDescription = "Sort songs",
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                    
+                                    DropdownMenu(
+                                        expanded = showSortMenu,
+                                        onDismissRequest = { showSortMenu = false },
+                                        shape = RoundedCornerShape(16.dp),
+                                        modifier = Modifier.padding(4.dp)
+                                    ) {
+                                        AlbumSortOrder.values().forEach { order ->
+                                            Surface(
+                                                color = if (sortOrder == order) 
+                                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+                                                else 
+                                                    Color.Transparent,
+                                                shape = RoundedCornerShape(12.dp),
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                                            ) {
+                                                DropdownMenuItem(
+                                                    text = { 
+                                                        Text(
+                                                            text = when (order) {
+                                                                AlbumSortOrder.TRACK_NUMBER -> "Track Number"
+                                                                AlbumSortOrder.TITLE_ASC -> "Title A-Z"
+                                                                AlbumSortOrder.TITLE_DESC -> "Title Z-A"
+                                                                AlbumSortOrder.DURATION_ASC -> "Duration ↑"
+                                                                AlbumSortOrder.DURATION_DESC -> "Duration ↓"
+                                                            },
+                                                            style = MaterialTheme.typography.bodyMedium,
+                                                            fontWeight = if (sortOrder == order) FontWeight.Bold else FontWeight.Normal,
+                                                            color = if (sortOrder == order) 
+                                                                MaterialTheme.colorScheme.onPrimaryContainer 
+                                                            else 
+                                                                MaterialTheme.colorScheme.onSurface
+                                                        ) 
+                                                    },
+                                                    leadingIcon = {
+                                                        Icon(
+                                                            imageVector = when (order) {
+                                                                AlbumSortOrder.TRACK_NUMBER -> Icons.Filled.FormatListNumbered
+                                                                AlbumSortOrder.TITLE_ASC, AlbumSortOrder.TITLE_DESC -> Icons.Filled.SortByAlpha
+                                                                AlbumSortOrder.DURATION_ASC, AlbumSortOrder.DURATION_DESC -> Icons.Filled.AccessTime
+                                                            },
+                                                            contentDescription = null,
+                                                            tint = if (sortOrder == order) 
+                                                                MaterialTheme.colorScheme.onPrimaryContainer 
+                                                            else 
+                                                                MaterialTheme.colorScheme.onSurfaceVariant
+                                                        )
+                                                    },
+                                                    onClick = {
+                                                        sortOrder = order
+                                                        showSortMenu = false
+                                                        // Save the new sort order to persistent storage
+                                                        appSettings.setAlbumSortOrder(order.name)
+                                                        // The sorted songs list will be automatically updated
+                                                        // due to the derivedStateOf in sortedSongs
+                                                    },
+                                                    colors = androidx.compose.material3.MenuDefaults.itemColors(
+                                                        textColor = if (sortOrder == order) 
+                                                            MaterialTheme.colorScheme.onPrimaryContainer 
+                                                        else 
+                                                            MaterialTheme.colorScheme.onSurface
+                                                    )
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
-            }
-            
-            // Enhanced Songs header with better spacing and design
-            item {
-                Surface(
+                
+                // Scrollable Songs List
+                LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 20.dp)
-                        .graphicsLayer { 
-                            alpha = contentAlpha
-                            translationY = contentTranslation
-                        },
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                    shape = RoundedCornerShape(16.dp)
+                        .weight(1f),
+                    contentPadding = PaddingValues(bottom = 16.dp) // Add bottom padding for last item
                 ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Songs",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        
-                        Surface(
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text(
-                                text = "${album.songs.size}",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    // Songs content with sorting
+                    if (sortedSongs.isNotEmpty()) {
+                        items(
+                            items = sortedSongs,
+                            key = { it.id }
+                        ) { song ->
+                            EnhancedAlbumSongItem(
+                                song = song,
+                                onClick = {
+                                    onSongClick(song)
+                                    scope.launch {
+                                        sheetState.hide()
+                                    }.invokeOnCompletion {
+                                        if (!sheetState.isVisible) {
+                                            onDismiss()
+                                            onPlayerClick()
+                                        }
+                                    }
+                                },
+                                onAddToQueue = { onAddToQueue(song) },
+                                onAddToPlaylist = { onAddSongToPlaylist(song) },
+                                modifier = Modifier
+                                    .animateItemPlacement() // Keep item placement animation
                             )
                         }
-                    }
-                }
-            }
-
-            // Enhanced Songs list with improved animations
-            if (album.songs.isNotEmpty()) {
-                items(
-                    items = album.songs,
-                    key = { it.id }
-                ) { song ->
-                    EnhancedAlbumSongItem(
-                        song = song,
-                        onClick = { onSongClick(song) },
-                        onAddToQueue = { onAddToQueue(song) },
-                        onAddToPlaylist = { onAddSongToPlaylist(song) },
-                        modifier = Modifier
-                            .animateItemPlacement()
-                            .graphicsLayer {
-                                alpha = contentAlpha
-                                translationY = contentTranslation
+                    } else {
+                        item {
+                            // Empty state for no songs
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(32.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.MusicNote,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                        modifier = Modifier.size(48.dp)
+                                    )
+                                    
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    
+                                    Text(
+                                        text = "No songs in this album",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
                             }
-                    )
-                }
-            } else {
-                item {
-                    // Empty state for no songs
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(32.dp)
-                            .graphicsLayer { 
-                                alpha = contentAlpha
-                                translationY = contentTranslation
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(
-                                imageVector = RhythmIcons.Music.Song,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                modifier = Modifier.size(48.dp)
-                            )
-                            
-                            Spacer(modifier = Modifier.height(16.dp))
-                            
-                            Text(
-                                text = "No songs in this album",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center
-                            )
                         }
                     }
+                    
+                    // Enhanced bottom spacing
+                    item {
+                        Spacer(modifier = Modifier.height(40.dp))
+                    }
                 }
-            }
-            
-            // Enhanced bottom spacing
-            item {
-                Spacer(
-                    modifier = Modifier
-                        .height(40.dp)
-                        .graphicsLayer { alpha = contentAlpha }
-                )
             }
         }
     }
@@ -1826,8 +2014,8 @@ fun EnhancedAlbumSongItem(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
-        shape = RoundedCornerShape(12.dp),
+            .padding(horizontal = 20.dp, vertical = 6.dp), // Increased horizontal padding
+        shape = RoundedCornerShape(16.dp), // Increased corner radius
         color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.6f),
         tonalElevation = 1.dp
     ) {
@@ -1850,7 +2038,7 @@ fun EnhancedAlbumSongItem(
                         Surface(
                             color = MaterialTheme.colorScheme.primaryContainer,
                             shape = CircleShape,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(22.dp) // Slightly larger
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Text(
@@ -1862,7 +2050,7 @@ fun EnhancedAlbumSongItem(
                             }
                         }
                         
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(10.dp)) // Increased spacing
                     }
                     
                     if (song.duration > 0) {
@@ -1878,8 +2066,8 @@ fun EnhancedAlbumSongItem(
             },
             leadingContent = {
                 Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.size(52.dp),
+                    shape = RoundedCornerShape(12.dp), // Increased corner radius
+                    modifier = Modifier.size(56.dp), // Slightly larger
                     tonalElevation = 2.dp
                 ) {
                     AsyncImage(
@@ -1899,42 +2087,42 @@ fun EnhancedAlbumSongItem(
             },
             trailingContent = {
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp) // Increased spacing
                 ) {
                     FilledIconButton(
                         onClick = onAddToQueue,
-                        modifier = Modifier.size(36.dp),
+                        modifier = Modifier.size(38.dp), // Slightly larger
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer,
                             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     ) {
                         Icon(
-                            imageVector = RhythmIcons.Queue,
+                            imageVector = Icons.Filled.QueueMusic,
                             contentDescription = "Add to queue",
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(20.dp) // Increased icon size
                         )
                     }
 
                     FilledIconButton(
                         onClick = { showDropdown = true },
-                        modifier = Modifier.size(36.dp),
+                        modifier = Modifier.size(38.dp), // Slightly larger
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = MaterialTheme.colorScheme.secondaryContainer,
                             contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                         )
                     ) {
                         Icon(
-                            imageVector = RhythmIcons.More,
+                            imageVector = Icons.Filled.MoreVert,
                             contentDescription = "More options",
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(20.dp) // Increased icon size
                         )
                     }
 
                     DropdownMenu(
                         expanded = showDropdown,
                         onDismissRequest = { showDropdown = false },
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(14.dp) // Increased corner radius
                     ) {
                         DropdownMenuItem(
                             text = { 
@@ -1945,7 +2133,7 @@ fun EnhancedAlbumSongItem(
                             },
                             leadingIcon = {
                                 Icon(
-                                    imageVector = RhythmIcons.AddToPlaylist,
+                                    imageVector = Icons.Filled.PlaylistAdd,
                                     contentDescription = null
                                 )
                             },
@@ -1959,7 +2147,8 @@ fun EnhancedAlbumSongItem(
             },
             colors = ListItemDefaults.colors(
                 containerColor = Color.Transparent
-            )
+            ),
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp) // Added internal padding
         )
     }
 }

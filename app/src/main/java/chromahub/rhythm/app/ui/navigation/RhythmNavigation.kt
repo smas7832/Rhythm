@@ -854,6 +854,19 @@ fun RhythmNavigation(
                         },
                         onAlbumClick = onPlayAlbum,
                         onAlbumShufflePlay = onPlayAlbumShuffled,
+                        onPlayQueue = { songs ->
+                            // Play queue with proper replacement
+                            viewModel.playQueue(songs)
+                        },
+                        onShuffleQueue = { songs ->
+                            // Shuffle and play queue with proper replacement
+                            val shuffled = songs.shuffled()
+                            viewModel.playQueue(shuffled)
+                        },
+                        onAlbumBottomSheetClick = { album ->
+                            // This will open the album bottom sheet within LibraryScreen
+                            // The LibraryScreen handles this internally now
+                        },
                         onSort = {
                             // Implement sort functionality
                             viewModel.sortLibrary()
@@ -874,7 +887,8 @@ fun RhythmNavigation(
                         onAddToQueue = { song ->
                             // Add song to queue
                             viewModel.addSongToQueue(song)
-                        }
+                        },
+                        initialTab = initialTab
                     )
                 }
 

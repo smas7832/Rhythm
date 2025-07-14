@@ -49,6 +49,7 @@ class AppSettings private constructor(context: Context) {
         // Library Settings
         private const val KEY_ALBUM_VIEW_TYPE = "album_view_type"
         private const val KEY_ARTIST_VIEW_TYPE = "artist_view_type"
+        private const val KEY_ALBUM_SORT_ORDER = "album_sort_order"
         
         // Audio Device Settings
         private const val KEY_LAST_AUDIO_DEVICE = "last_audio_device"
@@ -139,18 +140,18 @@ class AppSettings private constructor(context: Context) {
     val onlineOnlyLyrics: StateFlow<Boolean> = _onlineOnlyLyrics.asStateFlow()
     
     // Theme Settings
-    private val _useSystemTheme = MutableStateFlow(prefs.getBoolean(KEY_USE_SYSTEM_THEME, false))
+    private val _useSystemTheme = MutableStateFlow(prefs.getBoolean(KEY_USE_SYSTEM_THEME, true))
     val useSystemTheme: StateFlow<Boolean> = _useSystemTheme.asStateFlow()
     
     private val _darkMode = MutableStateFlow(prefs.getBoolean(KEY_DARK_MODE, true))
     val darkMode: StateFlow<Boolean> = _darkMode.asStateFlow()
     
-    private val _useDynamicColors = MutableStateFlow(prefs.getBoolean(KEY_USE_DYNAMIC_COLORS, true))
+    private val _useDynamicColors = MutableStateFlow(prefs.getBoolean(KEY_USE_DYNAMIC_COLORS, false))
     val useDynamicColors: StateFlow<Boolean> = _useDynamicColors.asStateFlow()
     
     // Library Settings
     private val _albumViewType = MutableStateFlow(
-        AlbumViewType.valueOf(prefs.getString(KEY_ALBUM_VIEW_TYPE, AlbumViewType.LIST.name) ?: AlbumViewType.LIST.name)
+        AlbumViewType.valueOf(prefs.getString(KEY_ALBUM_VIEW_TYPE, AlbumViewType.GRID.name) ?: AlbumViewType.GRID.name)
     )
     val albumViewType: StateFlow<AlbumViewType> = _albumViewType.asStateFlow()
     
@@ -158,6 +159,10 @@ class AppSettings private constructor(context: Context) {
         ArtistViewType.valueOf(prefs.getString(KEY_ARTIST_VIEW_TYPE, ArtistViewType.GRID.name) ?: ArtistViewType.GRID.name)
     )
     val artistViewType: StateFlow<ArtistViewType> = _artistViewType.asStateFlow()
+    
+    // Album Sort Order
+    private val _albumSortOrder = MutableStateFlow(prefs.getString(KEY_ALBUM_SORT_ORDER, "TRACK_NUMBER") ?: "TRACK_NUMBER")
+    val albumSortOrder: StateFlow<String> = _albumSortOrder.asStateFlow()
     
     // Audio Device Settings
     private val _lastAudioDevice = MutableStateFlow(prefs.getString(KEY_LAST_AUDIO_DEVICE, null))
@@ -403,6 +408,11 @@ class AppSettings private constructor(context: Context) {
     fun setArtistViewType(viewType: ArtistViewType) {
         prefs.edit().putString(KEY_ARTIST_VIEW_TYPE, viewType.name).apply()
         _artistViewType.value = viewType
+    }
+    
+    fun setAlbumSortOrder(sortOrder: String) {
+        prefs.edit().putString(KEY_ALBUM_SORT_ORDER, sortOrder).apply()
+        _albumSortOrder.value = sortOrder
     }
     
     // Audio Device Settings Methods

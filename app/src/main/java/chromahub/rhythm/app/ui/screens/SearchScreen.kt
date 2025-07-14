@@ -102,6 +102,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.material3.rememberModalBottomSheetState
 import chromahub.rhythm.app.ui.screens.AddToPlaylistBottomSheet
 import chromahub.rhythm.app.ui.components.CreatePlaylistDialog
+import chromahub.rhythm.app.ui.screens.ArtistBottomSheet
 import chromahub.rhythm.app.util.ImageUtils
 import chromahub.rhythm.app.ui.screens.SettingsSectionHeader
 import chromahub.rhythm.app.ui.components.M3PlaceholderType
@@ -145,13 +146,27 @@ fun SearchScreen(
     val searchHistory by viewModel.searchHistory.collectAsState()
     val recentlyPlayed by viewModel.recentlyPlayed.collectAsState()
     
-    // Enhanced filter results based on search query and active filters
+    // Enhanced search logic with better ranking and fuzzy matching
     val filteredSongs by remember(searchQuery, songs, filterSongs) {
         derivedStateOf {
             if (searchQuery.isBlank() || !filterSongs) emptyList()
-            else songs.filter { song ->
-                listOf(song.title, song.artist, song.album)
-                    .any { it.contains(searchQuery, ignoreCase = true) }
+            else {
+                val query = searchQuery.lowercase()
+                songs.filter { song ->
+                    listOf(song.title, song.artist, song.album)
+                        .any { it.contains(query, ignoreCase = true) }
+                }.sortedWith(compareBy<Song> { song ->
+                    // Prioritize exact matches in title
+                    when {
+                        song.title.lowercase() == query -> 0
+                        song.title.lowercase().startsWith(query) -> 1
+                        song.artist.lowercase() == query -> 2
+                        song.artist.lowercase().startsWith(query) -> 3
+                        song.album.lowercase() == query -> 4
+                        song.album.lowercase().startsWith(query) -> 5
+                        else -> 6
+                    }
+                }.thenBy { it.title })
             }
         }
     }
@@ -159,9 +174,21 @@ fun SearchScreen(
     val filteredAlbums by remember(searchQuery, albums, filterAlbums) {
         derivedStateOf {
             if (searchQuery.isBlank() || !filterAlbums) emptyList()
-            else albums.filter { album ->
-                listOf(album.title, album.artist)
-                    .any { it.contains(searchQuery, ignoreCase = true) }
+            else {
+                val query = searchQuery.lowercase()
+                albums.filter { album ->
+                    listOf(album.title, album.artist)
+                        .any { it.contains(query, ignoreCase = true) }
+                }.sortedWith(compareBy<Album> { album ->
+                    // Prioritize exact matches in title
+                    when {
+                        album.title.lowercase() == query -> 0
+                        album.title.lowercase().startsWith(query) -> 1
+                        album.artist.lowercase() == query -> 2
+                        album.artist.lowercase().startsWith(query) -> 3
+                        else -> 4
+                    }
+                }.thenBy { it.title })
             }
         }
     }
@@ -169,8 +196,18 @@ fun SearchScreen(
     val filteredArtists by remember(searchQuery, artists, filterArtists) {
         derivedStateOf {
             if (searchQuery.isBlank() || !filterArtists) emptyList()
-            else artists.filter { artist ->
-                artist.name.contains(searchQuery, ignoreCase = true)
+            else {
+                val query = searchQuery.lowercase()
+                artists.filter { artist ->
+                    artist.name.contains(query, ignoreCase = true)
+                }.sortedWith(compareBy<Artist> { artist ->
+                    // Prioritize exact matches and starts with
+                    when {
+                        artist.name.lowercase() == query -> 0
+                        artist.name.lowercase().startsWith(query) -> 1
+                        else -> 2
+                    }
+                }.thenBy { it.name })
             }
         }
     }
@@ -178,8 +215,18 @@ fun SearchScreen(
     val filteredPlaylists by remember(searchQuery, playlists, filterPlaylists) {
         derivedStateOf {
             if (searchQuery.isBlank() || !filterPlaylists) emptyList()
-            else playlists.filter { playlist ->
-                playlist.name.contains(searchQuery, ignoreCase = true)
+            else {
+                val query = searchQuery.lowercase()
+                playlists.filter { playlist ->
+                    playlist.name.contains(query, ignoreCase = true)
+                }.sortedWith(compareBy<Playlist> { playlist ->
+                    // Prioritize exact matches and starts with
+                    when {
+                        playlist.name.lowercase() == query -> 0
+                        playlist.name.lowercase().startsWith(query) -> 1
+                        else -> 2
+                    }
+                }.thenBy { it.name })
             }
         }
     }
@@ -195,6 +242,16 @@ fun SearchScreen(
     var selectedSong by remember { mutableStateOf<Song?>(null) }
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
     val addToPlaylistSheetState = rememberModalBottomSheetState()
+    
+    // Album bottom sheet state
+    var showAlbumBottomSheet by remember { mutableStateOf(false) }
+    var selectedAlbum by remember { mutableStateOf<Album?>(null) }
+    val albumBottomSheetState = rememberModalBottomSheetState()
+    
+    // Artist bottom sheet state  
+    var showArtistBottomSheet by remember { mutableStateOf(false) }
+    var selectedArtist by remember { mutableStateOf<Artist?>(null) }
+    val artistBottomSheetState = rememberModalBottomSheetState()
     
     Scaffold(
         bottomBar = {}
@@ -534,6 +591,10 @@ fun SearchScreen(
                         onAddSongToPlaylist = { song ->
                             selectedSong = song
                             showAddToPlaylistSheet = true
+                        },
+                        onArtistBottomSheetClick = { artist ->
+                            selectedArtist = artist
+                            showArtistBottomSheet = true
                         }
                     )
                 } else {
@@ -575,6 +636,75 @@ fun SearchScreen(
         )
     }
     
+    // Album bottom sheet
+    if (showAlbumBottomSheet && selectedAlbum != null) {
+        AlbumBottomSheet(
+            album = selectedAlbum!!,
+            onDismiss = { 
+                scope.launch {
+                    albumBottomSheetState.hide()
+                }.invokeOnCompletion {
+                    if (!albumBottomSheetState.isVisible) {
+                        showAlbumBottomSheet = false
+                    }
+                }
+            },
+            onSongClick = onSongClick,
+            onPlayAll = { songs -> 
+                // Play all songs from the album with proper sorting
+                if (songs.isNotEmpty()) {
+                    onSongClick(songs.first())
+                } else {
+                    onAlbumClick(selectedAlbum!!)
+                }
+            },
+            onShufflePlay = { songs -> 
+                // Play shuffled songs from the album
+                if (songs.isNotEmpty()) {
+                    val shuffled = songs.shuffled()
+                    onSongClick(shuffled.first())
+                } else {
+                    onAlbumClick(selectedAlbum!!)
+                }
+            },  
+            onAddToQueue = { song -> onSongClick(song) }, // For now, just play the song
+            onAddSongToPlaylist = { song ->
+                selectedSong = song
+                showAddToPlaylistSheet = true
+            },
+            onPlayerClick = onPlayerClick,
+            sheetState = albumBottomSheetState
+        )
+    }
+    
+    // Artist bottom sheet
+    if (showArtistBottomSheet && selectedArtist != null) {
+        ArtistBottomSheet(
+            artist = selectedArtist!!,
+            songs = songs, // Pass all songs to filter within ArtistBottomSheet
+            albums = albums, // Pass all albums to filter within ArtistBottomSheet
+            onDismiss = { 
+                scope.launch {
+                    artistBottomSheetState.hide()
+                }.invokeOnCompletion {
+                    if (!artistBottomSheetState.isVisible) {
+                        showArtistBottomSheet = false
+                    }
+                }
+            },
+            onSongClick = onSongClick,
+            onAlbumClick = onAlbumClick,
+            onPlayAll = { onArtistClick(selectedArtist!!) }, // Use existing artist click handler
+            onShufflePlay = { onArtistClick(selectedArtist!!) }, // Use existing artist click handler
+            onAddToQueue = { song -> onSongClick(song) }, // For now, just play the song
+            onAddSongToPlaylist = { song ->
+                selectedSong = song
+                showAddToPlaylistSheet = true
+            },
+            sheetState = artistBottomSheetState
+        )
+    }
+    
     // Create playlist dialog
     if (showCreatePlaylistDialog) {
         CreatePlaylistDialog(
@@ -601,7 +731,8 @@ fun SearchResults(
     onAlbumClick: (Album) -> Unit,
     onArtistClick: (Artist) -> Unit,
     onPlaylistClick: (Playlist) -> Unit,
-    onAddSongToPlaylist: (Song) -> Unit
+    onAddSongToPlaylist: (Song) -> Unit,
+    onArtistBottomSheetClick: (Artist) -> Unit = {}
 ) {
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -876,7 +1007,9 @@ fun SearchResults(
                     items(artists.take(10)) { artist ->
                         SearchArtistItem(
                             artist = artist,
-                            onClick = { onArtistClick(artist) }
+                            onClick = { 
+                                onArtistBottomSheetClick(artist)
+                            }
                         )
                     }
                 }
@@ -965,7 +1098,8 @@ fun SearchBrowseContent(
     focusSongs: List<Song> = emptyList(),
     energeticSongs: List<Song> = emptyList(),
     relaxingSongs: List<Song> = emptyList(),
-    onSongClick: (Song) -> Unit = {}
+    onSongClick: (Song) -> Unit = {},
+    onArtistBottomSheetClick: (Artist) -> Unit = {}
 ) {
     // Make entire content scrollable
     LazyColumn(
