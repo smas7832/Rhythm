@@ -111,6 +111,13 @@ import androidx.compose.material.icons.filled.BugReport // Import BugReport icon
 import androidx.compose.material.icons.filled.Check // Import Check icon
 import androidx.compose.material.icons.filled.MusicNote // Import MusicNote icon
 import androidx.compose.material.icons.filled.Palette // Import Palette icon
+import androidx.compose.material.icons.filled.Security // New import for Security icon
+import androidx.compose.material.icons.filled.SystemUpdate // Import SystemUpdate icon
+import androidx.compose.material.icons.filled.KeyboardArrowDown // Import KeyboardArrowDown icon
+import androidx.compose.material.icons.filled.FormatListNumbered // Import FormatListNumbered icon
+import androidx.compose.material.icons.filled.SortByAlpha // Import SortByAlpha icon
+import androidx.compose.material.icons.filled.AccessTime // Import AccessTime icon
+import androidx.compose.material.icons.filled.GridView // Import GridView icon
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.runtime.rememberCoroutineScope
@@ -410,7 +417,7 @@ fun SplashScreen() {
                 )
             }
 
-            Spacer(modifier = Modifier.height(32.dp)) // Add some space between logo and text
+            Spacer(modifier = Modifier.height(12.dp)) // Add some space between logo and text
 
             Text(
                 text = "Rhythm",
@@ -733,7 +740,7 @@ fun PermissionHandler(
                                 contentDescription = null,
                                 modifier = Modifier.size(56.dp)
                             )
-                            Spacer(modifier = Modifier.width(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = "Rhythm",
                                 style = MaterialTheme.typography.displaySmall,
@@ -755,7 +762,8 @@ fun PermissionHandler(
                     color = MaterialTheme.colorScheme.surfaceContainerHigh,
                     shape = MaterialTheme.shapes.extraLarge,
                     modifier = Modifier
-                        .fillMaxWidth(0.92f)
+                        .fillMaxWidth() // Changed to fillMaxWidth
+                        .padding(horizontal = 8.dp) // Added horizontal padding
                         .animateContentSize(
                             animationSpec = spring(
                                 dampingRatio = Spring.DampingRatioMediumBouncy,
@@ -837,7 +845,7 @@ fun PermissionHandler(
             Spacer(modifier = Modifier.height(24.dp))
             
             Text(
-                text = "Welcome to Rhythm",
+                text = "Hi there :)",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
@@ -845,13 +853,13 @@ fun PermissionHandler(
                 modifier = Modifier.padding(bottom = 12.dp)
             )
             
-            Text(
-                text = "Your personalized music journey begins here.",
-                style = MaterialTheme.typography.bodyLarge,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
+            // Text(
+            //     text = "Your personalized music journey begins here!",
+            //     style = MaterialTheme.typography.bodyLarge,
+            //     textAlign = TextAlign.Center,
+            //     color = MaterialTheme.colorScheme.onSurfaceVariant,
+            //     modifier = Modifier.padding(bottom = 8.dp)
+            // )
             
             Text(
                 text = "Let's set up your perfect music experience in just a few simple steps.",
@@ -872,11 +880,11 @@ fun PermissionHandler(
                 )
                 FeatureHighlight(
                     icon = RhythmIcons.Devices.Bluetooth,
-                    text = "Connect to Bluetooth devices seamlessly"
+                    text = "Manage your connected devices seamlessly"
                 )
                 FeatureHighlight(
                     icon = Icons.Filled.Palette,
-                    text = "Customize your theme and appearance"
+                    text = "Customize Rhythm the way you like it"
                 )
             }
             
@@ -994,7 +1002,7 @@ fun PermissionHandler(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = RhythmIcons.Actions.List,
+                        imageVector = Icons.Filled.Security, // Changed icon to Security
                         contentDescription = "Permissions Required",
                         tint = when (permissionScreenState) {
                             PermissionScreenState.RedirectToSettings -> MaterialTheme.colorScheme.error
@@ -1009,7 +1017,7 @@ fun PermissionHandler(
     
             Text(
                 text = when (permissionScreenState) {
-                    PermissionScreenState.PermissionsRequired -> "Grant Permissions"
+                    PermissionScreenState.PermissionsRequired -> "Permissions Required" // Changed title
                     PermissionScreenState.ShowRationale -> "Permissions Needed"
                     PermissionScreenState.RedirectToSettings -> "Permissions Denied"
                     else -> "Permissions"
@@ -1025,9 +1033,9 @@ fun PermissionHandler(
                 text = when (permissionScreenState) {
                     PermissionScreenState.PermissionsRequired -> {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            "Rhythm needs specific permissions to access your music files and connect to devices."
+                            "Rhythm needs essential permissions to access your music and connect to devices. Please grant them to continue." // Refined description
                         } else {
-                            "Rhythm needs a few permissions to provide you with the best music experience."
+                            "Rhythm needs a few essential permissions to provide you with the best music experience. Please grant them to continue." // Refined description
                         }
                     }
                     PermissionScreenState.ShowRationale -> "These permissions are essential for Rhythm to function properly. Please grant access to continue."
@@ -1056,7 +1064,7 @@ fun PermissionHandler(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = RhythmIcons.Actions.List,
+                            imageVector = Icons.Filled.Security, // Changed icon to Security
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSecondaryContainer,
                             modifier = Modifier.size(16.dp)
@@ -1080,9 +1088,9 @@ fun PermissionHandler(
                     icon = RhythmIcons.Music.Audiotrack,
                     title = "Music Access",
                     description = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        "Access your audio files to play your music collection"
+                        "Access your audio files and album art to play your music collection"
                     } else {
-                        "Read and play your music files from device storage"
+                        "Read and play your music files and album art from device storage"
                     },
                     isGranted = storagePermissions.all { permission ->
                         permissionsState.permissions.find { it.permission == permission }?.status?.isGranted == true
@@ -1449,7 +1457,7 @@ fun PermissionHandler(
     ) {
         val autoCheckForUpdates by appSettings.autoCheckForUpdates.collectAsState()
         val updateChannel by appSettings.updateChannel.collectAsState()
-        var showChannelDropdown by remember { mutableStateOf(false) }
+        val updatesEnabled by appSettings.updatesEnabled.collectAsState() // Observe updatesEnabled
 
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -1500,25 +1508,43 @@ fun PermissionHandler(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.padding(bottom = 32.dp)
             ) {
-                // Auto check toggle
+                // Enable Updates toggle
                 EnhancedUpdateOption(
-                    icon = RhythmIcons.Actions.Update,
-                    title = "Auto check for updates",
-                    description = "Automatically check for new versions",
-                    isChecked = autoCheckForUpdates,
-                    onCheckedChange = { appSettings.setAutoCheckForUpdates(it) }
+                    icon = Icons.Filled.SystemUpdate, // Use SystemUpdate icon
+                    title = "Enable Updates",
+                    description = "Allow Rhythm to check for and download updates",
+                    isChecked = updatesEnabled,
+                    onCheckedChange = { appSettings.setUpdatesEnabled(it) }
                 )
 
-                // Update channel selection (only visible if auto check is enabled)
+                // Periodic Check and Update Channel (only visible if updates are enabled)
                 AnimatedVisibility(
-                    visible = autoCheckForUpdates,
+                    visible = updatesEnabled,
                     enter = fadeIn() + expandVertically(),
                     exit = fadeOut() + shrinkVertically()
                 ) {
-                    EnhancedUpdateChannelOption(
-                        currentChannel = updateChannel,
-                        onChannelChange = { appSettings.setUpdateChannel(it) }
-                    )
+                    Column {
+                        // Auto check toggle (now "Periodic Check")
+                        EnhancedUpdateOption(
+                            icon = RhythmIcons.Actions.Update,
+                            title = "Periodic Check",
+                            description = "Auto check for updates from GitHub",
+                            isChecked = autoCheckForUpdates,
+                            onCheckedChange = { appSettings.setAutoCheckForUpdates(it) }
+                        )
+
+                        // Update channel selection (only visible if auto check is enabled)
+                        AnimatedVisibility(
+                            visible = autoCheckForUpdates,
+                            enter = fadeIn() + expandVertically(),
+                            exit = fadeOut() + shrinkVertically()
+                        ) {
+                            EnhancedUpdateChannelOption(
+                                currentChannel = updateChannel,
+                                onChannelChange = { appSettings.setUpdateChannel(it) }
+                            )
+                        }
+                    }
                 }
             }
 
@@ -1624,116 +1650,172 @@ fun PermissionHandler(
         currentChannel: String,
         onChannelChange: (String) -> Unit
     ) {
-        var showChannelDropdown by remember { mutableStateOf(false) }
+        SettingsDropdownItem(
+            title = "Update Channel",
+            description = "Choose how you receive updates",
+            selectedOption = currentChannel.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() },
+            icon = if (currentChannel == "beta") Icons.Default.BugReport else Icons.Default.Public,
+            iconTint = if (currentChannel == "beta") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+            options = listOf("Stable", "Beta"),
+            onOptionSelected = { selectedOption ->
+                onChannelChange(selectedOption.lowercase(Locale.ROOT))
+            }
+        )
+    }
+    
+    @Composable
+    fun SettingsDropdownItem(
+        title: String,
+        description: String,
+        selectedOption: String,
+        options: List<String>,
+        icon: androidx.compose.ui.graphics.vector.ImageVector,
+        iconTint: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primary,
+        onOptionSelected: (String) -> Unit
+    ) {
+        var showDropdown by remember { mutableStateOf(false) }
         
         Card(
+            shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainer
             ),
-            shape = MaterialTheme.shapes.medium,
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(MaterialTheme.shapes.medium)
-                .clickable { showChannelDropdown = true }
+                .padding(vertical = 6.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .clickable { showDropdown = true }
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(16.dp)
+                modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp)
             ) {
+                // Icon
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(44.dp)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = if (currentChannel == "beta") Icons.Default.BugReport else Icons.Default.Public,
+                        imageVector = icon,
                         contentDescription = null,
-                        tint = if (currentChannel == "beta") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
+                        tint = iconTint,
+                        modifier = Modifier.size(24.dp)
                     )
                 }
-                
-                Spacer(modifier = Modifier.width(16.dp))
-                
-                Column(modifier = Modifier.weight(1f)) {
+
+                // Text
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 16.dp)
+                ) {
                     Text(
-                        text = "Update Channel",
+                        text = title,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
+
                     Text(
-                        text = "Current: ${currentChannel.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }}",
+                        text = description,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+
+                // Current selection badge
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        text = selectedOption,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
                 
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Dropdown arrow
                 Icon(
-                    imageVector = RhythmIcons.Forward,
-                    contentDescription = "Change channel",
+                    imageVector = Icons.Filled.KeyboardArrowDown,
+                    contentDescription = "Show options",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(20.dp)
                 )
             }
             
-            DropdownMenu(
-                expanded = showChannelDropdown,
-                onDismissRequest = { showChannelDropdown = false },
-                shape = MaterialTheme.shapes.medium
-            ) {
-                DropdownMenuItem(
-                    text = { 
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Public,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column {
-                                Text("Stable")
-                                Text(
-                                    "Stable releases only",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+            // Enhanced Dropdown Menu
+            Box {
+                DropdownMenu(
+                    expanded = showDropdown,
+                    onDismissRequest = { showDropdown = false },
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.padding(4.dp)
+                ) {
+                    options.forEach { option ->
+                        Surface(
+                            color = if (selectedOption == option) 
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+                            else 
+                                androidx.compose.ui.graphics.Color.Transparent,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 2.dp)
+                        ) {
+                            DropdownMenuItem(
+                                text = { 
+                                    Text(
+                                        text = option,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = if (selectedOption == option) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (selectedOption == option) 
+                                            MaterialTheme.colorScheme.onPrimaryContainer 
+                                        else 
+                                            MaterialTheme.colorScheme.onSurface
+                                    ) 
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = when (option) {
+                                            "Track Number" -> Icons.Filled.FormatListNumbered
+                                            "Title A-Z", "Title Z-A" -> Icons.Filled.SortByAlpha
+                                            "Duration ↑", "Duration ↓" -> Icons.Filled.AccessTime
+                                            "Stable" -> Icons.Filled.Public
+                                            "Beta" -> Icons.Filled.BugReport
+                                            "List" -> RhythmIcons.Actions.List
+                                            "Grid" -> Icons.Filled.GridView
+                                            else -> Icons.Filled.Check // Fallback
+                                        },
+                                        contentDescription = null,
+                                        tint = if (selectedOption == option) 
+                                            MaterialTheme.colorScheme.onPrimaryContainer 
+                                        else 
+                                            MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                },
+                                onClick = {
+                                    onOptionSelected(option)
+                                    showDropdown = false
+                                },
+                                colors = androidx.compose.material3.MenuDefaults.itemColors(
+                                    textColor = if (selectedOption == option) 
+                                        MaterialTheme.colorScheme.onPrimaryContainer 
+                                    else 
+                                        MaterialTheme.colorScheme.onSurface
                                 )
-                            }
-                        }
-                    },
-                    onClick = {
-                        onChannelChange("stable")
-                        showChannelDropdown = false
-                    }
-                )
-                DropdownMenuItem(
-                    text = { 
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.BugReport,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(20.dp)
                             )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column {
-                                Text("Beta")
-                                Text(
-                                    "Get early access to new features",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
                         }
-                    },
-                    onClick = {
-                        onChannelChange("beta")
-                        showChannelDropdown = false
                     }
-                )
+                }
             }
         }
     }
