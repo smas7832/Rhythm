@@ -3,6 +3,7 @@ package chromahub.rhythm.app.data
 import android.net.Uri
 import android.os.Parcelable
 import kotlinx.parcelize.Parcelize
+import java.util.Objects
 
 @Parcelize
 data class Song(
@@ -17,7 +18,44 @@ data class Song(
     val trackNumber: Int = 0,
     val year: Int = 0,
     val genre: String? = null
-) : Parcelable
+) : Parcelable {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as Song
+
+        if (id != other.id) return false
+        if (title != other.title) return false
+        if (artist != other.artist) return false
+        if (album != other.album) return false
+        if (albumId != other.albumId) return false
+        if (duration != other.duration) return false
+        if (uri != other.uri) return false
+        if (artworkUri != other.artworkUri) return false
+        if (trackNumber != other.trackNumber) return false
+        if (year != other.year) return false
+        if (!Objects.equals(genre, other.genre)) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        return Objects.hash(
+            id,
+            title,
+            artist,
+            album,
+            albumId,
+            duration,
+            uri,
+            artworkUri,
+            trackNumber,
+            year,
+            genre
+        )
+    }
+}
 
 @Parcelize
 data class Album(
@@ -62,4 +100,4 @@ data class PlaybackLocation(
     val id: String,
     val name: String,
     val icon: Int
-) 
+)
