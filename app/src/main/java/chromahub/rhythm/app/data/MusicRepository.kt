@@ -9,6 +9,17 @@ import android.util.Log
 import chromahub.rhythm.app.network.NetworkClient
 import chromahub.rhythm.app.network.MusicBrainzApiService
 import chromahub.rhythm.app.network.CoverArtArchiveService
+import chromahub.rhythm.app.network.YTMusicApiService
+import chromahub.rhythm.app.network.YTMusicSearchRequest
+import chromahub.rhythm.app.network.YTMusicContext
+import chromahub.rhythm.app.network.YTMusicClient
+import chromahub.rhythm.app.network.YTMusicBrowseRequest
+import chromahub.rhythm.app.network.extractArtistImageUrl
+import chromahub.rhythm.app.network.extractAlbumImageUrl
+import chromahub.rhythm.app.network.extractArtistBrowseId
+import chromahub.rhythm.app.network.extractAlbumBrowseId
+import chromahub.rhythm.app.network.extractArtistThumbnail
+import chromahub.rhythm.app.network.extractAlbumCover
 import okhttp3.Request
 import com.google.gson.JsonParser
 import com.google.gson.Gson
@@ -22,6 +33,31 @@ import chromahub.rhythm.app.data.LyricsData
 
 class MusicRepository(private val context: Context) {
     private val TAG = "MusicRepository"
+
+    /**
+     * API Fallback Strategy:
+     * 
+     * ARTIST IMAGES:
+     * 1. Check local cache/storage
+     * 2. Spotify RapidAPI (primary)
+     * 3. YouTube Music (fallback right after Spotify fails)
+     * 4. MusicBrainz + CoverArt Archive
+     * 5. Last.fm (disabled)
+     * 6. Placeholder generation
+     * 
+     * ALBUM ARTWORK:
+     * 1. Check existing local album art
+     * 2. Check cache
+     * 3. Spotify RapidAPI (primary)
+     * 4. YouTube Music (only when local album art is absent)
+     * 5. Placeholder generation
+     * 
+     * TRACK IMAGES:
+     * 1. Check if track already has artwork
+     * 2. Check if album has artwork (inherit from album)
+     * 3. YouTube Music (fallback when no local artwork available)
+     */
+    
     private val spotifyApiService = NetworkClient.spotifyApiService
     private val lrclibApiService = NetworkClient.lrclibApiService
     private val musicBrainzApiService = NetworkClient.musicBrainzApiService
@@ -29,6 +65,7 @@ class MusicRepository(private val context: Context) {
     private val lastFmApiService =
         NetworkClient.getLastFmApiKey()?.let { NetworkClient.lastFmApiService }
     private val lastFmApiKey = NetworkClient.getLastFmApiKey()
+    private val ytmusicApiService = NetworkClient.ytmusicApiService
     private val genericHttpClient = NetworkClient.genericHttpClient
 
     // Cache for artist images to avoid redundant API calls
@@ -100,6 +137,7 @@ class MusicRepository(private val context: Context) {
                     title = title,
                     artist = artist,
                     album = album,
+                    albumId = albumId.toString(),
                     duration = duration,
                     uri = contentUri,
                     artworkUri = albumArtUri,
@@ -370,6 +408,54 @@ class MusicRepository(private val context: Context) {
                             TAG,
                             "No network connection available while fetching ${artist.name} image"
                         )
+                    }
+
+                    // -------- YouTube Music fallback (right after Spotify fails) --------
+                    try {
+                        Log.d(TAG, "Trying YTMusic for artist: ${artist.name}")
+                        
+                        // Create search request for artist
+                        val searchRequest = YTMusicSearchRequest(
+                            context = YTMusicContext(YTMusicClient()),
+                            query = artist.name,
+                            params = "EgWKAQIIAWoKEAoQAxAEEAkQBQ%3D%3D" // Artist search filter
+                        )
+                        
+                        val searchResponse = ytmusicApiService.search(request = searchRequest)
+                        if (searchResponse.isSuccessful) {
+                            val imageUrl = searchResponse.body()?.extractArtistImageUrl()
+                            if (!imageUrl.isNullOrEmpty()) {
+                                val imageUri = Uri.parse(imageUrl)
+                                artistImageCache[artist.name] = imageUri
+                                saveLocalArtistImage(artist.name, imageUrl)
+                                updatedArtists.add(artist.copy(artworkUri = imageUri))
+                                Log.d(TAG, "Found YTMusic image for ${artist.name}: $imageUrl")
+                                continue
+                            }
+                            
+                            // If search result has browseId, try to get detailed artist info for better quality image
+                            val browseId = searchResponse.body()?.extractArtistBrowseId()
+                            if (!browseId.isNullOrEmpty()) {
+                                val browseRequest = YTMusicBrowseRequest(
+                                    context = YTMusicContext(YTMusicClient()),
+                                    browseId = browseId
+                                )
+                                val artistResponse = ytmusicApiService.getArtist(request = browseRequest)
+                                if (artistResponse.isSuccessful) {
+                                    val detailedImageUrl = artistResponse.body()?.extractArtistThumbnail()
+                                    if (!detailedImageUrl.isNullOrEmpty()) {
+                                        val imageUri = Uri.parse(detailedImageUrl)
+                                        artistImageCache[artist.name] = imageUri
+                                        saveLocalArtistImage(artist.name, detailedImageUrl)
+                                        updatedArtists.add(artist.copy(artworkUri = imageUri))
+                                        Log.d(TAG, "Found detailed YTMusic image for ${artist.name}: $detailedImageUrl")
+                                        continue
+                                    }
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.w(TAG, "YTMusic fallback failed for ${artist.name}: ${e.message}")
                     }
 
                     // ----- Fallback using MusicBrainz + CoverArtArchive -----
@@ -767,13 +853,64 @@ class MusicRepository(private val context: Context) {
                     }
                 }
 
-                // If we get here, either no album was found or no valid image was found
-                Log.d(
-                    TAG,
-                    "No valid Spotify image found for album: ${album.title}, using generated placeholder"
-                )
-                albumImageCache[cacheKey] = placeholderUri
-                updatedAlbums.add(album.copy(artworkUri = placeholderUri))
+                // -------- YTMusic fallback (only when local album art is absent) --------
+                // Check if we should use YTMusic fallback for albums
+                var foundAlbumArt = false
+                try {
+                    Log.d(TAG, "Trying YTMusic for album: ${album.title} by ${album.artist}")
+                    
+                    // Create search request for album
+                    val searchQuery = "${album.title} ${album.artist}"
+                    val searchRequest = YTMusicSearchRequest(
+                        context = YTMusicContext(YTMusicClient()),
+                        query = searchQuery,
+                        params = "EgWKAQIYAWoKEAoQAxAEEAkQBQ%3D%3D" // Album search filter
+                    )
+                    
+                    val searchResponse = ytmusicApiService.search(request = searchRequest)
+                    if (searchResponse.isSuccessful) {
+                        val imageUrl = searchResponse.body()?.extractAlbumImageUrl()
+                        if (!imageUrl.isNullOrEmpty()) {
+                            val imageUri = Uri.parse(imageUrl)
+                            albumImageCache[cacheKey] = imageUri
+                            updatedAlbums.add(album.copy(artworkUri = imageUri))
+                            Log.d(TAG, "Found YTMusic album art for ${album.title}: $imageUrl")
+                            foundAlbumArt = true
+                        } else {
+                            // Try to get detailed album info for better quality cover art
+                            val browseId = searchResponse.body()?.extractAlbumBrowseId()
+                            if (!browseId.isNullOrEmpty()) {
+                                val browseRequest = YTMusicBrowseRequest(
+                                    context = YTMusicContext(YTMusicClient()),
+                                    browseId = browseId
+                                )
+                                val albumResponse = ytmusicApiService.getAlbum(request = browseRequest)
+                                if (albumResponse.isSuccessful) {
+                                    val detailedImageUrl = albumResponse.body()?.extractAlbumCover()
+                                    if (!detailedImageUrl.isNullOrEmpty()) {
+                                        val imageUri = Uri.parse(detailedImageUrl)
+                                        albumImageCache[cacheKey] = imageUri
+                                        updatedAlbums.add(album.copy(artworkUri = imageUri))
+                                        Log.d(TAG, "Found detailed YTMusic album art for ${album.title}: $detailedImageUrl")
+                                        foundAlbumArt = true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "YTMusic fallback failed for album ${album.title}: ${e.message}")
+                }
+
+                // If YTMusic didn't find anything, use placeholder
+                if (!foundAlbumArt) {
+                    Log.d(
+                        TAG,
+                        "No valid image found for album: ${album.title}, using generated placeholder"
+                    )
+                    albumImageCache[cacheKey] = placeholderUri
+                    updatedAlbums.add(album.copy(artworkUri = placeholderUri))
+                }
 
             } catch (e: Exception) {
                 Log.e(TAG, "Error fetching album artwork for ${album.title}", e)
@@ -794,6 +931,88 @@ class MusicRepository(private val context: Context) {
         }
 
         updatedAlbums
+    }
+
+    /**
+     * Fetches track/song images from YTMusic API for songs without artwork.
+     * This is used as a fallback when local album art is absent and other APIs fail.
+     */
+    suspend fun fetchTrackArtwork(songs: List<Song>): List<Song> = withContext(Dispatchers.IO) {
+        val updatedSongs = mutableListOf<Song>()
+
+        for (song in songs) {
+            // Only fetch if song doesn't have artwork already
+            if (song.artworkUri != null) {
+                updatedSongs.add(song)
+                continue
+            }
+
+            // Check if album has artwork - if yes, we don't need track-specific artwork
+            if (song.albumId.isNotBlank()) {
+                val albums = loadAlbums()
+                val album = albums.find { it.id == song.albumId }
+                if (album?.artworkUri != null) {
+                    // Album has artwork, no need for track-specific image
+                    updatedSongs.add(song)
+                    continue
+                }
+            }
+
+            val cacheKey = "${song.artist}:${song.title}"
+            
+            // Check cache first
+            val cachedUri = albumImageCache[cacheKey] // Reuse album cache for tracks
+            if (cachedUri != null) {
+                updatedSongs.add(song.copy(artworkUri = cachedUri))
+                continue
+            }
+
+            try {
+                // Skip songs with empty or "Unknown" artist/title
+                if (song.artist.isBlank() || song.title.isBlank() ||
+                    song.artist.equals("Unknown", ignoreCase = true) ||
+                    song.title.equals("Unknown", ignoreCase = true)
+                ) {
+                    updatedSongs.add(song)
+                    continue
+                }
+
+                Log.d(TAG, "Searching YTMusic for track: ${song.title} by ${song.artist}")
+
+                // Add delay to avoid rate limiting
+                delay(200)
+
+                // Create search request for song/track
+                val searchQuery = "${song.title} ${song.artist}"
+                val searchRequest = YTMusicSearchRequest(
+                    context = YTMusicContext(YTMusicClient()),
+                    query = searchQuery,
+                    params = "EgWKAQIIAWoKEAoQAxAEEAkQBQ%3D%3D" // Song search filter
+                )
+
+                val searchResponse = ytmusicApiService.search(request = searchRequest)
+                if (searchResponse.isSuccessful) {
+                    // For tracks, we can extract image from the first result
+                    val imageUrl = searchResponse.body()?.extractAlbumImageUrl() // Tracks use same thumbnail structure
+                    if (!imageUrl.isNullOrEmpty()) {
+                        val imageUri = Uri.parse(imageUrl)
+                        albumImageCache[cacheKey] = imageUri // Cache for future use
+                        updatedSongs.add(song.copy(artworkUri = imageUri))
+                        Log.d(TAG, "Found YTMusic track image for ${song.title}: $imageUrl")
+                        continue
+                    }
+                }
+
+                Log.d(TAG, "No YTMusic image found for track: ${song.title}")
+                updatedSongs.add(song)
+
+            } catch (e: Exception) {
+                Log.w(TAG, "YTMusic track image fetch failed for ${song.title}: ${e.message}")
+                updatedSongs.add(song)
+            }
+        }
+
+        updatedSongs
     }
 
     suspend fun getSongsForAlbum(albumId: String): List<Song> {
@@ -896,6 +1115,7 @@ class MusicRepository(private val context: Context) {
                         title = title,
                         artist = artist,
                         album = album,
+                        albumId = retrievedAlbumId.toString(),
                         duration = duration,
                         uri = contentUri,
                         artworkUri = albumArtUri,

@@ -18,6 +18,7 @@ import chromahub.rhythm.app.network.MusicBrainzApiService
 import chromahub.rhythm.app.network.SpotifyApiService
 import chromahub.rhythm.app.network.CoverArtArchiveService
 import chromahub.rhythm.app.network.LastFmApiService
+import chromahub.rhythm.app.network.YTMusicApiService
 
 object NetworkClient {
     private const val TAG = "NetworkClient"
@@ -29,6 +30,7 @@ object NetworkClient {
     private const val COVERART_BASE_URL = "https://coverartarchive.org/"
     private const val LASTFM_API_KEY = "ba62d1b3203307dcbfc78a5cb2be4888"
     private const val LASTFM_BASE_URL = "https://ws.audioscrobbler.com/"
+    private const val YTMUSIC_BASE_URL = "https://music.youtube.com/"
     
     // Connection timeouts
     private const val CONNECT_TIMEOUT = 30L
@@ -169,10 +171,27 @@ object NetworkClient {
         .addConverterFactory(GsonConverterFactory.create())
         .build()
     
+    private val ytmusicHttpClient = OkHttpClient.Builder()
+        .addInterceptor(musicBrainzHeadersInterceptor()) // same UA rules as MusicBrainz
+        .addInterceptor(loggingInterceptor)
+        .addInterceptor(retryInterceptor)
+        .connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)
+        .readTimeout(READ_TIMEOUT, TimeUnit.SECONDS)
+        .writeTimeout(WRITE_TIMEOUT, TimeUnit.SECONDS)
+        .connectionPool(connectionPool)
+        .build()
+    
+    private val ytmusicRetrofit = Retrofit.Builder()
+        .baseUrl(YTMUSIC_BASE_URL)
+        .client(ytmusicHttpClient)
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+    
     val spotifyApiService: SpotifyApiService = spotifyRetrofit.create(SpotifyApiService::class.java)
     val lrclibApiService: LRCLibApiService = lrclibRetrofit.create(LRCLibApiService::class.java)
     val musicBrainzApiService: MusicBrainzApiService = musicBrainzRetrofit.create(MusicBrainzApiService::class.java)
     val coverArtArchiveService: CoverArtArchiveService = coverArtRetrofit.create(CoverArtArchiveService::class.java)
+    val ytmusicApiService: YTMusicApiService = ytmusicRetrofit.create(YTMusicApiService::class.java)
     private val lastFmRetrofit = Retrofit.Builder()
         .baseUrl(LASTFM_BASE_URL)
         .client(loggingInterceptor.let { OkHttpClient.Builder().addInterceptor(it).build() })
@@ -188,4 +207,4 @@ object NetworkClient {
     
     fun getSpotifyApiKey(): String = SPOTIFY_API_KEY
     fun getLastFmApiKey(): String = LASTFM_API_KEY
-} 
+}

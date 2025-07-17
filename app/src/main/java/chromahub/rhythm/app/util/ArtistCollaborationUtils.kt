@@ -187,7 +187,7 @@ object ArtistCollaborationUtils {
                     name = artistName,
                     numberOfTracks = artistSongs.size,
                     numberOfAlbums = artistAlbums.size,
-                    artworkUri = artistSongs.firstOrNull()?.artworkUri // Use first song's artwork
+                    artworkUri = null // Don't use album artwork for artists - let repository fetch proper artist images
                 )
                 processedArtists.add(newArtist)
             } else {

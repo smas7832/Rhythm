@@ -160,15 +160,11 @@ object ImageUtils {
         listener(
             onSuccess = { _, result ->
                 // Image loaded successfully
-                if (result is SuccessResult) {
-                    Log.d(TAG, "Image loaded successfully")
-                }
+                Log.d(TAG, "Image loaded successfully")
             },
             onError = { _, result ->
                 // Image failed to load
-                if (result is ErrorResult) {
-                    Log.e(TAG, "Error loading image: ${result.throwable.message}", result.throwable)
-                }
+                Log.e(TAG, "Error loading image: ${result.throwable.message}", result.throwable)
             }
         )
         

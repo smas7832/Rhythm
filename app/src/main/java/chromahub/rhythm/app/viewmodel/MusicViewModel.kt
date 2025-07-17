@@ -789,11 +789,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         if (albumSongs.size > 1) {
             // Sort by track number if available, otherwise by title
             val sortedAlbumSongs = albumSongs.sortedWith { a, b ->
-                when {
-                    a.trackNumber != null && b.trackNumber != null -> a.trackNumber.compareTo(b.trackNumber)
-                    a.trackNumber != null -> -1
-                    b.trackNumber != null -> 1
-                    else -> a.title.compareTo(b.title)
+                if (a.trackNumber != 0 || b.trackNumber != 0) {
+                    a.trackNumber.compareTo(b.trackNumber)
+                } else {
+                    a.title.compareTo(b.title)
                 }
             }
             val startIndex = sortedAlbumSongs.indexOfFirst { it.id == song.id }
