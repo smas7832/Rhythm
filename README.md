@@ -4,12 +4,36 @@
   [![GitHub release (latest by date)](https://img.shields.io/github/v/release/cromaguy/Rhythm?style=for-the-badge&logo=github&color=9c27b0)](https://github.com/cromaguy/Rhythm/releases/latest)
   [![IzzyOnDroid](https://img.shields.io/endpoint?url=https://apt.izzysoft.de/fdroid/api/v1/shield/chromahub.rhythm.app&style=for-the-badge&logo=android&label=IzzySoft&color=3f51b5)](https://apt.izzysoft.de/fdroid/index/apk/chromahub.rhythm.app)
   [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge&logo=open-source-initiative&logoColor=white)](LICENSE)
-  [![API](https://img.shields.io/badge/API-24%2B-brightgreen.svg?style=for-the-badge&logo=android)](https://android-arsenal.com/api?level=24)
+  [![API](https://img.shields.io/badge/API-26%2B-brightgreen.svg?style=for-the-badge&logo=android)](https://android-arsenal.com/api?level=26)
   [![Kotlin](https://img.shields.io/badge/Kotlin-100%25-purple.svg?style=for-the-badge&logo=kotlin)](https://kotlinlang.org/)
   
   <img src="assets/Banner.png" alt="Rhythm Logo" width="600"/>
   
   ### A next-generation Android music player showcasing Material 3 design, modern architecture, and cutting-edge features
+
+  ---
+
+## 📊 Project Stats
+
+![GitHub stars](https://img.shields.io/github/stars/cromaguy/Rhythm?style=social)
+![GitHub forks](https://img.shields.io/github/forks/cromaguy/Rhythm?style=social)
+![GitHub issues](https://img.shields.io/github/issues/cromaguy/Rhythm)
+![GitHub pull requests](https://img.shields.io/github/issues-pr/cromaguy/Rhythm)
+![GitHub code size](https://img.shields.io/github/languages/code-size/cromaguy/Rhythm)
+![GitHub commit activity](https://img.shields.io/github/commit-activity/m/cromaguy/Rhythm)
+
+---
+
+## 🔗 Quick Links
+
+- 🏠 **Repository**: [GitHub](https://github.com/cromaguy/Rhythm)
+- 📱 **Latest Release**: [Download](https://github.com/cromaguy/Rhythm/releases/latest)
+- 🐛 **Bug Reports**: [Issues](https://github.com/cromaguy/Rhythm/issues)
+- 💬 **Discussions**: [TG Community](https://t.me/RhythmSupport)
+- 🛡️ **Security**: [Security Policy](https://github.com/cromaguy/Rhythm/security/policy)
+- 📋 **Project Board**: [Development Progress](https://github.com/cromaguy/Rhythm/projects)
+
+---
   
   <p align="center">
     <a href="#-features">Features</a> •
@@ -53,7 +77,7 @@
 - **Online Lyrics Integration**: Automatic lyrics fetching from LRCLib and other sources
 - **Offline/Online Modes**: Choose between cached lyrics or always-online fetching
 - **Rich Metadata**: Display detailed song information including bitrate, format, file size, and encoding
-- **Album Artwork**: High-quality artwork display with multiple fallback sources (Spotify, Last.fm, MusicBrainz)
+- **Album Artwork**: High-quality artwork display with multiple fallback sources (Spotify, Last.fm, MusicBrainz, YouTube Music)
 
 ### 🔄 **Smart Features**
 - **Advanced Queue Management**: Queue with history, upcoming tracks, and manual reordering
@@ -64,11 +88,12 @@
 
 ### 🌐 **Online Integration**
 - **Automatic Updates**: GitHub-based update checking with stable/beta channels and in-app installation
-- **API Integration**: Support for Spotify RapidAPI, Last.fm, MusicBrainz, and other services
+- **API Integration**: Support for Spotify RapidAPI, Last.fm, MusicBrainz, YouTube Music, and other services
 - **Enhanced Metadata**: Online artwork and artist information fetching with intelligent caching
 - **Community Features**: Integrated bug reporting and feature requests via GitHub Issues
 
 ---
+
 
 ## 📱 Screenshots
 
@@ -133,6 +158,7 @@
 
 ---
 
+
 ## 🛠 Technology Stack
 
 ### 🎨 **UI Framework**
@@ -158,6 +184,7 @@
 - **Spotify RapidAPI**: Enhanced artist images and metadata (optional)
 - **MusicBrainz**: Open music database for accurate metadata
 - **Last.fm**: Artist information and high-quality images
+- **YouTube Music**: Fallback for artist images, album art, and track images
 
 ### 📊 **Data Management**
 - **File-based Storage**: Music library indexing and playlist management
@@ -170,6 +197,7 @@
 
 ### 🚀 **Latest Release**
 Get the latest version from our [GitHub Releases](https://github.com/cromaguy/Rhythm/releases/latest)
+
 
 ### 🎯 **Installation Methods**
 
@@ -184,18 +212,11 @@ Get the latest version from our [GitHub Releases](https://github.com/cromaguy/Rh
 2. Search for "Rhythm Music Player"
 3. Install directly through F-Droid client
 
-#### **🏗️ Build from Source**
-```bash
-git clone https://github.com/cromaguy/Rhythm.git
-cd Rhythm
-./gradlew assembleRelease
-```
 
 ### 📋 **System Requirements**
-- **Android Version**: 7.0 (API 24) or higher
+- **Android Version**: 7.1 (API 26) or higher
 - **Storage**: 50MB+ for app installation
 - **RAM**: 2GB+ recommended for smooth performance
-- **Permissions**: Storage access for music scanning
 
 ---
 
@@ -230,44 +251,6 @@ cd Rhythm
 
 ---
 
-## 🏗 Building from Source
-
-### Prerequisites
-- **Android Studio**: Arctic Fox or later
-- **JDK**: 11 or higher
-- **Android SDK**: API 34 (target SDK)
-- **Gradle**: 8.0+ (included with project wrapper)
-
-### Build Steps
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/cromaguy/Rhythm.git
-   cd Rhythm
-   ```
-
-2. **Open in Android Studio**:
-   - Import the project
-   - Let Gradle sync complete
-   - Ensure all dependencies are downloaded
-
-3. **Configure signing** (optional for debug builds):
-   - Create `local.properties` in root directory
-   - Add keystore configuration if building release
-
-4. **Build the project**:
-   ```bash
-   # Debug build
-   ./gradlew assembleDebug
-   
-   # Release build (requires signing configuration)
-   ./gradlew assembleRelease
-   ```
-
-5. **Install on device**:
-   ```bash
-   ./gradlew installDebug
-   ```
-
 ### Project Structure
 ```
 app/
@@ -275,7 +258,8 @@ app/
 │   ├── main/
 │   │   ├── java/chromahub/rhythm/app/
 │   │   │   ├── data/              # Data models and repositories
-│   │   │   ├── player/            # Media player components
+│   │   │   ├── network/           # Network services and API clients
+│   │   │   ├── service/           # Background media playback service
 │   │   │   ├── ui/                # All UI components
 │   │   │   │   ├── components/    # Reusable UI components
 │   │   │   │   ├── screens/       # App screens
@@ -353,6 +337,7 @@ We welcome contributions from the community! Here's how you can help make Rhythm
 - **[MusicBrainz](https://musicbrainz.org/)** - Open music encyclopedia
 - **[Last.fm](https://www.last.fm/)** - Music discovery and artist information
 - **[Cover Art Archive](https://coverartarchive.org/)** - Community-driven album artwork database
+- **[YouTube Music](https://music.youtube.com/)** - Fallback source for artist images, album art, and track thumbnails
 - **[Spotify Web API](https://developer.spotify.com/documentation/web-api)** - Enhanced metadata and artwork
 
 ---
@@ -415,29 +400,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
----
-
-## 📊 Project Stats
-
-![GitHub stars](https://img.shields.io/github/stars/cromaguy/Rhythm?style=social)
-![GitHub forks](https://img.shields.io/github/forks/cromaguy/Rhythm?style=social)
-![GitHub issues](https://img.shields.io/github/issues/cromaguy/Rhythm)
-![GitHub pull requests](https://img.shields.io/github/issues-pr/cromaguy/Rhythm)
-![GitHub code size](https://img.shields.io/github/languages/code-size/cromaguy/Rhythm)
-![GitHub commit activity](https://img.shields.io/github/commit-activity/m/cromaguy/Rhythm)
-
----
-
-## 🔗 Quick Links
-
-- 🏠 **Repository**: [GitHub](https://github.com/cromaguy/Rhythm)
-- 📱 **Latest Release**: [Download](https://github.com/cromaguy/Rhythm/releases/latest)
-- 🐛 **Bug Reports**: [Issues](https://github.com/cromaguy/Rhythm/issues)
-- 💬 **Discussions**: [GitHub Discussions](https://github.com/cromaguy/Rhythm/discussions)
-- 🛡️ **Security**: [Security Policy](https://github.com/cromaguy/Rhythm/security/policy)
-- 📋 **Project Board**: [Development Progress](https://github.com/cromaguy/Rhythm/projects)
-
----
 
 <div align="center">
   <h3>🎵 Experience music like never before with Rhythm! 🎵</h3>
