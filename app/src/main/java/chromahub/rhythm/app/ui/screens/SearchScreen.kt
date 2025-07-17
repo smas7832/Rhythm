@@ -262,125 +262,184 @@ fun SearchScreen(
                 .padding(paddingValues)
         ) {
             // Enhanced Material 3 SearchBar with modern design and animations
+            // Enhanced Material 3 SearchBar with modern design and animations
             DockedSearchBar(
-                query = searchQuery,
-                onQueryChange = { 
-                    searchQuery = it
-                    isSearchActive = true 
-                },
-                onSearch = { 
-                    focusManager.clearFocus() 
-                    if (searchQuery.isNotEmpty()) {
-                        viewModel.addSearchQuery(searchQuery)
-                    }
-                },
-                active = false, // We manage our own activeness
-                onActiveChange = { },
-                placeholder = { 
-                    Text(
-                        "  Search your 🎵 music library...",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                    ) 
-                },
-                leadingIcon = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        IconButton(
-                            onClick = onBack,
-                            colors = IconButtonDefaults.iconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
-                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        ) {
-                            Icon(
-                                imageVector = RhythmIcons.Back,
-                                contentDescription = "Back",
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                        
-                        Icon(
-                            imageVector = RhythmIcons.Search,
-                            contentDescription = "Search",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                },
-                trailingIcon = {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Filter toggle button with accent background
-                        IconButton(
-                            onClick = { showFilterOptions = !showFilterOptions },
-                            colors = IconButtonDefaults.iconButtonColors(
-                                containerColor = if (showFilterOptions) 
-                                    MaterialTheme.colorScheme.primaryContainer 
-                                else Color.Transparent,
-                                contentColor = if (showFilterOptions) 
-                                    MaterialTheme.colorScheme.onPrimaryContainer 
-                                else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.FilterList,
-                                contentDescription = "Filters",
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                        
-                        if (searchQuery.isNotEmpty()) {
-                            val animatedAlpha by animateFloatAsState(
-                                targetValue = 1f,
-                                animationSpec = spring(dampingRatio = 0.8f),
-                                label = "clearButtonAlpha"
-                            )
-                            
-                            IconButton(
-                                onClick = {
-                                    searchQuery = ""
-                                    isSearchActive = false
-                                    focusManager.clearFocus()
-                                },
-                                colors = IconButtonDefaults.iconButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f),
-                                    contentColor = MaterialTheme.colorScheme.onErrorContainer
-                                ),
-                                modifier = Modifier.graphicsLayer(alpha = animatedAlpha)
-                            ) {
-                                Icon(
-                                    imageVector = RhythmIcons.Close,
-                                    contentDescription = "Clear search",
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        }
-                    }
-                },
-                shape = RoundedCornerShape(28.dp),
+                expanded = isSearchActive,
+                onExpandedChange = { isSearchActive = it },
                 colors = SearchBarDefaults.colors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    dividerColor = Color.Transparent,
-                    inputFieldColors = TextFieldDefaults.colors(
-                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        cursorColor = MaterialTheme.colorScheme.primary,
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent,
-                        focusedContainerColor = Color.Transparent
-                    )
+                    dividerColor = Color.Transparent
                 ),
+                shape = RoundedCornerShape(28.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .padding(horizontal = 20.dp, vertical = 18.dp)
                     .focusRequester(focusRequester),
-                content = { }
+                inputField = {
+                    TextField(
+                        value = searchQuery,
+                        onValueChange = { newQuery ->
+                            searchQuery = newQuery
+                            isSearchActive = true
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = {
+                            Text(
+                                "  Search your 🎵 Rhythm...",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            )
+                        },
+                        leadingIcon = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                                modifier = Modifier.padding(horizontal = 5.dp)
+                            ) {
+                                IconButton(
+                                    onClick = onBack,
+                                    colors = IconButtonDefaults.iconButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                ) {
+                                    Icon(
+                                        imageVector = RhythmIcons.Back,
+                                        contentDescription = "Back",
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+
+                                Icon(
+                                    imageVector = RhythmIcons.Search,
+                                    contentDescription = "Search",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        },
+                        trailingIcon = {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 5.dp)
+                            ) {
+                                // Filter toggle button with accent background
+                                IconButton(
+                                    onClick = { showFilterOptions = !showFilterOptions },
+                                    colors = IconButtonDefaults.iconButtonColors(
+                                        containerColor = if (showFilterOptions)
+                                            MaterialTheme.colorScheme.primaryContainer
+                                        else Color.Transparent,
+                                        contentColor = if (showFilterOptions)
+                                            MaterialTheme.colorScheme.onPrimaryContainer
+                                        else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.FilterList,
+                                        contentDescription = "Filters",
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+
+                                if (searchQuery.isNotEmpty()) {
+                                    val animatedAlpha by animateFloatAsState(
+                                        targetValue = 1f,
+                                        animationSpec = spring(dampingRatio = 0.8f),
+                                        label = "clearButtonAlpha"
+                                    )
+
+                                    IconButton(
+                                        onClick = {
+                                            searchQuery = ""
+                                            isSearchActive = false
+                                            focusManager.clearFocus()
+                                        },
+                                        colors = IconButtonDefaults.iconButtonColors(
+                                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f),
+                                            contentColor = MaterialTheme.colorScheme.onErrorContainer
+                                        ),
+                                        modifier = Modifier.graphicsLayer(alpha = animatedAlpha)
+                                    ) {
+                                        Icon(
+                                            imageVector = RhythmIcons.Close,
+                                            contentDescription = "Clear search",
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(onSearch = {
+                            focusManager.clearFocus()
+                            if (searchQuery.isNotEmpty()) {
+                                viewModel.addSearchQuery(searchQuery)
+                            }
+                        }),
+                        colors = TextFieldDefaults.colors(
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            cursorColor = MaterialTheme.colorScheme.primary,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedContainerColor = Color.Transparent
+                        )
+                    )
+                },
+                content = {
+                    // Content for the expanded search bar
+                    if (searchQuery.isEmpty()) {
+                        // Default state with search suggestions
+                        DefaultSearchContent(
+                            searchHistory = searchHistory,
+                            recentlyPlayed = recentlyPlayed,
+                            onSongClick = onSongClick,
+                            onSearchQuerySelect = { query ->
+                                searchQuery = query
+                                isSearchActive = true
+                            },
+                            onAddSongToPlaylist = { song ->
+                                selectedSong = song
+                                showAddToPlaylistSheet = true
+                            },
+                            onClearSearchHistory = {
+                                viewModel.clearSearchHistory()
+                            }
+                        )
+                    } else if (hasSearchResults) {
+                        // Search results
+                        SearchResults(
+                            songs = filteredSongs,
+                            albums = filteredAlbums,
+                            artists = filteredArtists,
+                            playlists = filteredPlaylists,
+                            searchQuery = searchQuery,
+                            totalResults = totalResults,
+                            onSongClick = onSongClick,
+                            onAlbumClick = onAlbumClick,
+                            onArtistClick = onArtistClick,
+                            onPlaylistClick = onPlaylistClick,
+                            onAddSongToPlaylist = { song ->
+                                selectedSong = song
+                                showAddToPlaylistSheet = true
+                            },
+                            onArtistBottomSheetClick = { artist ->
+                                selectedArtist = artist
+                                showArtistBottomSheet = true
+                            }
+                        )
+                    } else {
+                        // No results found
+                        NoSearchResults(
+                            searchQuery = searchQuery,
+                            hasActiveFilters = filterSongs || filterAlbums || filterArtists || filterPlaylists
+                        )
+                    }
+                }
             )
             // Enhanced Filter Section
             AnimatedVisibility(
@@ -551,60 +610,6 @@ fun SearchScreen(
                 }
             }
             
-            // Main content area with improved spacing
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(top = 4.dp)
-            ) {
-                if (searchQuery.isEmpty()) {
-                    // Default state with search suggestions
-                    DefaultSearchContent(
-                        searchHistory = searchHistory,
-                        recentlyPlayed = recentlyPlayed,
-                        onSongClick = onSongClick,
-                        onSearchQuerySelect = { query ->
-                            searchQuery = query
-                            isSearchActive = true
-                        },
-                        onAddSongToPlaylist = { song ->
-                            selectedSong = song
-                            showAddToPlaylistSheet = true
-                        },
-                        onClearSearchHistory = {
-                            viewModel.clearSearchHistory()
-                        }
-                    )
-                } else if (hasSearchResults) {
-                    // Search results
-                    SearchResults(
-                        songs = filteredSongs,
-                        albums = filteredAlbums,
-                        artists = filteredArtists,
-                        playlists = filteredPlaylists,
-                        searchQuery = searchQuery,
-                        totalResults = totalResults,
-                        onSongClick = onSongClick,
-                        onAlbumClick = onAlbumClick,
-                        onArtistClick = onArtistClick,
-                        onPlaylistClick = onPlaylistClick,
-                        onAddSongToPlaylist = { song ->
-                            selectedSong = song
-                            showAddToPlaylistSheet = true
-                        },
-                        onArtistBottomSheetClick = { artist ->
-                            selectedArtist = artist
-                            showArtistBottomSheet = true
-                        }
-                    )
-                } else {
-                    // No results found
-                    NoSearchResults(
-                        searchQuery = searchQuery,
-                        hasActiveFilters = filterSongs || filterAlbums || filterArtists || filterPlaylists
-                    )
-                }
-            }
         }
     }
     
@@ -736,7 +741,7 @@ fun SearchResults(
 ) {
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(16.dp),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp)
     ) {
         // Results header with improved design
         item {
@@ -1987,7 +1992,7 @@ private fun DefaultSearchContent(
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // Search History with improved design
@@ -2257,7 +2262,7 @@ private fun NoSearchResults(
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
-            lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.2
+            lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.2f
         )
         
         if (hasActiveFilters) {
