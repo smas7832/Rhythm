@@ -117,8 +117,8 @@ fun RhythmTheme(
             WindowCompat.setDecorFitsSystemWindows(window, false)
             
             // Set system bar colors to transparent for true edge-to-edge
-            window.statusBarColor = Color.Transparent.toArgb()
-            window.navigationBarColor = Color.Transparent.toArgb()
+            window.statusBarColor = android.graphics.Color.TRANSPARENT
+            window.navigationBarColor = android.graphics.Color.TRANSPARENT
             
             // Handle system bar appearance based on theme
             val insetsController = WindowCompat.getInsetsController(window, view)

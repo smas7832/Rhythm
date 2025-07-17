@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.automirrored.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.draw.clip
@@ -1335,7 +1336,7 @@ fun LibraryAlbumItem(
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                     )
                     
-                    if (album.year != null && album.year > 0) {
+                    if (album.year > 0) {
                         Text(
                             text = " • ${album.year}",
                             style = MaterialTheme.typography.bodySmall,
@@ -1692,7 +1693,7 @@ fun AlbumBottomSheet(
                                 )
                             }
                             
-                            if (album.year != null && album.year > 0) {
+                            if (album.year > 0) {
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Surface(
                                     color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.8f),
@@ -1846,7 +1847,7 @@ fun AlbumBottomSheet(
                                         modifier = Modifier.size(36.dp)
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Filled.Sort,
+                                            imageVector = RhythmIcons.Actions.Sort,
                                             contentDescription = "Sort songs",
                                             modifier = Modifier.size(18.dp)
                                         )
@@ -1954,7 +1955,7 @@ fun AlbumBottomSheet(
                                 onAddToQueue = { onAddToQueue(song) },
                                 onAddToPlaylist = { onAddSongToPlaylist(song) },
                                 modifier = Modifier
-                                    .animateItemPlacement() // Keep item placement animation
+                                    .animateItem() // Keep item placement animation
                             )
                         }
                     } else {
@@ -2098,7 +2099,7 @@ fun EnhancedAlbumSongItem(
                         )
                     ) {
                         Icon(
-                            imageVector = Icons.Filled.QueueMusic,
+                            imageVector = RhythmIcons.Player.Queue,
                             contentDescription = "Add to queue",
                             modifier = Modifier.size(20.dp)
                         )
@@ -2133,7 +2134,7 @@ fun EnhancedAlbumSongItem(
                             },
                             leadingIcon = {
                                 Icon(
-                                    imageVector = Icons.Filled.PlaylistAdd,
+                                    imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
                                     contentDescription = null
                                 )
                             },

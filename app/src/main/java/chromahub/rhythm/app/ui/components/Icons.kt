@@ -53,6 +53,7 @@ import androidx.compose.material.icons.rounded.RepeatOne
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.rounded.Replay10
 import androidx.compose.material.icons.rounded.Forward10
 import androidx.compose.material.icons.rounded.SkipNext
@@ -63,9 +64,9 @@ import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Lyrics
-import androidx.compose.material.icons.rounded.PlaylistPlay
+import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.filled.PlaylistPlay // New import for PlaylistPlay filled icon
-import androidx.compose.material.icons.rounded.Chat // For Telegram support group
+import androidx.compose.material.icons.automirrored.rounded.Chat // For Telegram support group
 
 /**
  * Material Design 3 icons for the Rhythm app
@@ -131,7 +132,7 @@ object RhythmIcons {
         val AlbumOutlined = Icons.Outlined.Album
         val Artist = Icons.Rounded.Person
         val ArtistOutlined = Icons.Outlined.Person
-        val Playlist = Icons.Rounded.PlaylistPlay
+        val Playlist = Icons.AutoMirrored.Rounded.PlaylistPlay
         val PlaylistOutlined = Icons.AutoMirrored.Outlined.PlaylistAdd
         val MusicNote = Icons.Rounded.MusicNote
         val Audiotrack = Icons.Rounded.Audiotrack
@@ -155,6 +156,7 @@ object RhythmIcons {
         val Refresh = Icons.Rounded.Refresh
         val Download = Icons.Rounded.Download
         val Tune = Icons.Rounded.Tune
+        val Sort = Icons.AutoMirrored.Rounded.Sort
         val Update = Icons.Rounded.SystemUpdate // Added Update icon
     }
     
@@ -240,7 +242,7 @@ object RhythmIcons {
     val List = Actions.List
     val AppsGrid = Actions.Apps
     val Refresh = Actions.Refresh
-    val Telegram = Icons.Rounded.Chat // Added Telegram icon
+    val Telegram = Icons.AutoMirrored.Rounded.Chat // Added Telegram icon
     
     // Location
     val Location = Devices.LocationOutlined

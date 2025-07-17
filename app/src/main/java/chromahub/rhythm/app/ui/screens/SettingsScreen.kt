@@ -1,3 +1,4 @@
+@file:OptIn(ExperimentalMaterial3Api::class, androidx.compose.ui.text.ExperimentalTextApi::class)
 package chromahub.rhythm.app.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
@@ -90,7 +91,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import chromahub.rhythm.app.data.AppSettings
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.foundation.text.ClickableText
+import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
@@ -315,7 +316,7 @@ fun SettingsScreen(
                         val newViewType = AlbumViewType.values().find { 
                             it.name.lowercase().replaceFirstChar { char -> char.uppercase() } == selectedOption 
                         } ?: AlbumViewType.LIST
-                        appSettings.setAlbumViewType(newViewType)
+                       appSettings.setAlbumViewType(newViewType)
                     }
                 )
 
@@ -349,7 +350,7 @@ fun SettingsScreen(
                         AlbumSortOrder.DURATION_ASC -> "Duration ↑"
                         AlbumSortOrder.DURATION_DESC -> "Duration ↓"
                     },
-                    icon = Icons.Filled.Sort,
+                    icon = RhythmIcons.Actions.Sort,
                     options = listOf("Track Number", "Title A-Z", "Title Z-A", "Duration ↑", "Duration ↓"),
                     onOptionSelected = { selectedOption ->
                         val newSortOrder = when (selectedOption) {
@@ -453,7 +454,7 @@ fun SettingsScreen(
                 SettingsToggleItem(
                     title = "System volume control",
                     description = "Use device volume controls for music playback",
-                    icon = Icons.Filled.VolumeUp,
+                    icon = RhythmIcons.Player.VolumeUp,
                     checked = useSystemVolume,
                     onCheckedChange = {
                         appSettings.setUseSystemVolume(it)
@@ -1054,7 +1055,7 @@ fun SettingsDropdownItem(
                                         "Duration ↑", "Duration ↓" -> Icons.Filled.AccessTime
                                         "Stable" -> Icons.Filled.Public
                                         "Beta" -> Icons.Filled.BugReport
-                                        "List" -> Icons.Filled.List
+                                        "List" -> RhythmIcons.Actions.List
                                         "Grid" -> Icons.Filled.GridView
                                         else -> Icons.Filled.Check // Fallback
                                     },
@@ -1440,6 +1441,18 @@ fun ApiManagementBottomSheet(
                     )
                 }
 
+                // YouTube Music
+                item {
+                    ApiServiceCard(
+                        title = "YouTube Music",
+                        description = "Fallback for artist images (after Spotify), album art (when local art absent), and track images",
+                        status = "Always active",
+                        isConfigured = true,
+                        icon = RhythmIcons.Album,
+                        onClick = { /* No action needed */ }
+                    )
+                }
+
                 // GitHub (for updates)
                 item {
                     ApiServiceCard(
@@ -1492,14 +1505,16 @@ fun ApiManagementBottomSheet(
                     val annotatedLink = buildAnnotatedString {
                         append("More info")
                         addStyle(SpanStyle(color = linkColor, fontWeight = FontWeight.Medium), 0, length)
-                        addStringAnnotation("URL", "https://rapidapi.com/Glavier/api/spotify23/playground", 0, length)
+                        addLink(LinkAnnotation.Url("https://rapidapi.com/Glavier/api/spotify23/playground"), 0, length)
                     }
-                    ClickableText(text = annotatedLink, style = MaterialTheme.typography.bodySmall) { offset ->
-                        annotatedLink.getStringAnnotations("URL", offset, offset).firstOrNull()?.let { anno ->
-                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(anno.item))
+                    Text(
+                        text = annotatedLink, 
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.clickable {
+                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://rapidapi.com/Glavier/api/spotify23/playground"))
                             context.startActivity(intent)
                         }
-                    }
+                    )
                     Spacer(modifier = Modifier.height(12.dp))
                     OutlinedTextField(
                         value = apiKeyInput,

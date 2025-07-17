@@ -50,7 +50,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.ArrowForward
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Error
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -1063,7 +1063,7 @@ private fun WelcomeSection(
                             text = timeBasedQuote,
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.9f),
+                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.9f),
                             lineHeight = 20.sp,
                             modifier = Modifier.weight(1f)
                         )
@@ -1597,7 +1597,7 @@ private fun SectionTitle(
                 modifier = Modifier.size(40.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.ArrowForward,
+                    imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
                     contentDescription = "View All",
                     modifier = Modifier.size(20.dp)
                 )

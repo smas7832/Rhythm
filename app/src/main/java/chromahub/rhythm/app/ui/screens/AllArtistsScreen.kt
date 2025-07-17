@@ -72,7 +72,7 @@ import chromahub.rhythm.app.data.ArtistViewType
 import chromahub.rhythm.app.ui.components.M3PlaceholderType
 import chromahub.rhythm.app.util.ImageUtils
 import chromahub.rhythm.app.util.ArtistCollaborationUtils
-import androidx.compose.material.icons.rounded.Sort
+import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -243,7 +243,7 @@ fun AllArtistsScreen(
                         )
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.Sort,
+                            imageVector = Icons.AutoMirrored.Rounded.Sort,
                             contentDescription = "Sort Artists"
                         )
                     }
