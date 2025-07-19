@@ -37,6 +37,10 @@ import chromahub.rhythm.app.util.ArtistCollaborationUtils
 import chromahub.rhythm.app.viewmodel.MusicViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.asPaddingValues
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -98,276 +102,307 @@ fun ArtistBottomSheet(
         sheetState = sheetState,
         dragHandle = null,
         containerColor = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
     ) {
-        LazyColumn(
-            modifier = Modifier.fillMaxWidth()
+        Column(
+            modifier = Modifier.fillMaxSize()
         ) {
-            // Artist Header
-            item {
+            // Artist Header (Sticky)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(300.dp) // Fixed height for the header
+                    .graphicsLayer { alpha = headerAlpha }
+            ) {
+                // Artist Image
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .apply(ImageUtils.buildImageRequest(
+                            artist.artworkUri,
+                            artist.name,
+                            context.cacheDir,
+                            M3PlaceholderType.ARTIST
+                        ))
+                        .build(),
+                    contentDescription = "Artist image for ${artist.name}",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+
+                // Enhanced gradient overlay with multiple layers
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(280.dp)
-                        .graphicsLayer { alpha = headerAlpha }
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.3f),
+                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+                                    MaterialTheme.colorScheme.surface
+                                )
+                            )
+                        )
+                )
+
+                // Horizontal gradient for more depth
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.horizontalGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.4f),
+                                    Color.Transparent,
+                                    Color.Transparent,
+                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.4f)
+                                )
+                            )
+                        )
+                )
+
+                // Enhanced close button with better design
+                FilledIconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(WindowInsets.statusBars.asPaddingValues()) // Adjust for status bar
+                        .padding(20.dp)
+                        .size(44.dp),
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                        contentColor = MaterialTheme.colorScheme.onSurface
+                    )
                 ) {
-                    // Artist Image
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .apply(ImageUtils.buildImageRequest(
-                                artist.artworkUri,
-                                artist.name,
-                                context.cacheDir,
-                                M3PlaceholderType.ARTIST
-                            ))
-                            .build(),
-                        contentDescription = "Artist image for ${artist.name}",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
+                    Icon(
+                        imageVector = RhythmIcons.Close,
+                        contentDescription = "Close",
+                        modifier = Modifier.size(20.dp)
                     )
-                    
-                    // Enhanced gradient overlay with multiple layers
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color.Transparent,
-                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.3f),
-                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
-                                        MaterialTheme.colorScheme.surface
-                                    )
-                                )
-                            )
+                }
+
+                // Artist info at bottom with enhanced layout
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        text = artist.name,
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
-                    
-                    // Horizontal gradient for more depth
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                Brush.horizontalGradient(
-                                    colors = listOf(
-                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.4f),
-                                        Color.Transparent,
-                                        Color.Transparent,
-                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.4f)
-                                    )
-                                )
-                            )
-                    )
-                    
-                    // Enhanced close button with better design
-                    FilledIconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier
-                            .padding(20.dp)
-                            .align(Alignment.TopEnd)
-                            .size(44.dp),
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
-                            contentColor = MaterialTheme.colorScheme.onSurface
-                        )
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = RhythmIcons.Close,
-                            contentDescription = "Close",
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    
-                    // Artist info at bottom with enhanced layout
-                    Column(
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .padding(16.dp)
-                    ) {
-                        Text(
-                            text = artist.name,
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically
+                        // Enhanced statistics with better visual clarity
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                            modifier = Modifier.padding(end = 8.dp)
                         ) {
-                            // Enhanced statistics with better visual clarity
-                            Surface(
-                                shape = RoundedCornerShape(16.dp),
-                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
-                                modifier = Modifier.padding(end = 8.dp)
-                            ) {
-                                Text(
-                                    text = "${artistSongs.size} songs",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                )
-                            }
-                            
-                            Surface(
-                                shape = RoundedCornerShape(16.dp),
-                                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)
-                            ) {
-                                Text(
-                                    text = "${artistAlbums.size} albums",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                )
-                            }
+                            Text(
+                                text = "${artistSongs.size} songs",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
                         }
-                        
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
-                        // Enhanced Action buttons row
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)
                         ) {
-                            // Play All button with proper queue management
-                            Button(
-                                onClick = {
-                                    if (artistSongs.isNotEmpty()) {
-                                        // Use the correct method to play all songs
-                                        viewModel.playQueue(artistSongs)
-                                        onPlayAll()
-                                    }
-                                },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.primary,
-                                    contentColor = MaterialTheme.colorScheme.onPrimary
-                                ),
-                                shape = RoundedCornerShape(24.dp),
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Icon(
-                                    imageVector = RhythmIcons.Play,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    "Play All",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                            
-                            // Shuffle button with proper queue management
-                            FilledIconButton(
-                                onClick = {
-                                    if (artistSongs.isNotEmpty()) {
-                                        // Play shuffled songs using the correct method
-                                        viewModel.playQueue(artistSongs.shuffled())
-                                        viewModel.toggleShuffle() // Enable shuffle mode
-                                        onShufflePlay()
-                                    }
-                                },
-                                colors = IconButtonDefaults.filledIconButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                                ),
-                                modifier = Modifier.size(48.dp)
-                            ) {
-                                Icon(
-                                    imageVector = RhythmIcons.Shuffle,
-                                    contentDescription = "Shuffle play",
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
+                            Text(
+                                text = "${artistAlbums.size} albums",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Enhanced Action buttons row
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Play All button with proper queue management
+                        Button(
+                            onClick = {
+                                if (artistSongs.isNotEmpty()) {
+                                    // Use the correct method to play all songs
+                                    viewModel.playQueue(artistSongs)
+                                    onPlayAll()
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            shape = RoundedCornerShape(28.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = RhythmIcons.Play,
+                                contentDescription = null,
+                                modifier = Modifier.size(25.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                "Play All",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        // Shuffle button with proper queue management
+                        FilledIconButton(
+                            onClick = {
+                                if (artistSongs.isNotEmpty()) {
+                                    // Play shuffled songs using the correct method
+                                    viewModel.playQueue(artistSongs.shuffled())
+                                    viewModel.toggleShuffle() // Enable shuffle mode
+                                    onShufflePlay()
+                                }
+                            },
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                            ),
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Icon(
+                                imageVector = RhythmIcons.Shuffle,
+                                contentDescription = "Shuffle play",
+                                modifier = Modifier.size(24.dp)
+                            )
                         }
                     }
                 }
             }
-            
+
+            // Scrollable Content
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f) // Take remaining space
+            ) {
             // Albums Section with animation
             if (artistAlbums.isNotEmpty()) {
                 item {
-                    Column(
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceContainer,
+                        shape = RoundedCornerShape(24.dp),
                         modifier = Modifier
-                            .graphicsLayer { 
-                                alpha = contentAlpha
-                                translationY = contentTranslation
-                            }
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
-                        Row(
+                        Column(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                                .graphicsLayer {
+                                    alpha = contentAlpha
+                                    translationY = contentTranslation
+                                }
+                                .padding(vertical = 8.dp)
                         ) {
-                            Text(
-                                text = "Albums",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold
-                            )
-                            
-                            Text(
-                                text = "${artistAlbums.size} albums",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        
-                        LazyRow(
-                            contentPadding = PaddingValues(horizontal = 16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            items(artistAlbums) { album ->
-                                ArtistAlbumCard(
-                                    album = album,
-                                    onClick = { onAlbumClick(album) }
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Albums",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold
                                 )
+
+                                Text(
+                                    text = "${artistAlbums.size}",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+
+                            LazyRow(
+                                contentPadding = PaddingValues(horizontal = 16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                items(artistAlbums) { album ->
+                                    ArtistAlbumCard(
+                                        album = album,
+                                        onClick = { onAlbumClick(album) }
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
-            
+
             // Songs Section with animation
             if (artistSongs.isNotEmpty()) {
                 item {
-                    Row(
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceContainer,
+                        shape = RoundedCornerShape(24.dp),
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 8.dp)
-                            .graphicsLayer { 
-                                alpha = contentAlpha
-                                translationY = contentTranslation
-                            },
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "Songs",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                        
-                        Text(
-                            text = "${artistSongs.size} songs",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Column(
+                            modifier = Modifier
+                                .graphicsLayer {
+                                    alpha = contentAlpha
+                                    translationY = contentTranslation
+                                }
+                                .padding(vertical = 8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Songs",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+
+                                Text(
+                                    text = "${artistSongs.size}",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+
+                            Column {
+                                artistSongs.forEach { song ->
+                                    EnhancedArtistSongItem(
+                                        song = song,
+                                        onClick = { onSongClick(song) },
+                                        onAddToQueue = { onAddToQueue(song) },
+                                        onAddToPlaylist = { onAddSongToPlaylist(song) },
+                                        modifier = Modifier
+                                            .graphicsLayer {
+                                                alpha = contentAlpha
+                                                translationY = contentTranslation
+                                            }
+                                            .padding(horizontal = 16.dp, vertical = 4.dp) // Added padding to song item
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
-                
-                items(artistSongs) { song ->
-                    EnhancedArtistSongItem(
-                        song = song,
-                        onClick = { onSongClick(song) },
-                        onAddToQueue = { onAddToQueue(song) },
-                        onAddToPlaylist = { onAddSongToPlaylist(song) },
-                        modifier = Modifier.graphicsLayer { 
-                            alpha = contentAlpha
-                            translationY = contentTranslation
-                        }
-                    )
-                }
-                
+
                 // Bottom spacing
                 item {
                     Spacer(
@@ -379,6 +414,7 @@ fun ArtistBottomSheet(
             }
         }
     }
+}
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -475,7 +511,6 @@ private fun EnhancedArtistSongItem(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    var showDropdown by remember { mutableStateOf(false) }
     
     ListItem(
         headlineContent = {
@@ -556,9 +591,9 @@ private fun EnhancedArtistSongItem(
                     )
                 }
 
-                // Enhanced action menu with better UX
+                // Directly handle add to playlist action for better UX
                 FilledIconButton(
-                    onClick = { showDropdown = true },
+                    onClick = onAddToPlaylist,
                     modifier = Modifier.size(36.dp),
                     colors = IconButtonDefaults.filledIconButtonColors(
                         containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.8f),
@@ -570,15 +605,6 @@ private fun EnhancedArtistSongItem(
                         contentDescription = "Add to playlist",
                         modifier = Modifier.size(18.dp)
                     )
-                }
-
-                // Directly handle add to playlist action for better UX
-                if (showDropdown) {
-                    // Close dropdown and trigger action
-                    LaunchedEffect(Unit) {
-                        showDropdown = false
-                        onAddToPlaylist()
-                    }
                 }
             }
         },
@@ -601,4 +627,3 @@ private fun formatDuration(durationMs: Long): String {
         String.format("%d:%02d", minutes, seconds)
     }
 }
-

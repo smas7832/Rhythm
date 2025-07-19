@@ -1565,7 +1565,7 @@ fun AlbumBottomSheet(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(340.dp)
+                        .height(360.dp)
                         .graphicsLayer { alpha = headerAlpha }
                 ) {
                     // Album artwork with enhanced background
@@ -1636,9 +1636,10 @@ fun AlbumBottomSheet(
                     FilledIconButton(
                         onClick = onDismiss,
                         modifier = Modifier
-                            .padding(20.dp)
-                            .align(Alignment.TopEnd)
-                            .size(44.dp),
+                        .align(Alignment.TopEnd)
+                        .padding(WindowInsets.statusBars.asPaddingValues()) // Adjust for status bar
+                        .padding(20.dp)
+                        .size(44.dp),
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
                             contentColor = MaterialTheme.colorScheme.onSurface
@@ -1808,7 +1809,7 @@ fun AlbumBottomSheet(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 20.dp, vertical = 16.dp),
+                                .padding(horizontal = 25.dp, vertical = 16.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -1926,73 +1927,83 @@ fun AlbumBottomSheet(
                     }
                 }
                 
-                // Scrollable Songs List
-                LazyColumn(
+                // Big Card for Songs
+                Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f),
-                    contentPadding = PaddingValues(bottom = 16.dp) // Add bottom padding for last item
+                        .weight(1f) // This card takes remaining space and allows its content to scroll
+                        .padding(horizontal = 16.dp, vertical = 8.dp), // Add padding for the card itself
+                    shape = RoundedCornerShape(24.dp), // Rounded corners for the card
+                    color = MaterialTheme.colorScheme.surfaceContainer, // Distinct background for the card
+                    shadowElevation = 0.dp // No shadow for a flat look
                 ) {
-                    // Songs content with sorting
-                    if (sortedSongs.isNotEmpty()) {
-                        items(
-                            items = sortedSongs,
-                            key = { it.id }
-                        ) { song ->
-                            EnhancedAlbumSongItem(
-                                song = song,
-                                onClick = {
-                                    onSongClick(song)
-                                    scope.launch {
-                                        sheetState.hide()
-                                    }.invokeOnCompletion {
-                                        if (!sheetState.isVisible) {
-                                            onDismiss()
-                                            onPlayerClick()
+                    // Scrollable Songs List
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize(), // Fill the card
+                        contentPadding = PaddingValues(top = 10.dp, bottom = 16.dp) // Add bottom padding for last item
+                    ) {
+                        // Songs content with sorting
+                        if (sortedSongs.isNotEmpty()) {
+                            items(
+                                items = sortedSongs,
+                                key = { it.id }
+                            ) { song ->
+                                EnhancedAlbumSongItem(
+                                    song = song,
+                                    onClick = {
+                                        onSongClick(song)
+                                        scope.launch {
+                                            sheetState.hide()
+                                        }.invokeOnCompletion {
+                                            if (!sheetState.isVisible) {
+                                                onDismiss()
+                                                onPlayerClick()
+                                            }
                                         }
-                                    }
-                                },
-                                onAddToQueue = { onAddToQueue(song) },
-                                onAddToPlaylist = { onAddSongToPlaylist(song) },
-                                modifier = Modifier
-                                    .animateItem() // Keep item placement animation
-                            )
-                        }
-                    } else {
-                        item {
-                            // Empty state for no songs
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(32.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally
+                                    },
+                                    onAddToQueue = { onAddToQueue(song) },
+                                    onAddToPlaylist = { onAddSongToPlaylist(song) },
+                                    modifier = Modifier
+                                        .animateItem() // Keep item placement animation
+                                )
+                            }
+                        } else {
+                            item {
+                                // Empty state for no songs
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(32.dp),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.MusicNote,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                        modifier = Modifier.size(48.dp)
-                                    )
-                                    
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    
-                                    Text(
-                                        text = "No songs in this album",
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        textAlign = TextAlign.Center
-                                    )
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.MusicNote,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                            modifier = Modifier.size(48.dp)
+                                        )
+                                        
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        
+                                        Text(
+                                            text = "No songs in this album",
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            textAlign = TextAlign.Center
+                                        )
+                                    }
                                 }
                             }
                         }
-                    }
-                    
-                    // Enhanced bottom spacing
-                    item {
-                        Spacer(modifier = Modifier.height(40.dp))
+                        
+                        // Enhanced bottom spacing (inside the card, so it scrolls with songs)
+                        item {
+                            Spacer(modifier = Modifier.height(40.dp))
+                        }
                     }
                 }
             }
@@ -2009,7 +2020,6 @@ fun EnhancedAlbumSongItem(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    var showDropdown by remember { mutableStateOf(false) }
     
     Surface(
         onClick = onClick,
@@ -2038,20 +2048,18 @@ fun EnhancedAlbumSongItem(
                     if (song.trackNumber > 0) {
                         Surface(
                             color = MaterialTheme.colorScheme.primaryContainer,
-                            shape = CircleShape,
-                            modifier = Modifier.size(20.dp) // Reduced size
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
+                            shape = RoundedCornerShape(12.dp)
+                                ) {
                                 Text(
                                     text = "${song.trackNumber}",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                    )
+                                }
                         
-                        Spacer(modifier = Modifier.width(8.dp)) // Reduced spacing
+                        Spacer(modifier = Modifier.width(12.dp)) // Reduced spacing
                     }
                     
                     if (song.duration > 0) {
@@ -2106,7 +2114,7 @@ fun EnhancedAlbumSongItem(
                     }
 
                     FilledIconButton(
-                        onClick = { showDropdown = true },
+                        onClick = onAddToPlaylist,
                         modifier = Modifier.size(36.dp), // Reduced size
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = MaterialTheme.colorScheme.secondaryContainer,
@@ -2114,34 +2122,9 @@ fun EnhancedAlbumSongItem(
                         )
                     ) {
                         Icon(
-                            imageVector = Icons.Filled.MoreVert,
-                            contentDescription = "More options",
+                            imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
+                            contentDescription = "Add to playlist",
                             modifier = Modifier.size(20.dp)
-                        )
-                    }
-
-                    DropdownMenu(
-                        expanded = showDropdown,
-                        onDismissRequest = { showDropdown = false },
-                        shape = RoundedCornerShape(12.dp) // Reduced corner radius
-                    ) {
-                        DropdownMenuItem(
-                            text = { 
-                                Text(
-                                    "Add to playlist",
-                                    style = MaterialTheme.typography.bodyMedium
-                                ) 
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
-                                    contentDescription = null
-                                )
-                            },
-                            onClick = {
-                                showDropdown = false
-                                onAddToPlaylist()
-                            }
                         )
                     }
                 }

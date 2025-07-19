@@ -197,7 +197,7 @@ fun AppUpdaterScreen(
             item {
                 // Current Version Card
                 Card(
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(24.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surfaceContainer
                     ),
@@ -209,7 +209,7 @@ fun AppUpdaterScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp),
+                            .padding(horizontal= 16.dp, vertical = 20.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         // Add Rhythm logo and name on the same horizontal line
@@ -378,7 +378,7 @@ fun AppUpdaterScreen(
                 // Error section - show immediately after version card when there's an error
                 if (error != null) {
                     Card(
-                        shape = RoundedCornerShape(16.dp),
+                        shape = RoundedCornerShape(24.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f)
                         ),
@@ -471,7 +471,7 @@ fun AppUpdaterScreen(
 
                 // Update Check Section
                 Card(
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(24.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surfaceContainer
                     ),
@@ -874,7 +874,7 @@ fun AppUpdaterScreen(
                         )
 
                         Card(
-                            shape = RoundedCornerShape(16.dp),
+                            shape = RoundedCornerShape(24.dp),
                             colors = CardDefaults.cardColors(
                                 containerColor = MaterialTheme.colorScheme.surfaceContainer
                             ),
@@ -965,7 +965,7 @@ fun AppUpdaterScreen(
                         )
 
                         Card(
-                            shape = RoundedCornerShape(16.dp),
+                            shape = RoundedCornerShape(24.dp),
                             colors = CardDefaults.cardColors(
                                 containerColor = MaterialTheme.colorScheme.surfaceContainer
                             ),
