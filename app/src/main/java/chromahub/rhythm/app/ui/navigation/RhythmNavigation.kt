@@ -46,6 +46,9 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.rememberTopAppBarState
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -54,6 +57,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -76,6 +80,7 @@ import chromahub.rhythm.app.ui.components.MiniPlayer
 import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.ui.screens.AppUpdaterScreen
 import chromahub.rhythm.app.ui.screens.LibraryScreen
+import chromahub.rhythm.app.ui.components.RhythmIcons.Delete
 import chromahub.rhythm.app.ui.screens.NewHomeScreen
 import chromahub.rhythm.app.ui.screens.PlayerScreen
 import chromahub.rhythm.app.ui.screens.PlaylistDetailScreen
@@ -238,8 +243,46 @@ fun RhythmNavigation(
         )
     }
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
+
     CompositionLocalProvider(LocalMiniPlayerPadding provides miniPlayerPaddingValues) {
         Scaffold(
+            snackbarHost = {
+                SnackbarHost(snackbarHostState) { data ->
+                    val isRemovalSnackbar = data.visuals.message.contains("removed from playlist")
+
+                    Snackbar(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 18.dp),
+                        action = { data.visuals.actionLabel?.let { label -> TextButton(onClick = { data.performAction() }) { Text(label) } } },
+                        actionOnNewLine = data.visuals.actionLabel != null && data.visuals.message.length > 50,
+                        shape = RoundedCornerShape(22.dp),
+                        containerColor = if (isRemovalSnackbar) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                        contentColor = if (isRemovalSnackbar) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onPrimary,
+                        actionContentColor = if (isRemovalSnackbar) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.inversePrimary,
+                        content = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp), // Adjusted spacing for Android 16 UI
+                                modifier = Modifier.padding(vertical = 12.dp) // Adjusted vertical padding for Android 16 UI
+                            ) {
+                                Icon(
+                                    imageVector = if (isRemovalSnackbar) RhythmIcons.Delete else RhythmIcons.Actions.Check,
+                                    contentDescription = if (isRemovalSnackbar) "Removed" else "Info",
+                                    tint = if (isRemovalSnackbar) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Text(
+                                    text = data.visuals.message,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    maxLines = 3,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    )
+                }
+            },
             bottomBar = {
                 Column {
                     // Global MiniPlayer (hidden on full player screen) with bounce entrance animation
@@ -534,7 +577,11 @@ fun RhythmNavigation(
                             viewModel.addSongToQueue(song)
                         },
                         onAddSongToPlaylist = { song, playlistId ->
-                            viewModel.addSongToPlaylist(song, playlistId)
+                            viewModel.addSongToPlaylist(song, playlistId) { message ->
+                                coroutineScope.launch {
+                                    snackbarHostState.showSnackbar(message)
+                                }
+                            }
                         }
                     )
                 }
@@ -591,7 +638,11 @@ fun RhythmNavigation(
                         },
                         onSkipNext = onSkipNext,
                         onAddSongToPlaylist = { song, playlistId ->
-                            viewModel.addSongToPlaylist(song, playlistId)
+                            viewModel.addSongToPlaylist(song, playlistId) { message ->
+                                coroutineScope.launch {
+                                    snackbarHostState.showSnackbar(message)
+                                }
+                            }
                         },
                         onCreatePlaylist = { name ->
                             viewModel.createPlaylist(name)
@@ -748,7 +799,13 @@ fun RhythmNavigation(
                         onAlbumClick = onPlayAlbum,
                         onSearchClick = { navController.navigate(Screen.Search.route) },
                         onAddToQueue = { song -> viewModel.addSongToQueue(song) },
-                        onAddSongToPlaylist = { song, playlistId -> viewModel.addSongToPlaylist(song, playlistId) }
+                        onAddSongToPlaylist = { song, playlistId ->
+                            viewModel.addSongToPlaylist(song, playlistId) { message ->
+                                coroutineScope.launch {
+                                    snackbarHostState.showSnackbar(message)
+                                }
+                            }
+                        }
                     )
                 }
 
@@ -873,10 +930,13 @@ fun RhythmNavigation(
                         },
                         onAddSongToPlaylist = { song, playlistId ->
                             // Add song to playlist
-                            viewModel.addSongToPlaylist(song, playlistId)
+                            viewModel.addSongToPlaylist(song, playlistId) { message ->
+                                coroutineScope.launch {
+                                    snackbarHostState.showSnackbar(message)
+                                }
+                            }
                         },
                         onCreatePlaylist = { name ->
-                            // Create new playlist
                             viewModel.createPlaylist(name)
                         },
                         onSearchClick = {
@@ -950,7 +1010,11 @@ fun RhythmNavigation(
                                     viewModel.createPlaylist(name)
                                     // The new playlist will be at the end of the list
                                     val newPlaylist = viewModel.playlists.value.last()
-                                    viewModel.addSongToPlaylist(songForDialog, newPlaylist.id)
+                                    viewModel.addSongToPlaylist(songForDialog, newPlaylist.id) { message ->
+                                        coroutineScope.launch {
+                                            snackbarHostState.showSnackbar(message)
+                                        }
+                                    }
                                     showCreatePlaylistDialog.value = false
                                 }
                             )
@@ -1054,7 +1118,11 @@ fun RhythmNavigation(
                             viewModel.clearSelectedSongForPlaylist()
                         },
                         onAddSongToPlaylist = { song, playlistId ->
-                            viewModel.addSongToPlaylist(song, playlistId)
+                            viewModel.addSongToPlaylist(song, playlistId) { message ->
+                                coroutineScope.launch {
+                                    snackbarHostState.showSnackbar(message)
+                                }
+                            }
                         },
                         onCreatePlaylist = { name ->
                             viewModel.createPlaylist(name)
@@ -1128,8 +1196,12 @@ fun RhythmNavigation(
                             onBack = {
                                 navController.popBackStack()
                             },
-                            onRemoveSong = { song ->
-                                viewModel.removeSongFromPlaylist(song, playlistId)
+                            onRemoveSong = { song, message ->
+                                viewModel.removeSongFromPlaylist(song, playlistId) { snackbarMessage ->
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar(snackbarMessage)
+                                    }
+                                }
                             },
                             onRenamePlaylist = { newName ->
                                 viewModel.renamePlaylist(playlistId, newName)
@@ -1247,7 +1319,11 @@ fun RhythmNavigation(
                                                     viewModel.addSongToPlaylist(
                                                         song,
                                                         targetPlaylistId
-                                                    )
+                                                    ) { message ->
+                                                        coroutineScope.launch {
+                                                            snackbarHostState.showSnackbar(message)
+                                                        }
+                                                    }
                                                     // Show a snackbar or some feedback
                                                 },
                                                 color = MaterialTheme.colorScheme.surfaceContainer,
@@ -1307,7 +1383,11 @@ fun RhythmNavigation(
                                                             viewModel.addSongToPlaylist(
                                                                 song,
                                                                 targetPlaylistId
-                                                            )
+                                                            ) { message ->
+                                                                coroutineScope.launch {
+                                                                    snackbarHostState.showSnackbar(message)
+                                                                }
+                                                            }
                                                             // Show a snackbar or some feedback
                                                         },
                                                         colors = IconButtonDefaults.filledIconButtonColors(
@@ -1353,7 +1433,11 @@ fun RhythmNavigation(
                                     viewModel.createPlaylist(name)
                                     // The new playlist will be at the end of the list
                                     val newPlaylist = viewModel.playlists.value.last()
-                                    viewModel.addSongToPlaylist(songToAdd, newPlaylist.id)
+                                    viewModel.addSongToPlaylist(songToAdd, newPlaylist.id) { message ->
+                                        coroutineScope.launch {
+                                            snackbarHostState.showSnackbar(message)
+                                        }
+                                    }
                                     viewModel.clearSelectedSongForPlaylist()
                                     navController.popBackStack()
                                 }

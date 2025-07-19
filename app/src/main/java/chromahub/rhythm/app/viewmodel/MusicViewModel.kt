@@ -1474,14 +1474,18 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun addSongToPlaylist(song: Song, playlistId: String) {
+    fun addSongToPlaylist(song: Song, playlistId: String, showSnackbar: (String) -> Unit) {
+        var success = false
         _playlists.value = _playlists.value.map { playlist ->
             if (playlist.id == playlistId) {
                 // Check if song is already in the playlist
                 if (playlist.songs.any { it.id == song.id }) {
+                    showSnackbar("${song.title} is already in playlist '${playlist.name}'")
                     playlist
                 } else {
                     val updatedSongs = playlist.songs + song
+                    success = true
+                    showSnackbar("Added ${song.title} to ${playlist.name}")
                     playlist.copy(
                         songs = updatedSongs,
                         dateModified = System.currentTimeMillis()
@@ -1492,22 +1496,36 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         savePlaylists()
-        Log.d(TAG, "Added song to playlist: ${song.title}")
+        if (success) {
+            Log.d(TAG, "Added song to playlist: ${song.title}")
+        }
     }
 
-    fun removeSongFromPlaylist(song: Song, playlistId: String) {
+    fun removeSongFromPlaylist(song: Song, playlistId: String, showSnackbar: (String) -> Unit) {
+        var success = false
         _playlists.value = _playlists.value.map { playlist ->
             if (playlist.id == playlistId) {
-                playlist.copy(
-                    songs = playlist.songs.filter { it.id != song.id },
-                    dateModified = System.currentTimeMillis()
-                )
+                val updatedSongs = playlist.songs.filter { it.id != song.id }
+                if (updatedSongs.size < playlist.songs.size) {
+                    success = true
+                    showSnackbar("Removed ${song.title} from ${playlist.name}")
+                    playlist.copy(
+                        songs = updatedSongs,
+                        dateModified = System.currentTimeMillis()
+                    )
+                } else {
+                    playlist // Song not found in playlist, no change
+                }
             } else {
                 playlist
             }
         }
         savePlaylists()
-        Log.d(TAG, "Removed song from playlist: ${song.title}")
+        if (success) {
+            Log.d(TAG, "Removed song from playlist: ${song.title}")
+        } else {
+            Log.d(TAG, "Song '${song.title}' not found in playlist '$playlistId' for removal.")
+        }
     }
 
     fun deletePlaylist(playlistId: String) {

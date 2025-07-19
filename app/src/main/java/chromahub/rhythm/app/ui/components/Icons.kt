@@ -64,6 +64,7 @@ import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Lyrics
+import androidx.compose.material.icons.rounded.Info // Added Info icon
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.filled.PlaylistPlay // New import for PlaylistPlay filled icon
 import androidx.compose.material.icons.automirrored.rounded.Chat // For Telegram support group
@@ -158,6 +159,7 @@ object RhythmIcons {
         val Tune = Icons.Rounded.Tune
         val Sort = Icons.AutoMirrored.Rounded.Sort
         val Update = Icons.Rounded.SystemUpdate // Added Update icon
+        val Info = Icons.Rounded.Info // Added Info icon
     }
     
     /**
