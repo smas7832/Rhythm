@@ -1193,7 +1193,54 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 // Now perform the actual seek operation
                 controller.seekToPrevious()
             } else {
-                Log.d(TAG, "No previous song available")
+                // Otherwise, skip to the actual previous song
+                if (controller.hasPreviousMediaItem()) {
+                    // Get the previous song before seeking to update UI immediately
+                    val prevIndex = if (controller.currentMediaItemIndex > 0)
+                        controller.currentMediaItemIndex - 1
+                    else
+                        controller.mediaItemCount - 1
+
+                    val prevMediaItem = controller.getMediaItemAt(prevIndex)
+                    val prevSongId = prevMediaItem.mediaId
+                    val prevSong = _songs.value.find { it.id == prevSongId }
+
+                    // Update the current queue position first for immediate UI feedback
+                    val currentQueue = _currentQueue.value
+                    if (currentQueue.songs.isNotEmpty()) {
+                        val currentIndex = currentQueue.currentIndex
+                        val newIndex = if (currentIndex > 0)
+                            currentIndex - 1
+                        else
+                            currentQueue.songs.size - 1
+
+                        _currentQueue.value = currentQueue.copy(currentIndex = newIndex)
+
+                        // Reset progress to 0 for immediate UI feedback
+                        _progress.value = 0f
+
+                        Log.d(TAG, "Updated queue position from $currentIndex to $newIndex")
+                    }
+
+                    // Update the current song immediately for better UX
+                    if (prevSong != null) {
+                        _currentSong.value = prevSong
+                        // Update recently played
+                        updateRecentlyPlayed(prevSong)
+                        // Update favorite status
+                        _isFavorite.value = _favoriteSongs.value.contains(prevSong.id)
+                        // Fetch lyrics for the new song
+                        fetchLyricsForCurrentSong()
+                    }
+
+                    // Now perform the actual seek operation
+                    controller.seekToPrevious()
+                } else {
+                    Log.d(TAG, "No previous song available, restarting current song.")
+                    // If no previous song, but still within threshold, restart current song
+                    controller.seekTo(0)
+                    _progress.value = 0f // Immediately reset progress for UI
+                }
             }
         }
     }
@@ -2532,6 +2579,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         private const val PREF_SHOW_LYRICS = "show_lyrics"
         private const val PREF_ONLINE_ONLY_LYRICS = "online_only_lyrics"
         private const val PREF_SONG_PLAY_COUNTS = "song_play_counts"
+        
+        // Player control constants
+        private const val REWIND_THRESHOLD_MS = 3000L // 3 seconds
     }
 
     fun playAlbumShuffled(album: Album) {
