@@ -1150,48 +1150,11 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     fun skipToPrevious() {
         Log.d(TAG, "Skip to previous")
         mediaController?.let { controller ->
-            // Check if there are previous songs in the queue
-            if (controller.hasPreviousMediaItem()) {
-                // Get the previous song before seeking to update UI immediately
-                val prevIndex = if (controller.currentMediaItemIndex > 0) 
-                    controller.currentMediaItemIndex - 1 
-                else 
-                    controller.mediaItemCount - 1
-                
-                val prevMediaItem = controller.getMediaItemAt(prevIndex)
-                val prevSongId = prevMediaItem.mediaId
-                val prevSong = _songs.value.find { it.id == prevSongId }
-                
-                // Update the current queue position first for immediate UI feedback
-                val currentQueue = _currentQueue.value
-                if (currentQueue.songs.isNotEmpty()) {
-                    val currentIndex = currentQueue.currentIndex
-                    val newIndex = if (currentIndex > 0) 
-                        currentIndex - 1 
-                    else 
-                        currentQueue.songs.size - 1
-                    
-                    _currentQueue.value = currentQueue.copy(currentIndex = newIndex)
-                    
-                    // Reset progress to 0 for immediate UI feedback
-                    _progress.value = 0f
-                    
-                    Log.d(TAG, "Updated queue position from $currentIndex to $newIndex")
-                }
-                
-                // Update the current song immediately for better UX
-                if (prevSong != null) {
-                    _currentSong.value = prevSong
-                    // Update recently played
-                    updateRecentlyPlayed(prevSong)
-                    // Update favorite status
-                    _isFavorite.value = _favoriteSongs.value.contains(prevSong.id)
-                    // Fetch lyrics for the new song
-                    fetchLyricsForCurrentSong()
-                }
-                
-                // Now perform the actual seek operation
-                controller.seekToPrevious()
+            // If current position is past the threshold, restart current song
+            if (controller.currentPosition > REWIND_THRESHOLD_MS) {
+                Log.d(TAG, "Current position (${controller.currentPosition}ms) > threshold (${REWIND_THRESHOLD_MS}ms), restarting current song.")
+                controller.seekTo(0)
+                _progress.value = 0f // Immediately reset progress for UI
             } else {
                 // Otherwise, skip to the actual previous song
                 if (controller.hasPreviousMediaItem()) {
