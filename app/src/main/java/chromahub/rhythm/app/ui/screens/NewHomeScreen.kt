@@ -1215,7 +1215,7 @@ private fun ListeningStatsSection() {
             ) {
                 EnhancedStatCardContent(
                     value = songsPlayed,
-                    label = "Songs Played",
+                    label = "Songs",
                     icon = RhythmIcons.Music.MusicNote,
                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                     backgroundColor = MaterialTheme.colorScheme.secondaryContainer

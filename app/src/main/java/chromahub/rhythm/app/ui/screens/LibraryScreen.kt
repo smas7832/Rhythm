@@ -133,7 +133,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 
 
-enum class LibraryTab { SONGS, PLAYLISTS }
+enum class LibraryTab { SONGS, PLAYLISTS, ALBUMS }
 
 @Composable
 fun LibraryScreen(
@@ -162,7 +162,7 @@ fun LibraryScreen(
     onAddToQueue: (Song) -> Unit,
     initialTab: LibraryTab = LibraryTab.SONGS
 ) {
-    val tabs = listOf("Songs", "Playlists & Albums")
+    val tabs = listOf("Songs", "Playlists", "Albums")
     var selectedTabIndex by remember { mutableStateOf(initialTab.ordinal) }
     val pagerState = rememberPagerState(initialPage = selectedTabIndex) { tabs.size }
     val scope = rememberCoroutineScope()
@@ -359,7 +359,7 @@ fun LibraryScreen(
         },
         bottomBar = {},
         floatingActionButton = {
-            if (selectedTabIndex == 1) {
+            if (selectedTabIndex == LibraryTab.PLAYLISTS.ordinal) {
                 ExtendedFloatingActionButton(
                     modifier = Modifier.padding(
                         bottom = (LocalMiniPlayerPadding.current.calculateBottomPadding() * 0.5f) + 8.dp
@@ -431,7 +431,7 @@ fun LibraryScreen(
                 modifier = Modifier.fillMaxSize()
             ) { page ->
                 when (page) {
-                    0 -> SongsTab(
+                    LibraryTab.SONGS.ordinal -> SongsTab(
                         songs = songs,
                         onSongClick = onSongClick,
                         onAddToPlaylist = { song ->
@@ -444,10 +444,12 @@ fun LibraryScreen(
                             showSongInfoSheet = true
                         }
                     )
-                    1 -> PlaylistsTab(
+                    LibraryTab.PLAYLISTS.ordinal -> PlaylistsTab(
                         playlists = playlists,
+                        onPlaylistClick = onPlaylistClick
+                    )
+                    LibraryTab.ALBUMS.ordinal -> AlbumsTab(
                         albums = albums,
-                        onPlaylistClick = onPlaylistClick,
                         onAlbumClick = onAlbumClick,
                         onSongClick = onSongClick,
                         onAlbumBottomSheetClick = { album ->
@@ -584,7 +586,7 @@ fun SongsTab(
     } else {
         Surface(
             color = MaterialTheme.colorScheme.surfaceContainer,
-            shape = MaterialTheme.shapes.large,
+            shape = RoundedCornerShape(20.dp),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp)
@@ -719,8 +721,107 @@ fun SongsTab(
 @Composable
 fun PlaylistsTab(
     playlists: List<Playlist>,
+    onPlaylistClick: (Playlist) -> Unit
+) {
+    if (playlists.isEmpty()) {
+        EmptyState(
+            message = "No playlists yet\nCreate your first playlist using the + button",
+            icon = RhythmIcons.Music.Playlist
+        )
+    } else {
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
+            LazyColumn(
+                contentPadding = PaddingValues(
+                    top = 8.dp,
+                    bottom = LocalMiniPlayerPadding.current.calculateBottomPadding() + 16.dp
+                ),
+                verticalArrangement = Arrangement.spacedBy(0.dp)
+            ) {
+                item {
+                    // Enhanced Playlists Section Header
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(20.dp)
+                        ) {
+                            Surface(
+                                modifier = Modifier.size(48.dp),
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primary,
+                                shadowElevation = 0.dp
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = RhythmIcons.PlaylistFilled,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimary,
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.width(16.dp))
+
+                            Column {
+                                Text(
+                                    text = "Your Playlists",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                                
+                                Text(
+                                    text = "${playlists.size} ${if (playlists.size == 1) "playlist" else "playlists"}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.weight(1f))
+
+                            Surface(
+                                modifier = Modifier
+                                    .height(2.dp)
+                                    .width(60.dp),
+                                shape = RoundedCornerShape(1.dp),
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f)
+                            ) {}
+                        }
+                    }
+                }
+                
+                items(
+                    items = playlists,
+                    key = { it.id }
+                ) { playlist ->
+                    PlaylistItem(
+                        playlist = playlist,
+                        onClick = { onPlaylistClick(playlist) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AlbumsTab(
     albums: List<Album>,
-    onPlaylistClick: (Playlist) -> Unit,
     onAlbumClick: (Album) -> Unit,
     onSongClick: (Song) -> Unit,
     onAlbumBottomSheetClick: (Album) -> Unit = {}
@@ -728,225 +829,134 @@ fun PlaylistsTab(
     val context = LocalContext.current
     val appSettings = remember { AppSettings.getInstance(context) }
     val albumViewType by appSettings.albumViewType.collectAsState()
-    
-    if (playlists.isEmpty() && albums.isEmpty()) {
+
+    if (albums.isEmpty()) {
         EmptyState(
-            message = "No playlists yet\nCreate your first playlist using the + button",
-            icon = RhythmIcons.Music.Playlist
+            message = "No albums yet",
+            icon = RhythmIcons.Music.Album
         )
     } else {
-        LazyColumn(
-            contentPadding = PaddingValues(
-                start = 16.dp,
-                end = 16.dp,
-                top = 16.dp,
-                bottom = LocalMiniPlayerPadding.current.calculateBottomPadding() + 16.dp
-            ),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            if (playlists.isNotEmpty()) {
+            LazyColumn(
+                contentPadding = PaddingValues(
+                    top = 8.dp,
+                    bottom = LocalMiniPlayerPadding.current.calculateBottomPadding() + 16.dp
+                ),
+                verticalArrangement = Arrangement.spacedBy(0.dp)
+            ) {
                 item {
-                    // Big Card Container for Playlists
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceContainer,
-                        shape = RoundedCornerShape(24.dp),
+                    // Enhanced Albums Section Header
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 0.dp, vertical = 8.dp),
-                        shadowElevation = 0.dp
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
-                        Column(
-                            modifier = Modifier.padding(vertical = 8.dp)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(20.dp)
                         ) {
-                            // Enhanced Playlists Section Header
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                                shape = RoundedCornerShape(20.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
-                                ),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                            Surface(
+                                modifier = Modifier.size(48.dp),
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primary,
+                                shadowElevation = 0.dp
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(20.dp)
-                                ) {
-                                    Surface(
-                                        modifier = Modifier.size(48.dp),
-                                        shape = CircleShape,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        shadowElevation = 0.dp
-                                    ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            Icon(
-                                                imageVector = RhythmIcons.PlaylistFilled,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.onPrimary,
-                                                modifier = Modifier.size(28.dp)
-                                            )
-                                        }
-                                    }
-
-                                    Spacer(modifier = Modifier.width(16.dp))
-
-                                    Column {
-                                        Text(
-                                            text = "Your Playlists",
-                                            style = MaterialTheme.typography.titleLarge,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                                        )
-                                        
-                                        Text(
-                                            text = "${playlists.size} ${if (playlists.size == 1) "playlist" else "playlists"}",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                                        )
-                                    }
-
-                                    Spacer(modifier = Modifier.weight(1f))
-
-                                    Surface(
-                                        modifier = Modifier
-                                            .height(2.dp)
-                                            .width(60.dp),
-                                        shape = RoundedCornerShape(1.dp),
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f)
-                                    ) {}
-                                }
-                            }
-                            
-                            // Playlists List
-                            playlists.forEach { playlist ->
-                                PlaylistItem(
-                                    playlist = playlist,
-                                    onClick = { onPlaylistClick(playlist) }
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-            
-            if (albums.isNotEmpty()) {
-                item {
-                    // Albums Big Card Container - covers header and all content
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 0.dp, vertical = 8.dp),
-                        shape = RoundedCornerShape(24.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainer,
-                        shadowElevation = 0.dp
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(vertical = 8.dp)
-                        ) {
-                            // Enhanced Albums Section Header
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                                shape = RoundedCornerShape(20.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
-                                ),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(20.dp)
-                                ) {
-                                    Surface(
-                                        modifier = Modifier.size(48.dp),
-                                        shape = CircleShape,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        shadowElevation = 0.dp
-                                    ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            Icon(
-                                                imageVector = RhythmIcons.Music.Album,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.onPrimary,
-                                                modifier = Modifier.size(28.dp)
-                                            )
-                                        }
-                                    }
-
-                                    Spacer(modifier = Modifier.width(16.dp))
-
-                                    Column {
-                                        Text(
-                                            text = "Your Albums",
-                                            style = MaterialTheme.typography.titleLarge,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                                        )
-                                        Text(
-                                            text = "${albums.size} ${if (albums.size == 1) "album" else "albums"}",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                                        )
-                                    }
-
-                                    Spacer(modifier = Modifier.weight(1f))
-
-                                    // View type toggle button
-                                    FilledIconButton(
-                                        onClick = { 
-                                            val newViewType = if (albumViewType == AlbumViewType.LIST) AlbumViewType.GRID else AlbumViewType.LIST
-                                            appSettings.setAlbumViewType(newViewType)
-                                        },
-                                        colors = IconButtonDefaults.filledIconButtonColors(
-                                            containerColor = MaterialTheme.colorScheme.surface,
-                                            contentColor = MaterialTheme.colorScheme.onSurface
-                                        ),
-                                        modifier = Modifier.size(36.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = if (albumViewType == AlbumViewType.LIST) RhythmIcons.AppsGrid else RhythmIcons.List,
-                                            contentDescription = "Toggle view type",
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-
-                                    Spacer(modifier = Modifier.width(12.dp))
-
-                                    Surface(
-                                        modifier = Modifier
-                                            .height(2.dp)
-                                            .width(60.dp),
-                                        shape = RoundedCornerShape(1.dp),
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f)
-                                    ) {}
-                                }
-                            }
-                            
-                            // Albums content based on view type - now inside the big card
-                            if (albumViewType == AlbumViewType.GRID) {
-                                AlbumsGrid(
-                                    albums = albums,
-                                    onAlbumClick = { album ->
-                                        onAlbumBottomSheetClick(album)
-                                    },
-                                    onAlbumPlay = onAlbumClick, // This plays the album
-                                    onSongClick = onSongClick
-                                )
-                            } else {
-                                albums.forEach { album ->
-                                    LibraryAlbumItem(
-                                        album = album,
-                                        onClick = { onAlbumBottomSheetClick(album) }, // Changed to open bottom sheet
-                                        onPlayClick = { 
-                                            // Play the entire album
-                                            onAlbumClick(album)
-                                        }
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = RhythmIcons.Music.Album,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimary,
+                                        modifier = Modifier.size(28.dp)
                                     )
                                 }
                             }
+
+                            Spacer(modifier = Modifier.width(16.dp))
+
+                            Column {
+                                Text(
+                                    text = "Your Albums",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                                Text(
+                                    text = "${albums.size} ${if (albums.size == 1) "album" else "albums"}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.weight(1f))
+
+                            // View type toggle button
+                            FilledIconButton(
+                                onClick = { 
+                                    val newViewType = if (albumViewType == AlbumViewType.LIST) AlbumViewType.GRID else AlbumViewType.LIST
+                                    appSettings.setAlbumViewType(newViewType)
+                                },
+                                colors = IconButtonDefaults.filledIconButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.surface,
+                                    contentColor = MaterialTheme.colorScheme.onSurface
+                                ),
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (albumViewType == AlbumViewType.LIST) RhythmIcons.AppsGrid else RhythmIcons.List,
+                                    contentDescription = "Toggle view type",
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            Surface(
+                                modifier = Modifier
+                                    .height(2.dp)
+                                    .width(60.dp),
+                                shape = RoundedCornerShape(1.dp),
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f)
+                            ) {}
                         }
+                    }
+                }
+                
+                // Albums content based on view type - now inside the big card
+                if (albumViewType == AlbumViewType.GRID) {
+                    item {
+                        AlbumsGrid(
+                            albums = albums,
+                            onAlbumClick = { album ->
+                                onAlbumBottomSheetClick(album)
+                            },
+                            onAlbumPlay = onAlbumClick, // This plays the album
+                            onSongClick = onSongClick
+                        )
+                    }
+                } else {
+                    items(
+                        items = albums,
+                        key = { it.id }
+                    ) { album ->
+                        LibraryAlbumItem(
+                            album = album,
+                            onClick = { onAlbumBottomSheetClick(album) }, // Changed to open bottom sheet
+                            onPlayClick = { 
+                                // Play the entire album
+                                onAlbumClick(album)
+                            }
+                        )
                     }
                 }
             }
@@ -1407,13 +1417,13 @@ fun EmptyState(
                 )
                 
                 // Enhanced icon container with gradient background
-                Surface(
-                    modifier = Modifier
-                        .size(120.dp * animatedSize)
-                        .padding(bottom = 32.dp),
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                ) {
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier.fillMaxSize()
