@@ -381,7 +381,7 @@ fun MiniPlayer(
                     progress = { animatedProgress }, // Use lambda for progress
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 22.dp) // Added horizontal padding
+                        .padding(horizontal = 28.dp) // Added horizontal padding
                         .height(4.dp), // Thinner progress bar
                     color = MaterialTheme.colorScheme.primary,
                     trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)

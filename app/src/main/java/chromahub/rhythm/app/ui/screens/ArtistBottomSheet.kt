@@ -111,7 +111,7 @@ fun ArtistBottomSheet(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(300.dp) // Fixed height for the header
+                    .height(340.dp) // Fixed height for the header
                     .graphicsLayer { alpha = headerAlpha }
             ) {
                 // Artist Image
@@ -427,10 +427,13 @@ private fun ArtistAlbumCard(
     
     Card(
         onClick = onClick,
-        modifier = Modifier.width(160.dp),
-        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier
+            .width(160.dp)
+            .padding(4.dp), // Add some padding around the card
+        shape = RoundedCornerShape(16.dp), // Larger rounded corners
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp), // Add subtle shadow
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            containerColor = MaterialTheme.colorScheme.surface // Use a slightly higher surface color
         )
     ) {
         Column {
@@ -438,6 +441,7 @@ private fun ArtistAlbumCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f)
+                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)) // Clip image corners
             ) {
                 AsyncImage(
                     model = ImageRequest.Builder(context)
@@ -452,16 +456,16 @@ private fun ArtistAlbumCard(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
-                
+
                 // Play button overlay
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(8.dp)
+                        .padding(10.dp) // Slightly more padding
                 ) {
                     FilledIconButton(
                         onClick = onClick,
-                        modifier = Modifier.size(36.dp),
+                        modifier = Modifier.size(40.dp), // Slightly larger button
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = MaterialTheme.colorScheme.onPrimary
@@ -470,28 +474,28 @@ private fun ArtistAlbumCard(
                         Icon(
                             imageVector = RhythmIcons.Play,
                             contentDescription = "Play album",
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(22.dp) // Slightly larger icon
                         )
                     }
                 }
             }
-            
+
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(12.dp)
+                    .padding(horizontal = 12.dp, vertical = 8.dp) // Adjusted vertical padding
             ) {
                 Text(
                     text = album.title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.titleSmall, // Use titleSmall for better hierarchy
+                    fontWeight = FontWeight.Bold, // Make title bolder
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                
+
                 Text(
                     text = "${album.numberOfSongs} songs",
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall, // Use bodySmall for song count
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -533,7 +537,8 @@ private fun EnhancedArtistSongItem(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
                 )
                 
                 if (song.duration > 0) {
@@ -547,7 +552,9 @@ private fun EnhancedArtistSongItem(
                     Text(
                         text = durationText,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }

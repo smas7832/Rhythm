@@ -578,48 +578,51 @@ fun SettingsScreen(
                             .fillMaxWidth()
                             .padding(20.dp)
                     ) {
-                        // App icon with background
-                        Box(
-                            modifier = Modifier
-                                .size(100.dp)
-                                .background(
-                                    MaterialTheme.colorScheme.surfaceContainerLow,
-                                    shape = CircleShape
-                                ),
-                            contentAlignment = Alignment.Center
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center
                         ) {
                             Image(
-                                painter = painterResource(id = R.drawable.rhythm_logo),
-                                contentDescription = null,
-                                modifier = Modifier.size(70.dp)
+                                painter = painterResource(id = R.drawable.rhythm_splash_logo),
+                                contentDescription = "Rhythm Logo",
+                                modifier = Modifier.size(48.dp)
+                            )
+
+                            Spacer(modifier = Modifier.width(3.dp))
+
+                            Text(
+                                text = "Rhythm",
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(24.dp))
 
                         Text(
-                            text = "Rhythm Music Player",
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-
-                        Text(
-                            text = "Version ${currentAppVersion.versionName}",
+                            text = "Music Player",
                             style = MaterialTheme.typography.titleMedium,
-                            textAlign = TextAlign.Center,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
                         )
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        Text(
-                            text = "by Team ChromaHub",
-                            style = MaterialTheme.typography.bodyMedium,
-                            textAlign = TextAlign.Center,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Surface(
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = currentAppVersion.versionName,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.padding(vertical = 4.dp, horizontal = 12.dp)
+                            )
+                        }
 
                         Spacer(modifier = Modifier.height(20.dp))
 
@@ -783,9 +786,7 @@ fun SettingsToggleItem(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer
         ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 1.dp
-        ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp)

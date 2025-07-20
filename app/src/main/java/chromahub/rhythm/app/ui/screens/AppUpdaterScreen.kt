@@ -241,126 +241,114 @@ fun AppUpdaterScreen(
                             text = "Current Version",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Text(
+                            text = currentVersion.versionName,
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.ExtraBold,
                             color = MaterialTheme.colorScheme.primary
                         )
 
                         Spacer(modifier = Modifier.height(8.dp))
 
+                        Text(
+                            text = "Released: ${currentVersion.releaseDate}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        // Update status hierarchy
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Surface(
-                                color = MaterialTheme.colorScheme.secondaryContainer,
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.padding(vertical = 4.dp)
+                            // Master updates setting
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center,
+                                modifier = Modifier.fillMaxWidth()
                             ) {
+                                Icon(
+                                    imageVector = RhythmIcons.Settings,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = currentVersion.versionName,
+                                    text = if (updatesEnabled) "Updates Enabled" else "Updates Disabled",
                                     style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                    modifier = Modifier.padding(vertical = 4.dp, horizontal = 12.dp)
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                             }
 
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            Text(
-                                text = "Released: ${currentVersion.releaseDate}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            // Update status hierarchy
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier.fillMaxWidth()
+                            // Auto-check setting (only show when updates are enabled)
+                            AnimatedVisibility(
+                                visible = updatesEnabled,
+                                enter = fadeIn() + expandVertically(),
+                                exit = fadeOut() + shrinkVertically()
                             ) {
-                                // Master updates setting
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center,
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Icon(
-                                        imageVector = RhythmIcons.Settings,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = if (updatesEnabled) "Updates Enabled" else "Updates Disabled",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-
-                                // Auto-check setting (only show when updates are enabled)
-                                AnimatedVisibility(
-                                    visible = updatesEnabled,
-                                    enter = fadeIn() + expandVertically(),
-                                    exit = fadeOut() + shrinkVertically()
-                                ) {
-                                    Column(
-                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center,
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.Center,
+                                        Icon(
+                                            imageVector = RhythmIcons.Refresh,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = if (autoCheckForUpdates) "Auto-check Enabled" else "Manual Check Only",
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+
+                                    // Update Channel status (only show when auto-check is enabled)
+                                    AnimatedVisibility(
+                                        visible = autoCheckForUpdates,
+                                        enter = fadeIn() + expandVertically(),
+                                        exit = fadeOut() + shrinkVertically()
+                                    ) {
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
                                             modifier = Modifier.fillMaxWidth()
                                         ) {
-                                            Icon(
-                                                imageVector = RhythmIcons.Refresh,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(
-                                                text = if (autoCheckForUpdates) "Auto-check Enabled" else "Manual Check Only",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-
-                                        // Update Channel status (only show when auto-check is enabled)
-                                        AnimatedVisibility(
-                                            visible = autoCheckForUpdates,
-                                            enter = fadeIn() + expandVertically(),
-                                            exit = fadeOut() + shrinkVertically()
-                                        ) {
-                                            Column(
-                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                            Spacer(modifier = Modifier.height(12.dp))
+                                            
+                                            val updateChannel by appSettings.updateChannel.collectAsState()
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.Center,
                                                 modifier = Modifier.fillMaxWidth()
                                             ) {
-                                                Spacer(modifier = Modifier.height(8.dp))
-                                                
-                                                val updateChannel by appSettings.updateChannel.collectAsState()
-                                                Row(
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.Center,
-                                                    modifier = Modifier.fillMaxWidth()
-                                                ) {
-                                                    Icon(
-                                                        imageVector = if (updateChannel == "beta") Icons.Default.BugReport else Icons.Default.Public,
-                                                        contentDescription = null,
-                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                        modifier = Modifier.size(18.dp)
-                                                    )
-                                                    Spacer(modifier = Modifier.width(8.dp))
-                                                    Text(
-                                                        text = "Channel: ${updateChannel.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }}",
-                                                        style = MaterialTheme.typography.bodyMedium,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                    )
-                                                }
+                                                Icon(
+                                                    imageVector = if (updateChannel == "beta") Icons.Default.BugReport else Icons.Default.Public,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text(
+                                                    text = "Channel: ${updateChannel.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }}",
+                                                    style = MaterialTheme.typography.bodyLarge,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
                                             }
                                         }
                                     }
@@ -816,39 +804,56 @@ fun AppUpdaterScreen(
                                 }
                             } else {
                                 // Up to date - only show when auto-check is enabled and no error
-                                Box(
+                                Card(
+                                    shape = RoundedCornerShape(24.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+                                    ),
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                                     modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFF4CAF50)),
-                                    contentAlignment = Alignment.Center
+                                        .fillMaxWidth()
                                 ) {
-                                    Icon(
-                                        imageVector = RhythmIcons.Check,
-                                        contentDescription = "Up to date",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(16.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(40.dp)
+                                                .clip(CircleShape)
+                                                .background(MaterialTheme.colorScheme.primary),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = RhythmIcons.Check,
+                                                contentDescription = "Up to date",
+                                                tint = MaterialTheme.colorScheme.onPrimary,
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                        }
 
-                                Spacer(modifier = Modifier.height(8.dp))
+                                        Spacer(modifier = Modifier.height(8.dp))
 
-                                Text(
-                                    text = "You are on the latest version",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF4CAF50)
-                                )
+                                        Text(
+                                            text = "You are up to date!",
+                                            style = MaterialTheme.typography.titleLarge,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
 
-                                Spacer(modifier = Modifier.height(16.dp))
+                                        Spacer(modifier = Modifier.height(16.dp))
 
-                                Button(
-                                    onClick = { updaterViewModel.checkForUpdates(force = true) },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.primary
-                                    )
-                                ) {
-                                    Text("Check Again")
+                                        Button(
+                                            onClick = { updaterViewModel.checkForUpdates(force = true) },
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = MaterialTheme.colorScheme.primary
+                                            )
+                                        ) {
+                                            Text("Check Again")
+                                        }
+                                    }
                                 }
                             }
                         }
