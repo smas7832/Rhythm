@@ -8,31 +8,18 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -44,6 +31,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlin.math.PI
 import kotlin.math.sin
+import kotlin.math.cos
 
 /**
  * Material Design 3 compliant linear progress indicator with rounded corners
@@ -55,39 +43,17 @@ fun M3LinearLoader(
     modifier: Modifier = Modifier,
     color: Color = MaterialTheme.colorScheme.primary,
     trackColor: Color = MaterialTheme.colorScheme.surfaceVariant,
-    showTrackGap: Boolean = true,
-    showStopIndicator: Boolean = true,
-    fourColor: Boolean = false
+    showTrackGap: Boolean = true, // This parameter will be ignored for wavy loader
+    showStopIndicator: Boolean = true, // This parameter will be ignored for wavy loader
+    fourColor: Boolean = false // This parameter will be ignored for wavy loader
 ) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .height(4.dp) // M3 standard height is 4dp
-    ) {
-        if (progress != null) {
-            // Determinate progress indicator
-            LinearProgressIndicator(
-                progress = { progress },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(2.dp)), // Rounded corners per M3
-                color = color,
-                trackColor = if (showTrackGap) trackColor else trackColor.copy(alpha = 0.4f),
-                strokeCap = if (showStopIndicator) StrokeCap.Round else StrokeCap.Butt
-            )
-        } else {
-            // Indeterminate progress indicator
-            LinearProgressIndicator(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(2.dp)), // Rounded corners per M3
-                color = color,
-                trackColor = if (showTrackGap) trackColor else trackColor.copy(alpha = 0.4f),
-                strokeCap = StrokeCap.Round
-            )
-        }
-    }
+    M3WaveProgressIndicator(
+        progress = progress ?: 1f, // Use 1f for indeterminate
+        modifier = modifier,
+        waveColor = color,
+        trackColor = trackColor,
+        showLabel = false // Linear loader typically doesn't show label
+    )
 }
 
 /**
@@ -100,30 +66,17 @@ fun M3CircularLoader(
     modifier: Modifier = Modifier,
     color: Color = MaterialTheme.colorScheme.primary,
     trackColor: Color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-    strokeWidth: Float = 4f,
-    showTrackGap: Boolean = true,
-    fourColor: Boolean = false
+    strokeWidth: Float = 4f, // This parameter will be ignored for wavy loader
+    showTrackGap: Boolean = true, // This parameter will be ignored for wavy loader
+    fourColor: Boolean = false // This parameter will be ignored for wavy loader
 ) {
-    if (progress != null) {
-        // Determinate circular progress
-        CircularProgressIndicator(
-            progress = { progress },
-            modifier = modifier.size(48.dp),
-            color = color,
-            trackColor = if (showTrackGap) trackColor else Color.Transparent,
-            strokeWidth = strokeWidth.dp,
-            strokeCap = StrokeCap.Round // M3 spec uses rounded stroke cap
-        )
-    } else {
-        // Indeterminate circular progress
-        CircularProgressIndicator(
-            modifier = modifier.size(48.dp),
-            color = color,
-            trackColor = if (showTrackGap) trackColor else Color.Transparent,
-            strokeWidth = strokeWidth.dp,
-            strokeCap = StrokeCap.Round // M3 spec uses rounded stroke cap
-        )
-    }
+    M3CircularWaveProgressIndicator(
+        progress = progress ?: 1f, // Use 1f for indeterminate
+        modifier = modifier,
+        waveColor = color,
+        trackColor = trackColor,
+        strokeWidth = strokeWidth
+    )
 }
 
 /**
@@ -133,38 +86,15 @@ fun M3CircularLoader(
 @Composable
 fun M3FourColorCircularLoader(
     modifier: Modifier = Modifier,
-    strokeWidth: Float = 4f
+    strokeWidth: Float = 4f // This parameter will be ignored for wavy loader
 ) {
-    // Use the four colors from Material 3 color scheme
-    val color1 = MaterialTheme.colorScheme.primary
-    val color2 = MaterialTheme.colorScheme.primaryContainer
-    val color3 = MaterialTheme.colorScheme.tertiary
-    val color4 = MaterialTheme.colorScheme.tertiaryContainer
-    
-    val infiniteTransition = rememberInfiniteTransition(label = "fourColorAnimation")
-    val colorIndex by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 4f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "colorIndex"
-    )
-    
-    val currentColor = when {
-        colorIndex < 1f -> color1
-        colorIndex < 2f -> color2
-        colorIndex < 3f -> color3
-        else -> color4
-    }
-    
-    CircularProgressIndicator(
-        modifier = modifier.size(48.dp),
-        color = currentColor,
-        trackColor = Color.Transparent,
-        strokeWidth = strokeWidth.dp,
-        strokeCap = StrokeCap.Round
+    // The four-color animation will be replaced by a single wave color
+    M3CircularWaveProgressIndicator(
+        progress = 1f, // Indeterminate, so full wave
+        modifier = modifier,
+        waveColor = MaterialTheme.colorScheme.primary, // Use primary color
+        trackColor = MaterialTheme.colorScheme.surfaceVariant,
+        strokeWidth = strokeWidth
     )
 }
 
@@ -176,45 +106,14 @@ fun M3FourColorCircularLoader(
 fun M3FourColorLinearLoader(
     modifier: Modifier = Modifier
 ) {
-    // Use the four colors from Material 3 color scheme
-    val color1 = MaterialTheme.colorScheme.primary
-    val color2 = MaterialTheme.colorScheme.primaryContainer
-    val color3 = MaterialTheme.colorScheme.tertiary
-    val color4 = MaterialTheme.colorScheme.tertiaryContainer
-    
-    val infiniteTransition = rememberInfiniteTransition(label = "fourColorAnimation")
-    val colorIndex by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 4f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "colorIndex"
+    // The four-color animation will be replaced by a single wave color
+    M3WaveProgressIndicator(
+        progress = 1f, // Indeterminate, so full wave
+        modifier = modifier,
+        waveColor = MaterialTheme.colorScheme.primary, // Use primary color
+        trackColor = MaterialTheme.colorScheme.surfaceVariant,
+        showLabel = false
     )
-    
-    val currentColor = when {
-        colorIndex < 1f -> color1
-        colorIndex < 2f -> color2
-        colorIndex < 3f -> color3
-        else -> color4
-    }
-    
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .height(4.dp)
-    ) {
-        LinearProgressIndicator(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(2.dp)),
-            color = currentColor,
-            trackColor = MaterialTheme.colorScheme.surfaceVariant,
-            strokeCap = StrokeCap.Round
-        )
-    }
 }
 
 /**
@@ -224,45 +123,19 @@ fun M3FourColorLinearLoader(
 @Composable
 fun M3BufferedLinearLoader(
     progress: Float,
-    buffer: Float,
+    buffer: Float, // This parameter will be ignored for wavy loader
     modifier: Modifier = Modifier,
     color: Color = MaterialTheme.colorScheme.primary,
     trackColor: Color = MaterialTheme.colorScheme.surfaceVariant,
-    bufferColor: Color = color.copy(alpha = 0.4f)
+    bufferColor: Color = color.copy(alpha = 0.4f) // This parameter will be ignored for wavy loader
 ) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .height(4.dp)
-    ) {
-        // Track
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(4.dp)
-                .clip(RoundedCornerShape(2.dp))
-                .background(trackColor)
-        )
-        
-        // Buffer
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(buffer)
-                .height(4.dp)
-                .clip(RoundedCornerShape(2.dp))
-                .background(bufferColor)
-        )
-        
-        // Progress
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(progress)
-                .height(4.dp)
-                .clip(RoundedCornerShape(2.dp))
-                .background(color)
-        )
-    }
+    M3WaveProgressIndicator(
+        progress = progress,
+        modifier = modifier,
+        waveColor = color,
+        trackColor = trackColor,
+        showLabel = false
+    )
 }
 
 /**
@@ -283,7 +156,7 @@ fun M3WaveProgressIndicator(
         initialValue = 0f,
         targetValue = 2 * PI.toFloat(),
         animationSpec = infiniteRepeatable(
-            animation = tween(2000, easing = LinearEasing),
+            animation = tween(1000, easing = LinearEasing), // Increased speed
             repeatMode = RepeatMode.Restart
         ),
         label = "waveOffset"
@@ -364,7 +237,6 @@ fun M3WaveProgressIndicator(
         }
         
         if (showLabel) {
-            Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = "${(progress * 100).toInt()}%",
                 style = MaterialTheme.typography.labelMedium,
@@ -372,6 +244,91 @@ fun M3WaveProgressIndicator(
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
             )
+        }
+    }
+}
+
+/**
+ * Material Design 3 compliant circular wavy progress indicator
+ */
+@Composable
+fun M3CircularWaveProgressIndicator(
+    progress: Float,
+    modifier: Modifier = Modifier,
+    waveColor: Color = MaterialTheme.colorScheme.primary,
+    trackColor: Color = MaterialTheme.colorScheme.surfaceVariant,
+    strokeWidth: Float = 4f
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "circularWaveAnimation")
+    val animatedOffset by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 2 * PI.toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = LinearEasing), // Increased speed
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "circularWaveOffset"
+    )
+
+    val animatedProgress by animateFloatAsState(
+        targetValue = progress,
+        animationSpec = tween(300),
+        label = "circularProgressAnimation"
+    )
+
+    Box(
+        modifier = modifier.size(48.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.size(48.dp)) {
+            val radius = size.minDimension / 2 - strokeWidth.dp.toPx() / 2
+            val center = Offset(size.width / 2, size.height / 2)
+
+            // Draw background track
+            drawCircle(
+                color = trackColor,
+                radius = radius,
+                style = Stroke(width = strokeWidth.dp.toPx(), cap = StrokeCap.Round)
+            )
+
+            if (animatedProgress > 0f) {
+                val gradient = Brush.sweepGradient(
+                    colors = listOf(
+                        waveColor.copy(alpha = 0.7f),
+                        waveColor
+                    ),
+                    center = center
+                )
+
+                val path = Path()
+                val startAngle = -90f // Start from top
+                val sweepAngle = animatedProgress * 360f
+                val amplitude = 2.dp.toPx() // Height of the wave
+
+                for (angle in 0..sweepAngle.toInt()) {
+                    val currentAngleRad = Math.toRadians(startAngle + angle.toDouble()).toFloat()
+                    val waveOffset = amplitude * sin(currentAngleRad * 5 + animatedOffset) // 5 waves around the circle
+
+                    val x = center.x + (radius + waveOffset) * cos(currentAngleRad)
+                    val y = center.y + (radius + waveOffset) * sin(currentAngleRad)
+
+                    if (angle == 0) {
+                        path.moveTo(x, y)
+                    } else {
+                        path.lineTo(x, y)
+                    }
+                }
+
+                drawPath(
+                    path = path,
+                    brush = gradient,
+                    style = Stroke(
+                        width = strokeWidth.dp.toPx(),
+                        cap = StrokeCap.Round,
+                        pathEffect = PathEffect.cornerPathEffect(8f)
+                    )
+                )
+            }
         }
     }
 }
@@ -384,53 +341,14 @@ fun M3PulseLoader(
     modifier: Modifier = Modifier,
     color: Color = MaterialTheme.colorScheme.primary
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "pulseAnimation")
-    val scale by infiniteTransition.animateFloat(
-        initialValue = 0.6f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulseScale"
+    // Pulse animation will be replaced by circular wave animation
+    M3CircularWaveProgressIndicator(
+        progress = 1f, // Indeterminate, so full wave
+        modifier = modifier,
+        waveColor = color,
+        trackColor = MaterialTheme.colorScheme.surfaceVariant,
+        strokeWidth = 4f
     )
-    
-    val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.7f,
-        targetValue = 0.3f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulseAlpha"
-    )
-    
-    Box(
-        modifier = modifier
-            .size(48.dp)
-    ) {
-        // Background pulse circle
-        CircularProgressIndicator(
-            progress = { 1f },
-            modifier = Modifier
-                .size(48.dp * scale)
-                .align(Alignment.Center),
-            color = color.copy(alpha = alpha),
-            strokeWidth = 4.dp,
-            strokeCap = StrokeCap.Round
-        )
-        
-        // Foreground circle
-        CircularProgressIndicator(
-            modifier = Modifier
-                .size(36.dp)
-                .align(Alignment.Center),
-            color = color,
-            trackColor = Color.Transparent,
-            strokeWidth = 4.dp,
-            strokeCap = StrokeCap.Round
-        )
-    }
 }
 
 /**
@@ -441,56 +359,18 @@ fun M3PulseLoader(
 fun M3SegmentedLoader(
     progress: Float,
     modifier: Modifier = Modifier,
-    segmentCount: Int = 5,
+    segmentCount: Int = 5, // This parameter will be ignored for wavy loader
     activeColor: Color = MaterialTheme.colorScheme.primary,
     inactiveColor: Color = MaterialTheme.colorScheme.surfaceVariant,
     showLabel: Boolean = false
 ) {
-    val animatedProgress by animateFloatAsState(
-        targetValue = progress,
-        animationSpec = tween(300),
-        label = "segmentProgress"
+    M3WaveProgressIndicator(
+        progress = progress,
+        modifier = modifier,
+        waveColor = activeColor, // Use activeColor as waveColor
+        trackColor = inactiveColor, // Use inactiveColor as trackColor
+        showLabel = showLabel
     )
-    
-    Column(modifier = modifier) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .height(8.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            val activeSegments = (animatedProgress * segmentCount).toInt()
-            val partialSegment = (animatedProgress * segmentCount) - activeSegments
-            
-            repeat(segmentCount) { index ->
-                val segmentColor = when {
-                    index < activeSegments -> activeColor
-                    index == activeSegments -> activeColor.copy(alpha = partialSegment)
-                    else -> inactiveColor
-                }
-                
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(8.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(segmentColor)
-                )
-            }
-        }
-        
-        if (showLabel) {
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "${(progress * 100).toInt()}%",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-    }
 }
 
 /**
@@ -501,38 +381,17 @@ fun M3SegmentedLoader(
 fun M3DotLoader(
     modifier: Modifier = Modifier,
     color: Color = MaterialTheme.colorScheme.primary,
-    dotSize: Float = 8f,
-    dotCount: Int = 3
+    dotSize: Float = 8f, // This parameter will be ignored for wavy loader
+    dotCount: Int = 3 // This parameter will be ignored for wavy loader
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "dotAnimation")
-    
-    Row(
-        modifier = modifier.padding(16.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        repeat(dotCount) { index ->
-            val delay = index * 200 // Stagger the animations
-            
-            val scale by infiniteTransition.animateFloat(
-                initialValue = 0.6f,
-                targetValue = 1f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(600, easing = LinearEasing, delayMillis = delay),
-                    repeatMode = RepeatMode.Reverse
-                ),
-                label = "dotScale$index"
-            )
-            
-            Box(
-                modifier = Modifier
-                    .padding(horizontal = 4.dp)
-                    .size((dotSize * scale).dp)
-                    .clip(CircleShape)
-                    .background(color)
-            )
-        }
-    }
+    // Dot animation will be replaced by circular wave animation
+    M3CircularWaveProgressIndicator(
+        progress = 1f, // Indeterminate, so full wave
+        modifier = modifier,
+        waveColor = color,
+        trackColor = MaterialTheme.colorScheme.surfaceVariant,
+        strokeWidth = 4f
+    )
 }
 
 /**
@@ -545,52 +404,17 @@ fun M3BrandedLoader(
     modifier: Modifier = Modifier,
     color: Color = MaterialTheme.colorScheme.primary,
     trackColor: Color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-    surfaceColor: Color = MaterialTheme.colorScheme.surface,
+    surfaceColor: Color = MaterialTheme.colorScheme.surface, // This parameter will be ignored for wavy loader
     showLabel: Boolean = false
 ) {
-    Surface(
+    // Branded loader will be replaced by circular wave animation
+    M3CircularWaveProgressIndicator(
+        progress = progress ?: 1f, // Use 1f for indeterminate
         modifier = modifier,
-        shape = CircleShape,
-        color = surfaceColor,
-        tonalElevation = 2.dp,
-        shadowElevation = 1.dp
-    ) {
-        Box(
-            modifier = Modifier
-                .padding(16.dp)
-                .size(64.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            if (progress != null) {
-                // Determinate progress
-                CircularProgressIndicator(
-                    progress = { progress },
-                    modifier = Modifier.size(64.dp),
-                    color = color,
-                    trackColor = trackColor,
-                    strokeWidth = 5.dp,
-                    strokeCap = StrokeCap.Round
-                )
-                
-                if (showLabel) {
-                    Text(
-                        text = "${(progress * 100).toInt()}%",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            } else {
-                // Indeterminate progress
-                CircularProgressIndicator(
-                    modifier = Modifier.size(48.dp),
-                    color = color,
-                    trackColor = trackColor,
-                    strokeWidth = 4.dp,
-                    strokeCap = StrokeCap.Round
-                )
-            }
-        }
-    }
+        waveColor = color,
+        trackColor = trackColor,
+        strokeWidth = 5f // Use a slightly thicker stroke for branded loader
+    )
 }
 
 /**
@@ -606,39 +430,13 @@ fun M3StepProgressIndicator(
     completedColor: Color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
     inactiveColor: Color = MaterialTheme.colorScheme.surfaceVariant
 ) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        for (step in 0 until totalSteps) {
-            val color = when {
-                step < currentStep -> completedColor
-                step == currentStep -> activeColor
-                else -> inactiveColor
-            }
-            
-            // Step indicator
-            Box(
-                modifier = Modifier
-                    .size(if (step == currentStep) 12.dp else 8.dp)
-                    .clip(CircleShape)
-                    .background(color)
-            )
-            
-            // Connector line between steps (except after the last step)
-            if (step < totalSteps - 1) {
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(2.dp)
-                        .background(
-                            if (step < currentStep) completedColor else inactiveColor
-                        )
-                )
-            }
-        }
-    }
-} 
+    // Step progress will be replaced by linear wave animation
+    val progress = if (totalSteps > 0) currentStep.toFloat() / totalSteps.toFloat() else 0f
+    M3WaveProgressIndicator(
+        progress = progress,
+        modifier = modifier,
+        waveColor = activeColor,
+        trackColor = inactiveColor,
+        showLabel = true // Show label for step progress
+    )
+}

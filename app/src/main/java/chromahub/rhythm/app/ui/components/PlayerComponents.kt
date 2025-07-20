@@ -74,7 +74,6 @@ import chromahub.rhythm.app.util.M3ImageUtils
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import java.util.concurrent.TimeUnit
-import chromahub.rhythm.app.ui.components.WaveSlider
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -127,6 +126,26 @@ fun MiniPlayer(
         animationSpec = tween(durationMillis = 100),
         label = "scale"
     )
+
+    // Animation for song change bounce effect
+    var songChangeBounceTrigger by remember { mutableStateOf(false) }
+    val songBounceScale by animateFloatAsState(
+        targetValue = if (songChangeBounceTrigger) 1.02f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "songBounceScale"
+    )
+
+    // Trigger bounce animation when song changes
+    LaunchedEffect(song) {
+        if (song != null) {
+            songChangeBounceTrigger = true
+            delay(100) // Short delay to initiate the bounce
+            songChangeBounceTrigger = false // Let the spring animation bring it back to 1f
+        }
+    }
     
     // For swipe gesture detection
     var offsetY by remember { mutableStateOf(0f) }
@@ -228,7 +247,7 @@ fun MiniPlayer(
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .padding(bottom = bottomPadding) // Use our calculated smart bottom padding
-            .scale(scale)
+            .scale(scale * songBounceScale) // Combined scale for press and song change bounce
             .graphicsLayer { 
                 // Apply translation based on swipe gesture
                 translationY = if (isDismissingPlayer) 300f else translationOffset
@@ -312,51 +331,63 @@ fun MiniPlayer(
                     )
                 )
             }
-            
+
             // Visual indicator for swipe actions with improved positioning
             AnimatedVisibility(
                 visible = offsetY < -20f,
                 enter = fadeIn() + slideInVertically(),
                 exit = fadeOut() + slideOutVertically()
             ) {
-                Text(
-                    text = "⬆ Swipe up for full player",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = (-offsetY / swipeUpThreshold).coerceIn(0f, 0.8f)),
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = (-offsetY / swipeUpThreshold).coerceIn(0f, 0.8f)),
                     modifier = Modifier
                         .align(Alignment.CenterHorizontally)
                         .padding(bottom = 4.dp)
-                )
+                ) {
+                    Text(
+                        text = "⬆ Swipe up for full player",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
             }
-            
+
             AnimatedVisibility(
                 visible = offsetY > 20f,
                 enter = fadeIn() + slideInVertically(),
                 exit = fadeOut() + slideOutVertically()
             ) {
-                Text(
-                    text = "⬇ Swipe down to dismiss",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.error.copy(alpha = (offsetY / swipeDownThreshold).coerceIn(0f, 0.8f)),
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = (offsetY / swipeDownThreshold).coerceIn(0f, 0.8f)),
                     modifier = Modifier
                         .align(Alignment.CenterHorizontally)
                         .padding(bottom = 4.dp)
+                ) {
+                    Text(
+                        text = "⬇ Swipe down to dismiss",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            // Progress bar for the mini player
+            if (song != null) {
+                LinearProgressIndicator(
+                    progress = { animatedProgress }, // Use lambda for progress
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 22.dp) // Added horizontal padding
+                        .height(4.dp), // Thinner progress bar
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
                 )
             }
-            
-            // Enhanced progress indicator with more visual appeal
-            M3LinearLoader(
-                progress = animatedProgress,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp) // Increased padding for better visual balance
-                    .padding(bottom = 8.dp),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                showTrackGap = true,
-                showStopIndicator = true
-            )
-            
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()

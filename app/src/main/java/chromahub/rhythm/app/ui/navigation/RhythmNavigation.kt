@@ -253,23 +253,23 @@ fun RhythmNavigation(
                     val isRemovalSnackbar = data.visuals.message.contains("removed from playlist")
 
                     Snackbar(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 18.dp),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
                         action = { data.visuals.actionLabel?.let { label -> TextButton(onClick = { data.performAction() }) { Text(label) } } },
                         actionOnNewLine = data.visuals.actionLabel != null && data.visuals.message.length > 50,
                         shape = RoundedCornerShape(22.dp),
-                        containerColor = if (isRemovalSnackbar) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                        contentColor = if (isRemovalSnackbar) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onPrimary,
-                        actionContentColor = if (isRemovalSnackbar) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.inversePrimary,
+                        containerColor = if (isRemovalSnackbar) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
+                        contentColor = if (isRemovalSnackbar) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurface,
+                        actionContentColor = if (isRemovalSnackbar) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                         content = {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp), // Adjusted spacing for Android 16 UI
-                                modifier = Modifier.padding(vertical = 12.dp) // Adjusted vertical padding for Android 16 UI
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.padding(vertical = 12.dp)
                             ) {
                                 Icon(
                                     imageVector = if (isRemovalSnackbar) RhythmIcons.Delete else RhythmIcons.Actions.Check,
                                     contentDescription = if (isRemovalSnackbar) "Removed" else "Info",
-                                    tint = if (isRemovalSnackbar) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                                    tint = if (isRemovalSnackbar) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurface,
                                     modifier = Modifier.size(24.dp)
                                 )
                                 Text(

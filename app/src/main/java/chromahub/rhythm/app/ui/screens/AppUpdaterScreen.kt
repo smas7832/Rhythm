@@ -60,6 +60,7 @@ import chromahub.rhythm.app.R
 import chromahub.rhythm.app.data.Song
 import chromahub.rhythm.app.ui.components.MiniPlayer
 import chromahub.rhythm.app.ui.components.RhythmIcons
+import chromahub.rhythm.app.ui.components.M3CircularWaveProgressIndicator // Added import
 import chromahub.rhythm.app.viewmodel.AppUpdaterViewModel
 import chromahub.rhythm.app.viewmodel.AppVersion
 import androidx.compose.material.icons.Icons
@@ -534,9 +535,11 @@ fun AppUpdaterScreen(
                             }
                         } else if (isCheckingForUpdates) {
                             // Loading indicator
-                            CircularProgressIndicator(
+                            M3CircularWaveProgressIndicator(
+                                progress = 1f, // Indeterminate progress
                                 modifier = Modifier.size(40.dp),
-                                color = MaterialTheme.colorScheme.primary
+                                waveColor = MaterialTheme.colorScheme.primary,
+                                trackColor = MaterialTheme.colorScheme.surfaceVariant
                             )
 
                             Spacer(modifier = Modifier.height(8.dp))
