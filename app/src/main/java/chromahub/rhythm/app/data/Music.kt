@@ -17,7 +17,8 @@ data class Song(
     val artworkUri: Uri? = null,
     val trackNumber: Int = 0,
     val year: Int = 0,
-    val genre: String? = null
+    val genre: String? = null,
+    val dateAdded: Long = System.currentTimeMillis() // New field for date added
 ) : Parcelable {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -36,6 +37,7 @@ data class Song(
         if (trackNumber != other.trackNumber) return false
         if (year != other.year) return false
         if (!Objects.equals(genre, other.genre)) return false
+        if (dateAdded != other.dateAdded) return false // Include in equals
 
         return true
     }
@@ -52,7 +54,8 @@ data class Song(
             artworkUri,
             trackNumber,
             year,
-            genre
+            genre,
+            dateAdded // Include in hashCode
         )
     }
 }
@@ -65,9 +68,9 @@ data class Album(
     val artworkUri: Uri? = null,
     val year: Int = 0,
     val songs: List<Song> = emptyList(),
-    val numberOfSongs: Int = 0
+    val numberOfSongs: Int = 0,
+    val dateModified: Long = System.currentTimeMillis()
 ) : Parcelable
-
 @Parcelize
 data class Artist(
     val id: String,

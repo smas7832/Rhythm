@@ -89,7 +89,8 @@ class MusicRepository(private val context: Context) {
             MediaStore.Audio.Media.ALBUM_ID,
             MediaStore.Audio.Media.DURATION,
             MediaStore.Audio.Media.TRACK,
-            MediaStore.Audio.Media.YEAR
+            MediaStore.Audio.Media.YEAR,
+            MediaStore.Audio.Media.DATE_ADDED // Add DATE_ADDED to projection
         )
 
         val selection = "${MediaStore.Audio.Media.IS_MUSIC} = 1"
@@ -111,6 +112,7 @@ class MusicRepository(private val context: Context) {
             val durationColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
             val trackColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK)
             val yearColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.YEAR)
+            val dateAddedColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED) // Get index for DATE_ADDED
 
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(idColumn)
@@ -121,6 +123,7 @@ class MusicRepository(private val context: Context) {
                 val duration = cursor.getLong(durationColumn)
                 val track = cursor.getInt(trackColumn)
                 val year = cursor.getInt(yearColumn)
+                val dateAdded = cursor.getLong(dateAddedColumn) * 1000L // Convert seconds to milliseconds
 
                 val contentUri: Uri = ContentUris.withAppendedId(
                     MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
@@ -142,7 +145,8 @@ class MusicRepository(private val context: Context) {
                     uri = contentUri,
                     artworkUri = albumArtUri,
                     trackNumber = track,
-                    year = year
+                    year = year,
+                    dateAdded = dateAdded // Populate the new field
                 )
                 songs.add(song)
             }

@@ -185,17 +185,26 @@ fun NewHomeScreen(
     val currentYear = Calendar.getInstance().get(Calendar.YEAR)
     val currentYearReleases = remember(albums, currentYear) {
         albums.filter { it.year == currentYear }
-            .ifEmpty { 
+            .ifEmpty {
                 // Fallback to most recent albums if no current year albums are available
-                albums.sortedByDescending { it.year }.take(4) 
+                albums.sortedByDescending { it.year }.take(4)
             }
             .take(4)
     }
-    
+
+    // Filter recently added albums (last month, sorted by date modified)
     // Generate mood-based playlists - ordered by recency and characteristics
     val moodBasedSongs = songs.takeLast(12)
     val energeticSongs = songs.take(10)
     val relaxingSongs = songs.drop(10).take(10)
+
+    // Filter recently added songs (last month, sorted by date added)
+    val recentlyAddedSongs = remember(songs) {
+        val oneMonthAgo = Calendar.getInstance().apply { add(Calendar.MONTH, -1) }.timeInMillis
+        songs.filter { it.dateAdded >= oneMonthAgo }
+            .sortedByDescending { it.dateAdded }
+            .take(5) // Take top 5 recently added songs
+    }
 
     // Show artist bottom sheet when an artist is selected
     if (showArtistSheet && selectedArtist != null) {
@@ -278,39 +287,40 @@ fun NewHomeScreen(
                 modifier = Modifier.padding(horizontal = 8.dp)
             )
         },
-bottomBar = {},
-containerColor = MaterialTheme.colorScheme.background
-) { paddingValues ->
-    EnhancedScrollableContent(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(paddingValues)
-            .padding(bottom = if (currentSong != null) 0.dp else 0.dp),
-        featuredContent = featuredContent,
-        albums = albums,
-        topArtists = topArtists,
-        newReleases = currentYearReleases,
-        recentlyPlayed = recentlyPlayed,
-        moodBasedSongs = moodBasedSongs,
-        energeticSongs = energeticSongs,
-        relaxingSongs = relaxingSongs,
-        onSongClick = onSongClick,
-        onAlbumClick = onAlbumClick,
-        onArtistClick = { artist: Artist ->
-            selectedArtist = artist
-            showArtistSheet = true
-        },
-        onViewAllSongs = onViewAllSongs,
-        onViewAllAlbums = onViewAllAlbums,
-        onViewAllArtists = onViewAllArtists,
-        onSearchClick = onSearchClick,
-        onSettingsClick = onSettingsClick,
-        onAppUpdateClick = onAppUpdateClick,
-        onNavigateToLibrary = onNavigateToLibrary,
-        onNavigateToPlaylist = onNavigateToPlaylist,
-        updaterViewModel = updaterViewModel
-    )
-}
+        bottomBar = {},
+        containerColor = MaterialTheme.colorScheme.background
+    ) { paddingValues ->
+        EnhancedScrollableContent(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(bottom = if (currentSong != null) 0.dp else 0.dp),
+            featuredContent = featuredContent,
+            albums = albums,
+            topArtists = topArtists,
+            newReleases = currentYearReleases,
+            recentlyAddedSongs = recentlyAddedSongs, // Pass recently added songs
+            recentlyPlayed = recentlyPlayed,
+            moodBasedSongs = moodBasedSongs,
+            energeticSongs = energeticSongs,
+            relaxingSongs = relaxingSongs,
+            onSongClick = onSongClick,
+            onAlbumClick = onAlbumClick,
+            onArtistClick = { artist: Artist ->
+                selectedArtist = artist
+                showArtistSheet = true
+            },
+            onViewAllSongs = onViewAllSongs,
+            onViewAllAlbums = onViewAllAlbums,
+            onViewAllArtists = onViewAllArtists,
+            onSearchClick = onSearchClick,
+            onSettingsClick = onSettingsClick,
+            onAppUpdateClick = onAppUpdateClick,
+            onNavigateToLibrary = onNavigateToLibrary,
+            onNavigateToPlaylist = onNavigateToPlaylist,
+            updaterViewModel = updaterViewModel
+        )
+    }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -321,6 +331,7 @@ private fun EnhancedScrollableContent(
     albums: List<Album>,
     topArtists: List<Artist>,
     newReleases: List<Album>,
+    recentlyAddedSongs: List<Song>, // New parameter
     recentlyPlayed: List<Song>,
     moodBasedSongs: List<Song>,
     energeticSongs: List<Song>,
@@ -586,6 +597,28 @@ private fun EnhancedScrollableContent(
                             NewAlbumCard(
                                 album = album,
                                 onClick = { onAlbumClick(album) }
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Recently Added Songs
+            AnimatedVisibility(
+                visible = recentlyAddedSongs.isNotEmpty(),
+                enter = slideInVertically() + fadeIn(),
+                exit = slideOutVertically() + fadeOut()
+            ) {
+                Column {
+                    SectionTitle(title = "Recently Added", viewAllAction = onViewAllSongs, modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp))
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 5.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(recentlyAddedSongs) { song ->
+                            EnhancedRecentChip(
+                                song = song,
+                                onClick = { onSongClick(song) }
                             )
                         }
                     }
