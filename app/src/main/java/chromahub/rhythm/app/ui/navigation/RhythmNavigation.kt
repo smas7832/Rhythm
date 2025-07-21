@@ -257,8 +257,8 @@ fun RhythmNavigation(
                         action = { data.visuals.actionLabel?.let { label -> TextButton(onClick = { data.performAction() }) { Text(label) } } },
                         actionOnNewLine = data.visuals.actionLabel != null && data.visuals.message.length > 50,
                         shape = RoundedCornerShape(22.dp),
-                        containerColor = if (isRemovalSnackbar) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
-                        contentColor = if (isRemovalSnackbar) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurface,
+                        containerColor = if (isRemovalSnackbar) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = if (isRemovalSnackbar) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer,
                         actionContentColor = if (isRemovalSnackbar) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                         content = {
                             Row(
@@ -269,7 +269,7 @@ fun RhythmNavigation(
                                 Icon(
                                     imageVector = if (isRemovalSnackbar) RhythmIcons.Delete else RhythmIcons.Actions.Check,
                                     contentDescription = if (isRemovalSnackbar) "Removed" else "Info",
-                                    tint = if (isRemovalSnackbar) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurface,
+                                    tint = if (isRemovalSnackbar) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer,
                                     modifier = Modifier.size(24.dp)
                                 )
                                 Text(
