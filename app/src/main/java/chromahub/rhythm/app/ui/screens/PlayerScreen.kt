@@ -12,6 +12,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -91,6 +92,7 @@ import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -240,11 +242,26 @@ fun PlayerScreen(
     
     // Toggle between album art and lyrics
     var showLyricsView by remember { mutableStateOf(false) }
+    var isLyricsContentVisible by remember { mutableStateOf(false) } // New state for lyrics content visibility
     
     // Reset lyrics view when lyrics are disabled
     LaunchedEffect(showLyrics) {
         if (!showLyrics && showLyricsView) {
             showLyricsView = false
+            isLyricsContentVisible = false // Ensure lyrics content is hidden
+        }
+    }
+    
+    // Manage lyrics content visibility with a delay for smoother transitions
+    LaunchedEffect(showLyricsView) {
+        if (showLyricsView) {
+            // When transitioning to lyrics, hide song info (handled by its visibility condition)
+            delay(150) // Small delay for song info to start fading out
+            isLyricsContentVisible = true // Then show lyrics content
+        } else {
+            // When transitioning back to album art, hide lyrics content immediately
+            isLyricsContentVisible = false
+            delay(150) // Small delay for lyrics to fade out before song info appears
         }
     }
     
@@ -704,295 +721,312 @@ fun PlayerScreen(
                     }
 
                     // Album artwork or lyrics view with smooth transitions
-                    AnimatedVisibility(
-                        visible = !showLyricsView,
-                        enter = fadeIn(animationSpec = tween(300)) + slideInVertically(
-                            animationSpec = tween(
-                                300
+                    // Album artwork with optimized padding
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(1.2f) // Enlarged album art to touch screen edges
+                            .aspectRatio(1f)
+                            .clip(RoundedCornerShape(if (isCompactHeight) 20.dp else 28.dp))
+                            .graphicsLayer(
+                                scaleX = albumScale,
+                                scaleY = albumScale,
+                                alpha = albumAlpha
                             )
-                        ),
-                        exit = fadeOut(animationSpec = tween(300)) + slideOutVertically(
-                            animationSpec = tween(300)
-                        )
-                    ) {
-                        // Album artwork with optimized padding
-                        ElevatedCard(
-                            modifier = Modifier
-                                .fillMaxWidth(albumArtSize)
-                                .padding(
-                                    horizontal = if (isCompactWidth) 2.dp else 4.dp, // Further reduced horizontal padding
-                                    vertical = 0.dp // Removed vertical padding
-                                ),
-                            shape = RoundedCornerShape(if (isCompactHeight) 20.dp else 28.dp),
-                            elevation = CardDefaults.elevatedCardElevation(
-                                defaultElevation = if (isCompactHeight) 4.dp else 8.dp
-                            ),
-                            colors = CardDefaults.elevatedCardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f)
-                            )
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .aspectRatio(1f)
-                            ) {
-                                // Album artwork with animations
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .graphicsLayer(
-                                            scaleX = albumScale,
-                                            scaleY = albumScale,
-                                            alpha = albumAlpha
-                                        )
-                                ) {
-                                    if (song?.artworkUri != null) {
-                                        AsyncImage(
-                                            model = ImageRequest.Builder(context)
-                                                .apply(
-                                                    ImageUtils.buildImageRequest(
-                                                        song.artworkUri,
-                                                        song.title,
-                                                        context.cacheDir,
-                                                        M3PlaceholderType.TRACK
-                                                    )
-                                                )
-                                                .build(),
-                                            contentDescription = "Album artwork for ${song.title}",
-                                            contentScale = ContentScale.Crop,
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .clip(RoundedCornerShape(if (isCompactHeight) 20.dp else 28.dp))
-                                        )
-                                    } else {
-                                        // Fallback album art
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .background(MaterialTheme.colorScheme.surfaceVariant),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Icon(
-                                                imageVector = RhythmIcons.Album,
-                                                contentDescription = "Album art",
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.fillMaxSize(0.5f)
-                                            )
-                                        }
-                                    }
+                            .clickable {
+                                if (showLyrics) { // Only toggle if lyrics are enabled
+                                    showLyricsView = !showLyricsView
                                 }
-                            }
-                        }
-                    }
+                            },
+        contentAlignment = Alignment.TopCenter // Align content to the center
+    ) {
+        // Album Image
+        AsyncImage(
+            model = ImageRequest.Builder(context)
+                .apply(ImageUtils.buildImageRequest(
+                    song?.artworkUri,
+                    song?.title,
+                    context.cacheDir,
+                    M3PlaceholderType.TRACK
+                ))
+                .build(),
+            contentDescription = "Album artwork for ${song?.title}",
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
 
-                    // Lyrics view with smooth fade animation only
-                    AnimatedVisibility(
-                        visible = showLyricsView,
-                        enter = fadeIn(animationSpec = tween(durationMillis = 400, easing = androidx.compose.animation.core.EaseInOut)),
-                        exit = fadeOut(animationSpec = tween(durationMillis = 300, easing = androidx.compose.animation.core.EaseInOut))
+        // Enhanced gradient overlay with multiple layers
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            MaterialTheme.colorScheme.surface.copy(alpha = 0.6f), // Further increased
+                            MaterialTheme.colorScheme.surface.copy(alpha = 0.9f), // Further increased
+                            MaterialTheme.colorScheme.surface.copy(alpha = 1.0f)  // Fully opaque at bottom
+                        )
+                    )
+                )
+        )
+
+        // Horizontal gradient for more depth
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.surface.copy(alpha = 0.2f), // Reduced from 0.4f
+                            Color.Transparent,
+                            Color.Transparent,
+                            MaterialTheme.colorScheme.surface.copy(alpha = 0.2f) // Reduced from 0.4f
+                        )
+                    )
+                )
+        )
+
+        Column(
+            modifier = Modifier.fillMaxSize(), // This Column will fill the Box
+            horizontalAlignment = Alignment.CenterHorizontally, // Center its children horizontally
+            verticalArrangement = Arrangement.Bottom // Align content to the bottom
+        ) {
+            // Song info overlay on album art
+            AnimatedVisibility(
+                visible = song != null && !showLyricsView, // Only show song info if lyrics are not visible
+                enter = fadeIn() + slideInVertically { -it }, // Slide up from bottom
+                exit = fadeOut(animationSpec = tween(durationMillis = 150)) + slideOutVertically { it } // Faster fade out
+            ) {
+                if (song != null) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(
+                                horizontal = if (isCompactWidth) 12.dp else 16.dp,
+                                vertical = 16.dp // Add padding from the bottom
+                            )
                     ) {
-                        // Lyrics view - optimized sizing with reduced padding
-                        Card(
+                        Text(
+                            text = song.title,
+                            style = MaterialTheme.typography.headlineMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.15.sp,
+                                fontSize = if (isCompactHeight) 22.sp else 28.sp
+                            ),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(
-                                    when {
-                                        isCompactHeight -> 140.dp  // Reduced from 160.dp
-                                        isLargeHeight -> 280.dp    // Reduced from 320.dp
-                                        else -> 200.dp             // Reduced from 240.dp
-                                    }
-                                )
-                                .padding(
-                                    horizontal = if (isCompactWidth) 2.dp else 4.dp, // Further reduced horizontal padding
-                                    vertical = 0.dp // Removed vertical padding
-                                ),
-                            shape = RoundedCornerShape(if (isCompactHeight) 20.dp else 28.dp),
-                            elevation = CardDefaults.cardElevation(
-                                defaultElevation = 0.dp
+                                .padding(horizontal = 4.dp)
+                                .graphicsLayer { alpha = 0.99f }
+                                .background(Color.Transparent) // Transparent background
+                        )
+
+                        Spacer(modifier = Modifier.height(if (isCompactHeight) 2.dp else 4.dp))
+
+                        Text(
+                            text = buildString {
+                                append(song.artist)
+                                if (!song.album.isNullOrBlank() && song.album != song.artist) {
+                                    append(" • ")
+                                    append(song.album)
+                                }
+                            },
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Medium,
+                                letterSpacing = 0.4.sp,
+                                fontSize = if (isCompactHeight) 14.sp else 16.sp
                             ),
-                            colors = CardDefaults.cardColors(
-                                containerColor = Color.Transparent
-                            )
-                        ) {
-                            // Background with album art blur effect
-                            Box(
-                                modifier = Modifier.fillMaxSize()
-                            ) {
-                                // Background image with blur effect
-                                if (song?.artworkUri != null) {
-                                    AsyncImage(
-                                        model = ImageRequest.Builder(context)
-                                            .data(song.artworkUri)
-                                            .crossfade(true)
-                                            .build(),
-                                        contentDescription = null,
-                                        contentScale = ContentScale.Crop,
-                                        alpha = 0.6f,
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .clip(RoundedCornerShape(if (isCompactHeight) 20.dp else 28.dp))
-                                            .graphicsLayer {
-                                                // Scale up slightly to create a softer look
-                                                scaleX = 1.1f
-                                                scaleY = 1.1f
-                                            }
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp)
+                                .graphicsLayer { alpha = 0.99f }
+                                .background(Color.Transparent) // Transparent background
+                        )
+                    }
+                }
+            }
+
+            // Lyrics overlay view
+            AnimatedVisibility(
+                visible = isLyricsContentVisible, // Use the new state for lyrics content visibility
+                enter = fadeIn(animationSpec = tween(durationMillis = 400)),
+                exit = fadeOut(animationSpec = tween(durationMillis = 300)),
+                modifier = Modifier.fillMaxSize() // Fill the album art box
+            ) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    // Deeper gradient overlay for lyrics
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.0f), // Start more transparent
+                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.3f), // Reduced from 0.5f
+                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.7f), // Reduced from 0.9f
+                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)  // Reduced from 1.0f
                                     )
-                                } else {
-                                    // Fallback gradient background when no album art
+                                )
+                            )
+                    )
+
+                    // Horizontal gradient for more depth
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.horizontalGradient(
+                                    colors = listOf(
+                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.4f), // Reduced from 0.6f
+                                        Color.Transparent,
+                                        Color.Transparent,
+                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.4f) // Reduced from 0.6f
+                                    )
+                                )
+                            )
+                    )
+
+                    // Overlay with semi-transparent background for text readability (from original lyrics view)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(
+                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.50f), // Reduced from 0.70f
+                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.60f), // Reduced from 0.80f
+                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.75f)  // Reduced from 0.85f
+                                    )
+                                ),
+                                shape = RoundedCornerShape(if (isCompactHeight) 20.dp else 28.dp) // Keep rounded corners
+                            )
+                    )
+
+                    // Additional subtle overlay for better text contrast (from original lyrics view)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.10f) // Reduced from 0.15f
+                                    ),
+                                    radius = 500f
+                                ),
+                                shape = RoundedCornerShape(if (isCompactHeight) 20.dp else 28.dp) // Keep rounded corners
+                            )
+                    )
+
+                                    // Content area with lyrics - optimized padding (from original lyrics view)
                                     Box(
                                         modifier = Modifier
                                             .fillMaxSize()
-                                            .background(
-                                                brush = androidx.compose.ui.graphics.Brush.radialGradient(
-                                                    colors = listOf(
-                                                        MaterialTheme.colorScheme.primaryContainer.copy(
-                                                            alpha = 0.3f
-                                                        ),
-                                                        MaterialTheme.colorScheme.secondaryContainer.copy(
-                                                            alpha = 0.2f
-                                                        ),
-                                                        MaterialTheme.colorScheme.tertiaryContainer.copy(
-                                                            alpha = 0.1f
-                                                        )
-                                                    )
-                                                ),
-                                                RoundedCornerShape(28.dp)
-                                            )
-                                    )
-                                }
-
-                                // Overlay with semi-transparent background for text readability
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .background(
-                                            brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                                                colors = listOf(
-                                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.70f),
-                                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.80f),
-                                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
-                                                )
+                                            .padding(
+                                                when {
+                                                    isCompactHeight -> 12.dp
+                                                    isLargeHeight -> 20.dp
+                                                    else -> 16.dp
+                                                }
                                             ),
-                                            shape = RoundedCornerShape(28.dp)
-                                        )
-                                )
-
-                                // Additional subtle overlay for better text contrast
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .background(
-                                            brush = androidx.compose.ui.graphics.Brush.radialGradient(
-                                                colors = listOf(
-                                                    Color.Transparent,
-                                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.15f)
-                                                ),
-                                                radius = 500f
-                                            ),
-                                            shape = RoundedCornerShape(28.dp)
-                                        )
-                                )
-
-                                // Content area with lyrics - optimized padding
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(
-                                            when {
-                                                isCompactHeight -> 12.dp  // Reduced from 16.dp
-                                                isLargeHeight -> 20.dp     // Reduced from 32.dp
-                                                else -> 16.dp              // Reduced from 24.dp
-                                            }
-                                        ),
-                                    contentAlignment = Alignment.TopCenter
-                                ) {
-                                    when {
-                                        isLoadingLyrics -> {
-                                            Box(
-                                                modifier = Modifier.fillMaxSize(),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                M3CircularLoader(
-                                                    modifier = Modifier.size(48.dp),
-                                                    fourColor = true
-                                                )
-                                            }
-                                        }
-
-                                        lyrics == null ||
-                                                !lyrics.hasLyrics() ||
-                                                lyrics.isErrorMessage() -> {
-                                            Box(
-                                                modifier = Modifier.fillMaxSize(),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Column(
-                                                    horizontalAlignment = Alignment.CenterHorizontally
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        when {
+                                            isLoadingLyrics -> {
+                                                Box(
+                                                    modifier = Modifier.fillMaxSize(),
+                                                    contentAlignment = Alignment.Center
                                                 ) {
-                                                    Icon(
-                                                        imageVector = RhythmIcons.MusicNote,
-                                                        contentDescription = null,
-                                                        tint = MaterialTheme.colorScheme.onSurface.copy(
-                                                            alpha = 0.8f
-                                                        ),
-                                                        modifier = Modifier.size(48.dp)
-                                                    )
-                                                    Spacer(modifier = Modifier.height(16.dp))
-                                                    Text(
-                                                        text = if (onlineOnlyLyrics)
-                                                            "Currently no lyrics are available for this song.\n"
-                                                        else
-                                                            "No lyrics available for this song.",
-                                                        style = MaterialTheme.typography.bodyLarge,
-                                                        color = MaterialTheme.colorScheme.onSurface.copy(
-                                                            alpha = 0.8f
-                                                        ),
-                                                        textAlign = TextAlign.Center
+                                                    M3CircularLoader(
+                                                        modifier = Modifier.size(48.dp),
+                                                        fourColor = true
                                                     )
                                                 }
                                             }
-                                        }
 
-                                        else -> {
-                                            // Extract appropriate lyrics text from LyricsData object
-                                            val lyricsText = remember(lyrics) {
-                                                lyrics?.getBestLyrics() ?: ""
-                                            }
-
-                                            val parsedLyrics = remember(lyricsText) {
-                                                chromahub.rhythm.app.util.LyricsParser.parseLyrics(
-                                                    lyricsText
-                                                )
-                                            }
-
-                                            if (parsedLyrics.isNotEmpty()) {
-                                                // Use SyncedLyricsView for synchronized lyrics
-                                                SyncedLyricsView(
-                                                    lyrics = lyricsText,
-                                                    currentPlaybackTime = currentTimeMs,
-                                                    modifier = Modifier.fillMaxSize()
-                                                )
-                                            } else {
-                                                // Fallback to plain text lyrics if not synchronized
-                                                Column(
-                                                    modifier = Modifier
-                                                        .fillMaxSize()
-                                                        .verticalScroll(rememberScrollState()),
-                                                    horizontalAlignment = Alignment.CenterHorizontally
+                                            lyrics == null ||
+                                                    !lyrics.hasLyrics() ||
+                                                    lyrics.isErrorMessage() -> {
+                                                Box(
+                                                    modifier = Modifier.fillMaxSize(),
+                                                    contentAlignment = Alignment.Center
                                                 ) {
-                                                    Text(
-                                                        text = lyricsText,
-                                                        style = MaterialTheme.typography.bodyLarge.copy(
-                                                            lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.6f,
-                                                            fontWeight = FontWeight.Medium,
-                                                            letterSpacing = 0.5.sp
-                                                        ),
-                                                        color = MaterialTheme.colorScheme.onSurface,
-                                                        textAlign = TextAlign.Center,
-                                                        modifier = Modifier
-                                                            .fillMaxWidth()
-                                                            .padding(horizontal = 8.dp)
+                                                    Column(
+                                                        horizontalAlignment = Alignment.CenterHorizontally
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = RhythmIcons.MusicNote,
+                                                            contentDescription = null,
+                                                            tint = MaterialTheme.colorScheme.onSurface.copy(
+                                                                alpha = 0.8f
+                                                            ),
+                                                            modifier = Modifier.size(48.dp)
+                                                        )
+                                                        Spacer(modifier = Modifier.height(16.dp))
+                                                        Text(
+                                                            text = if (onlineOnlyLyrics)
+                                                                "Currently no lyrics are available for this song.\n"
+                                                            else
+                                                                "No lyrics available for this song.",
+                                                            style = MaterialTheme.typography.bodyLarge,
+                                                            color = MaterialTheme.colorScheme.onSurface.copy(
+                                                                alpha = 0.8f
+                                                            ),
+                                                            textAlign = TextAlign.Center
+                                                        )
+                                                    }
+                                                }
+                                            }
+
+                                            else -> {
+                                                // Extract appropriate lyrics text from LyricsData object
+                                                val lyricsText = remember(lyrics) {
+                                                    lyrics?.getBestLyrics() ?: ""
+                                                }
+
+                                                val parsedLyrics = remember(lyricsText) {
+                                                    chromahub.rhythm.app.util.LyricsParser.parseLyrics(
+                                                        lyricsText
                                                     )
+                                                }
+
+                                                if (parsedLyrics.isNotEmpty()) {
+                                                    // Use SyncedLyricsView for synchronized lyrics
+                                                    SyncedLyricsView(
+                                                        lyrics = lyricsText,
+                                                        currentPlaybackTime = currentTimeMs,
+                                                        modifier = Modifier.fillMaxSize()
+                                                    )
+                                                } else {
+                                                    // Fallback to plain text lyrics if not synchronized
+                                                    Column(
+                                                        modifier = Modifier
+                                                            .fillMaxSize()
+                                                            .verticalScroll(rememberScrollState()),
+                                                        horizontalAlignment = Alignment.CenterHorizontally
+                                                    ) {
+                                                        Text(
+                                                            text = lyricsText,
+                                                            style = MaterialTheme.typography.bodyLarge.copy(
+                                                                lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.6f,
+                                                                fontWeight = FontWeight.Medium,
+                                                                letterSpacing = 0.5.sp
+                                                            ),
+                                                            color = MaterialTheme.colorScheme.onSurface,
+                                                            textAlign = TextAlign.Center,
+                                                            modifier = Modifier
+                                                                .fillMaxWidth()
+                                                                .padding(horizontal = 8.dp)
+                                                        )
+                                                    }
                                                 }
                                             }
                                         }
@@ -1002,66 +1036,6 @@ fun PlayerScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(if (isCompactHeight) 1.dp else 2.dp)) // Reduced spacer
-
-                    AnimatedVisibility(
-                        visible = song != null,
-                        enter = fadeIn() + slideInVertically { it },
-                        exit = fadeOut() + slideOutVertically { it }
-                    ) {
-                        if (song != null) {
-                            // Optimized song info with reduced padding
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier.padding(
-                                    horizontal = if (isCompactWidth) 12.dp else 16.dp, // Reduced padding
-                                    vertical = 0.dp // Removed vertical padding completely
-                                )
-                            ) {
-                                // Song title with enhanced styling - force single line
-                                Text(
-                                    text = song.title,
-                                    style = MaterialTheme.typography.headlineMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        letterSpacing = 0.15.sp,
-                                        fontSize = if (isCompactHeight) 22.sp else 28.sp
-                                    ),
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    textAlign = TextAlign.Center,
-                                    maxLines = 1, // Always single line
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 4.dp) // Reduced horizontal padding
-                                )
-
-                                Spacer(modifier = Modifier.height(if (isCompactHeight) 2.dp else 4.dp)) // Minimal spacing
-
-                                // Artist and album with enhanced styling - force single line
-                                Text(
-                                    text = buildString {
-                                        append(song.artist)
-                                        if (!song.album.isNullOrBlank() && song.album != song.artist) {
-                                            append(" • ")
-                                            append(song.album)
-                                        }
-                                    },
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        fontWeight = FontWeight.Medium,
-                                        letterSpacing = 0.4.sp,
-                                        fontSize = if (isCompactHeight) 14.sp else 16.sp
-                                    ),
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
-                                    textAlign = TextAlign.Center,
-                                    maxLines = 1, // Always single line
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 4.dp) // Reduced horizontal padding
-                                )
-                            }
-                        }
-                    }
 
                     Spacer(modifier = Modifier.height(if (isCompactHeight) 2.dp else 4.dp)) // Much reduced from contentSpacing
 
