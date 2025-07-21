@@ -576,6 +576,7 @@ private fun EnhancedScrollableContent(
             ) {
                 ArtistsCarouselSection(
                     artists = availableArtists,
+                    songs = allSongs,
                     onArtistClick = onArtistClick,
                     onViewAllArtists = onViewAllArtists
                 )
@@ -642,6 +643,7 @@ private fun EnhancedScrollableContent(
 @Composable
 private fun ArtistsCarouselSection(
     artists: List<Artist>,
+    songs: List<Song>,
     onArtistClick: (Artist) -> Unit,
     onViewAllArtists: () -> Unit
 ) {
@@ -664,6 +666,7 @@ private fun ArtistsCarouselSection(
             items(artists) { artist ->
                 ArtistCarouselCard(
                     artist = artist,
+                    songs = songs,
                     onClick = { onArtistClick(artist) }
                 )
             }
@@ -674,12 +677,18 @@ private fun ArtistsCarouselSection(
 @Composable
 private fun ArtistCarouselCard(
     artist: Artist,
+    songs: List<Song>,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
     
+    // Filter songs by the current artist
+    val artistSongs = remember(songs, artist) {
+        chromahub.rhythm.app.util.ArtistCollaborationUtils.filterSongsByArtist(songs, artist.name)
+    }
+
     Column(
         modifier = modifier
             .width(128.dp)
@@ -717,7 +726,9 @@ private fun ArtistCarouselCard(
             // Play button overlay positioned at bottom right
             Surface(
                 onClick = { 
-                    viewModel.playArtist(artist)
+                    if (artistSongs.isNotEmpty()) {
+                        viewModel.playQueue(artistSongs)
+                    }
                     onClick()
                 },
                 shape = CircleShape,
@@ -1787,10 +1798,7 @@ private fun EnhancedRecentChip(
     val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
     
     ElevatedCard(
-        onClick = { 
-            // Use playSongWithQueueOption to add to current queue instead of replacing
-            viewModel.playSongWithQueueOption(song, replaceQueue = false)
-        },
+        onClick = onClick,
         colors = CardDefaults.elevatedCardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
         ),
@@ -2222,7 +2230,7 @@ private fun NewAlbumCard(
                         .padding(16.dp)
                 ) {
                     Surface(
-                        onClick = { viewModel.playAlbum(album) },
+                        onClick = onClick,
                         modifier = Modifier.size(48.dp),
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.primaryContainer,
