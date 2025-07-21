@@ -12,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -31,7 +32,8 @@ fun SyncedLyricsView(
     }
 
     val coroutineScope = rememberCoroutineScope()
-    
+    val density = LocalDensity.current
+
     // Find current line index more efficiently
     val currentLineIndex by remember(currentPlaybackTime, parsedLyrics) {
         derivedStateOf {
@@ -40,17 +42,19 @@ fun SyncedLyricsView(
     }
 
     // Enhanced auto-scroll with smoother animation
-    LaunchedEffect(currentLineIndex) {
+    LaunchedEffect(currentLineIndex, listState.layoutInfo.viewportSize) {
         if (currentLineIndex >= 0 && parsedLyrics.isNotEmpty()) {
             val visibleItems = listState.layoutInfo.visibleItemsInfo
-            val firstVisibleItem = visibleItems.firstOrNull()?.index ?: 0
-            val lastVisibleItem = visibleItems.lastOrNull()?.index ?: 0
-            // Calculate the offset to place the current line at the very top
-            val offset = 0 // Set offset to 0 to show active lyrics on top
+
+            // Calculate the offset to center the current line
+            // Assuming all items have similar height for consistent centering
+            val itemHeightPx = visibleItems.firstOrNull()?.size ?: 0
+            val viewportHeightPx = listState.layoutInfo.viewportSize.height
+            val offsetPx = (viewportHeightPx / 2 - itemHeightPx / 2).coerceAtLeast(0)
 
             coroutineScope.launch {
-                // Scroll to the current line with an offset
-                listState.animateScrollToItem(currentLineIndex, scrollOffset = offset)
+                // Scroll to the current line with an offset to center it
+                listState.animateScrollToItem(currentLineIndex, scrollOffset = offsetPx)
             }
         }
     }
@@ -72,7 +76,10 @@ fun SyncedLyricsView(
             state = listState,
             modifier = modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
-            contentPadding = PaddingValues(top = 0.dp, bottom = 80.dp) // Adjusted padding for top alignment
+            // Adjust content padding to allow for vertical centering of items
+            contentPadding = with(density) {
+                PaddingValues(vertical = (listState.layoutInfo.viewportSize.height / 2).toDp())
+            }
         ) {
             itemsIndexed(parsedLyrics) { index, line ->
                 val isCurrentLine = currentLineIndex == index
