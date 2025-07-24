@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
@@ -334,124 +335,159 @@ fun RhythmNavigation(
                             )
                         }
 
+                        // New outer Box to layer navigation bar and search icon
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 24.dp)
                                 .padding(
                                     top = if (showMiniPlayer) 2.dp else 8.dp, // Minimal top padding when mini player is visible
                                     bottom = if (navigationBarHeight > 48.dp) 4.dp else 8.dp // Account for different navigation types
-                                ),
-                            contentAlignment = Alignment.Center
+                                )
                         ) {
-                            Surface(
-                                color = MaterialTheme.colorScheme.surfaceContainer,
-                                shape = RoundedCornerShape(28.dp),
-                                tonalElevation = 3.dp,
+                            Row(
                                 modifier = Modifier
-                                    .height(64.dp)
                                     .fillMaxWidth()
+                                    .padding(horizontal = 16.dp) // Overall horizontal padding for the row
+                                    .align(Alignment.BottomCenter), // Align the row to the bottom center of the outer Box
+                                verticalAlignment = Alignment.Bottom // Align items to the bottom of the row
                             ) {
-                                Row(
-                                    modifier = Modifier.fillMaxSize(),
-                                    horizontalArrangement = Arrangement.SpaceEvenly,
-                                    verticalAlignment = Alignment.CenterVertically
+                                // Navigation bar Surface
+                                Surface(
+                                    color = MaterialTheme.colorScheme.surfaceContainer,
+                                    shape = RoundedCornerShape(25.dp),
+                                    tonalElevation = 3.dp,
+                                    modifier = Modifier
+                                        .height(64.dp)
+                                        .weight(1f) // Make it take up available space
                                 ) {
-                                    val items = listOf(
-                                        Triple(
-                                            Screen.Home.route, "Home",
-                                            Pair(RhythmIcons.HomeFilled, RhythmIcons.Home)
-                                        ),
-                                        Triple(
-                                            Screen.Library.createRoute(), "Library",
-                                            Pair(RhythmIcons.Library, RhythmIcons.Library)
-                                        )
-                                    )
-
-                                    items.forEachIndexed { index, (route, title, icons) ->
-                                        val isSelected = index == selectedTab
-
-                                        val (selectedIcon, unselectedIcon) = icons
-
-                                        // Animation values
-                                        val animatedScale by animateFloatAsState(
-                                            targetValue = if (isSelected) 1.1f else 1.0f,
-                                            animationSpec = spring(
-                                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                                stiffness = Spring.StiffnessLow
+                                    Row(
+                                        modifier = Modifier.fillMaxSize(),
+                                        horizontalArrangement = Arrangement.SpaceEvenly,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        val items = listOf(
+                                            Triple(
+                                                Screen.Home.route, "Home",
+                                                Pair(RhythmIcons.HomeFilled, RhythmIcons.Home)
                                             ),
-                                            label = "scale"
+                                            Triple(
+                                                Screen.Library.createRoute(), "Library",
+                                                Pair(RhythmIcons.Library, RhythmIcons.Library)
+                                            )
                                         )
 
-                                        val animatedAlpha by animateFloatAsState(
-                                            targetValue = if (isSelected) 1f else 0.7f,
-                                            animationSpec = tween(300),
-                                            label = "alpha"
-                                        )
-
-                                        Box(
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .fillMaxHeight()
-                                                .clickable {
-                                                    navController.navigate(route) {
-                                                        popUpTo(navController.graph.findStartDestination().id) {
-                                                            saveState = true
-                                                        }
-                                                        launchSingleTop = true
-                                                        restoreState = true
-                                                    }
-                                                },
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            // Background indicator
-                                            if (isSelected) {
-                                                Surface(
-                                                    color = MaterialTheme.colorScheme.primaryContainer,
-                                                    shape = RoundedCornerShape(16.dp),
-                                                    modifier = Modifier
-                                                        .fillMaxWidth(0.8f)
-                                                        .height(48.dp)
-                                                ) {}
+                                        items.forEachIndexed { index, (route, title, icons) ->
+                                            val isSelected = when (route) {
+                                                Screen.Home.route -> currentRoute == Screen.Home.route
+                                                Screen.Library.createRoute() -> currentRoute.startsWith("library")
+                                                else -> false
                                             }
 
-                                            // Horizontal layout for icon and text
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.Center,
+                                            val (selectedIcon, unselectedIcon) = icons
+
+                                            // Animation values
+                                            val animatedScale by animateFloatAsState(
+                                                targetValue = if (isSelected) 1.1f else 1.0f,
+                                                animationSpec = spring(
+                                                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                    stiffness = Spring.StiffnessLow
+                                                ),
+                                                label = "scale"
+                                            )
+
+                                            val animatedAlpha by animateFloatAsState(
+                                                targetValue = if (isSelected) 1f else 0.7f,
+                                                animationSpec = tween(300),
+                                                label = "alpha"
+                                            )
+
+                                            Box(
                                                 modifier = Modifier
-                                                    .graphicsLayer {
-                                                        scaleX = animatedScale
-                                                        scaleY = animatedScale
-                                                        alpha = animatedAlpha
-                                                    }
-                                                    .padding(horizontal = 16.dp)
+                                                    .weight(1f)
+                                                    .fillMaxHeight()
+                                                    .clickable {
+                                                        navController.navigate(route) {
+                                                            popUpTo(navController.graph.findStartDestination().id) {
+                                                                saveState = true
+                                                            }
+                                                            launchSingleTop = true
+                                                            restoreState = true
+                                                        }
+                                                    },
+                                                contentAlignment = Alignment.Center
                                             ) {
-                                                Icon(
-                                                    imageVector = if (isSelected) selectedIcon else unselectedIcon,
-                                                    contentDescription = title,
-                                                    tint = if (isSelected)
-                                                        MaterialTheme.colorScheme.onPrimaryContainer
-                                                    else
-                                                        MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    modifier = Modifier.size(24.dp)
-                                                )
+                                                // Horizontal layout for icon and text
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.Center,
+                                                    modifier = Modifier
+                                                        .then(
+                                                            if (isSelected) Modifier
+                                                                .clip(RoundedCornerShape(20.dp)) // Apply shape directly
+                                                                .background(MaterialTheme.colorScheme.primaryContainer) // Apply background directly
+                                                                .height(48.dp) // Fixed height for the pill
+                                                                .padding(horizontal = 18.dp) // Padding inside the pill
+                                                            else Modifier.padding(horizontal = 16.dp) // Original padding for unselected
+                                                        )
+                                                        .graphicsLayer { // Apply graphicsLayer after background/padding
+                                                            scaleX = animatedScale
+                                                            scaleY = animatedScale
+                                                            alpha = animatedAlpha
+                                                        }
+                                                ) {
+                                                    Icon(
+                                                        imageVector = if (isSelected) selectedIcon else unselectedIcon,
+                                                        contentDescription = title,
+                                                        tint = if (isSelected)
+                                                            MaterialTheme.colorScheme.onPrimaryContainer
+                                                        else
+                                                            MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        modifier = Modifier.size(24.dp)
+                                                    )
 
-                                                Spacer(modifier = Modifier.width(8.dp))
+                                                    Spacer(modifier = Modifier.width(8.dp))
 
-                                                Text(
-                                                    text = title,
-                                                    style = MaterialTheme.typography.labelMedium,
-                                                    color = if (isSelected)
-                                                        MaterialTheme.colorScheme.onPrimaryContainer
-                                                    else
-                                                        MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis
-                                                )
+                                                    Text(
+                                                        text = title,
+                                                        style = MaterialTheme.typography.labelMedium,
+                                                        color = if (isSelected)
+                                                            MaterialTheme.colorScheme.onPrimaryContainer
+                                                        else
+                                                            MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                }
                                             }
                                         }
                                     }
+                                }
+
+                                Spacer(modifier = Modifier.width(12.dp)) // Gap between nav bar and search icon
+
+                                // Separate Search Icon Button
+                                FilledIconButton(
+                                    onClick = {
+                                        navController.navigate(Screen.Search.route) {
+                                            popUpTo(navController.graph.findStartDestination().id) {
+                                                saveState = true
+                                            }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
+                                    colors = IconButtonDefaults.filledIconButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                    ),
+                                    modifier = Modifier
+                                        .size(64.dp) // Match height of navigation bar
+                                ) {
+                                    Icon(
+                                        imageVector = RhythmIcons.Search,
+                                        contentDescription = "Search",
+                                        modifier = Modifier.size(25.dp)
+                                    )
                                 }
                             }
                         }
