@@ -1547,6 +1547,7 @@ private fun MoodBasedPlaylistsSection(
                     backgroundColor = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                     icon = RhythmIcons.Energy,
+                    songCount = energeticSongs.size, // Pass song count
                     onPlayClick = {
                         if (energeticSongs.isNotEmpty()) {
                             // Play with queue replacement and shuffling for better variety
@@ -1574,6 +1575,7 @@ private fun MoodBasedPlaylistsSection(
                     backgroundColor = MaterialTheme.colorScheme.secondaryContainer,
                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                     icon = RhythmIcons.Relax,
+                    songCount = relaxingSongs.size, // Pass song count
                     onPlayClick = {
                         if (relaxingSongs.isNotEmpty()) {
                             viewModel.playSongWithQueueOption(
@@ -1599,6 +1601,7 @@ private fun MoodBasedPlaylistsSection(
                     backgroundColor = MaterialTheme.colorScheme.tertiaryContainer,
                     contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                     icon = RhythmIcons.Focus,
+                    songCount = moodBasedSongs.size, // Pass song count
                     onPlayClick = {
                         if (moodBasedSongs.isNotEmpty()) {
                             viewModel.playSongWithQueueOption(
@@ -1627,6 +1630,7 @@ private fun MoodPlaylistCard(
     backgroundColor: Color,
     contentColor: Color,
     icon: ImageVector,
+    songCount: Int, // Added songCount parameter
     onPlayClick: () -> Unit,
     onAddToQueueClick: () -> Unit = {}
 ) {
@@ -1638,72 +1642,88 @@ private fun MoodPlaylistCard(
             .height(260.dp),
         shadowElevation = 0.dp
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(28.dp),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            // Top section
-            Column {
-                Surface(
-                    shape = CircleShape,
-                    color = contentColor.copy(alpha = 0.15f),
-                    modifier = Modifier.size(56.dp)
-                ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = contentColor,
-                        modifier = Modifier
-                            .size(28.dp)
-                            .padding(14.dp)
-                    )
-                }
-                
-                Spacer(modifier = Modifier.height(20.dp))
-                
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = contentColor
-                )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = contentColor.copy(alpha = 0.8f),
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-                
-                
-            }
-            
-            // Action buttons with enhanced Android 16 styling
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(top = 16.dp) // Added top padding for spacing
+        Box(modifier = Modifier.fillMaxSize()) { // Use Box to layer elements
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(28.dp),
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // Play button with enhanced styling
-                Surface(
-                    onClick = onPlayClick,
-                    shape = CircleShape,
-                    color = contentColor,
-                    modifier = Modifier.size(56.dp)
-                ) {
-                    Icon(
-                        imageVector = RhythmIcons.Play,
-                        contentDescription = "Play $title",
-                        tint = backgroundColor,
-                        modifier = Modifier
-                            .size(24.dp)
-                            .padding(0.dp)
+                // Top section
+                Column {
+                    Surface(
+                        shape = CircleShape,
+                        color = contentColor.copy(alpha = 0.15f),
+                        modifier = Modifier.size(56.dp)
+                    ) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = contentColor,
+                            modifier = Modifier
+                                .size(28.dp)
+                                .padding(14.dp)
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(20.dp))
+                    
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = contentColor
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Text(
+                        text = description,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = contentColor.copy(alpha = 0.8f),
+                        modifier = Modifier.padding(top = 4.dp)
                     )
                 }
+                
+                // Action buttons with enhanced Android 16 styling
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(top = 16.dp) // Added top padding for spacing
+                ) {
+                    // Play button with enhanced styling
+                    Surface(
+                        onClick = onPlayClick,
+                        shape = CircleShape,
+                        color = contentColor,
+                        modifier = Modifier.size(56.dp)
+                    ) {
+                        Icon(
+                            imageVector = RhythmIcons.Play,
+                            contentDescription = "Play $title",
+                            tint = backgroundColor,
+                            modifier = Modifier
+                                .size(24.dp)
+                                .padding(0.dp)
+                        )
+                    }
+                }
+            }
+
+            // Song count in top right corner
+            Surface(
+                color = contentColor.copy(alpha = 0.2f), // Subtle background for the count
+                shape = RoundedCornerShape(bottomStart = 16.dp, topEnd = 32.dp), // Shape for the corner
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+            ) {
+                Text(
+                    text = "$songCount songs",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = contentColor,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                )
             }
         }
     }
@@ -2238,14 +2258,14 @@ private fun FeaturedCard(
                         modifier = Modifier
                             .size(48.dp)
                             .background(
-                                color = Color.White.copy(alpha = 0.2f),
+                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.2f),
                                 shape = CircleShape
                             )
                     ) {
                         Icon(
-                            imageVector = RhythmIcons.AddToQueue,
+                            imageVector = RhythmIcons.Queue,
                             contentDescription = "Add album to queue",
-                            tint = Color.White,
+                            tint = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.size(28.dp)
                         )
                     }
