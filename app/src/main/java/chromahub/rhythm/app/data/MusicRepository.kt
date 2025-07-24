@@ -317,6 +317,22 @@ class MusicRepository(private val context: Context) {
         }
 
     /**
+     * Triggers a full rescan of music data from the device's MediaStore.
+     * This method will reload songs, albums, and artists.
+     */
+    suspend fun refreshMusicData() {
+        Log.d(TAG, "Refreshing music data...")
+        // Simply calling loadSongs, loadAlbums, loadArtists will re-query MediaStore
+        // and provide fresh data. The ViewModel will then update its StateFlows.
+        // No need to return anything here, as the ViewModel will call these methods
+        // and collect the results.
+        loadSongs()
+        loadAlbums()
+        loadArtists()
+        Log.d(TAG, "Music data refresh complete.")
+    }
+
+    /**
      * Fetches artist images from Spotify API for artists without images
      */
     suspend fun fetchArtistImages(artists: List<Artist>): List<Artist> =

@@ -259,9 +259,65 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun loadMusic() {
-        // This function is now called within the init block's coroutine
-        // No changes needed here, but the call site in init is modified.
+    /**
+     * Triggers a refresh of all music data by rescanning the device's MediaStore.
+     * This will update the songs, albums, and artists in the ViewModel.
+     */
+    fun refreshLibrary() {
+        viewModelScope.launch {
+            Log.d(TAG, "Starting library refresh...")
+            _isInitialized.value = false // Indicate that data is being refreshed
+
+            try {
+                // Trigger the refresh in the repository
+                repository.refreshMusicData()
+
+                // Reload data into StateFlows after refresh
+                _songs.value = repository.loadSongs()
+                _albums.value = repository.loadAlbums()
+                _artists.value = repository.loadArtists()
+
+                // Re-populate dynamic playlists
+                populateRecentlyAddedPlaylist()
+                populateMostPlayedPlaylist()
+                
+                // Refresh all playlists to remove songs that no longer exist on the device
+                refreshPlaylists()
+
+                // Re-fetch artwork from internet for newly added/updated items
+                fetchArtworkFromInternet()
+
+                Log.d(TAG, "Library refresh complete. Loaded ${_songs.value.size} songs, ${_albums.value.size} albums, ${_artists.value.size} artists")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error during library refresh", e)
+                // Optionally, set an error state or show a message to the user
+            } finally {
+                _isInitialized.value = true // Mark as initialized again
+            }
+        }
+    }
+
+    /**
+     * Refreshes all playlists by re-validating their songs against the currently available songs.
+     * This removes songs from playlists if they no longer exist on the device.
+     */
+    private fun refreshPlaylists() {
+        Log.d(TAG, "Refreshing playlists...")
+        val currentSongsMap = _songs.value.associateBy { it.id }
+        
+        _playlists.value = _playlists.value.map { playlist ->
+            val updatedSongs = playlist.songs.filter { song ->
+                currentSongsMap.containsKey(song.id)
+            }
+            if (updatedSongs.size < playlist.songs.size) {
+                Log.d(TAG, "Removed ${playlist.songs.size - updatedSongs.size} missing songs from playlist: ${playlist.name}")
+                playlist.copy(songs = updatedSongs, dateModified = System.currentTimeMillis())
+            } else {
+                playlist
+            }
+        }
+        savePlaylists()
+        Log.d(TAG, "Playlists refreshed.")
     }
     
     private fun loadSavedPlaylists() {

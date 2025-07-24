@@ -975,16 +975,17 @@ fun RhythmNavigation(
                         onCreatePlaylist = { name ->
                             viewModel.createPlaylist(name)
                         },
-                        onSearchClick = {
-                            navController.navigate(Screen.Search.route)
-                        },
+                        onRefreshClick = {
+                            viewModel.refreshLibrary()
+                        }, // Added onRefreshClick
                         sortOrder = sortOrder,
                         onSkipNext = onSkipNext,
                         onAddToQueue = { song ->
                             // Add song to queue
                             viewModel.addSongToQueue(song)
                         },
-                        initialTab = initialTab
+                        initialTab = initialTab,
+                        musicViewModel = viewModel // Pass musicViewModel
                     )
                 }
 

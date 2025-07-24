@@ -118,7 +118,6 @@ import chromahub.rhythm.app.data.AppSettings
 import chromahub.rhythm.app.ui.screens.AddToPlaylistBottomSheet
 import chromahub.rhythm.app.ui.components.CreatePlaylistDialog
 import chromahub.rhythm.app.ui.components.MiniPlayer
-import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.ui.components.M3PlaceholderType
 import chromahub.rhythm.app.ui.screens.SongInfoBottomSheet
 import chromahub.rhythm.app.util.ImageUtils
@@ -131,6 +130,7 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import chromahub.rhythm.app.ui.components.RhythmIcons
 
 
 enum class LibraryTab { SONGS, PLAYLISTS, ALBUMS }
@@ -154,14 +154,16 @@ fun LibraryScreen(
     onShuffleQueue: (List<Song>) -> Unit = { _ -> }, // Added for shuffling and playing a list of songs
     onAlbumBottomSheetClick: (Album) -> Unit = { _ -> }, // Added for opening album bottom sheet
     onSort: () -> Unit = {},
-    onSearchClick: () -> Unit = {},
+    onRefreshClick: () -> Unit, // Changed from onSearchClick to onRefreshClick
     onAddSongToPlaylist: (Song, String) -> Unit = { _, _ -> },
     onCreatePlaylist: (String) -> Unit = { _ -> },
     sortOrder: MusicViewModel.SortOrder = MusicViewModel.SortOrder.TITLE_ASC,
     onSkipNext: () -> Unit = {},
     onAddToQueue: (Song) -> Unit,
-    initialTab: LibraryTab = LibraryTab.SONGS
+    initialTab: LibraryTab = LibraryTab.SONGS,
+    musicViewModel: MusicViewModel // Add MusicViewModel as a parameter
 ) {
+    val context = LocalContext.current
     val tabs = listOf("Songs", "Playlists", "Albums")
     var selectedTabIndex by remember { mutableStateOf(initialTab.ordinal) }
     val pagerState = rememberPagerState(initialPage = selectedTabIndex) { tabs.size }
@@ -288,17 +290,17 @@ fun LibraryScreen(
         topBar = {
             LargeTopAppBar(
                 navigationIcon = {
-                    // Search button on far left
+                    // Refresh button on far left
                     FilledIconButton(
-                        onClick = onSearchClick,
+                        onClick = onRefreshClick,
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer,
                             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     ) {
                         Icon(
-                            imageVector = RhythmIcons.Search,
-                            contentDescription = "Search"
+                            imageVector = RhythmIcons.Refresh,
+                            contentDescription = "Refresh"
                         )
                     }
                 },
