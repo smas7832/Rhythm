@@ -28,7 +28,6 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Card
 import chromahub.rhythm.app.ui.components.RhythmIcons
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
@@ -70,6 +69,7 @@ import chromahub.rhythm.app.data.Artist
 import chromahub.rhythm.app.data.Song
 import chromahub.rhythm.app.data.ArtistViewType
 import chromahub.rhythm.app.ui.components.M3PlaceholderType
+import chromahub.rhythm.app.ui.components.M3CircularWaveProgressIndicator // Added import
 import chromahub.rhythm.app.util.ImageUtils
 import chromahub.rhythm.app.util.ArtistCollaborationUtils
 import androidx.compose.material.icons.automirrored.rounded.Sort
@@ -176,7 +176,7 @@ fun AllArtistsScreen(
                     val currentFontWeight = if (fraction < 0.5f) FontWeight.Bold else FontWeight.Bold
 
                     Text(
-                        text = "All Artists",
+                        text = "Artists",
                         style = MaterialTheme.typography.headlineSmall.copy(
                             fontSize = currentFontSize,
                             fontWeight = currentFontWeight
@@ -205,8 +205,8 @@ fun AllArtistsScreen(
                     FilledIconButton(
                         onClick = onSearchClick,
                         colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                         )
                     ) {
                         Icon(
@@ -225,8 +225,8 @@ fun AllArtistsScreen(
                             appSettings.setArtistViewType(newViewType)
                         },
                         colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                         )
                     ) {
                         Icon(
@@ -238,8 +238,8 @@ fun AllArtistsScreen(
                     FilledIconButton(
                         onClick = { showSortOptions = true },
                         colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                         )
                     ) {
                         Icon(
@@ -276,13 +276,16 @@ fun AllArtistsScreen(
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            CircularProgressIndicator(
-                                color = MaterialTheme.colorScheme.primary,
+                            M3CircularWaveProgressIndicator(
+                                progress = 1f, // Indeterminate progress
+                                waveColor = MaterialTheme.colorScheme.primary,
+                                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                                strokeWidth = 4f,
                                 modifier = Modifier.size(48.dp)
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
-                                text = "Processing artists...",
+                                text = "Processing Artists...",
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -291,44 +294,111 @@ fun AllArtistsScreen(
                 } else {
                     // Artists grid/list
                     if (sortedArtists.isNotEmpty()) {
-                        if (isGridView) {
-                            LazyVerticalGrid(
-                                columns = GridCells.Fixed(2),
-                                contentPadding = PaddingValues(
-                                    horizontal = 16.dp,
-                                    vertical = 8.dp
-                                ),
-                                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(16.dp),
-                                modifier = Modifier.fillMaxSize()
+                        // Artists Section Header
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(20.dp)
                             ) {
-                                items(sortedArtists, key = { it.id }) { artist ->
-                                    AllArtistsCard(
-                                        artist = artist,
-                                        onClick = {
-                                            selectedArtist = artist
-                                            showArtistSheet = true
-                                        }
+                                Surface(
+                                    modifier = Modifier.size(48.dp),
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    shadowElevation = 0.dp
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = RhythmIcons.Artist,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onPrimary,
+                                            modifier = Modifier.size(28.dp)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.width(16.dp))
+
+                                Column {
+                                    Text(
+                                        text = "Your Artists",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                    
+                                    Text(
+                                        text = "${sortedArtists.size} ${if (sortedArtists.size == 1) "artist" else "artists"}",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                                     )
                                 }
+
+                                Spacer(modifier = Modifier.weight(1f))
+
+                                Surface(
+                                    modifier = Modifier
+                                        .height(2.dp)
+                                        .width(60.dp),
+                                    shape = RoundedCornerShape(1.dp),
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f)
+                                ) {}
                             }
-                        } else {
-                            LazyColumn(
-                                contentPadding = PaddingValues(
-                                    horizontal = 16.dp,
-                                    vertical = 8.dp
-                                ),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                                modifier = Modifier.fillMaxSize()
-                            ) {
-                                items(sortedArtists, key = { it.id }) { artist ->
-                                    ArtistListItem(
-                                        artist = artist,
-                                        onClick = {
-                                            selectedArtist = artist
-                                            showArtistSheet = true
-                                        }
-                                    )
+                        }
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceContainer,
+                            shape = RoundedCornerShape(20.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                        ) {
+                            if (isGridView) {
+                                LazyVerticalGrid(
+                                    columns = GridCells.Fixed(2),
+                                    contentPadding = PaddingValues(
+                                        horizontal = 16.dp,
+                                        vertical = 8.dp
+                                    ),
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+                                    items(sortedArtists, key = { it.id }) { artist ->
+                                        AllArtistsCard(
+                                            artist = artist,
+                                            onClick = {
+                                                selectedArtist = artist
+                                                showArtistSheet = true
+                                            }
+                                        )
+                                    }
+                                }
+                            } else {
+                                LazyColumn(
+                                    contentPadding = PaddingValues(
+                                        horizontal = 16.dp,
+                                        vertical = 8.dp
+                                    ),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+                                    items(sortedArtists, key = { it.id }) { artist ->
+                                        ArtistListItem(
+                                            artist = artist,
+                                            onClick = {
+                                                selectedArtist = artist
+                                                showArtistSheet = true
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -426,7 +496,7 @@ private fun AllArtistsCard(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh // Use a slightly higher surface color
+            containerColor = MaterialTheme.colorScheme.surface // Use a slightly higher surface color
         ),
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(
@@ -437,7 +507,7 @@ private fun AllArtistsCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Artist image with play button overlay
@@ -501,7 +571,7 @@ private fun AllArtistsCard(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(72.dp) // Fixed height to prevent irregular card sizes
+                    .height(60.dp) // Fixed height to prevent irregular card sizes
             ) {
                 // Artist name
                 Text(
@@ -532,7 +602,7 @@ private fun AllArtistsCard(
                     )
                     Spacer(modifier = Modifier.width(6.dp)) // Increased spacing
                     Text(
-                        text = "${artist.numberOfTracks} songs",
+                        text = "${artist.numberOfTracks}",
                         style = MaterialTheme.typography.bodySmall, // Larger text
                         color = MaterialTheme.colorScheme.onSurfaceVariant // Use onSurfaceVariant for text
                     )
@@ -549,7 +619,7 @@ private fun AllArtistsCard(
                         )
                         Spacer(modifier = Modifier.width(6.dp)) // Increased spacing
                         Text(
-                            text = "${artist.numberOfAlbums} albums",
+                            text = "${artist.numberOfAlbums}",
                             style = MaterialTheme.typography.bodySmall, // Larger text
                             color = MaterialTheme.colorScheme.onSurfaceVariant // Use onSurfaceVariant for text
                         )
