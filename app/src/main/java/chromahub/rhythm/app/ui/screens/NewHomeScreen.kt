@@ -1,5 +1,4 @@
 package chromahub.rhythm.app.ui.screens
-
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -109,6 +108,8 @@ import chromahub.rhythm.app.ui.components.MiniPlayer
 import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.ui.components.M3PlaceholderType
 import chromahub.rhythm.app.ui.screens.ArtistBottomSheet
+import chromahub.rhythm.app.ui.screens.AlbumBottomSheet
+import chromahub.rhythm.app.ui.screens.AddToPlaylistBottomSheet
 import chromahub.rhythm.app.util.ImageUtils
 import chromahub.rhythm.app.util.ArtistCollaborationUtils
 import chromahub.rhythm.app.viewmodel.AppUpdaterViewModel
@@ -156,15 +157,28 @@ fun NewHomeScreen(
     onAddToQueue: (Song) -> Unit = {},
     onAddSongToPlaylist: (Song, String) -> Unit = { _, _ -> },
     onNavigateToPlaylist: (String) -> Unit = {},
+    onCreatePlaylist: (String) -> Unit = { _ -> }, // Added for playlist creation
     updaterViewModel: AppUpdaterViewModel = viewModel()
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val scope = rememberCoroutineScope()
+    val musicViewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
     
     // State for artist bottom sheet
     var showArtistSheet by remember { mutableStateOf(false) }
     var selectedArtist by remember { mutableStateOf<Artist?>(null) }
     val artistSheetState = rememberModalBottomSheetState()
+
+    // State for album bottom sheet
+    var showAlbumBottomSheet by remember { mutableStateOf(false) }
+    var selectedAlbum by remember { mutableStateOf<Album?>(null) }
+    val albumSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+
+    // State for AddToPlaylist bottom sheet
+    var showAddToPlaylistSheet by remember { mutableStateOf(false) }
+    var selectedSongForPlaylist by remember { mutableStateOf<Song?>(null) }
+    val addToPlaylistSheetState = rememberModalBottomSheetState()
+    var showCreatePlaylistDialog by remember { mutableStateOf(false) }
     
     // Select featured content from all albums (5 randomly shuffled albums)
     val featuredContent = remember(albums) {
@@ -233,9 +247,111 @@ fun NewHomeScreen(
                 onAddToQueue(song)
             },
             onAddSongToPlaylist = { song ->
-                onAddSongToPlaylist(song, "")
+                selectedSongForPlaylist = song
+                scope.launch {
+                    artistSheetState.hide()
+                }.invokeOnCompletion {
+                    if (!artistSheetState.isVisible) {
+                        showArtistSheet = false
+                        showAddToPlaylistSheet = true
+                    }
+                }
             },
             sheetState = artistSheetState
+        )
+    }
+
+    // Show album bottom sheet when an album is selected
+    if (showAlbumBottomSheet && selectedAlbum != null) {
+        AlbumBottomSheet(
+            album = selectedAlbum!!,
+            onDismiss = { showAlbumBottomSheet = false },
+            onSongClick = onSongClick,
+            onPlayAll = { songsToPlay ->
+                // Play the sorted album songs using proper queue replacement
+                if (songsToPlay.isNotEmpty()) {
+                    // Assuming onSongClick also handles queue management or is just for navigation
+                    onSongClick(songsToPlay.first())
+                }
+                scope.launch {
+                    albumSheetState.hide()
+                }.invokeOnCompletion {
+                    if (!albumSheetState.isVisible) {
+                        showAlbumBottomSheet = false
+                    }
+                }
+            },
+            onShufflePlay = { songsToPlay ->
+                // Play shuffled sorted album songs with proper queue replacement
+                if (songsToPlay.isNotEmpty()) {
+                    onSongClick(songsToPlay.first())
+                }
+                scope.launch {
+                    albumSheetState.hide()
+                }.invokeOnCompletion {
+                    if (!albumSheetState.isVisible) {
+                        showAlbumBottomSheet = false
+                    }
+                }
+            },
+            onAddToQueue = onAddToQueue,
+            onAddSongToPlaylist = { song ->
+                selectedSongForPlaylist = song
+                scope.launch {
+                    albumSheetState.hide()
+                }.invokeOnCompletion {
+                    if (!albumSheetState.isVisible) {
+                        showAlbumBottomSheet = false
+                        showAddToPlaylistSheet = true
+                    }
+                }
+            },
+            onPlayerClick = onPlayerClick,
+            sheetState = albumSheetState
+        )
+    }
+
+    // Show AddToPlaylist bottom sheet when a song is selected for playlist
+    if (showAddToPlaylistSheet && selectedSongForPlaylist != null) {
+        val musicViewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
+        val playlists by musicViewModel.playlists.collectAsState()
+
+        chromahub.rhythm.app.ui.screens.AddToPlaylistBottomSheet(
+            song = selectedSongForPlaylist!!,
+            playlists = playlists,
+            onDismissRequest = { showAddToPlaylistSheet = false },
+            onAddToPlaylist = { playlist ->
+                onAddSongToPlaylist(selectedSongForPlaylist!!, playlist.id)
+                scope.launch {
+                    addToPlaylistSheetState.hide()
+                }.invokeOnCompletion {
+                    if (!addToPlaylistSheetState.isVisible) {
+                        showAddToPlaylistSheet = false
+                    }
+                }
+            },
+            onCreateNewPlaylist = {
+                scope.launch {
+                    addToPlaylistSheetState.hide()
+                }.invokeOnCompletion {
+                    if (!addToPlaylistSheetState.isVisible) {
+                        showAddToPlaylistSheet = false
+                        showCreatePlaylistDialog = true
+                    }
+                }
+            },
+            sheetState = addToPlaylistSheetState
+        )
+    }
+
+    // Handle CreatePlaylistDialog
+    if (showCreatePlaylistDialog) {
+        chromahub.rhythm.app.ui.components.CreatePlaylistDialog(
+            onDismiss = { showCreatePlaylistDialog = false },
+            onConfirm = { name ->
+                musicViewModel.createPlaylist(name) // Call the ViewModel's createPlaylist function
+                showCreatePlaylistDialog = false
+            }
         )
     }
 
@@ -305,7 +421,10 @@ fun NewHomeScreen(
             energeticSongs = energeticSongs,
             relaxingSongs = relaxingSongs,
             onSongClick = onSongClick,
-            onAlbumClick = onAlbumClick,
+            onAlbumClick = { album: Album ->
+                selectedAlbum = album
+                showAlbumBottomSheet = true
+            },
             onArtistClick = { artist: Artist ->
                 selectedArtist = artist
                 showArtistSheet = true
@@ -625,6 +744,8 @@ private fun EnhancedScrollableContent(
                     }
                 }
             }
+            
+            Spacer(modifier = Modifier.height(5.dp)) // Added space between sections
 
             // Listening Stats
             ListeningStatsSection()
@@ -1558,38 +1679,15 @@ private fun MoodPlaylistCard(
                     modifier = Modifier.padding(top = 4.dp)
                 )
                 
-                Text(
-                    text = "${songs.size} songs",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = contentColor.copy(alpha = 0.6f),
-                    modifier = Modifier.padding(top = 4.dp)
-                )
+                
             }
             
             // Action buttons with enhanced Android 16 styling
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(top = 16.dp) // Added top padding for spacing
             ) {
-                // Add to queue button with enhanced styling
-                Surface(
-                    onClick = onAddToQueueClick,
-                    shape = CircleShape,
-                    color = contentColor.copy(alpha = 0.15f),
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Icon(
-                        imageVector = RhythmIcons.AddToQueue,
-                        contentDescription = "Add $title to queue",
-                        tint = contentColor,
-                        modifier = Modifier
-                            .size(22.dp)
-                            .padding(0.dp)
-                    )
-                }
-                
-                Spacer(modifier = Modifier.weight(1f))
-                
                 // Play button with enhanced styling
                 Surface(
                     onClick = onPlayClick,
@@ -1971,7 +2069,7 @@ private fun QuickPickCard(
 @Composable
 private fun FeaturedCard(
     album: Album,
-    onClick: () -> Unit,
+    onClick: (Album) -> Unit,
     pageOffset: Float = 0f
 ) {
     val context = LocalContext.current
@@ -1998,7 +2096,7 @@ private fun FeaturedCard(
     )
     
     ElevatedCard(
-        onClick = onClick,
+        onClick = { onClick(album) },
         modifier = Modifier
             .fillMaxWidth()
             .graphicsLayer {
@@ -2112,7 +2210,10 @@ private fun FeaturedCard(
                 ) {
                     // Play button - play the album directly
                     FilledIconButton(
-                        onClick = onClick,
+                        onClick = { 
+                            viewModel.playAlbum(album)
+                            onClick(album) // Also trigger the original click to open bottom sheet if needed
+                        },
                         modifier = Modifier.size(48.dp),
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = MaterialTheme.colorScheme.primary,
@@ -2128,9 +2229,12 @@ private fun FeaturedCard(
                     
                     Spacer(modifier = Modifier.width(16.dp))
                     
-                    // Add to library button - would add to a user's collection
+                    // Add to queue button
                     IconButton(
-                        onClick = { /* In a real app, this would add the album to the user's library */ },
+                        onClick = { 
+                            viewModel.addContextToQueue(album.songs)
+                            // Optionally show a snackbar or other feedback
+                        },
                         modifier = Modifier
                             .size(48.dp)
                             .background(
@@ -2139,8 +2243,8 @@ private fun FeaturedCard(
                             )
                     ) {
                         Icon(
-                            imageVector = RhythmIcons.Add,
-                            contentDescription = "Add to library",
+                            imageVector = RhythmIcons.AddToQueue,
+                            contentDescription = "Add album to queue",
                             tint = Color.White,
                             modifier = Modifier.size(28.dp)
                         )
@@ -2188,14 +2292,14 @@ private fun FeaturedCard(
 @Composable
 private fun NewAlbumCard(
     album: Album,
-    onClick: () -> Unit,
+    onClick: (Album) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
     
     Surface(
-        onClick = onClick,
+        onClick = { onClick(album) },
         modifier = modifier.width(180.dp),
         shape = RoundedCornerShape(24.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -2229,21 +2333,27 @@ private fun NewAlbumCard(
                         .align(Alignment.BottomEnd)
                         .padding(16.dp)
                 ) {
-                    Surface(
-                        onClick = onClick,
-                        modifier = Modifier.size(48.dp),
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        shadowElevation = 0.dp
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = RhythmIcons.Play,
-                            contentDescription = "Play album",
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier
-                                .size(24.dp)
-                                .padding(12.dp)
-                        )
+                        // Play button
+                        Surface(
+                            onClick = { viewModel.playAlbum(album) },
+                            modifier = Modifier.size(48.dp),
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            shadowElevation = 0.dp
+                        ) {
+                            Icon(
+                                imageVector = RhythmIcons.Play,
+                                contentDescription = "Play album",
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .padding(12.dp)
+                            )
+                        }
                     }
                 }
             }
