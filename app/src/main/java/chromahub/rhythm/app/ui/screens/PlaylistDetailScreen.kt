@@ -50,6 +50,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -68,6 +69,7 @@ import chromahub.rhythm.app.data.Playlist
 import chromahub.rhythm.app.data.Song
 import chromahub.rhythm.app.ui.components.MiniPlayer
 import chromahub.rhythm.app.ui.components.RhythmIcons
+import chromahub.rhythm.app.ui.components.RhythmIcons.Search
 import chromahub.rhythm.app.ui.LocalMiniPlayerPadding
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -92,12 +94,15 @@ fun PlaylistDetailScreen(
     onRenamePlaylist: (String) -> Unit = {},
     onDeletePlaylist: () -> Unit = {},
     onAddSongsToPlaylist: () -> Unit = {},
-    onSkipNext: () -> Unit = {}
+    onSkipNext: () -> Unit = {},
+    onSearchClick: () -> Unit = {}
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var newPlaylistName by remember { mutableStateOf(playlist.name) }
+    var searchQuery by remember { mutableStateOf("") }
+    var showSearchBar by remember { mutableStateOf(false) }
 
     if (showRenameDialog) {
         AlertDialog(
@@ -154,20 +159,6 @@ fun PlaylistDetailScreen(
     }
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
-    var contentVisible by remember { mutableStateOf(false) }
-    val transitionDuration = 220L // Default fadeOut duration in ms
-
-    LaunchedEffect(Unit) {
-        contentVisible = true
-    }
-
-    LaunchedEffect(contentVisible) {
-        if (!contentVisible) {
-            delay(transitionDuration)
-            onBack()
-        }
-    }
-
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
@@ -193,19 +184,41 @@ fun PlaylistDetailScreen(
                 },
                 navigationIcon = {
                     FilledIconButton(
-                        onClick = { contentVisible = false }, // Trigger exit animation
+                        onClick = {
+                            if (showSearchBar) {
+                                showSearchBar = false
+                                searchQuery = ""
+                            } else {
+                                onBack()
+                            }
+                        },
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer,
                             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     ) {
                         Icon(
-                            imageVector = RhythmIcons.Back,
-                            contentDescription = "Back"
+                            imageVector = if (showSearchBar) RhythmIcons.Close else RhythmIcons.Back,
+                            contentDescription = if (showSearchBar) "Close search" else "Back"
                         )
                     }
                 },
                 actions = {
+                    if (!showSearchBar) {
+                        FilledIconButton(
+                            onClick = { showSearchBar = true },
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        ) {
+                            Icon(
+                                imageVector = RhythmIcons.Search,
+                                contentDescription = "Search songs in playlist",
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
                     if (playlist.id != "1" && playlist.id != "2" && playlist.id != "3") {
                         FilledIconButton(
                             onClick = { showMenu = true },
@@ -280,26 +293,42 @@ fun PlaylistDetailScreen(
             }
         }
     ) { paddingValues ->
-        AnimatedVisibility(
-            visible = contentVisible,
-            enter = fadeIn(),
-            exit = fadeOut()
+        val filteredSongs = remember(playlist.songs, searchQuery) {
+            if (searchQuery.isBlank()) {
+                playlist.songs
+            } else {
+                playlist.songs.filter { song ->
+                    song.title.contains(searchQuery, ignoreCase = true) ||
+                            song.artist.contains(searchQuery, ignoreCase = true) ||
+                            song.album.contains(searchQuery, ignoreCase = true)
+                }
+            }
+        }
+
+        val listState = rememberLazyListState()
+
+        LaunchedEffect(showSearchBar) {
+            if (showSearchBar) {
+                listState.animateScrollToItem(0) // Scroll to the top to show the search bar
+            }
+        }
+
+        LazyColumn(
+            state = listState, // Apply the list state
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(horizontal = 16.dp) // Added horizontal padding to the content
         ) {
-            LazyColumn( // Changed to LazyColumn to support scroll behavior
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(horizontal = 16.dp) // Added horizontal padding to the content
-            ) {
-                item { // Wrap playlist header in an item
-                    // Enhanced Playlist header with better visual hierarchy
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 20.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        val context = LocalContext.current
+            item { // Wrap playlist header in an item
+                // Enhanced Playlist header with better visual hierarchy
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    val context = LocalContext.current
 
                         // Enhanced Playlist artwork without shadows as requested
                         Surface(
@@ -407,8 +436,33 @@ fun PlaylistDetailScreen(
                     }
                 }
 
+                if (showSearchBar) {
+                    item {
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            label = { Text("Search songs") },
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp),
+                            shape = RoundedCornerShape(24.dp), // Added rounded corners
+                            trailingIcon = {
+                                if (searchQuery.isNotEmpty()) {
+                                    IconButton(onClick = { searchQuery = "" }) {
+                                        Icon(
+                                            imageVector = RhythmIcons.Close,
+                                            contentDescription = "Clear search"
+                                        )
+                                    }
+                                }
+                            }
+                        )
+                    }
+                }
+
                 // Section header for songs list
-                if (playlist.songs.isNotEmpty()) {
+                if (filteredSongs.isNotEmpty()) {
                     item {
                         Surface(
                             modifier = Modifier
@@ -429,9 +483,9 @@ fun PlaylistDetailScreen(
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onBackground
                                 )
-                                
+
                                 Text(
-                                    text = "${playlist.songs.size}",
+                                    text = "${filteredSongs.size}",
                                     style = MaterialTheme.typography.titleMedium,
                                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
                                 )
@@ -441,85 +495,84 @@ fun PlaylistDetailScreen(
                 }
 
                 // Songs list
-                    if (playlist.songs.isEmpty()) {
-                        item { // Enhanced empty state with better visual design
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(32.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
+                if (filteredSongs.isEmpty()) {
+                    item { // Enhanced empty state with better visual design
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            // Empty state icon
+                            Surface(
+                                modifier = Modifier.size(80.dp),
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                tonalElevation = 4.dp
                             ) {
-                                // Empty state icon
-                                Surface(
-                                    modifier = Modifier.size(80.dp),
-                                    shape = CircleShape,
-                                    color = MaterialTheme.colorScheme.surfaceVariant,
-                                    tonalElevation = 4.dp
-                                ) {
-                                    Box(
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = RhythmIcons.MusicNote,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(40.dp)
-                                        )
-                                    }
-                                }
-                                
-                                Spacer(modifier = Modifier.height(24.dp))
-                                
-                                // Empty state text
-                                Text(
-                                    text = "No songs yet",
-                                    style = MaterialTheme.typography.headlineSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onBackground
-                                )
-                                
-                                Spacer(modifier = Modifier.height(8.dp))
-                                
-                                Text(
-                                    text = "Start building your playlist by adding some songs",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-                                    textAlign = TextAlign.Center
-                                )
-                                
-                                Spacer(modifier = Modifier.height(24.dp))
-                                
-                                // Call-to-action button
-                                Button(
-                                    onClick = onAddSongsToPlaylist,
-                                    shape = RoundedCornerShape(24.dp),
-                                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
+                                Box(
+                                    contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
-                                        imageVector = RhythmIcons.Add,
+                                        imageVector = RhythmIcons.MusicNote,
                                         contentDescription = null,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        "Add Songs",
-                                        style = MaterialTheme.typography.titleMedium
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(40.dp)
                                     )
                                 }
                             }
-                        }
-                    } else {
-                        items(playlist.songs) { song ->
-                            PlaylistSongItem(
-                                song = song,
-                                onClick = { onSongClick(song) },
-                                onRemove = { message -> onRemoveSong(song, message) }
+
+                            Spacer(modifier = Modifier.height(24.dp))
+
+                            // Empty state text
+                            Text(
+                                text = if (searchQuery.isNotEmpty()) "No matching songs found" else "No songs yet",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
                             )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Text(
+                                text = if (searchQuery.isNotEmpty()) "Try a different search query" else "Start building your playlist by adding some songs",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                                textAlign = TextAlign.Center
+                            )
+
+                            Spacer(modifier = Modifier.height(24.dp))
+
+                            // Call-to-action button
+                            Button(
+                                onClick = onAddSongsToPlaylist,
+                                shape = RoundedCornerShape(24.dp),
+                                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = RhythmIcons.Add,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    "Add Songs",
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                            }
                         }
                     }
-                    item { // Extra bottom space for mini player
-                        Spacer(modifier = Modifier.height(LocalMiniPlayerPadding.current.calculateBottomPadding() + 16.dp))
+                } else {
+                    items(filteredSongs) { song ->
+                        PlaylistSongItem(
+                            song = song,
+                            onClick = { onSongClick(song) },
+                            onRemove = { message -> onRemoveSong(song, message) }
+                        )
                     }
+                }
+                item { // Extra bottom space for mini player
+                    Spacer(modifier = Modifier.height(LocalMiniPlayerPadding.current.calculateBottomPadding() + 16.dp))
                 }
             }
         }
