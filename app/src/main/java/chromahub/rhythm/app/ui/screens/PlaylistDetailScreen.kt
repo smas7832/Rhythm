@@ -309,7 +309,7 @@ fun PlaylistDetailScreen(
 
         LaunchedEffect(showSearchBar) {
             if (showSearchBar) {
-                listState.animateScrollToItem(0) // Scroll to the top to show the search bar
+                listState.animateScrollToItem(1) // Scroll to the top to show the search bar
             }
         }
 
