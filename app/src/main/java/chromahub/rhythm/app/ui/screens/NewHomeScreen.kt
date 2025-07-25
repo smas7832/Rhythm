@@ -713,11 +713,18 @@ private fun EnhancedScrollableContent(
                         contentPadding = PaddingValues(horizontal = 5.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(newReleases) { album ->
-                            NewAlbumCard(
-                                album = album,
-                                onClick = { onAlbumClick(album) }
-                            )
+                        items(newReleases, key = { it.id }) { album ->
+                            AnimatedVisibility(
+                                visible = true,
+                                enter = fadeIn(animationSpec = tween(300)) + slideInHorizontally(animationSpec = tween(300)),
+                                exit = fadeOut(animationSpec = tween(300)) + slideOutHorizontally(animationSpec = tween(300)),
+                                modifier = Modifier.animateItem()
+                            ) {
+                                NewAlbumCard(
+                                    album = album,
+                                    onClick = { onAlbumClick(album) }
+                                )
+                            }
                         }
                     }
                 }
@@ -735,11 +742,18 @@ private fun EnhancedScrollableContent(
                         contentPadding = PaddingValues(horizontal = 5.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(recentlyAddedSongs) { song ->
-                            EnhancedRecentChip(
-                                song = song,
-                                onClick = { onSongClick(song) }
-                            )
+                        items(recentlyAddedSongs, key = { it.id }) { song ->
+                            AnimatedVisibility(
+                                visible = true,
+                                enter = fadeIn(animationSpec = tween(300)) + slideInHorizontally(animationSpec = tween(300)),
+                                exit = fadeOut(animationSpec = tween(300)) + slideOutHorizontally(animationSpec = tween(300)),
+                                modifier = Modifier.animateItem()
+                            ) {
+                                EnhancedRecentChip(
+                                    song = song,
+                                    onClick = { onSongClick(song) }
+                                )
+                            }
                         }
                     }
                 }
@@ -761,6 +775,7 @@ private fun EnhancedScrollableContent(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ArtistsCarouselSection(
     artists: List<Artist>,
@@ -784,12 +799,19 @@ private fun ArtistsCarouselSection(
             horizontalArrangement = Arrangement.spacedBy(24.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
-            items(artists) { artist ->
-                ArtistCarouselCard(
-                    artist = artist,
-                    songs = songs,
-                    onClick = { onArtistClick(artist) }
-                )
+            items(artists, key = { it.id }) { artist ->
+                AnimatedVisibility(
+                    visible = true,
+                    enter = fadeIn(animationSpec = tween(300)) + slideInHorizontally(animationSpec = tween(300)),
+                    exit = fadeOut(animationSpec = tween(300)) + slideOutHorizontally(animationSpec = tween(300)),
+                    modifier = Modifier.animateItem()
+                ) {
+                    ArtistCarouselCard(
+                        artist = artist,
+                        songs = songs,
+                        onClick = { onArtistClick(artist) }
+                    )
+                }
             }
         }
     }
@@ -805,11 +827,6 @@ private fun ArtistCarouselCard(
     val context = LocalContext.current
     val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
     
-    // Filter songs by the current artist
-    val artistSongs = remember(songs, artist) {
-        chromahub.rhythm.app.util.ArtistCollaborationUtils.filterSongsByArtist(songs, artist.name)
-    }
-
     Column(
         modifier = modifier
             .width(128.dp)
@@ -829,24 +846,42 @@ private fun ArtistCarouselCard(
                     .clip(CircleShape),
                 shadowElevation = 0.dp
             ) {
-                AsyncImage(
-                    model = ImageRequest.Builder(context)
-                        .apply(ImageUtils.buildImageRequest(
-                            artist.artworkUri,
-                            artist.name,
-                            context.cacheDir,
-                            M3PlaceholderType.ARTIST
-                        ))
-                        .build(),
-                    contentDescription = "Artist ${artist.name}",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
+                if (artist.artworkUri != null) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .apply(
+                                ImageUtils.buildImageRequest(
+                                    artist.artworkUri,
+                                    artist.name,
+                                    context.cacheDir,
+                                    M3PlaceholderType.ARTIST
+                                )
+                            )
+                            .build(),
+                        contentDescription = "Artist ${artist.name}",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    // Fallback to a placeholder if artwork is null
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = RhythmIcons.Artist,
+                            contentDescription = "Artist ${artist.name}",
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                            modifier = Modifier.size(48.dp)
+                        )
+                    }
+                }
             }
             
             // Play button overlay positioned at bottom right
             Surface(
-                onClick = { 
+                onClick = {
+                    val artistSongs = chromahub.rhythm.app.util.ArtistCollaborationUtils.filterSongsByArtist(songs, artist.name)
                     if (artistSongs.isNotEmpty()) {
                         viewModel.playQueue(artistSongs)
                     }
@@ -1352,7 +1387,7 @@ private fun ListeningStatsSection() {
                 ),
                 elevation = CardDefaults.elevatedCardElevation(
                     defaultElevation = 0.dp,
-                    pressedElevation = 2.dp
+                    pressedElevation = 0.dp
                 ),
                 shape = RoundedCornerShape(24.dp)
             ) {
@@ -1374,7 +1409,7 @@ private fun ListeningStatsSection() {
                 ),
                 elevation = CardDefaults.elevatedCardElevation(
                     defaultElevation = 0.dp,
-                    pressedElevation = 2.dp
+                    pressedElevation = 0.dp
                 ),
                 shape = RoundedCornerShape(24.dp)
             ) {
@@ -1396,7 +1431,7 @@ private fun ListeningStatsSection() {
                 ),
                 elevation = CardDefaults.elevatedCardElevation(
                     defaultElevation = 0.dp,
-                    pressedElevation = 2.dp
+                    pressedElevation = 0.dp
                 ),
                 shape = RoundedCornerShape(24.dp)
             ) {
@@ -1844,6 +1879,7 @@ private fun FeaturedContentSection(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun RecentlyPlayedSection(
     recentlyPlayed: List<Song>,
@@ -1896,11 +1932,18 @@ private fun RecentlyPlayedSection(
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            items(recentlyPlayed) { song ->
-                EnhancedRecentChip(
-                    song = song,
-                    onClick = { onSongClick(song) }
-                )
+            items(recentlyPlayed, key = { it.id }) { song ->
+                AnimatedVisibility(
+                    visible = true,
+                    enter = fadeIn(animationSpec = tween(300)) + slideInHorizontally(animationSpec = tween(300)),
+                    exit = fadeOut(animationSpec = tween(300)) + slideOutHorizontally(animationSpec = tween(300)),
+                    modifier = Modifier.animateItem()
+                ) {
+                    EnhancedRecentChip(
+                        song = song,
+                        onClick = { onSongClick(song) }
+                    )
+                }
             }
         }
     }
@@ -1910,7 +1953,8 @@ private fun RecentlyPlayedSection(
 @Composable
 private fun EnhancedRecentChip(
     song: Song,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
@@ -1922,10 +1966,10 @@ private fun EnhancedRecentChip(
         ),
         elevation = CardDefaults.elevatedCardElevation(
             defaultElevation = 0.dp,
-            pressedElevation = 8.dp
+            pressedElevation = 0.dp
         ),
         shape = RoundedCornerShape(20.dp),
-        modifier = Modifier
+        modifier = modifier
             .width(200.dp)
             .height(80.dp)
     ) {
@@ -1939,7 +1983,7 @@ private fun EnhancedRecentChip(
             Surface(
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.size(48.dp),
-                tonalElevation = 4.dp,
+                tonalElevation = 0.dp,
                 color = MaterialTheme.colorScheme.surfaceVariant
             ) {
                 AsyncImage(
@@ -2010,7 +2054,7 @@ private fun QuickPickCard(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        tonalElevation = 2.dp
+        tonalElevation = 0.dp
     ) {
         Row(
             modifier = Modifier
@@ -2022,8 +2066,8 @@ private fun QuickPickCard(
             Surface(
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.size(56.dp),
-                tonalElevation = 4.dp,
-                shadowElevation = 2.dp
+                tonalElevation = 0.dp,
+                shadowElevation = 0.dp
             ) {
                 AsyncImage(
                     model = ImageRequest.Builder(context)
@@ -2128,10 +2172,10 @@ private fun FeaturedCard(
             },
         shape = RoundedCornerShape(28.dp),
         elevation = CardDefaults.elevatedCardElevation(
-            defaultElevation = 8.dp,
-            pressedElevation = 12.dp,
-            focusedElevation = 10.dp,
-            hoveredElevation = 10.dp
+            defaultElevation = 0.dp,
+            pressedElevation = 0.dp,
+            focusedElevation = 0.dp,
+            hoveredElevation = 0.dp
         ),
         colors = CardDefaults.elevatedCardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer
@@ -2163,9 +2207,9 @@ private fun FeaturedCard(
                         Brush.verticalGradient(
                             colors = listOf(
                                 Color.Transparent,
-                                Color.Black.copy(alpha = 0.2f),
-                                Color.Black.copy(alpha = 0.5f),
-                                Color.Black.copy(alpha = 0.8f)
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.2f),
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
                             ),
                             startY = 0f,
                             endY = Float.POSITIVE_INFINITY
@@ -2180,10 +2224,10 @@ private fun FeaturedCard(
                     .background(
                         Brush.horizontalGradient(
                             colors = listOf(
-                                Color.Black.copy(alpha = 0.4f),
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.4f),
                                 Color.Transparent,
                                 Color.Transparent,
-                                Color.Black.copy(alpha = 0.2f)
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.2f)
                             )
                         )
                     )
@@ -2201,7 +2245,7 @@ private fun FeaturedCard(
                     text = album.title,
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -2209,7 +2253,7 @@ private fun FeaturedCard(
                 Text(
                     text = album.artist,
                     style = MaterialTheme.typography.titleMedium,
-                    color = Color.White.copy(alpha = 0.9f),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 4.dp)
@@ -2219,7 +2263,7 @@ private fun FeaturedCard(
                 Text(
                     text = "${album.numberOfSongs} songs",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.7f),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                     maxLines = 1,
                     modifier = Modifier.padding(top = 2.dp, bottom = 16.dp)
                 )
@@ -2250,25 +2294,25 @@ private fun FeaturedCard(
                     Spacer(modifier = Modifier.width(16.dp))
                     
                     // Add to queue button
-                    IconButton(
-                        onClick = { 
-                            viewModel.addContextToQueue(album.songs)
-                            // Optionally show a snackbar or other feedback
-                        },
-                        modifier = Modifier
-                            .size(48.dp)
-                            .background(
-                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.2f),
-                                shape = CircleShape
-                            )
-                    ) {
-                        Icon(
-                            imageVector = RhythmIcons.Queue,
-                            contentDescription = "Add album to queue",
-                            tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
+                    // IconButton(
+                    //     onClick = { 
+                    //         viewModel.addContextToQueue(album.songs)
+                    //         // Optionally show a snackbar or other feedback
+                    //     },
+                    //     modifier = Modifier
+                    //         .size(48.dp)
+                    //         .background(
+                    //             color = MaterialTheme.colorScheme.surface.copy(alpha = 0.2f),
+                    //             shape = CircleShape
+                    //         )
+                    // ) {
+                    //     Icon(
+                    //         imageVector = RhythmIcons.Queue,
+                    //         contentDescription = "Add album to queue",
+                    //         tint = MaterialTheme.colorScheme.onSurface,
+                    //         modifier = Modifier.size(28.dp)
+                    //     )
+                    // }
                     
                     Spacer(modifier = Modifier.weight(1f))
                     
