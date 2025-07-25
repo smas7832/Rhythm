@@ -76,6 +76,11 @@ import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.graphicsLayer
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -298,7 +303,7 @@ fun AllArtistsScreen(
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                                .padding(horizontal = 20.dp, vertical = 8.dp),
                             shape = RoundedCornerShape(20.dp),
                             colors = CardDefaults.cardColors(
                                 containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
@@ -358,7 +363,7 @@ fun AllArtistsScreen(
                             shape = RoundedCornerShape(20.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                                .padding(horizontal = 20.dp, vertical = 8.dp)
                         ) {
                             if (isGridView) {
                                 LazyVerticalGrid(
@@ -372,13 +377,15 @@ fun AllArtistsScreen(
                                     modifier = Modifier.fillMaxSize()
                                 ) {
                                     items(sortedArtists, key = { it.id }) { artist ->
-                                        AllArtistsCard(
-                                            artist = artist,
-                                            onClick = {
-                                                selectedArtist = artist
-                                                showArtistSheet = true
-                                            }
-                                        )
+                                        AnimateIn {
+                                            AllArtistsCard(
+                                                artist = artist,
+                                                onClick = {
+                                                    selectedArtist = artist
+                                                    showArtistSheet = true
+                                                }
+                                            )
+                                        }
                                     }
                                 }
                             } else {
@@ -391,13 +398,15 @@ fun AllArtistsScreen(
                                     modifier = Modifier.fillMaxSize()
                                 ) {
                                     items(sortedArtists, key = { it.id }) { artist ->
-                                        ArtistListItem(
-                                            artist = artist,
-                                            onClick = {
-                                                selectedArtist = artist
-                                                showArtistSheet = true
-                                            }
-                                        )
+                                        AnimateIn {
+                                            ArtistListItem(
+                                                artist = artist,
+                                                onClick = {
+                                                    selectedArtist = artist
+                                                    showArtistSheet = true
+                                                }
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -482,6 +491,42 @@ fun AllArtistsScreen(
     }
 }
 
+@Composable
+private fun AnimateIn(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        visible = true
+    }
+
+    val alpha by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (visible) 1f else 0f,
+        animationSpec = tween(durationMillis = 300, delayMillis = 50),
+        label = "alpha"
+    )
+
+    val scale by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (visible) 1f else 0.95f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "scale"
+    )
+
+    Box(
+        modifier = modifier.graphicsLayer(
+            alpha = alpha,
+            scaleX = scale,
+            scaleY = scale
+        )
+    ) {
+        content()
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AllArtistsCard(
@@ -498,7 +543,7 @@ private fun AllArtistsCard(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface // Use a slightly higher surface color
         ),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(20.dp),
         elevation = CardDefaults.cardElevation(
             defaultElevation = 0.dp, // Add a subtle elevation
             pressedElevation = 4.dp // Increase elevation on press
@@ -523,19 +568,36 @@ private fun AllArtistsCard(
                         .clip(CircleShape),
                     shadowElevation = 0.dp
                 ) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .apply(ImageUtils.buildImageRequest(
-                                artist.artworkUri,
-                                artist.name,
-                                context.cacheDir,
-                                M3PlaceholderType.ARTIST
-                            ))
-                            .build(),
-                        contentDescription = "Artist ${artist.name}",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
+                    if (artist.artworkUri != null) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .apply(
+                                    ImageUtils.buildImageRequest(
+                                        artist.artworkUri,
+                                        artist.name,
+                                        context.cacheDir,
+                                        M3PlaceholderType.ARTIST
+                                    )
+                                )
+                                .build(),
+                            contentDescription = "Artist ${artist.name}",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        // Fallback to a placeholder if artwork is null
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = RhythmIcons.Artist,
+                                contentDescription = "Artist ${artist.name}",
+                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                                modifier = Modifier.size(48.dp)
+                            )
+                        }
+                    }
                 }
                 
                 // Play button overlay positioned at bottom right
@@ -674,19 +736,34 @@ private fun ArtistListItem(
                     .clip(CircleShape),
                 shadowElevation = 0.dp
             ) {
-                AsyncImage(
-                    model = ImageRequest.Builder(context)
-                        .apply(ImageUtils.buildImageRequest(
-                            artist.artworkUri,
-                            artist.name,
-                            context.cacheDir,
-                            M3PlaceholderType.ARTIST
-                        ))
-                        .build(),
-                    contentDescription = "Artist ${artist.name}",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
+                if (artist.artworkUri != null) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .apply(ImageUtils.buildImageRequest(
+                                artist.artworkUri,
+                                artist.name,
+                                context.cacheDir,
+                                M3PlaceholderType.ARTIST
+                            ))
+                            .build(),
+                        contentDescription = "Artist ${artist.name}",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    // Fallback to a placeholder if artwork is null
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = RhythmIcons.Artist,
+                            contentDescription = "Artist ${artist.name}",
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                            modifier = Modifier.size(48.dp)
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.width(16.dp))
