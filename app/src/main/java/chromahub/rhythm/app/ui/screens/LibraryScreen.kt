@@ -586,138 +586,144 @@ fun SongsTab(
             icon = RhythmIcons.Music.Song
         )
     } else {
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceContainer,
-            shape = RoundedCornerShape(20.dp),
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .fillMaxSize()
+                .padding(horizontal = 20.dp, vertical = 8.dp)
         ) {
-            LazyColumn(
-                contentPadding = PaddingValues(
-                    top = 8.dp,
-                    bottom = LocalMiniPlayerPadding.current.calculateBottomPadding() + 16.dp
+            // Enhanced Songs Section Header (Sticky)
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
                 ),
-                verticalArrangement = Arrangement.spacedBy(0.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
-                item {
-                    // Enhanced Songs Section Header
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
-                        ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(20.dp)
+                ) {
+                    Surface(
+                        modifier = Modifier.size(48.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primary,
+                        shadowElevation = 0.dp
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(20.dp)
-                        ) {
-                            Surface(
-                                modifier = Modifier.size(48.dp),
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.primary,
-                                shadowElevation = 0.dp
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = RhythmIcons.Relax,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onPrimary,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
-                            }
-                            
-                            Spacer(modifier = Modifier.width(16.dp))
-                            
-                            Column {
-                                Text(
-                                    text = "Your Music",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                                
-                                Text(
-                                    text = "${filteredSongs.size} of ${songs.size} tracks",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.weight(1f))
-
-                            Surface(
-                                modifier = Modifier
-                                    .height(2.dp)
-                                    .width(60.dp),
-                                shape = RoundedCornerShape(1.dp),
-                                color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.3f)
-                            ) {}
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = RhythmIcons.Relax,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(24.dp)
+                            )
                         }
                     }
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    Column {
+                        Text(
+                            text = "Your Music",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+
+                        Text(
+                            text = "${filteredSongs.size} of ${songs.size} tracks",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    Surface(
+                        modifier = Modifier
+                            .height(2.dp)
+                            .width(60.dp),
+                        shape = RoundedCornerShape(1.dp),
+                        color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.3f)
+                    ) {}
                 }
-                
-                // Category chips
-                if (categories.size > 1) {
-                    item {
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
-                        ) {
-                            items(categories) { category ->
-                                FilterChip(
-                                    onClick = { selectedCategory = category },
-                                    label = { 
-                                        Text(
-                                            text = category,
-                                            style = MaterialTheme.typography.labelMedium,
-                                            fontWeight = if (selectedCategory == category) FontWeight.SemiBold else FontWeight.Normal
-                                        )
-                                    },
-                                    selected = selectedCategory == category,
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-                                        containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                                        labelColor = MaterialTheme.colorScheme.onSurface
-                                    ),
-                                    border = FilterChipDefaults.filterChipBorder(
-                                        enabled = true,
-                                        selected = selectedCategory == category,
-                                        borderColor = if (selectedCategory == category) 
-                                            MaterialTheme.colorScheme.primary 
-                                        else 
-                                            MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                                        selectedBorderColor = MaterialTheme.colorScheme.primary,
-                                        borderWidth = if (selectedCategory == category) 0.dp else 0.dp
-                                    )
+            }
+
+            // Category chips (Sticky)
+            if (categories.size > 1) {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(vertical = 8.dp), // Adjusted padding
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(categories) { category ->
+                        FilterChip(
+                            onClick = { selectedCategory = category },
+                            label = {
+                                Text(
+                                    text = category,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = if (selectedCategory == category) FontWeight.SemiBold else FontWeight.Normal
                                 )
-                            }
-                        }
+                            },
+                            selected = selectedCategory == category,
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                labelColor = MaterialTheme.colorScheme.onSurface
+                            ),
+                            border = FilterChipDefaults.filterChipBorder(
+                                enabled = true,
+                                selected = selectedCategory == category,
+                                borderColor = if (selectedCategory == category)
+                                    MaterialTheme.colorScheme.primary
+                                else
+                                    MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                                selectedBorderColor = MaterialTheme.colorScheme.primary,
+                                borderWidth = if (selectedCategory == category) 0.dp else 0.dp
+                            )
+                        )
                     }
                 }
-                
-                items(
-                    items = filteredSongs,
-                    key = { it.id }
-                ) { song ->
-                    LibrarySongItem(
-                        song = song,
-                        onClick = { onSongClick(song) },
-                        onMoreClick = { onAddToPlaylist(song) },
-                        onAddToQueue = { onAddToQueue(song) },
-                        onShowSongInfo = { onShowSongInfo(song) }
-                    )
+            }
+
+            // Scrollable Songs List
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainer,
+                shape = RoundedCornerShape(20.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f) // Take remaining space
+            ) {
+                LazyColumn(
+                    contentPadding = PaddingValues(
+                        top = 8.dp, // Start below the sticky elements
+                        bottom = LocalMiniPlayerPadding.current.calculateBottomPadding() + 16.dp
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(0.dp)
+                ) {
+                    items(
+                        items = filteredSongs,
+                        key = { it.id }
+                    ) { song ->
+                        AnimateIn {
+                            LibrarySongItem(
+                                song = song,
+                                onClick = { onSongClick(song) },
+                                onMoreClick = { onAddToPlaylist(song) },
+                                onAddToQueue = { onAddToQueue(song) },
+                                onShowSongInfo = { onShowSongInfo(song) }
+                            )
+                        }
+                    }
                 }
             }
         }
     }
-    }
+}
 
 
 @Composable
@@ -731,90 +737,97 @@ fun PlaylistsTab(
             icon = RhythmIcons.Music.Playlist
         )
     } else {
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceContainer,
-            shape = RoundedCornerShape(20.dp),
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .fillMaxSize()
+                .padding(horizontal = 20.dp, vertical = 8.dp)
         ) {
-            LazyColumn(
-                contentPadding = PaddingValues(
-                    top = 8.dp,
-                    bottom = LocalMiniPlayerPadding.current.calculateBottomPadding() + 16.dp
+            // Enhanced Playlists Section Header (Sticky)
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
                 ),
-                verticalArrangement = Arrangement.spacedBy(0.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
-                item {
-                    // Enhanced Playlists Section Header
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
-                        ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(20.dp)
+                ) {
+                    Surface(
+                        modifier = Modifier.size(48.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primary,
+                        shadowElevation = 0.dp
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(20.dp)
-                        ) {
-                            Surface(
-                                modifier = Modifier.size(48.dp),
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.primary,
-                                shadowElevation = 0.dp
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = RhythmIcons.PlaylistFilled,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onPrimary,
-                                        modifier = Modifier.size(28.dp)
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.width(16.dp))
-
-                            Column {
-                                Text(
-                                    text = "Your Playlists",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                                
-                                Text(
-                                    text = "${playlists.size} ${if (playlists.size == 1) "playlist" else "playlists"}",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.weight(1f))
-
-                            Surface(
-                                modifier = Modifier
-                                    .height(2.dp)
-                                    .width(60.dp),
-                                shape = RoundedCornerShape(1.dp),
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f)
-                            ) {}
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = RhythmIcons.PlaylistFilled,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(28.dp)
+                            )
                         }
                     }
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    Column {
+                        Text(
+                            text = "Your Playlists",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+
+                        Text(
+                            text = "${playlists.size} ${if (playlists.size == 1) "playlist" else "playlists"}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    Surface(
+                        modifier = Modifier
+                            .height(2.dp)
+                            .width(60.dp),
+                        shape = RoundedCornerShape(1.dp),
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f)
+                    ) {}
                 }
-                
-                items(
-                    items = playlists,
-                    key = { it.id }
-                ) { playlist ->
-                    PlaylistItem(
-                        playlist = playlist,
-                        onClick = { onPlaylistClick(playlist) }
-                    )
+            }
+
+            // Scrollable Playlists List
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainer,
+                shape = RoundedCornerShape(20.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f) // Take remaining space
+            ) {
+                LazyColumn(
+                    contentPadding = PaddingValues(
+                        top = 8.dp, // Start below the sticky elements
+                        bottom = LocalMiniPlayerPadding.current.calculateBottomPadding() + 16.dp
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(0.dp)
+                ) {
+                    items(
+                        items = playlists,
+                        key = { it.id }
+                    ) { playlist ->
+                        AnimateIn {
+                            PlaylistItem(
+                                playlist = playlist,
+                                onClick = { onPlaylistClick(playlist) }
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -838,133 +851,138 @@ fun AlbumsTab(
             icon = RhythmIcons.Music.Album
         )
     } else {
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceContainer,
-            shape = RoundedCornerShape(20.dp),
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .fillMaxSize()
+                .padding(horizontal = 20.dp, vertical = 8.dp)
         ) {
-            LazyColumn(
-                contentPadding = PaddingValues(
-                    top = 8.dp,
-                    bottom = LocalMiniPlayerPadding.current.calculateBottomPadding() + 16.dp
+            // Enhanced Albums Section Header (Sticky)
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
                 ),
-                verticalArrangement = Arrangement.spacedBy(0.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
-                item {
-                    // Enhanced Albums Section Header
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
-                        ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(20.dp)
+                ) {
+                    Surface(
+                        modifier = Modifier.size(48.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primary,
+                        shadowElevation = 0.dp
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(20.dp)
-                        ) {
-                            Surface(
-                                modifier = Modifier.size(48.dp),
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.primary,
-                                shadowElevation = 0.dp
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = RhythmIcons.Music.Album,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onPrimary,
-                                        modifier = Modifier.size(28.dp)
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.width(16.dp))
-
-                            Column {
-                                Text(
-                                    text = "Your Albums",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                                Text(
-                                    text = "${albums.size} ${if (albums.size == 1) "album" else "albums"}",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.weight(1f))
-
-                            // View type toggle button
-                            FilledIconButton(
-                                onClick = { 
-                                    val newViewType = if (albumViewType == AlbumViewType.LIST) AlbumViewType.GRID else AlbumViewType.LIST
-                                    appSettings.setAlbumViewType(newViewType)
-                                },
-                                colors = IconButtonDefaults.filledIconButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.surface,
-                                    contentColor = MaterialTheme.colorScheme.onSurface
-                                ),
-                                modifier = Modifier.size(36.dp)
-                            ) {
-                                Icon(
-                                    imageVector = if (albumViewType == AlbumViewType.LIST) RhythmIcons.AppsGrid else RhythmIcons.List,
-                                    contentDescription = "Toggle view type",
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.width(12.dp))
-
-                            Surface(
-                                modifier = Modifier
-                                    .height(2.dp)
-                                    .width(60.dp),
-                                shape = RoundedCornerShape(1.dp),
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f)
-                            ) {}
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = RhythmIcons.Music.Album,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(28.dp)
+                            )
                         }
                     }
-                }
-                
-                // Albums content based on view type - now inside the big card
-                if (albumViewType == AlbumViewType.GRID) {
-                    item {
-                        AlbumsGrid(
-                            albums = albums,
-                            onAlbumClick = { album ->
-                                onAlbumBottomSheetClick(album)
-                            },
-                            onAlbumPlay = onAlbumClick, // This plays the album
-                            onSongClick = onSongClick
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    Column {
+                        Text(
+                            text = "Your Albums",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Text(
+                            text = "${albums.size} ${if (albums.size == 1) "album" else "albums"}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                         )
                     }
-                } else {
-                    items(
-                        items = albums,
-                        key = { it.id }
-                    ) { album ->
-                        LibraryAlbumItem(
-                            album = album,
-                            onClick = { onAlbumBottomSheetClick(album) }, // Changed to open bottom sheet
-                            onPlayClick = { 
-                                // Play the entire album
-                                onAlbumClick(album)
-                            }
+
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    // View type toggle button
+                    FilledIconButton(
+                        onClick = {
+                            val newViewType = if (albumViewType == AlbumViewType.LIST) AlbumViewType.GRID else AlbumViewType.LIST
+                            appSettings.setAlbumViewType(newViewType)
+                        },
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.surface,
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        ),
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (albumViewType == AlbumViewType.LIST) RhythmIcons.AppsGrid else RhythmIcons.List,
+                            contentDescription = "Toggle view type",
+                            modifier = Modifier.size(18.dp)
                         )
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Surface(
+                        modifier = Modifier
+                            .height(2.dp)
+                            .width(60.dp),
+                        shape = RoundedCornerShape(1.dp),
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f)
+                    ) {}
+                }
+            }
+
+            // Scrollable Albums Content
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainer,
+                shape = RoundedCornerShape(20.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f) // Take remaining space
+            ) {
+                if (albumViewType == AlbumViewType.GRID) {
+                    AlbumsGrid(
+                        albums = albums,
+                        onAlbumClick = { album ->
+                            onAlbumBottomSheetClick(album)
+                        },
+                        onAlbumPlay = onAlbumClick, // This plays the album
+                        onSongClick = onSongClick
+                    )
+                } else {
+                    LazyColumn(
+                        contentPadding = PaddingValues(
+                            top = 8.dp, // Start below the sticky elements
+                            bottom = LocalMiniPlayerPadding.current.calculateBottomPadding() + 16.dp
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(0.dp)
+                    ) {
+                        items(
+                            items = albums,
+                            key = { it.id }
+                        ) { album ->
+                            AnimateIn {
+                                LibraryAlbumItem(
+                                    album = album,
+                                    onClick = { onAlbumBottomSheetClick(album) }, // Changed to open bottom sheet
+                                    onPlayClick = {
+                                        // Play the entire album
+                                        onAlbumClick(album)
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
     }
-}
+                    }
+
 
 @Composable
 fun LibrarySongItem(
@@ -2163,44 +2181,72 @@ private fun formatDuration(durationMs: Long): String {
 }
 
 @Composable
+private fun AnimateIn(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        visible = true
+    }
+
+    val alpha by animateFloatAsState(
+        targetValue = if (visible) 1f else 0f,
+        animationSpec = tween(durationMillis = 300, delayMillis = 50),
+        label = "alpha"
+    )
+
+    val scale by animateFloatAsState(
+        targetValue = if (visible) 1f else 0.95f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "scale"
+    )
+
+    Box(
+        modifier = modifier.graphicsLayer(
+            alpha = alpha,
+            scaleX = scale,
+            scaleY = scale
+        )
+    ) {
+        content()
+    }
+}
+
+@Composable
 fun AlbumsGrid(
     albums: List<Album>,
     onAlbumClick: (Album) -> Unit,
     onAlbumPlay: (Album) -> Unit,
     onSongClick: (Song) -> Unit
 ) {
-    val albumsPerRow = 2
-    val albumRows = albums.chunked(albumsPerRow)
-    
-    Column(
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(2),
         modifier = Modifier
-            .fillMaxWidth()
+            .fillMaxSize()
             .padding(horizontal = 16.dp),
+        contentPadding = PaddingValues(
+            top = 8.dp,
+            bottom = LocalMiniPlayerPadding.current.calculateBottomPadding() + 16.dp
+        ),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        albumRows.forEach { rowAlbums ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                rowAlbums.forEach { album ->
-                    AlbumGridItem(
-                        album = album,
-                        onClick = { onAlbumClick(album) }, // Card click opens bottom sheet
-                        onPlayClick = { onAlbumPlay(album) }, // Play button plays album
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-                
-                // Fill remaining space if the row is not complete
-                repeat(albumsPerRow - rowAlbums.size) {
-                    Spacer(modifier = Modifier.weight(1f))
-                }
+        items(
+            items = albums,
+            key = { it.id }
+        ) { album ->
+            AnimateIn {
+                AlbumGridItem(
+                    album = album,
+                    onClick = { onAlbumClick(album) }, // Card click opens bottom sheet
+                    onPlayClick = { onAlbumPlay(album) } // Play button plays album
+                )
             }
         }
-        
-        // Add bottom padding
-        Spacer(modifier = Modifier.height(LocalMiniPlayerPadding.current.calculateBottomPadding()))
     }
 }
 
