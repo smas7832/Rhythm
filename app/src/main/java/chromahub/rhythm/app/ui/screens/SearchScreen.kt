@@ -63,6 +63,8 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import chromahub.rhythm.app.ui.LocalMiniPlayerPadding
 import androidx.compose.runtime.Composable
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -103,6 +105,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import chromahub.rhythm.app.ui.screens.AddToPlaylistBottomSheet
 import chromahub.rhythm.app.ui.components.CreatePlaylistDialog
 import chromahub.rhythm.app.ui.screens.ArtistBottomSheet
+import chromahub.rhythm.app.util.ArtistCollaborationUtils
 import chromahub.rhythm.app.util.ImageUtils
 import chromahub.rhythm.app.ui.screens.SettingsSectionHeader
 import chromahub.rhythm.app.ui.components.M3PlaceholderType
@@ -199,7 +202,8 @@ fun SearchScreen(
             else {
                 val query = searchQuery.lowercase()
                 artists.filter { artist ->
-                    artist.name.contains(query, ignoreCase = true)
+                    ArtistCollaborationUtils.splitArtistString(artist.name)
+                        .any { it.lowercase().contains(query) }
                 }.sortedWith(compareBy<Artist> { artist ->
                     // Prioritize exact matches and starts with
                     when {
@@ -393,23 +397,7 @@ fun SearchScreen(
                 content = {
                     // Content for the expanded search bar
                     if (searchQuery.isEmpty()) {
-                        // Default state with search suggestions
-                        DefaultSearchContent(
-                            searchHistory = searchHistory,
-                            recentlyPlayed = recentlyPlayed,
-                            onSongClick = onSongClick,
-                            onSearchQuerySelect = { query ->
-                                searchQuery = query
-                                isSearchActive = true
-                            },
-                            onAddSongToPlaylist = { song ->
-                                selectedSong = song
-                                showAddToPlaylistSheet = true
-                            },
-                            onClearSearchHistory = {
-                                viewModel.clearSearchHistory()
-                            }
-                        )
+                        // The content is now shown outside the search bar when not active
                     } else if (hasSearchResults) {
                         // Search results
                         SearchResults(
@@ -441,6 +429,7 @@ fun SearchScreen(
                     }
                 }
             )
+
             // Enhanced Filter Section
             AnimatedVisibility(
                 visible = showFilterOptions,
@@ -609,7 +598,29 @@ fun SearchScreen(
                     }
                 }
             }
-            
+
+            if (!isSearchActive) {
+                val recommendedSongs = remember(viewModel) {
+                    viewModel.getRecommendedSongs().take(4)
+                }
+                DefaultSearchContent(
+                    searchHistory = searchHistory,
+                    recentlyPlayed = recentlyPlayed,
+                    recommendedSongs = recommendedSongs,
+                    onSongClick = onSongClick,
+                    onSearchQuerySelect = { query ->
+                        searchQuery = query
+                        isSearchActive = true
+                    },
+                    onAddSongToPlaylist = { song ->
+                        selectedSong = song
+                        showAddToPlaylistSheet = true
+                    },
+                    onClearSearchHistory = {
+                        viewModel.clearSearchHistory()
+                    }
+                )
+            }
         }
     }
     
@@ -968,13 +979,13 @@ fun SearchResults(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Surface(
                             shape = CircleShape,
-                            color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f),
+                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
                             modifier = Modifier.size(32.dp)
                         ) {
                             Icon(
                                 imageVector = RhythmIcons.Artist,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
                                 modifier = Modifier
                                     .size(16.dp)
                                     .padding(8.dp)
@@ -991,13 +1002,13 @@ fun SearchResults(
                     
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)
+                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
                     ) {
                         Text(
                             text = "${artists.size}",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
                     }
@@ -1985,6 +1996,7 @@ private fun EnhancedRecentChip(
 private fun DefaultSearchContent(
     searchHistory: List<String>,
     recentlyPlayed: List<Song>,
+    recommendedSongs: List<Song>,
     onSongClick: (Song) -> Unit,
     onSearchQuerySelect: (String) -> Unit,
     onAddSongToPlaylist: (Song) -> Unit,
@@ -2194,6 +2206,14 @@ private fun DefaultSearchContent(
                 }
             }
         }
+        if (recommendedSongs.isNotEmpty()) {
+            item {
+                RecommendedForYouSection(
+                    songs = recommendedSongs,
+                    onSongClick = onSongClick
+                )
+            }
+        }
     }
 }
 
@@ -2308,6 +2328,137 @@ private fun NoSearchResults(
             }
         }
     }
+}
+
+@Composable
+private fun RecommendedForYouSection(
+    songs: List<Song>,
+    onSongClick: (Song) -> Unit
+) {
+    if (songs.isEmpty()) return
+    
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Recommended For You",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+        }
+        
+        Surface(
+            color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f),
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Text(
+                    text = "Based on your listening history",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+                
+                songs.forEachIndexed { index, song ->
+                    RecommendedSongItem(
+                        song = song,
+                        onClick = { onSongClick(song) }
+                    )
+                    
+                    if (index != songs.lastIndex) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RecommendedSongItem(
+    song: Song,
+    onClick: () -> Unit
+) {
+    val context = LocalContext.current
+    
+    ListItem(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 4.dp),
+        leadingContent = {
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.size(48.dp)
+            ) {
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .apply(ImageUtils.buildImageRequest(
+                            song.artworkUri,
+                            song.title,
+                            context.cacheDir,
+                            M3PlaceholderType.TRACK
+                        ))
+                        .build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+        },
+        headlineContent = {
+            Text(
+                text = song.title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        },
+        supportingContent = {
+            Text(
+                text = song.artist,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        },
+        trailingContent = {
+            FilledIconButton(
+                onClick = onClick,
+                modifier = Modifier.size(36.dp),
+                colors = IconButtonDefaults.filledIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            ) {
+                Icon(
+                    imageVector = RhythmIcons.Play,
+                    contentDescription = "Play",
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        },
+        colors = ListItemDefaults.colors(
+            containerColor = Color.Transparent
+        )
+    )
 }
 
 @Composable
