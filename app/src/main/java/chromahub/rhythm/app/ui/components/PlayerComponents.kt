@@ -195,36 +195,8 @@ fun MiniPlayer(
         }
     }
 
-    // Enhanced navigation bar handling for proper positioning across all navigation types
-    val navigationBarInsets = WindowInsets.navigationBars
-    val systemBarInsets = WindowInsets.systemBars
-    val navigationBarHeight = with(density) {
-        navigationBarInsets.getBottom(density).toDp()
-    }
-    val systemBarsBottom = with(density) {
-        systemBarInsets.getBottom(density).toDp()
-    }
-    
-    // Comprehensive bottom padding calculation that handles all scenarios
-    val bottomPadding = when {
-        // Check if we're in fullscreen mode or gesture navigation without visible navbar
-        navigationBarHeight <= 0.dp -> 16.dp // No navigation bar, use generous padding from bottom edge
-        
-        // 3-button navigation (high navbar)
-        navigationBarHeight > 48.dp -> {
-            // Add more generous padding above 3-button navigation to prevent overlap and provide breathing room
-            navigationBarHeight + 12.dp
-        }
-        
-        // Gesture navigation with visible hint bar (low navbar)
-        navigationBarHeight > 0.dp && navigationBarHeight <= 48.dp -> {
-            // Position just above the gesture hint bar with some breathing room
-            navigationBarHeight + 8.dp
-        }
-        
-        // Fallback for edge cases
-        else -> 16.dp
-    }
+    // Use navigationBars padding to position the mini player correctly, with some extra space.
+    val bottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 8.dp
 
     Card(
         onClick = {
