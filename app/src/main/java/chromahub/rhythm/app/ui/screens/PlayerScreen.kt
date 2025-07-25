@@ -132,6 +132,7 @@ import chromahub.rhythm.app.ui.components.SyncedLyricsView
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.asPaddingValues
+import chromahub.rhythm.app.ui.components.formatDuration
 import java.util.concurrent.TimeUnit // Import TimeUnit for duration formatting
 import chromahub.rhythm.app.ui.screens.QueueBottomSheet
 import chromahub.rhythm.app.ui.screens.LibraryTab
@@ -311,14 +312,6 @@ fun PlayerScreen(
         }
     }
     
-    // Function to format duration from milliseconds to mm:ss format
-    val formatDuration = { durationMs: Long ->
-        val minutes = TimeUnit.MILLISECONDS.toMinutes(durationMs)
-        val seconds = TimeUnit.MILLISECONDS.toSeconds(durationMs) -
-                TimeUnit.MINUTES.toSeconds(minutes)
-        String.format("%d:%02d", minutes, seconds)
-    }
-    
     // Calculate current and total time
     val currentTimeMs = ((song?.duration ?: 0) * progress).toLong()
     val totalTimeMs = song?.duration ?: 0
@@ -380,17 +373,9 @@ fun PlayerScreen(
             currentSong = song,
             queue = queue,
             currentQueueIndex = queuePosition - 1,
-            onSongClick = { selectedSong -> 
-                // Play the selected song
+            onSongClick = { selectedSong ->
                 onSongClick(selectedSong)
-                // Hide the sheet after selection
-                scope.launch {
-                    queueSheetState.hide()
-                }.invokeOnCompletion {
-                    if (!queueSheetState.isVisible) {
-                        showQueueSheet = false
-                    }
-                }
+                showQueueSheet = false
             },
             onDismiss = { showQueueSheet = false },
             onRemoveSong = { songToRemove ->
@@ -402,26 +387,12 @@ fun PlayerScreen(
                 onMoveQueueItem(fromIndex, toIndex)
             },
             onAddSongsClick = {
-                // Dismiss the queue sheet first
-                scope.launch {
-                    queueSheetState.hide()
-                }.invokeOnCompletion {
-                    if (!queueSheetState.isVisible) {
-                        // Navigate to the LibraryScreen (Songs tab) with a hint about adding songs
-                        onNavigateToLibrary(LibraryTab.SONGS)
-                    }
-                }
+                showQueueSheet = false
+                onNavigateToLibrary(LibraryTab.SONGS)
             },
             onClearQueue = {
-                // Clear the queue and dismiss the sheet
                 onClearQueue()
-                scope.launch {
-                    queueSheetState.hide()
-                }.invokeOnCompletion {
-                    if (!queueSheetState.isVisible) {
-                        showQueueSheet = false
-                    }
-                }
+                showQueueSheet = false
             },
             sheetState = queueSheetState
         )
@@ -433,32 +404,14 @@ fun PlayerScreen(
             playlists = playlists,
             onDismissRequest = onAddToPlaylistSheetDismiss,
             onAddToPlaylist = { playlist ->
-                // Add the current song to the selected playlist
                 playlist.id?.let { playlistId ->
-                    // Actually add the song to the playlist
                     onAddSongToPlaylist(song, playlistId)
-                    // Hide the bottom sheet after adding
-                    scope.launch {
-                        addToPlaylistSheetState.hide()
-                    }.invokeOnCompletion {
-                        if (!addToPlaylistSheetState.isVisible) {
-                            onAddToPlaylistSheetDismiss()
-                        }
-                    }
+                    onAddToPlaylistSheetDismiss()
                 }
             },
             onCreateNewPlaylist = {
-                // Hide the sheet first
-                scope.launch {
-                    addToPlaylistSheetState.hide()
-                }.invokeOnCompletion {
-                    if (!addToPlaylistSheetState.isVisible) {
-                        onAddToPlaylistSheetDismiss()
-                        // Now show the create playlist dialog
-                        // We'll handle this in the parent component
-                        onShowCreatePlaylistDialog()
-                    }
-                }
+                onAddToPlaylistSheetDismiss()
+                onShowCreatePlaylistDialog()
             },
             sheetState = addToPlaylistSheetState
         )
@@ -477,17 +430,9 @@ fun PlayerScreen(
             currentLocation = location,
             volume = volume,
             isMuted = isMuted,
-            onLocationSelect = { selectedLocation ->
-                onLocationSelect(selectedLocation)
-                // Hide the sheet after selection
-                scope.launch {
-                    deviceOutputSheetState.hide()
-                }.invokeOnCompletion {
-                    if (!deviceOutputSheetState.isVisible) {
-                        showDeviceOutputSheet = false
-                        onStopDeviceMonitoring()
-                    }
-                }
+            onLocationSelect = {
+                onLocationSelect(it)
+                showDeviceOutputSheet = false
             },
             onVolumeChange = onVolumeChange,
             onToggleMute = onToggleMute,
@@ -740,19 +685,36 @@ fun PlayerScreen(
         contentAlignment = Alignment.TopCenter // Align content to the center
     ) {
         // Album Image
-        AsyncImage(
-            model = ImageRequest.Builder(context)
-                .apply(ImageUtils.buildImageRequest(
-                    song?.artworkUri,
-                    song?.title,
-                    context.cacheDir,
-                    M3PlaceholderType.TRACK
-                ))
-                .build(),
-            contentDescription = "Album artwork for ${song?.title}",
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize()
-        )
+        if (song?.artworkUri != null) {
+            AsyncImage(
+                model = ImageRequest.Builder(context)
+                    .apply(
+                        ImageUtils.buildImageRequest(
+                            song.artworkUri,
+                            song.title,
+                            context.cacheDir,
+                            M3PlaceholderType.TRACK
+                        )
+                    )
+                    .build(),
+                contentDescription = "Album artwork for ${song.title}",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            // Fallback to a placeholder if artwork is null
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = RhythmIcons.MusicNote,
+                    contentDescription = "Album artwork for ${song?.title}",
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                    modifier = Modifier.size(96.dp)
+                )
+            }
+        }
 
         // Enhanced gradient overlay with multiple layers
         Box(
