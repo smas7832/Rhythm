@@ -2260,21 +2260,39 @@ private fun FeaturedCard(
                 )
                 
                 // Song count with subtle hint
-                Text(
-                    text = "${album.numberOfSongs} songs",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                    maxLines = 1,
-                    modifier = Modifier.padding(top = 2.dp, bottom = 16.dp)
-                )
+                // Text(
+                //     text = "${album.numberOfSongs} songs",
+                //     style = MaterialTheme.typography.bodyMedium,
+                //     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                //     maxLines = 1,
+                //     modifier = Modifier.padding(top = 2.dp, bottom = 16.dp)
+                // )
                 
                 // Button row with play and add to library actions
                 Row(
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
+                    if (album.year > 0) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Text(
+                                text = album.year.toString(),
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.weight(1f))
+
                     // Play button - play the album directly
                     FilledIconButton(
-                        onClick = { 
+                        onClick = {
                             viewModel.playAlbum(album)
                             onClick(album) // Also trigger the original click to open bottom sheet if needed
                         },
@@ -2289,47 +2307,6 @@ private fun FeaturedCard(
                             contentDescription = "Play album",
                             modifier = Modifier.size(28.dp)
                         )
-                    }
-                    
-                    Spacer(modifier = Modifier.width(16.dp))
-                    
-                    // Add to queue button
-                    // IconButton(
-                    //     onClick = { 
-                    //         viewModel.addContextToQueue(album.songs)
-                    //         // Optionally show a snackbar or other feedback
-                    //     },
-                    //     modifier = Modifier
-                    //         .size(48.dp)
-                    //         .background(
-                    //             color = MaterialTheme.colorScheme.surface.copy(alpha = 0.2f),
-                    //             shape = CircleShape
-                    //         )
-                    // ) {
-                    //     Icon(
-                    //         imageVector = RhythmIcons.Queue,
-                    //         contentDescription = "Add album to queue",
-                    //         tint = MaterialTheme.colorScheme.onSurface,
-                    //         modifier = Modifier.size(28.dp)
-                    //     )
-                    // }
-                    
-                    Spacer(modifier = Modifier.weight(1f))
-                    
-                    // Year badge
-                    if (album.year > 0) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Text(
-                                text = album.year.toString(),
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
-                        }
                     }
                 }
             }

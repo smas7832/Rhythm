@@ -2590,8 +2590,6 @@ fun AllSongsPage(
         }
     }
 }
-    }
-}
 
 @Composable
 private fun AnimateIn(
