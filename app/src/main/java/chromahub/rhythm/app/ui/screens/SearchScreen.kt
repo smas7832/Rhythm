@@ -73,13 +73,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -2577,13 +2578,53 @@ fun AllSongsPage(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp + 80.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(songs) { song ->
-                SearchSongItem(
-                    song = song,
-                    onClick = { onSongClick(song) },
-                    onAddToPlaylist = { onAddSongToPlaylist(song) }
-                )
+            items(songs, key = { it.id }) { song ->
+                AnimateIn {
+                    SearchSongItem(
+                        song = song,
+                        onClick = { onSongClick(song) },
+                        onAddToPlaylist = { onAddSongToPlaylist(song) }
+                    )
+                }
             }
         }
+    }
+}
+    }
+}
+
+@Composable
+private fun AnimateIn(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        visible = true
+    }
+
+    val alpha by animateFloatAsState(
+        targetValue = if (visible) 1f else 0f,
+        animationSpec = tween(durationMillis = 300, delayMillis = 50),
+        label = "alpha"
+    )
+
+    val scale by animateFloatAsState(
+        targetValue = if (visible) 1f else 0.95f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "scale"
+    )
+
+    Box(
+        modifier = modifier.graphicsLayer(
+            alpha = alpha,
+            scaleX = scale,
+            scaleY = scale
+        )
+    ) {
+        content()
     }
 }
