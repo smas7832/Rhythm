@@ -138,6 +138,7 @@ fun SearchScreen(
     var isSearchActive by remember { mutableStateOf(false) }
     var showFilterOptions by remember { mutableStateOf(false) }
     var selectedCategory by remember { mutableStateOf("All") }
+    var showAllSongsPage by remember { mutableStateOf(false) }
     
     // Filter states
     var filterSongs by remember { mutableStateOf(true) }
@@ -150,9 +151,9 @@ fun SearchScreen(
     val recentlyPlayed by viewModel.recentlyPlayed.collectAsState()
     
     // Enhanced search logic with better ranking and fuzzy matching
-    val filteredSongs by remember(searchQuery, songs, filterSongs) {
+    val searchedSongs by remember(searchQuery, songs) {
         derivedStateOf {
-            if (searchQuery.isBlank() || !filterSongs) emptyList()
+            if (searchQuery.isBlank()) emptyList()
             else {
                 val query = searchQuery.lowercase()
                 songs.filter { song ->
@@ -173,10 +174,16 @@ fun SearchScreen(
             }
         }
     }
-    
-    val filteredAlbums by remember(searchQuery, albums, filterAlbums) {
+
+    val filteredSongs by remember(searchedSongs, filterSongs) {
         derivedStateOf {
-            if (searchQuery.isBlank() || !filterAlbums) emptyList()
+            if (filterSongs) searchedSongs else emptyList()
+        }
+    }
+
+    val searchedAlbums by remember(searchQuery, albums) {
+        derivedStateOf {
+            if (searchQuery.isBlank()) emptyList()
             else {
                 val query = searchQuery.lowercase()
                 albums.filter { album ->
@@ -195,15 +202,24 @@ fun SearchScreen(
             }
         }
     }
-    
-    val filteredArtists by remember(searchQuery, artists, filterArtists) {
+
+    val filteredAlbums by remember(searchedAlbums, filterAlbums) {
         derivedStateOf {
-            if (searchQuery.isBlank() || !filterArtists) emptyList()
+            if (filterAlbums) searchedAlbums else emptyList()
+        }
+    }
+    
+    val uniqueArtists = remember(artists, songs) {
+        ArtistCollaborationUtils.extractIndividualArtists(artists, songs)
+    }
+
+    val searchedArtists by remember(searchQuery, uniqueArtists) {
+        derivedStateOf {
+            if (searchQuery.isBlank()) emptyList()
             else {
                 val query = searchQuery.lowercase()
-                artists.filter { artist ->
-                    ArtistCollaborationUtils.splitArtistString(artist.name)
-                        .any { it.lowercase().contains(query) }
+                uniqueArtists.filter { artist ->
+                    artist.name.contains(query, ignoreCase = true)
                 }.sortedWith(compareBy<Artist> { artist ->
                     // Prioritize exact matches and starts with
                     when {
@@ -215,10 +231,16 @@ fun SearchScreen(
             }
         }
     }
-    
-    val filteredPlaylists by remember(searchQuery, playlists, filterPlaylists) {
+
+    val filteredArtists by remember(searchedArtists, filterArtists) {
         derivedStateOf {
-            if (searchQuery.isBlank() || !filterPlaylists) emptyList()
+            if (filterArtists) searchedArtists else emptyList()
+        }
+    }
+
+    val searchedPlaylists by remember(searchQuery, playlists) {
+        derivedStateOf {
+            if (searchQuery.isBlank()) emptyList()
             else {
                 val query = searchQuery.lowercase()
                 playlists.filter { playlist ->
@@ -232,6 +254,12 @@ fun SearchScreen(
                     }
                 }.thenBy { it.name })
             }
+        }
+    }
+
+    val filteredPlaylists by remember(searchedPlaylists, filterPlaylists) {
+        derivedStateOf {
+            if (filterPlaylists) searchedPlaylists else emptyList()
         }
     }
     
@@ -278,7 +306,8 @@ fun SearchScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp, vertical = 18.dp)
-                    .focusRequester(focusRequester),
+                    .focusRequester(focusRequester)
+                    .then(if (isSearchActive) Modifier.fillMaxSize() else Modifier),
                 inputField = {
                     TextField(
                         value = searchQuery,
@@ -396,7 +425,17 @@ fun SearchScreen(
                 },
                 content = {
                     // Content for the expanded search bar
-                    if (searchQuery.isEmpty()) {
+                    if (showAllSongsPage) {
+                        AllSongsPage(
+                            songs = filteredSongs,
+                            onSongClick = onSongClick,
+                            onAddSongToPlaylist = { song ->
+                                selectedSong = song
+                                showAddToPlaylistSheet = true
+                            },
+                            onBack = { showAllSongsPage = false }
+                        )
+                    } else if (searchQuery.isEmpty()) {
                         // The content is now shown outside the search bar when not active
                     } else if (hasSearchResults) {
                         // Search results
@@ -418,6 +457,176 @@ fun SearchScreen(
                             onArtistBottomSheetClick = { artist ->
                                 selectedArtist = artist
                                 showArtistBottomSheet = true
+                            },
+                            onViewAllSongsClick = { showAllSongsPage = true },
+                            filterSection = {
+                                AnimatedVisibility(
+                                    visible = showFilterOptions,
+                                    enter = expandVertically() + fadeIn(),
+                                    exit = shrinkVertically() + fadeOut()
+                                ) {
+                                    Card(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(bottom = 16.dp),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                                        )
+                                    ) {
+                                        Column(
+                                            modifier = Modifier.padding(16.dp)
+                                        ) {
+                                            Text(
+                                                text = "Filter Results",
+                                                style = MaterialTheme.typography.titleMedium,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                modifier = Modifier.padding(bottom = 12.dp)
+                                            )
+
+                                            LazyRow(
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                contentPadding = PaddingValues(horizontal = 4.dp)
+                                            ) {
+                                                // Select All / Deselect All chip
+                                                item {
+                                                    val allSelected = filterSongs && filterAlbums && filterArtists && filterPlaylists
+                                                    val noneSelected = !filterSongs && !filterAlbums && !filterArtists && !filterPlaylists
+
+                                                    FilterChip(
+                                                        onClick = {
+                                                            if (allSelected || (!allSelected && !noneSelected)) {
+                                                                // Deselect all
+                                                                filterSongs = false
+                                                                filterAlbums = false
+                                                                filterArtists = false
+                                                                filterPlaylists = false
+                                                            } else {
+                                                                // Select all
+                                                                filterSongs = true
+                                                                filterAlbums = true
+                                                                filterArtists = true
+                                                                filterPlaylists = true
+                                                            }
+                                                        },
+                                                        label = {
+                                                            Text(if (allSelected) "Deselect All" else "Select All")
+                                                        },
+                                                        selected = allSelected,
+                                                        leadingIcon = if (allSelected) {
+                                                            { Icon(RhythmIcons.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                                        } else null,
+                                                        colors = FilterChipDefaults.filterChipColors(
+                                                            selectedContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                                                            selectedLabelColor = MaterialTheme.colorScheme.onTertiaryContainer
+                                                        )
+                                                    )
+                                                }
+
+                                                item {
+                                                    FilterChip(
+                                                        onClick = { filterSongs = !filterSongs },
+                                                        label = {
+                                                            Text("Songs (${searchedSongs.size})")
+                                                        },
+                                                        selected = filterSongs,
+                                                        leadingIcon = if (filterSongs) {
+                                                            { Icon(RhythmIcons.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                                        } else null,
+                                                        colors = FilterChipDefaults.filterChipColors(
+                                                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                                        )
+                                                    )
+                                                }
+
+                                                item {
+                                                    FilterChip(
+                                                        onClick = { filterAlbums = !filterAlbums },
+                                                        label = {
+                                                            Text("Albums (${searchedAlbums.size})")
+                                                        },
+                                                        selected = filterAlbums,
+                                                        leadingIcon = if (filterAlbums) {
+                                                            { Icon(RhythmIcons.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                                        } else null,
+                                                        colors = FilterChipDefaults.filterChipColors(
+                                                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                                        )
+                                                    )
+                                                }
+
+                                                item {
+                                                    FilterChip(
+                                                        onClick = { filterArtists = !filterArtists },
+                                                        label = {
+                                                            Text("Artists (${searchedArtists.size})")
+                                                        },
+                                                        selected = filterArtists,
+                                                        leadingIcon = if (filterArtists) {
+                                                            { Icon(RhythmIcons.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                                        } else null,
+                                                        colors = FilterChipDefaults.filterChipColors(
+                                                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                                        )
+                                                    )
+                                                }
+
+                                                item {
+                                                    FilterChip(
+                                                        onClick = { filterPlaylists = !filterPlaylists },
+                                                        label = {
+                                                            Text("Playlists (${searchedPlaylists.size})")
+                                                        },
+                                                        selected = filterPlaylists,
+                                                        leadingIcon = if (filterPlaylists) {
+                                                            { Icon(RhythmIcons.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                                        } else null,
+                                                        colors = FilterChipDefaults.filterChipColors(
+                                                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                                        )
+                                                    )
+                                                }
+                                            }
+
+                                            if (searchQuery.isNotEmpty()) {
+                                                Spacer(modifier = Modifier.height(12.dp))
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Text(
+                                                        text = if (totalResults == 0) "No results found" else "$totalResults results found",
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        color = if (totalResults == 0)
+                                                            MaterialTheme.colorScheme.error
+                                                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        fontWeight = if (totalResults == 0) FontWeight.Medium else FontWeight.Normal
+                                                    )
+
+                                                    if (totalResults > 0) {
+                                                        val activeFilters = listOf(
+                                                            "Songs" to filterSongs,
+                                                            "Albums" to filterAlbums,
+                                                            "Artists" to filterArtists,
+                                                            "Playlists" to filterPlaylists
+                                                        ).count { it.second }
+
+                                                        Text(
+                                                            text = "$activeFilters filters active",
+                                                            style = MaterialTheme.typography.bodySmall,
+                                                            color = MaterialTheme.colorScheme.primary,
+                                                            fontWeight = FontWeight.Medium
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         )
                     } else {
@@ -429,175 +638,6 @@ fun SearchScreen(
                     }
                 }
             )
-
-            // Enhanced Filter Section
-            AnimatedVisibility(
-                visible = showFilterOptions,
-                enter = expandVertically() + fadeIn(),
-                exit = shrinkVertically() + fadeOut()
-            ) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
-                    ) {
-                        Text(
-                            text = "Filter Results",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(bottom = 12.dp)
-                        )
-                        
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            contentPadding = PaddingValues(horizontal = 4.dp)
-                        ) {
-                            // Select All / Deselect All chip
-                            item {
-                                val allSelected = filterSongs && filterAlbums && filterArtists && filterPlaylists
-                                val noneSelected = !filterSongs && !filterAlbums && !filterArtists && !filterPlaylists
-                                
-                                FilterChip(
-                                    onClick = { 
-                                        if (allSelected || (!allSelected && !noneSelected)) {
-                                            // Deselect all
-                                            filterSongs = false
-                                            filterAlbums = false
-                                            filterArtists = false
-                                            filterPlaylists = false
-                                        } else {
-                                            // Select all
-                                            filterSongs = true
-                                            filterAlbums = true
-                                            filterArtists = true
-                                            filterPlaylists = true
-                                        }
-                                    },
-                                    label = { 
-                                        Text(if (allSelected) "Deselect All" else "Select All")
-                                    },
-                                    selected = allSelected,
-                                    leadingIcon = if (allSelected) {
-                                        { Icon(RhythmIcons.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                                    } else null,
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                                        selectedLabelColor = MaterialTheme.colorScheme.onTertiaryContainer
-                                    )
-                                )
-                            }
-                            
-                            item {
-                                FilterChip(
-                                    onClick = { filterSongs = !filterSongs },
-                                    label = { 
-                                        Text("Songs (${songs.size})")
-                                    },
-                                    selected = filterSongs,
-                                    leadingIcon = if (filterSongs) {
-                                        { Icon(RhythmIcons.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                                    } else null,
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                )
-                            }
-                            
-                            item {
-                                FilterChip(
-                                    onClick = { filterAlbums = !filterAlbums },
-                                    label = { 
-                                        Text("Albums (${albums.size})")
-                                    },
-                                    selected = filterAlbums,
-                                    leadingIcon = if (filterAlbums) {
-                                        { Icon(RhythmIcons.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                                    } else null,
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                )
-                            }
-                            
-                            item {
-                                FilterChip(
-                                    onClick = { filterArtists = !filterArtists },
-                                    label = { 
-                                        Text("Artists (${artists.size})")
-                                    },
-                                    selected = filterArtists,
-                                    leadingIcon = if (filterArtists) {
-                                        { Icon(RhythmIcons.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                                    } else null,
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                )
-                            }
-                            
-                            item {
-                                FilterChip(
-                                    onClick = { filterPlaylists = !filterPlaylists },
-                                    label = { 
-                                        Text("Playlists (${playlists.size})")
-                                    },
-                                    selected = filterPlaylists,
-                                    leadingIcon = if (filterPlaylists) {
-                                        { Icon(RhythmIcons.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                                    } else null,
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                )
-                            }
-                        }
-                        
-                        if (searchQuery.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = if (totalResults == 0) "No results found" else "$totalResults results found",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = if (totalResults == 0) 
-                                        MaterialTheme.colorScheme.error 
-                                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontWeight = if (totalResults == 0) FontWeight.Medium else FontWeight.Normal
-                                )
-                                
-                                if (totalResults > 0) {
-                                    val activeFilters = listOf(
-                                        "Songs" to filterSongs,
-                                        "Albums" to filterAlbums,
-                                        "Artists" to filterArtists,
-                                        "Playlists" to filterPlaylists
-                                    ).count { it.second }
-                                    
-                                    Text(
-                                        text = "$activeFilters filters active",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
 
             if (!isSearchActive) {
                 val recommendedSongs = remember(viewModel) {
@@ -748,12 +788,18 @@ fun SearchResults(
     onArtistClick: (Artist) -> Unit,
     onPlaylistClick: (Playlist) -> Unit,
     onAddSongToPlaylist: (Song) -> Unit,
-    onArtistBottomSheetClick: (Artist) -> Unit = {}
+    onArtistBottomSheetClick: (Artist) -> Unit = {},
+    onViewAllSongsClick: () -> Unit,
+    filterSection: @Composable () -> Unit
 ) {
     LazyColumn(
+        modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(16.dp),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp)
     ) {
+        item {
+            filterSection()
+        }
         // Results header with improved design
         item {
             Card(
@@ -801,299 +847,234 @@ fun SearchResults(
             }
         }
         
-        // Songs section with enhanced design
+        // Songs section
         if (songs.isNotEmpty()) {
             item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Surface(
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                imageVector = RhythmIcons.Song,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier
-                                    .size(16.dp)
-                                    .padding(8.dp)
-                            )
-                        }
-                        Text(
-                            text = "Songs",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground,
-                            modifier = Modifier.padding(start = 12.dp)
-                        )
-                    }
-                    
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
-                    ) {
-                        Text(
-                            text = "${songs.size}",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
-                }
-            }
-            
-            items(songs.take(5)) { song ->
-                SearchSongItem(
-                    song = song,
-                    onClick = { onSongClick(song) },
-                    onAddToPlaylist = { onAddSongToPlaylist(song) }
-                )
-            }
-            
-            if (songs.size > 5) {
-                item {
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-                        ),
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { /* TODO: Show all songs */ }
-                    ) {
+                Column(modifier = Modifier.padding(vertical = 8.dp)) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(16.dp),
+                                .padding(horizontal = 4.dp, vertical = 12.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column {
-                                Text(
-                                    text = "View All Songs",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Medium,
-                                    color = MaterialTheme.colorScheme.primary
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = RhythmIcons.Song,
+                                    contentDescription = "Songs",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(28.dp)
                                 )
+                                Spacer(modifier = Modifier.width(12.dp))
                                 Text(
-                                    text = "See all ${songs.size} songs",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    text = "Songs",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold
                                 )
                             }
-                            
-                            Icon(
-                                imageVector = RhythmIcons.Forward,
-                                contentDescription = "View all",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp)
+                            Text(
+                                text = "${songs.size}",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                    }
+
+                        Column(
+                            modifier = Modifier.padding(horizontal = 4.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            songs.take(5).forEach { song ->
+                                SearchSongItem(
+                                    song = song,
+                                    onClick = { onSongClick(song) },
+                                    onAddToPlaylist = { onAddSongToPlaylist(song) }
+                                )
+                            }
+                        }
+
+                        if (songs.size > 5) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                                ),
+                                shape = RoundedCornerShape(16.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 4.dp)
+                                    .clickable { onViewAllSongsClick() }
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text(
+                                            text = "View All Songs",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                        Text(
+                                            text = "See all ${songs.size} songs",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Icon(
+                                        imageVector = RhythmIcons.Forward,
+                                        contentDescription = "View all",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                        }
                 }
             }
         }
+            }
+        }
         
-        // Albums section with enhanced design
+        // Albums section
         if (albums.isNotEmpty()) {
             item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Surface(
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
-                            modifier = Modifier.size(32.dp)
+                Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                imageVector = RhythmIcons.Album,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                modifier = Modifier
-                                    .size(16.dp)
-                                    .padding(8.dp)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = RhythmIcons.Album,
+                                    contentDescription = "Albums",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = "Albums",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Text(
+                                text = "${albums.size}",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        Text(
-                            text = "Albums",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground,
-                            modifier = Modifier.padding(start = 12.dp)
-                        )
-                    }
-                    
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
-                    ) {
-                        Text(
-                            text = "${albums.size}",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
-                }
-            }
-            
-            item {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    contentPadding = PaddingValues(end = 16.dp)
-                ) {
-                    items(albums.take(10)) { album ->
-                        SearchAlbumItem(
-                            album = album,
-                            onClick = { onAlbumClick(album) }
-                        )
-                    }
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            contentPadding = PaddingValues(horizontal = 4.dp)
+                        ) {
+                            items(albums.take(10)) { album ->
+                                SearchAlbumItem(
+                                    album = album,
+                                    onClick = { onAlbumClick(album) }
+                                )
+                        }
                 }
             }
         }
+        }
         
-        // Artists section with enhanced design
+        // Artists section
         if (artists.isNotEmpty()) {
             item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Surface(
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
-                            modifier = Modifier.size(32.dp)
+                Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                imageVector = RhythmIcons.Artist,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                modifier = Modifier
-                                    .size(16.dp)
-                                    .padding(8.dp)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = RhythmIcons.Artist,
+                                    contentDescription = "Artists",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = "Artists",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Text(
+                                text = "${artists.size}",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        Text(
-                            text = "Artists",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground,
-                            modifier = Modifier.padding(start = 12.dp)
-                        )
-                    }
-                    
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
-                    ) {
-                        Text(
-                            text = "${artists.size}",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
-                }
-            }
-            
-            item {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    contentPadding = PaddingValues(end = 16.dp)
-                ) {
-                    items(artists.take(10)) { artist ->
-                        SearchArtistItem(
-                            artist = artist,
-                            onClick = { 
-                                onArtistBottomSheetClick(artist)
-                            }
-                        )
-                    }
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            contentPadding = PaddingValues(horizontal = 4.dp)
+                        ) {
+                            items(artists.take(10)) { artist ->
+                                SearchArtistItem(
+                                    artist = artist,
+                                    onClick = {
+                                        onArtistBottomSheetClick(artist)
+                                    }
+                                )
+                        }
                 }
             }
         }
+        }
         
-        // Playlists section with enhanced design
+        // Playlists section
         if (playlists.isNotEmpty()) {
             item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Surface(
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            modifier = Modifier.size(32.dp)
+                Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                imageVector = RhythmIcons.Playlist,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier
-                                    .size(16.dp)
-                                    .padding(8.dp)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = RhythmIcons.PlaylistFilled,
+                                    contentDescription = "Playlists",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = "Playlists",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Text(
+                                text = "${playlists.size}",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        Text(
-                            text = "Playlists",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground,
-                            modifier = Modifier.padding(start = 12.dp)
-                        )
-                    }
-                    
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant
-                    ) {
-                        Text(
-                            text = "${playlists.size}",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            contentPadding = PaddingValues(horizontal = 4.dp)
+                        ) {
+                            items(playlists.take(10)) { playlist ->
+                                SearchPlaylistItem(
+                                    playlist = playlist,
+                                    onClick = { onPlaylistClick(playlist) }
+                                )
+                        }
                 }
             }
-            
-            item {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    contentPadding = PaddingValues(end = 16.dp)
-                ) {
-                    items(playlists.take(10)) { playlist ->
-                        SearchPlaylistItem(
-                            playlist = playlist,
-                            onClick = { onPlaylistClick(playlist) }
-                        )
-                    }
-                }
-            }
+        }
         }
         
         // Add bottom spacing
@@ -1451,8 +1432,8 @@ fun SearchAlbumItem(
     Card(
         modifier = Modifier
             .width(140.dp)
-            .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         )
@@ -1465,7 +1446,7 @@ fun SearchAlbumItem(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f)
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(16.dp))
             ) {
                 AsyncImage(
                     model = ImageRequest.Builder(context)
@@ -1514,8 +1495,8 @@ fun SearchArtistItem(
     Card(
         modifier = Modifier
             .width(120.dp)
-            .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         )
@@ -1600,12 +1581,13 @@ fun SearchPlaylistItem(
     val context = LocalContext.current
     
     Card(
+        onClick = onClick,
         modifier = Modifier
             .width(150.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick),
+            .padding(vertical = 6.dp), // Added vertical padding for consistency
+        shape = RoundedCornerShape(20.dp), // Increased radius
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         )
     ) {
         Column(
@@ -1613,45 +1595,41 @@ fun SearchPlaylistItem(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Playlist artwork
-            Box(
-                modifier = Modifier
-                    .size(126.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(
-                        if (playlist.artworkUri == null)
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-                        else
-                            MaterialTheme.colorScheme.surface
-                    ),
-                contentAlignment = Alignment.Center
+            Surface( // Use Surface for better elevation and shape control
+                modifier = Modifier.size(68.dp), // Increased size
+                shape = RoundedCornerShape(25.dp), // Increased radius
+                color = MaterialTheme.colorScheme.primaryContainer // Use primary container color
             ) {
-                if (playlist.artworkUri != null) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .apply(ImageUtils.buildImageRequest(
-                                playlist.artworkUri,
-                                playlist.name,
-                                context.cacheDir,
-                                M3PlaceholderType.PLAYLIST
-                            ))
-                            .build(),
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } else {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                        modifier = Modifier.size(80.dp)
-                    ) {
-                        Icon(
-                            imageVector = RhythmIcons.Playlist,
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            if (playlist.artworkUri != null) Color.Transparent
+                            else MaterialTheme.colorScheme.primaryContainer
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (playlist.artworkUri != null) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .apply(ImageUtils.buildImageRequest(
+                                    playlist.artworkUri,
+                                    playlist.name,
+                                    context.cacheDir,
+                                    M3PlaceholderType.PLAYLIST
+                                ))
+                                .build(),
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier
-                                .padding(16.dp)
-                                .fillMaxSize()
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        // Use proper playlist icon from RhythmIcons
+                        Icon(
+                            imageVector = RhythmIcons.PlaylistFilled, // Using the proper playlist icon
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer, // Use onPrimaryContainer color
+                            modifier = Modifier.size(44.dp) // Increased icon size
                         )
                     }
                 }
@@ -1661,7 +1639,7 @@ fun SearchPlaylistItem(
             
             Text(
                 text = playlist.name,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.titleMedium, // Changed to titleMedium
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -1671,8 +1649,8 @@ fun SearchPlaylistItem(
             
             Text(
                 text = "${playlist.songs.size} songs",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                style = MaterialTheme.typography.bodyMedium, // Changed to bodyMedium
+                color = MaterialTheme.colorScheme.onSurfaceVariant, // Use onSurfaceVariant color
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center,
@@ -2564,6 +2542,47 @@ private fun MoodPlaylistCard(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun AllSongsPage(
+    songs: List<Song>,
+    onSongClick: (Song) -> Unit,
+    onAddSongToPlaylist: (Song) -> Unit,
+    onBack: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(RhythmIcons.Back, contentDescription = "Back")
+            }
+            Text(
+                text = "All Songs (${songs.size})",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(start = 8.dp)
+            )
+        }
+
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp + 80.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(songs) { song ->
+                SearchSongItem(
+                    song = song,
+                    onClick = { onSongClick(song) },
+                    onAddToPlaylist = { onAddSongToPlaylist(song) }
+                )
             }
         }
     }
