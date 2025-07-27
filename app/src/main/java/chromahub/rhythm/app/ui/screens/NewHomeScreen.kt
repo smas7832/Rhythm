@@ -1,4 +1,5 @@
 package chromahub.rhythm.app.ui.screens
+// Forcing re-compilation to resolve 'haptic' reference issue
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -100,6 +101,8 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import chromahub.rhythm.app.R
 import chromahub.rhythm.app.data.Album
 import chromahub.rhythm.app.data.Artist
@@ -751,7 +754,9 @@ private fun EnhancedScrollableContent(
                             ) {
                                 EnhancedRecentChip(
                                     song = song,
-                                    onClick = { onSongClick(song) }
+                                    onClick = { 
+//                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress);
+                                        onSongClick(song) }
                                 )
                             }
                         }
@@ -826,11 +831,15 @@ private fun ArtistCarouselCard(
 ) {
     val context = LocalContext.current
     val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
+    val haptic = LocalHapticFeedback.current
     
     Column(
         modifier = modifier
             .width(128.dp)
-            .clickable { onClick() },
+            .clickable { 
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onClick() 
+            },
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // Artist image container with play overlay
@@ -881,6 +890,7 @@ private fun ArtistCarouselCard(
             // Play button overlay positioned at bottom right
             Surface(
                 onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     val artistSongs = chromahub.rhythm.app.util.ArtistCollaborationUtils.filterSongsByArtist(songs, artist.name)
                     if (artistSongs.isNotEmpty()) {
                         viewModel.playQueue(artistSongs)
@@ -934,6 +944,7 @@ private fun WelcomeSection(
 ) {
     val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
     val recentlyPlayed by viewModel.recentlyPlayed.collectAsState()
+    val haptic = LocalHapticFeedback.current
     
     // Time-based inspirational quotes with music theme
     val timeBasedQuote = remember {
@@ -1115,7 +1126,10 @@ private fun WelcomeSection(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 5.dp, vertical = 8.dp)
-            .clickable { onSearchClick() }
+            .clickable { 
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onSearchClick() 
+            }
     ) {
         Box(
             modifier = Modifier.fillMaxWidth()
@@ -1280,17 +1294,24 @@ private fun QuickActionButton(
     text: String,
     onClick: () -> Unit
 ) {
+    val haptic = LocalHapticFeedback.current
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .padding(vertical = 8.dp, horizontal = 4.dp)
-            .clickable(onClick = onClick)
+            .clickable(onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onClick()
+            })
     ) {
         Surface(
             shape = CircleShape,
             color = MaterialTheme.colorScheme.secondaryContainer,
             modifier = Modifier.size(48.dp),
-            onClick = onClick
+            onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onClick()
+            }
         ) {
             Box(
                 contentAlignment = Alignment.Center,
@@ -1380,7 +1401,7 @@ private fun ListeningStatsSection() {
         ) {
             // Stat Card 1: Listening Time
             ElevatedCard(
-                onClick = { /* Optional: navigate to detailed stats */ },
+//                onClick = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) /* Optional: navigate to detailed stats */ },
                 modifier = Modifier.weight(1f),
                 colors = CardDefaults.elevatedCardColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer
@@ -1402,7 +1423,7 @@ private fun ListeningStatsSection() {
 
             // Stat Card 2: Songs Played
             ElevatedCard(
-                onClick = { /* Optional: navigate to detailed stats */ },
+//                onClick = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) /* Optional: navigate to detailed stats */ },
                 modifier = Modifier.weight(1f),
                 colors = CardDefaults.elevatedCardColors(
                     containerColor = MaterialTheme.colorScheme.secondaryContainer
@@ -1424,7 +1445,7 @@ private fun ListeningStatsSection() {
 
             // Stat Card 3: Artists
             ElevatedCard(
-                onClick = { /* Optional: navigate to detailed stats */ },
+//                onClick = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) /* Optional: navigate to detailed stats */ },
                 modifier = Modifier.weight(1f),
                 colors = CardDefaults.elevatedCardColors(
                     containerColor = MaterialTheme.colorScheme.tertiaryContainer
@@ -1557,6 +1578,7 @@ private fun MoodBasedPlaylistsSection(
     onSongClick: (Song) -> Unit
 ) {
     val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
+    val haptic = LocalHapticFeedback.current
     
     Column(
         modifier = Modifier
@@ -1584,6 +1606,7 @@ private fun MoodBasedPlaylistsSection(
                     icon = RhythmIcons.Energy,
                     songCount = energeticSongs.size, // Pass song count
                     onPlayClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         if (energeticSongs.isNotEmpty()) {
                             // Play with queue replacement and shuffling for better variety
                             viewModel.playSongWithQueueOption(
@@ -1595,6 +1618,7 @@ private fun MoodBasedPlaylistsSection(
                         }
                     },
                     onAddToQueueClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         if (energeticSongs.isNotEmpty()) {
                             viewModel.addContextToQueue(energeticSongs, shuffled = true)
                         }
@@ -1612,6 +1636,7 @@ private fun MoodBasedPlaylistsSection(
                     icon = RhythmIcons.Relax,
                     songCount = relaxingSongs.size, // Pass song count
                     onPlayClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         if (relaxingSongs.isNotEmpty()) {
                             viewModel.playSongWithQueueOption(
                                 song = relaxingSongs.first(), 
@@ -1621,6 +1646,7 @@ private fun MoodBasedPlaylistsSection(
                         }
                     },
                     onAddToQueueClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         if (relaxingSongs.isNotEmpty()) {
                             viewModel.addContextToQueue(relaxingSongs)
                         }
@@ -1638,6 +1664,7 @@ private fun MoodBasedPlaylistsSection(
                     icon = RhythmIcons.Focus,
                     songCount = moodBasedSongs.size, // Pass song count
                     onPlayClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         if (moodBasedSongs.isNotEmpty()) {
                             viewModel.playSongWithQueueOption(
                                 song = moodBasedSongs.first(), 
@@ -1647,6 +1674,7 @@ private fun MoodBasedPlaylistsSection(
                         }
                     },
                     onAddToQueueClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         if (moodBasedSongs.isNotEmpty()) {
                             viewModel.addContextToQueue(moodBasedSongs)
                         }
@@ -1669,6 +1697,7 @@ private fun MoodPlaylistCard(
     onPlayClick: () -> Unit,
     onAddToQueueClick: () -> Unit = {}
 ) {
+    val haptic = LocalHapticFeedback.current
     Surface(
         color = backgroundColor,
         shape = RoundedCornerShape(32.dp),
@@ -1717,7 +1746,7 @@ private fun MoodPlaylistCard(
                         style = MaterialTheme.typography.bodyMedium,
                         color = contentColor.copy(alpha = 0.8f),
                         modifier = Modifier.padding(top = 4.dp)
-                    )
+                        )
                 }
                 
                 // Action buttons with enhanced Android 16 styling
@@ -1728,7 +1757,10 @@ private fun MoodPlaylistCard(
                 ) {
                     // Play button with enhanced styling
                     Surface(
-                        onClick = onPlayClick,
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onPlayClick()
+                        },
                         shape = CircleShape,
                         color = contentColor,
                         modifier = Modifier.size(56.dp)
@@ -1770,6 +1802,7 @@ private fun SectionTitle(
     modifier: Modifier = Modifier,
     viewAllAction: (() -> Unit)? = null
 ) {
+    val haptic = LocalHapticFeedback.current
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -1786,7 +1819,10 @@ private fun SectionTitle(
         
         if (viewAllAction != null) {
             FilledIconButton(
-                onClick = viewAllAction,
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    viewAllAction()
+                },
                 colors = IconButtonDefaults.filledIconButtonColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -1809,6 +1845,7 @@ private fun FeaturedContentSection(
     onAlbumClick: (Album) -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    val haptic = LocalHapticFeedback.current
     
     Column(
         modifier = Modifier.fillMaxWidth()
@@ -1863,6 +1900,7 @@ private fun FeaturedContentSection(
                         .clip(CircleShape)
                         .background(color)
                         .clickable { 
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             scope.launch {
                                 pagerState.animateScrollToPage(
                                     page = index,
@@ -1941,7 +1979,8 @@ private fun RecentlyPlayedSection(
                 ) {
                     EnhancedRecentChip(
                         song = song,
-                        onClick = { onSongClick(song) }
+                        onClick = {
+                            onSongClick(song) }
                     )
                 }
             }
@@ -1958,9 +1997,13 @@ private fun EnhancedRecentChip(
 ) {
     val context = LocalContext.current
     val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
-    
+    val haptic = LocalHapticFeedback.current
+
     ElevatedCard(
-        onClick = onClick,
+        onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            onClick()
+        },
         colors = CardDefaults.elevatedCardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
         ),
@@ -2048,9 +2091,13 @@ private fun QuickPickCard(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
     
     Surface(
-        onClick = onClick,
+        onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            onClick()
+        },
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -2111,7 +2158,10 @@ private fun QuickPickCard(
             
             // Play button with improved design
             FilledIconButton(
-                onClick = onClick,
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onClick()
+                },
                 modifier = Modifier.size(42.dp),
                 colors = IconButtonDefaults.filledIconButtonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
@@ -2138,6 +2188,7 @@ private fun FeaturedCard(
 ) {
     val context = LocalContext.current
     val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
+    val haptic = LocalHapticFeedback.current
     
     // Enhanced animations based on offset
     val scale = lerp(
@@ -2160,7 +2211,10 @@ private fun FeaturedCard(
     )
     
     ElevatedCard(
-        onClick = { onClick(album) },
+        onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            onClick(album)
+        },
         modifier = Modifier
             .fillMaxWidth()
             .graphicsLayer {
@@ -2281,7 +2335,7 @@ private fun FeaturedCard(
                             Text(
                                 text = album.year.toString(),
                                 style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Medium,
+                                fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onPrimary,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                             )
@@ -2293,6 +2347,7 @@ private fun FeaturedCard(
                     // Play button - play the album directly
                     FilledIconButton(
                         onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             viewModel.playAlbum(album)
                             onClick(album) // Also trigger the original click to open bottom sheet if needed
                         },
@@ -2338,9 +2393,13 @@ private fun NewAlbumCard(
 ) {
     val context = LocalContext.current
     val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
+    val haptic = LocalHapticFeedback.current
     
     Surface(
-        onClick = { onClick(album) },
+        onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            onClick(album)
+        },
         modifier = modifier.width(180.dp),
         shape = RoundedCornerShape(24.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -2380,7 +2439,10 @@ private fun NewAlbumCard(
                     ) {
                         // Play button
                         Surface(
-                            onClick = { viewModel.playAlbum(album) },
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                viewModel.playAlbum(album)
+                            },
                             modifier = Modifier.size(48.dp),
                             shape = CircleShape,
                             color = MaterialTheme.colorScheme.primaryContainer,
@@ -2435,13 +2497,17 @@ private fun EnhancedArtistCard(
 ) {
     val context = LocalContext.current
     val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
+    val haptic = LocalHapticFeedback.current
     
     Surface(
         shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         modifier = modifier
             .width(140.dp)
-            .clickable { onClick() }
+            .clickable {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onClick()
+            }
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -2471,7 +2537,10 @@ private fun EnhancedArtistCard(
                 
                 // Play button with enhanced design
                 Surface(
-                    onClick = { viewModel.playArtist(artist) },
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        viewModel.playArtist(artist)
+                    },
                     shape = CircleShape,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier
@@ -2519,9 +2588,13 @@ private fun CompactArtistCard(
 ) {
     val context = LocalContext.current
     val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
+    val haptic = LocalHapticFeedback.current
     
     Surface(
-        onClick = onClick,
+        onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            onClick()
+        },
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surfaceContainer,
         modifier = modifier.fillMaxWidth()
@@ -2570,7 +2643,10 @@ private fun CompactArtistCard(
             
             // Play button
             IconButton(
-                onClick = { viewModel.playArtist(artist) },
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    viewModel.playArtist(artist)
+                },
                 modifier = Modifier.size(36.dp)
             ) {
                 Icon(
@@ -2592,11 +2668,15 @@ private fun NewArtistCard(
 ) {
     val context = LocalContext.current
     val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
+    val haptic = LocalHapticFeedback.current
     
     Column(
         modifier = modifier
             .width(110.dp)
-            .clickable { onClick() },
+            .clickable {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onClick()
+            },
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // Artist image with play overlay
@@ -2624,7 +2704,10 @@ private fun NewArtistCard(
             
             // Add play button overlay
             FilledIconButton(
-                onClick = { viewModel.playArtist(artist) },
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    viewModel.playArtist(artist)
+                },
                 modifier = Modifier
                     .size(36.dp)
                     .align(Alignment.BottomEnd)
@@ -2720,11 +2803,15 @@ private fun RecommendedSongItem(
     onClick: () -> Unit
 ) {
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
     
     ListItem(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onClick()
+            })
             .padding(vertical = 4.dp),
         leadingContent = {
             Surface(
@@ -2766,7 +2853,10 @@ private fun RecommendedSongItem(
         },
         trailingContent = {
             FilledIconButton(
-                onClick = onClick,
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onClick()
+                },
                 modifier = Modifier.size(36.dp),
                 colors = IconButtonDefaults.filledIconButtonColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -2793,6 +2883,7 @@ private fun UpdateAvailableSection(
 ) {
     val context = LocalContext.current
     var isDownloading by remember { mutableStateOf(false) }
+    val haptic = LocalHapticFeedback.current
     
     Surface(
         color = MaterialTheme.colorScheme.primaryContainer,
@@ -2800,7 +2891,12 @@ private fun UpdateAvailableSection(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 8.dp)
-            .clickable(onClick = { if (!isDownloading) onUpdateClick(false) })
+            .clickable(onClick = {
+                if (!isDownloading) {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onUpdateClick(false)
+                }
+            })
     ) {
         Column(
             modifier = Modifier
@@ -2931,6 +3027,7 @@ private fun UpdateAvailableSection(
                     .clickable {
                         if (!isDownloading) {
                             isDownloading = true
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             // Navigate to AppUpdaterScreen instead of auto-downloading
                             onUpdateClick(false) // Pass false to navigate to updater screen
                         }
