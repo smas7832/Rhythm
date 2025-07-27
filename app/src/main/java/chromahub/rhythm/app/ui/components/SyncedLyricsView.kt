@@ -118,7 +118,7 @@ fun SyncedLyricsView(
                         fontWeight = if (isCurrentLine) FontWeight.Bold else FontWeight.Medium,
                         lineHeight = MaterialTheme.typography.headlineSmall.lineHeight * 1.4f
                     ),
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha),
+                    color = if (isCurrentLine) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = alpha),
                     textAlign = TextAlign.Center,
                     modifier = Modifier
                         .fillMaxWidth()
