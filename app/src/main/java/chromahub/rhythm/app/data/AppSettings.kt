@@ -7,6 +7,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import java.util.Date // Import Date for timestamp
+
+/**
+ * Data class to represent a single crash log entry
+ */
+data class CrashLogEntry(
+    val timestamp: Long,
+    val log: String
+)
 
 /**
  * Enum for album view types in the library
@@ -100,6 +109,10 @@ class AppSettings private constructor(context: Context) {
 
         // Beta Program
         private const val KEY_HAS_SHOWN_BETA_POPUP = "has_shown_beta_popup"
+
+        // Crash Reporting
+        private const val KEY_LAST_CRASH_LOG = "last_crash_log"
+        private const val KEY_CRASH_LOG_HISTORY = "crash_log_history" // New key for crash log history
         
         @Volatile
         private var INSTANCE: AppSettings? = null
@@ -340,6 +353,24 @@ class AppSettings private constructor(context: Context) {
     // Beta Program
     private val _hasShownBetaPopup = MutableStateFlow(prefs.getBoolean(KEY_HAS_SHOWN_BETA_POPUP, false))
     val hasShownBetaPopup: StateFlow<Boolean> = _hasShownBetaPopup.asStateFlow()
+
+    // Crash Reporting
+    private val _lastCrashLog = MutableStateFlow<String?>(prefs.getString(KEY_LAST_CRASH_LOG, null))
+    val lastCrashLog: StateFlow<String?> = _lastCrashLog.asStateFlow()
+
+    private val _crashLogHistory = MutableStateFlow<List<CrashLogEntry>>(
+        try {
+            val json = prefs.getString(KEY_CRASH_LOG_HISTORY, null)
+            if (json != null) {
+                Gson().fromJson(json, object : TypeToken<List<CrashLogEntry>>() {}.type)
+            } else {
+                emptyList()
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    )
+    val crashLogHistory: StateFlow<List<CrashLogEntry>> = _crashLogHistory.asStateFlow()
     
     // Playback Settings Methods
     fun setHighQualityAudio(enable: Boolean) {
@@ -584,5 +615,31 @@ class AppSettings private constructor(context: Context) {
     fun setHasShownBetaPopup(shown: Boolean) {
         prefs.edit().putBoolean(KEY_HAS_SHOWN_BETA_POPUP, shown).apply()
         _hasShownBetaPopup.value = shown
+    }
+
+    // Crash Reporting Methods
+    fun setLastCrashLog(log: String?) {
+        if (log == null) {
+            prefs.edit().remove(KEY_LAST_CRASH_LOG).apply()
+        } else {
+            prefs.edit().putString(KEY_LAST_CRASH_LOG, log).apply()
+        }
+        _lastCrashLog.value = log
+    }
+
+    fun addCrashLogEntry(log: String) {
+        val currentHistory = _crashLogHistory.value.toMutableList()
+        val newEntry = CrashLogEntry(System.currentTimeMillis(), log)
+        currentHistory.add(0, newEntry) // Add to the beginning
+        // Keep only the last 10 crash logs to prevent excessive storage
+        val limitedHistory = currentHistory.take(10)
+        val json = Gson().toJson(limitedHistory)
+        prefs.edit().putString(KEY_CRASH_LOG_HISTORY, json).commit() // Changed to commit() for synchronous write
+        _crashLogHistory.value = limitedHistory
+    }
+
+    fun clearCrashLogHistory() {
+        prefs.edit().remove(KEY_CRASH_LOG_HISTORY).apply()
+        _crashLogHistory.value = emptyList()
     }
 }

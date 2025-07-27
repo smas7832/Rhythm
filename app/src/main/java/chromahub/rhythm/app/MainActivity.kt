@@ -33,7 +33,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -65,6 +64,7 @@ import chromahub.rhythm.app.ui.navigation.RhythmNavigation
 import chromahub.rhythm.app.ui.theme.RhythmTheme
 import chromahub.rhythm.app.viewmodel.ThemeViewModel
 import chromahub.rhythm.app.viewmodel.AppUpdaterViewModel // Import AppUpdaterViewModel
+import chromahub.rhythm.app.util.CrashReporter // Import CrashReporter
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
@@ -85,7 +85,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.animation.Crossfade
 import androidx.compose.ui.text.font.FontWeight
 import chromahub.rhythm.app.viewmodel.MusicViewModel
@@ -121,7 +120,11 @@ import androidx.compose.material.icons.filled.GridView // Import GridView icon
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.runtime.rememberCoroutineScope
+import chromahub.rhythm.app.ui.components.M3LinearLoader // Import M3LinearLoader
 import chromahub.rhythm.app.ui.components.M3FourColorCircularLoader // Import M3FourColorCircularLoader
+import androidx.compose.ui.platform.LocalHapticFeedback // Import LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType // Import HapticFeedbackType
+import androidx.compose.material3.ButtonDefaults // Import ButtonDefaults
 
 enum class OnboardingStep {
     WELCOME,
@@ -154,6 +157,9 @@ class MainActivity : ComponentActivity() {
         
         // Initialize NetworkClient with AppSettings for dynamic API keys
         chromahub.rhythm.app.network.NetworkClient.initialize(appSettings)
+
+        // Initialize CrashReporter
+        CrashReporter.init(application)
         
         // We'll delay intent handling until after initialization
         val startupIntent = intent
@@ -192,6 +198,7 @@ class MainActivity : ComponentActivity() {
                     var shouldShowSettingsRedirect by remember { mutableStateOf(false) }
                     var isLoading by remember { mutableStateOf(true) } // Start as true to show loading during splash/initial checks
                     var isInitializingApp by remember { mutableStateOf(false) }
+                    val lastCrashLog by appSettings.lastCrashLog.collectAsState() // Observe last crash log
 
                     // Animate the splash screen out after a delay
                     LaunchedEffect(Unit) {
@@ -202,6 +209,13 @@ class MainActivity : ComponentActivity() {
                         // Show beta popup if it hasn't been shown before AND the current version is a pre-release
                         if (!hasShownBetaPopup && currentAppVersion.isPreRelease) {
                             showBetaPopup = true
+                        }
+
+                        // Check for previous crash logs and show dialog if present
+                        lastCrashLog?.let {
+                            // CrashActivity is now responsible for showing the dialog
+                            // CrashReporter.showDialog(it) // This line is no longer needed
+                            // appSettings.setLastCrashLog(null) // Clear the log after showing - now handled by CrashActivity
                         }
                         
                         // Handle intent after splash screen disappears and app is initialized
@@ -370,24 +384,31 @@ class MainActivity : ComponentActivity() {
 fun SplashScreen() {
     val infiniteTransition = rememberInfiniteTransition(label = "splashPulse")
     val scale by infiniteTransition.animateFloat(
-        initialValue = 0.98f, // More subtle pulse
-        targetValue = 1.02f, // More subtle pulse
+        initialValue = 0.95f, // Slightly more pronounced pulse
+        targetValue = 1.05f, // Slightly more pronounced pulse
         animationSpec = infiniteRepeatable(
-            animation = tween(1500, easing = LinearEasing), // Slower, linear animation
+            animation = tween(1800, easing = LinearEasing), // Slower, linear animation
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulse"
     )
 
     val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.9f, // More subtle fade
+        initialValue = 0.8f, // More noticeable fade
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1500, easing = LinearEasing), // Slower, linear animation
+            animation = tween(1800, easing = LinearEasing), // Slower, linear animation
             repeatMode = RepeatMode.Reverse
         ),
         label = "fade"
     )
+
+    var showTagline by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        delay(1000) // Delay before showing tagline
+        showTagline = true
+    }
 
     Box(
         modifier = Modifier
@@ -402,7 +423,7 @@ fun SplashScreen() {
         ) {
             Box(
                 modifier = Modifier
-                    .size(200.dp)
+                    .size(220.dp) // Slightly larger logo area
                     .scale(scale)
                     .graphicsLayer {
                         this.alpha = alpha
@@ -413,29 +434,35 @@ fun SplashScreen() {
                 Image(
                     painter = painterResource(id = R.drawable.rhythm_splash_logo),
                     contentDescription = "Rhythm",
-                    modifier = Modifier.size(180.dp)
+                    modifier = Modifier.size(200.dp) // Slightly larger logo
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp)) // Add some space between logo and text
+            Spacer(modifier = Modifier.height(16.dp)) // Add some space between logo and text
 
             Text(
                 text = "Rhythm",
-                style = MaterialTheme.typography.displaySmall, // Changed to displaySmall
-                fontWeight = FontWeight.Bold, // Added bold font weight
+                style = MaterialTheme.typography.displayMedium, // Changed to displayMedium for more prominence
+                fontWeight = FontWeight.ExtraBold, // Added extra bold font weight
                 color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.alpha(alpha)
             )
 
-            Spacer(modifier = Modifier.height(16.dp)) // Space between text and progress indicator
+            AnimatedVisibility(
+                visible = showTagline,
+                enter = fadeIn(animationSpec = tween(1000, delayMillis = 200)) +
+                        slideInVertically(initialOffsetY = { it / 2 }, animationSpec = tween(1000, delayMillis = 200)),
+                exit = fadeOut()
+            ) {
+                Text(
+                    text = "Your Music, Your Way", // New tagline
+                    style = MaterialTheme.typography.titleLarge, // Appropriate style for tagline
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
 
-            LinearProgressIndicator(
-                modifier = Modifier
-                    .width(120.dp) // Fixed width for the progress indicator
-                    .alpha(alpha), // Apply alpha animation
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.primaryContainer
-            )
         }
     }
 }
@@ -845,7 +872,7 @@ fun PermissionHandler(
             Spacer(modifier = Modifier.height(24.dp))
             
             Text(
-                text = "Hi there :)",
+                text = "Greetings, Music Maestro!",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
@@ -853,16 +880,8 @@ fun PermissionHandler(
                 modifier = Modifier.padding(bottom = 12.dp)
             )
             
-            // Text(
-            //     text = "Your personalized music journey begins here!",
-            //     style = MaterialTheme.typography.bodyLarge,
-            //     textAlign = TextAlign.Center,
-            //     color = MaterialTheme.colorScheme.onSurfaceVariant,
-            //     modifier = Modifier.padding(bottom = 8.dp)
-            // )
-            
             Text(
-                text = "Let's set up your perfect music experience in just a few simple steps.",
+                text = "Prepare for an epic journey! We're about to fine-tune your musical universe in a few hilarious steps. No capes required!",
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -876,29 +895,37 @@ fun PermissionHandler(
             ) {
                 FeatureHighlight(
                     icon = Icons.Filled.MusicNote,
-                    text = "Access your entire music library"
+                    text = "Unleash your entire music collection (no song left behind!)"
                 )
                 FeatureHighlight(
                     icon = RhythmIcons.Devices.Bluetooth,
-                    text = "Manage your connected devices seamlessly"
+                    text = "Connect to your gadgets like a tech wizard!"
                 )
                 FeatureHighlight(
                     icon = Icons.Filled.Palette,
-                    text = "Customize Rhythm the way you like it"
+                    text = "Deck out Rhythm in your favorite colors (because why not?)"
                 )
             }
             
+            val haptic = LocalHapticFeedback.current
             FilledTonalButton(
-                onClick = onNextStep,
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onNextStep()
+                },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
+                    .height(56.dp),
+                colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
             ) {
                 Row(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Get Started", style = MaterialTheme.typography.labelLarge)
+                    Text("Let's Get This Party Started!", style = MaterialTheme.typography.labelLarge)
                     Spacer(modifier = Modifier.width(8.dp))
                     Icon(
                         imageVector = RhythmIcons.Forward,
@@ -1118,8 +1145,10 @@ fun PermissionHandler(
                 }
             }
     
+            val haptic = LocalHapticFeedback.current
             FilledTonalButton(
                 onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     when (permissionScreenState) {
                         PermissionScreenState.PermissionsRequired, PermissionScreenState.ShowRationale -> onGrantAccess()
                         PermissionScreenState.RedirectToSettings -> {
@@ -1135,7 +1164,11 @@ fun PermissionHandler(
                 enabled = !isButtonLoading,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
+                    .height(56.dp),
+                colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
             ) {
                 Crossfade(targetState = isButtonLoading, label = "buttonLoading") { requesting ->
                     if (requesting) {
@@ -1143,13 +1176,11 @@ fun PermissionHandler(
                             horizontalArrangement = Arrangement.Center,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                strokeWidth = 2.dp
+                            M3FourColorCircularLoader(
+                                modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Processing...", style = MaterialTheme.typography.labelLarge)
+                            Text("Hold on tight...", style = MaterialTheme.typography.labelLarge)
                         }
                     } else {
                         Row(
@@ -1158,8 +1189,8 @@ fun PermissionHandler(
                         ) {
                             Text(
                                 text = when (permissionScreenState) {
-                                    PermissionScreenState.PermissionsRequired, PermissionScreenState.ShowRationale -> "Grant Access"
-                                    PermissionScreenState.RedirectToSettings -> "Open Settings"
+                                    PermissionScreenState.PermissionsRequired, PermissionScreenState.ShowRationale -> "Unleash the Music!"
+                                    PermissionScreenState.RedirectToSettings -> "Open Settings (If you dare!)"
                                     else -> "Continue"
                                 },
                                 style = MaterialTheme.typography.labelLarge
@@ -1296,7 +1327,7 @@ fun PermissionHandler(
             Spacer(modifier = Modifier.height(24.dp))
             
             Text(
-                text = "Customize Your Experience",
+                text = "Time to Get Stylish!",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
@@ -1305,7 +1336,7 @@ fun PermissionHandler(
             )
             
             Text(
-                text = "Choose how Rhythm looks and feels to match your style.",
+                text = "Let's make Rhythm look as awesome as your music! Pick your favorite colors and make it truly yours. No fashion faux pas here!",
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1321,7 +1352,7 @@ fun PermissionHandler(
                 EnhancedThemeOption(
                     icon = RhythmIcons.Settings,
                     title = "System theme",
-                    description = "Follow your device's theme settings",
+                    description = "Let your device call the shots (it's pretty smart!)",
                     isChecked = useSystemTheme,
                     onCheckedChange = { themeViewModel.setUseSystemTheme(it) }
                 )
@@ -1335,7 +1366,7 @@ fun PermissionHandler(
                     EnhancedThemeOption(
                         icon = Icons.Filled.DarkMode,
                         title = "Dark mode",
-                        description = "Use dark colors for better night viewing",
+                        description = "Embrace the dark side (we have cookies... and cool colors!)",
                         isChecked = darkMode,
                         onCheckedChange = { themeViewModel.setDarkMode(it) }
                     )
@@ -1346,24 +1377,32 @@ fun PermissionHandler(
                     EnhancedThemeOption(
                         icon = Icons.Filled.Palette,
                         title = "Dynamic colors",
-                        description = "Use colors from your wallpaper",
+                        description = "Match your wallpaper (it's like magic, but with pixels!)",
                         isChecked = useDynamicColors,
                         onCheckedChange = { themeViewModel.setUseDynamicColors(it) }
                     )
                 }
             }
             
+            val haptic = LocalHapticFeedback.current
             FilledTonalButton(
-                onClick = onNextStep,
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onNextStep()
+                },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
+                    .height(56.dp),
+                colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
             ) {
                 Row(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Continue", style = MaterialTheme.typography.labelLarge)
+                    Text("Next (Fashionably Late!)", style = MaterialTheme.typography.labelLarge)
                     Spacer(modifier = Modifier.width(8.dp))
                     Icon(
                         imageVector = RhythmIcons.Forward,
@@ -1436,9 +1475,13 @@ fun PermissionHandler(
                     )
                 }
                 
+                val haptic = LocalHapticFeedback.current
                 Switch(
                     checked = isChecked,
-                    onCheckedChange = onCheckedChange,
+                    onCheckedChange = {
+                        onCheckedChange(it)
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) // Light haptic feedback for switches
+                    },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = MaterialTheme.colorScheme.primary,
                         checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
@@ -1548,17 +1591,25 @@ fun PermissionHandler(
                 }
             }
 
+            val haptic = LocalHapticFeedback.current
             FilledTonalButton(
-                onClick = onNextStep,
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onNextStep()
+                },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
+                    .height(56.dp),
+                colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
             ) {
                 Row(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Complete Setup", style = MaterialTheme.typography.labelLarge)
+                    Text("Mission Accomplished!", style = MaterialTheme.typography.labelLarge)
                     Spacer(modifier = Modifier.width(8.dp))
                     Icon(
                         imageVector = Icons.Filled.Check,
@@ -1631,9 +1682,13 @@ fun PermissionHandler(
                     )
                 }
                 
+                val haptic = LocalHapticFeedback.current
                 Switch(
                     checked = isChecked,
-                    onCheckedChange = onCheckedChange,
+                    onCheckedChange = {
+                        onCheckedChange(it)
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) // Light haptic feedback for switches
+                    },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = MaterialTheme.colorScheme.primary,
                         checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
