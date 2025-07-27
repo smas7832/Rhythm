@@ -283,7 +283,7 @@ fun AllArtistsScreen(
                         ) {
                             M3CircularWaveProgressIndicator(
                                 progress = 1f, // Indeterminate progress
-                                waveColor = MaterialTheme.colorScheme.primary,
+                                colors = listOf(MaterialTheme.colorScheme.primary),
                                 trackColor = MaterialTheme.colorScheme.surfaceVariant,
                                 strokeWidth = 4f,
                                 modifier = Modifier.size(48.dp)

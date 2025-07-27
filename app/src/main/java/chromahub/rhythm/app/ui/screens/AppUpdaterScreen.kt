@@ -526,7 +526,7 @@ fun AppUpdaterScreen(
                             M3CircularWaveProgressIndicator(
                                 progress = 1f, // Indeterminate progress
                                 modifier = Modifier.size(40.dp),
-                                waveColor = MaterialTheme.colorScheme.primary,
+                                colors = listOf(MaterialTheme.colorScheme.primary),
                                 trackColor = MaterialTheme.colorScheme.surfaceVariant
                             )
 

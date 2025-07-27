@@ -29,6 +29,13 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
+import android.graphics.BlurMaskFilter
+import android.graphics.Paint
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.asAndroidPath
 import kotlin.math.PI
 import kotlin.math.sin
 import kotlin.math.cos
@@ -73,7 +80,16 @@ fun M3CircularLoader(
     M3CircularWaveProgressIndicator(
         progress = progress ?: 1f, // Use 1f for indeterminate
         modifier = modifier,
-        waveColor = color,
+        colors = if (fourColor) {
+            listOf(
+                MaterialTheme.colorScheme.primary,
+                MaterialTheme.colorScheme.secondary,
+                MaterialTheme.colorScheme.tertiary,
+                MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            listOf(color, color) // Ensure at least two colors for sweepGradient
+        },
         trackColor = trackColor,
         strokeWidth = strokeWidth
     )
@@ -92,7 +108,12 @@ fun M3FourColorCircularLoader(
     M3CircularWaveProgressIndicator(
         progress = 1f, // Indeterminate, so full wave
         modifier = modifier,
-        waveColor = MaterialTheme.colorScheme.primary, // Use primary color
+        colors = listOf(
+            MaterialTheme.colorScheme.primary,
+            MaterialTheme.colorScheme.secondary,
+            MaterialTheme.colorScheme.tertiary,
+            MaterialTheme.colorScheme.onSurfaceVariant
+        ),
         trackColor = MaterialTheme.colorScheme.surfaceVariant,
         strokeWidth = strokeWidth
     )
@@ -156,19 +177,29 @@ fun M3WaveProgressIndicator(
         initialValue = 0f,
         targetValue = 2 * PI.toFloat(),
         animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = LinearEasing), // Increased speed
+            animation = tween(1500, easing = LinearEasing), // Slightly slower for smoother effect
             repeatMode = RepeatMode.Restart
         ),
         label = "waveOffset"
     )
-    
+
+    val animatedWaveAmplitude by infiniteTransition.animateFloat(
+        initialValue = 0.8f,
+        targetValue = 1.2f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(750, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "waveAmplitude"
+    )
+
     // Animate progress changes
     val animatedProgress by animateFloatAsState(
         targetValue = progress,
-        animationSpec = tween(300),
+        animationSpec = tween(400),
         label = "progressAnimation"
     )
-    
+
     Column(modifier = modifier) {
         Box(
             modifier = Modifier
@@ -182,11 +213,41 @@ fun M3WaveProgressIndicator(
                     .align(Alignment.Center)
                     .fillMaxWidth()
                     .height(24.dp)
+                    .drawBehind {
+                        if (animatedProgress > 0f) {
+                            val shadowColor = Color.Black.copy(alpha = 0.2f)
+                            val shadowRadius = 4.dp.toPx()
+                            val shadowOffset = Offset(0f, 2.dp.toPx())
+
+                            drawIntoCanvas { canvas ->
+                                val paint = Paint().apply {
+                                    color = shadowColor.toArgb()
+                                    maskFilter = BlurMaskFilter(shadowRadius, BlurMaskFilter.Blur.NORMAL)
+                                }
+                                val path = Path()
+                                val width = size.width
+                                val height = size.height
+                                val centerY = height / 2
+                                val progressWidth = width * animatedProgress
+                                val amplitude = 4.dp.toPx() * animatedWaveAmplitude
+                                val period = 25.dp.toPx()
+
+                                path.moveTo(0f, centerY + shadowOffset.y)
+                                var x = 0f
+                                while (x <= progressWidth) {
+                                    val waveY = centerY + amplitude * sin((x / period) * 2 * PI.toFloat() + animatedOffset) + shadowOffset.y
+                                    path.lineTo(x, waveY)
+                                    x += 1.5f
+                                }
+                                canvas.nativeCanvas.drawPath(path.asAndroidPath(), paint)
+                            }
+                        }
+                    }
             ) {
                 val width = size.width
                 val height = size.height
                 val centerY = height / 2
-                
+
                 // Draw background track
                 drawLine(
                     color = trackColor,
@@ -195,7 +256,7 @@ fun M3WaveProgressIndicator(
                     strokeWidth = 4.dp.toPx(),
                     cap = StrokeCap.Round
                 )
-                
+
                 if (animatedProgress > 0f) {
                     // Create gradient for wave
                     val gradient = Brush.horizontalGradient(
@@ -204,16 +265,16 @@ fun M3WaveProgressIndicator(
                             waveColor
                         )
                     )
-                    
+
                     // Draw wavy progress line
                     val progressWidth = width * animatedProgress
                     val path = Path()
-                    val amplitude = 4.dp.toPx() // Height of the wave
+                    val amplitude = 4.dp.toPx() * animatedWaveAmplitude // Height of the wave, animated
                     val period = 25.dp.toPx() // Length of one wave cycle
-                    
+
                     // Move to the start point
                     path.moveTo(0f, centerY)
-                    
+
                     // Create the wavy path
                     var x = 0f
                     while (x <= progressWidth) {
@@ -221,7 +282,7 @@ fun M3WaveProgressIndicator(
                         path.lineTo(x, waveY)
                         x += 1.5f // Smaller increment for smoother curve
                     }
-                    
+
                     // Draw the wavy path
                     drawPath(
                         path = path,
@@ -235,7 +296,7 @@ fun M3WaveProgressIndicator(
                 }
             }
         }
-        
+
         if (showLabel) {
             Text(
                 text = "${(progress * 100).toInt()}%",
@@ -255,7 +316,7 @@ fun M3WaveProgressIndicator(
 fun M3CircularWaveProgressIndicator(
     progress: Float,
     modifier: Modifier = Modifier,
-    waveColor: Color = MaterialTheme.colorScheme.primary,
+    colors: List<Color> = listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primary), // Ensure default has at least two colors
     trackColor: Color = MaterialTheme.colorScheme.surfaceVariant,
     strokeWidth: Float = 4f
 ) {
@@ -264,23 +325,80 @@ fun M3CircularWaveProgressIndicator(
         initialValue = 0f,
         targetValue = 2 * PI.toFloat(),
         animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = LinearEasing), // Increased speed
+            animation = tween(1500, easing = LinearEasing), // Slightly slower for smoother effect
             repeatMode = RepeatMode.Restart
         ),
         label = "circularWaveOffset"
     )
 
+    val animatedWaveAmplitude by infiniteTransition.animateFloat(
+        initialValue = 0.7f,
+        targetValue = 1.3f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(750, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "circularWaveAmplitude"
+    )
+
     val animatedProgress by animateFloatAsState(
         targetValue = progress,
-        animationSpec = tween(300),
+        animationSpec = tween(400),
         label = "circularProgressAnimation"
     )
+
+    // Ensure colors list has at least two elements for sweepGradient
+    val safeColors = if (colors.size < 2) {
+        // Fallback to a default gradient if not enough colors are provided
+        listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primary)
+    } else {
+        colors
+    }
 
     Box(
         modifier = modifier.size(48.dp),
         contentAlignment = Alignment.Center
     ) {
-        Canvas(modifier = Modifier.size(48.dp)) {
+        Canvas(
+            modifier = Modifier
+                .size(48.dp)
+                .drawBehind {
+                    if (animatedProgress > 0f) {
+                        val shadowColor = Color.Black.copy(alpha = 0.2f)
+                        val shadowRadius = 4.dp.toPx()
+                        val shadowOffset = Offset(2.dp.toPx(), 2.dp.toPx()) // Slight offset for circular shadow
+
+                        drawIntoCanvas { canvas ->
+                            val paint = Paint().apply {
+                                color = shadowColor.toArgb()
+                                maskFilter = BlurMaskFilter(shadowRadius, BlurMaskFilter.Blur.NORMAL)
+                            }
+                            val path = Path()
+                            val radius = size.minDimension / 2 - strokeWidth.dp.toPx() / 2
+                            val center = Offset(size.width / 2, size.height / 2)
+
+                            val startAngle = -90f
+                            val sweepAngle = animatedProgress * 360f
+                            val amplitude = 2.dp.toPx() * animatedWaveAmplitude
+
+                            for (angle in 0..sweepAngle.toInt()) {
+                                val currentAngleRad = Math.toRadians(startAngle + angle.toDouble()).toFloat()
+                                val waveOffset = amplitude * sin(currentAngleRad * 5 + animatedOffset)
+
+                                val x = center.x + (radius + waveOffset) * cos(currentAngleRad) + shadowOffset.x
+                                val y = center.y + (radius + waveOffset) * sin(currentAngleRad) + shadowOffset.y
+
+                                if (angle == 0) {
+                                    path.moveTo(x, y)
+                                } else {
+                                    path.lineTo(x, y)
+                                }
+                            }
+                            canvas.nativeCanvas.drawPath(path.asAndroidPath(), paint)
+                        }
+                    }
+                }
+        ) {
             val radius = size.minDimension / 2 - strokeWidth.dp.toPx() / 2
             val center = Offset(size.width / 2, size.height / 2)
 
@@ -293,21 +411,18 @@ fun M3CircularWaveProgressIndicator(
 
             if (animatedProgress > 0f) {
                 val gradient = Brush.sweepGradient(
-                    colors = listOf(
-                        waveColor.copy(alpha = 0.7f),
-                        waveColor
-                    ),
+                    colors = safeColors, // Use safeColors here
                     center = center
                 )
 
                 val path = Path()
                 val startAngle = -90f // Start from top
                 val sweepAngle = animatedProgress * 360f
-                val amplitude = 2.dp.toPx() // Height of the wave
+                val amplitude = 2.dp.toPx() * animatedWaveAmplitude // Height of the wave, animated
 
                 for (angle in 0..sweepAngle.toInt()) {
                     val currentAngleRad = Math.toRadians(startAngle + angle.toDouble()).toFloat()
-                    val waveOffset = amplitude * sin(currentAngleRad * 5 + animatedOffset) // 5 waves around the circle
+                    val waveOffset = amplitude * sin(currentAngleRad * 6 + animatedOffset) // 6 waves around the circle
 
                     val x = center.x + (radius + waveOffset) * cos(currentAngleRad)
                     val y = center.y + (radius + waveOffset) * sin(currentAngleRad)
@@ -345,7 +460,7 @@ fun M3PulseLoader(
     M3CircularWaveProgressIndicator(
         progress = 1f, // Indeterminate, so full wave
         modifier = modifier,
-        waveColor = color,
+        colors = listOf(color, color), // Ensure at least two colors for sweepGradient
         trackColor = MaterialTheme.colorScheme.surfaceVariant,
         strokeWidth = 4f
     )
@@ -388,7 +503,7 @@ fun M3DotLoader(
     M3CircularWaveProgressIndicator(
         progress = 1f, // Indeterminate, so full wave
         modifier = modifier,
-        waveColor = color,
+        colors = listOf(color, color), // Ensure at least two colors for sweepGradient
         trackColor = MaterialTheme.colorScheme.surfaceVariant,
         strokeWidth = 4f
     )
@@ -411,7 +526,7 @@ fun M3BrandedLoader(
     M3CircularWaveProgressIndicator(
         progress = progress ?: 1f, // Use 1f for indeterminate
         modifier = modifier,
-        waveColor = color,
+        colors = listOf(color, color), // Ensure at least two colors for sweepGradient
         trackColor = trackColor,
         strokeWidth = 5f // Use a slightly thicker stroke for branded loader
     )
