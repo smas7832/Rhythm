@@ -121,6 +121,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
 import chromahub.rhythm.app.ui.screens.LibraryTab
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.hapticfeedback.HapticFeedback
 
 sealed class Screen(val route: String) {
     object Home : Screen("home")
@@ -172,6 +177,8 @@ fun RhythmNavigation(
     val darkMode by themeViewModel.darkMode.collectAsState()
 
     var selectedTab by remember { mutableIntStateOf(0) }
+
+    val haptic = LocalHapticFeedback.current
 
     val onPlayPause = { viewModel.togglePlayPause() }
     val onSkipNext = { viewModel.skipToNext() }
@@ -401,11 +408,14 @@ fun RhythmNavigation(
                                                 label = "alpha"
                                             )
 
+                                            val haptic = LocalHapticFeedback.current
+
                                             Box(
                                                 modifier = Modifier
                                                     .weight(1f)
                                                     .fillMaxHeight()
                                                     .clickable {
+                                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                                         navController.navigate(route) {
                                                             popUpTo(navController.graph.findStartDestination().id) {
                                                                 saveState = true
@@ -468,6 +478,7 @@ fun RhythmNavigation(
                                 // Separate Search Icon Button
                                 FilledIconButton(
                                     onClick = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                         navController.navigate(Screen.Search.route) {
                                             popUpTo(navController.graph.findStartDestination().id) {
                                                 saveState = true
