@@ -101,6 +101,8 @@ import chromahub.rhythm.app.viewmodel.MusicViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import kotlinx.coroutines.launch
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 
 import androidx.compose.material3.rememberModalBottomSheetState
 import chromahub.rhythm.app.ui.screens.AddToPlaylistBottomSheet
@@ -285,6 +287,7 @@ fun SearchScreen(
     var showArtistBottomSheet by remember { mutableStateOf(false) }
     var selectedArtist by remember { mutableStateOf<Artist?>(null) }
     val artistBottomSheetState = rememberModalBottomSheetState()
+    val haptics = LocalHapticFeedback.current
     
     Scaffold(
         bottomBar = {}
@@ -331,7 +334,10 @@ fun SearchScreen(
                                 modifier = Modifier.padding(horizontal = 5.dp)
                             ) {
                                 IconButton(
-                                    onClick = onBack,
+                                    onClick = {
+                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        onBack()
+                                    },
                                     colors = IconButtonDefaults.iconButtonColors(
                                         containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
                                         contentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -358,26 +364,29 @@ fun SearchScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.padding(horizontal = 5.dp)
                             ) {
-                                // Filter toggle button with accent background
-                                IconButton(
-                                    onClick = { showFilterOptions = !showFilterOptions },
-                                    colors = IconButtonDefaults.iconButtonColors(
-                                        containerColor = if (showFilterOptions)
-                                            MaterialTheme.colorScheme.primaryContainer
-                                        else Color.Transparent,
-                                        contentColor = if (showFilterOptions)
-                                            MaterialTheme.colorScheme.onPrimaryContainer
-                                        else MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.FilterList,
-                                        contentDescription = "Filters",
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-
                                 if (searchQuery.isNotEmpty()) {
+                                    // Filter toggle button with accent background
+                                    IconButton(
+                                        onClick = {
+                                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            showFilterOptions = !showFilterOptions
+                                        },
+                                        colors = IconButtonDefaults.iconButtonColors(
+                                            containerColor = if (showFilterOptions)
+                                                MaterialTheme.colorScheme.primaryContainer
+                                            else Color.Transparent,
+                                            contentColor = if (showFilterOptions)
+                                                MaterialTheme.colorScheme.onPrimaryContainer
+                                            else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.FilterList,
+                                            contentDescription = "Filters",
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+
                                     val animatedAlpha by animateFloatAsState(
                                         targetValue = 1f,
                                         animationSpec = spring(dampingRatio = 0.8f),
@@ -386,6 +395,7 @@ fun SearchScreen(
 
                                     IconButton(
                                         onClick = {
+                                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                             searchQuery = ""
                                             isSearchActive = false
                                             focusManager.clearFocus()
@@ -434,7 +444,8 @@ fun SearchScreen(
                                 selectedSong = song
                                 showAddToPlaylistSheet = true
                             },
-                            onBack = { showAllSongsPage = false }
+                            onBack = { showAllSongsPage = false },
+                            haptics = haptics
                         )
                     } else if (searchQuery.isEmpty()) {
                         // The content is now shown outside the search bar when not active
@@ -454,6 +465,10 @@ fun SearchScreen(
                             onAddSongToPlaylist = { song ->
                                 selectedSong = song
                                 showAddToPlaylistSheet = true
+                            },
+                            onAlbumBottomSheetClick = { album ->
+                                selectedAlbum = album
+                                showAlbumBottomSheet = true
                             },
                             onArtistBottomSheetClick = { artist ->
                                 selectedArtist = artist
@@ -495,6 +510,7 @@ fun SearchScreen(
 
                                                     FilterChip(
                                                         onClick = {
+                                                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                                             if (allSelected || (!allSelected && !noneSelected)) {
                                                                 // Deselect all
                                                                 filterSongs = false
@@ -525,7 +541,10 @@ fun SearchScreen(
 
                                                 item {
                                                     FilterChip(
-                                                        onClick = { filterSongs = !filterSongs },
+                                                        onClick = {
+                                                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                            filterSongs = !filterSongs
+                                                        },
                                                         label = {
                                                             Text("Songs (${searchedSongs.size})")
                                                         },
@@ -542,7 +561,10 @@ fun SearchScreen(
 
                                                 item {
                                                     FilterChip(
-                                                        onClick = { filterAlbums = !filterAlbums },
+                                                        onClick = {
+                                                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                            filterAlbums = !filterAlbums
+                                                        },
                                                         label = {
                                                             Text("Albums (${searchedAlbums.size})")
                                                         },
@@ -559,7 +581,10 @@ fun SearchScreen(
 
                                                 item {
                                                     FilterChip(
-                                                        onClick = { filterArtists = !filterArtists },
+                                                        onClick = {
+                                                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                            filterArtists = !filterArtists
+                                                        },
                                                         label = {
                                                             Text("Artists (${searchedArtists.size})")
                                                         },
@@ -576,7 +601,10 @@ fun SearchScreen(
 
                                                 item {
                                                     FilterChip(
-                                                        onClick = { filterPlaylists = !filterPlaylists },
+                                                        onClick = {
+                                                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                            filterPlaylists = !filterPlaylists
+                                                        },
                                                         label = {
                                                             Text("Playlists (${searchedPlaylists.size})")
                                                         },
@@ -634,7 +662,14 @@ fun SearchScreen(
                         // No results found
                         NoSearchResults(
                             searchQuery = searchQuery,
-                            hasActiveFilters = filterSongs || filterAlbums || filterArtists || filterPlaylists
+                            hasActiveFilters = filterSongs || filterAlbums || filterArtists || filterPlaylists,
+                            onEnableFilters = {
+                                showFilterOptions = true
+                                filterSongs = true
+                                filterAlbums = true
+                                filterArtists = true
+                                filterPlaylists = true
+                            }
                         )
                     }
                 }
@@ -730,6 +765,7 @@ fun SearchScreen(
                 showAddToPlaylistSheet = true
             },
             onPlayerClick = onPlayerClick,
+            haptics = LocalHapticFeedback.current,
             sheetState = albumBottomSheetState
         )
     }
@@ -789,18 +825,22 @@ fun SearchResults(
     onArtistClick: (Artist) -> Unit,
     onPlaylistClick: (Playlist) -> Unit,
     onAddSongToPlaylist: (Song) -> Unit,
+    onAlbumBottomSheetClick: (Album) -> Unit = {}, // New parameter
     onArtistBottomSheetClick: (Artist) -> Unit = {},
     onViewAllSongsClick: () -> Unit,
-    filterSection: @Composable () -> Unit
+    filterSection: @Composable () -> Unit // Add this parameter
 ) {
+    val haptics = LocalHapticFeedback.current
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(16.dp),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp)
     ) {
+        // Filter section
         item {
             filterSection()
         }
+
         // Results header with improved design
         item {
             Card(
@@ -852,89 +892,93 @@ fun SearchResults(
         if (songs.isNotEmpty()) {
             item {
                 Column(modifier = Modifier.padding(vertical = 8.dp)) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 4.dp, vertical = 12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = RhythmIcons.Song,
-                                    contentDescription = "Songs",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(28.dp)
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Text(
-                                    text = "Songs",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = RhythmIcons.Song,
+                                contentDescription = "Songs",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(28.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
                             Text(
-                                text = "${songs.size}",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                text = "Songs",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold
                             )
                         }
+                        Text(
+                            text = "${songs.size}",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
 
-                        Column(
-                            modifier = Modifier.padding(horizontal = 4.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                    Column(
+                        modifier = Modifier.padding(horizontal = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        songs.take(5).forEach { song ->
+                            SearchSongItem(
+                                song = song,
+                                onClick = { onSongClick(song) },
+                                onAddToPlaylist = { onAddSongToPlaylist(song) },
+                                haptics = haptics
+                            )
+                        }
+                    }
+
+                    if (songs.size > 5) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                            ),
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp)
+                                .clickable {
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    onViewAllSongsClick()
+                                }
                         ) {
-                            songs.take(5).forEach { song ->
-                                SearchSongItem(
-                                    song = song,
-                                    onClick = { onSongClick(song) },
-                                    onAddToPlaylist = { onAddSongToPlaylist(song) }
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(
+                                        text = "View All Songs",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text(
+                                        text = "See all ${songs.size} songs",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Icon(
+                                    imageVector = RhythmIcons.Forward,
+                                    contentDescription = "View all",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(24.dp)
                                 )
                             }
                         }
-
-                        if (songs.size > 5) {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Card(
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
-                                ),
-                                shape = RoundedCornerShape(16.dp),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 4.dp)
-                                    .clickable { onViewAllSongsClick() }
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(16.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column {
-                                        Text(
-                                            text = "View All Songs",
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Medium,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                        Text(
-                                            text = "See all ${songs.size} songs",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                    Icon(
-                                        imageVector = RhythmIcons.Forward,
-                                        contentDescription = "View all",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                        }
+                    }
                 }
-            }
-        }
             }
         }
         
@@ -942,140 +986,140 @@ fun SearchResults(
         if (albums.isNotEmpty()) {
             item {
                 Column(modifier = Modifier.padding(vertical = 8.dp)) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 4.dp, vertical = 12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = RhythmIcons.Album,
-                                    contentDescription = "Albums",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(28.dp)
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Text(
-                                    text = "Albums",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = RhythmIcons.Album,
+                                contentDescription = "Albums",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(28.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
                             Text(
-                                text = "${albums.size}",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                text = "Albums",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold
                             )
                         }
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            contentPadding = PaddingValues(horizontal = 4.dp)
-                        ) {
-                            items(albums.take(10)) { album ->
-                                SearchAlbumItem(
-                                    album = album,
-                                    onClick = { onAlbumClick(album) }
-                                )
+                        Text(
+                            text = "${albums.size}",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp)
+                    ) {
+                        items(albums.take(10)) { album ->
+                            SearchAlbumItem(
+                                album = album,
+                                onClick = { onAlbumBottomSheetClick(album) } // Use the new lambda
+                            )
                         }
+                    }
                 }
             }
-        }
         }
         
         // Artists section
         if (artists.isNotEmpty()) {
             item {
                 Column(modifier = Modifier.padding(vertical = 8.dp)) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 4.dp, vertical = 12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = RhythmIcons.Artist,
-                                    contentDescription = "Artists",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(28.dp)
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Text(
-                                    text = "Artists",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = RhythmIcons.Artist,
+                                contentDescription = "Artists",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(28.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
                             Text(
-                                text = "${artists.size}",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                text = "Artists",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold
                             )
                         }
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            contentPadding = PaddingValues(horizontal = 4.dp)
-                        ) {
-                            items(artists.take(10)) { artist ->
-                                SearchArtistItem(
-                                    artist = artist,
-                                    onClick = {
-                                        onArtistBottomSheetClick(artist)
-                                    }
-                                )
+                        Text(
+                            text = "${artists.size}",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp)
+                    ) {
+                        items(artists.take(10)) { artist ->
+                            SearchArtistItem(
+                                artist = artist,
+                                onClick = {
+                                    onArtistBottomSheetClick(artist)
+                                }
+                            )
                         }
+                    }
                 }
             }
-        }
         }
         
         // Playlists section
         if (playlists.isNotEmpty()) {
             item {
                 Column(modifier = Modifier.padding(vertical = 8.dp)) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 4.dp, vertical = 12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = RhythmIcons.PlaylistFilled,
-                                    contentDescription = "Playlists",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(28.dp)
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Text(
-                                    text = "Playlists",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = RhythmIcons.PlaylistFilled,
+                                contentDescription = "Playlists",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(28.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
                             Text(
-                                text = "${playlists.size}",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                text = "Playlists",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold
                             )
                         }
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            contentPadding = PaddingValues(horizontal = 4.dp)
-                        ) {
-                            items(playlists.take(10)) { playlist ->
-                                SearchPlaylistItem(
-                                    playlist = playlist,
-                                    onClick = { onPlaylistClick(playlist) }
-                                )
+                        Text(
+                            text = "${playlists.size}",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp)
+                    ) {
+                        items(playlists.take(10)) { playlist ->
+                            SearchPlaylistItem(
+                                playlist = playlist,
+                                onClick = { onPlaylistClick(playlist) }
+                            )
                         }
+                    }
                 }
             }
-        }
         }
         
         // Add bottom spacing
@@ -1099,6 +1143,7 @@ fun SearchBrowseContent(
     onSongClick: (Song) -> Unit = {},
     onArtistBottomSheetClick: (Artist) -> Unit = {}
 ) {
+    val haptics = LocalHapticFeedback.current
     // Make entire content scrollable
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -1272,8 +1317,12 @@ fun RecentSearchItem(
     searchTerm: String,
     onClick: () -> Unit
 ) {
+    val haptics = LocalHapticFeedback.current
     Card(
-        onClick = onClick,
+        onClick = {
+            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            onClick()
+        },
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         ),
@@ -1339,12 +1388,16 @@ fun RecentSearchItem(
 fun SearchSongItem(
     song: Song,
     onClick: () -> Unit,
-    onAddToPlaylist: (Song) -> Unit = {}
+    onAddToPlaylist: (Song) -> Unit = {},
+    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback // Add haptics parameter
 ) {
     val context = LocalContext.current
     
     Card(
-        onClick = onClick,
+        onClick = {
+            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            onClick()
+        },
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         ),
@@ -1406,7 +1459,10 @@ fun SearchSongItem(
             
             // Add to playlist button with enhanced styling
             FilledIconButton(
-                onClick = { onAddToPlaylist(song) },
+                onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onAddToPlaylist(song)
+                },
                 modifier = Modifier.size(40.dp),
                 colors = IconButtonDefaults.filledIconButtonColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -1429,11 +1485,15 @@ fun SearchAlbumItem(
     onClick: () -> Unit
 ) {
     val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
     
     Card(
         modifier = Modifier
             .width(140.dp)
-            .clickable(onClick = onClick),
+            .clickable(onClick = {
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                onClick()
+            }),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
@@ -1492,11 +1552,15 @@ fun SearchArtistItem(
     onClick: () -> Unit
 ) {
     val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
     
     Card(
         modifier = Modifier
             .width(120.dp)
-            .clickable(onClick = onClick),
+            .clickable(onClick = {
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                onClick()
+            }),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
@@ -1550,13 +1614,20 @@ fun GenreCard(
     genre: String,
     onClick: () -> Unit
 ) {
+    val haptics = LocalHapticFeedback.current
     Card(
-        onClick = onClick,
+        onClick = {
+            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            onClick()
+        },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
         ),
-        modifier = Modifier.clickable(onClick = onClick)
+        modifier = Modifier.clickable(onClick = {
+            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            onClick()
+        })
     ) {
         Box(
             modifier = Modifier
@@ -1580,9 +1651,13 @@ fun SearchPlaylistItem(
     onClick: () -> Unit
 ) {
     val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
     
     Card(
-        onClick = onClick,
+        onClick = {
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            onClick()
+        },
         modifier = Modifier
             .width(150.dp)
             .padding(vertical = 6.dp), // Added vertical padding for consistency
@@ -1668,6 +1743,7 @@ fun CategoryCard(
     color: Color,
     onClick: () -> Unit
 ) {
+    val haptics = LocalHapticFeedback.current
     Card(
         colors = CardDefaults.cardColors(
             containerColor = color.copy(alpha = 0.15f)
@@ -1676,7 +1752,10 @@ fun CategoryCard(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(1.5f)
-            .clickable(onClick = onClick)
+            .clickable(onClick = {
+                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onClick()
+            })
     ) {
         Column(
             modifier = Modifier
@@ -1716,10 +1795,14 @@ fun RecommendedAlbumItem(
     album: Album,
     onClick: () -> Unit
 ) {
+    val haptics = LocalHapticFeedback.current
     Column(
         modifier = Modifier
             .width(160.dp)
-            .clickable(onClick = onClick)
+            .clickable(onClick = {
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                onClick()
+            })
     ) {
         // Album art with Material 3 card styling
         Card(
@@ -1780,13 +1863,17 @@ fun MoodCard(
     icon: ImageVector,
     onClick: () -> Unit
 ) {
+    val haptics = LocalHapticFeedback.current
     Surface(
         color = backgroundColor,
         shape = RoundedCornerShape(20.dp),
         modifier = Modifier
             .width(200.dp)
             .height(200.dp)
-            .clickable { onClick() }
+            .clickable {
+                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onClick()
+            }
     ) {
         Column(
             modifier = Modifier
@@ -1820,7 +1907,10 @@ fun MoodCard(
                 color = contentColor.copy(alpha = 0.2f),
                 modifier = Modifier
                     .size(36.dp)
-                    .clickable { onClick() }
+                    .clickable {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onClick()
+                    }
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
@@ -1911,9 +2001,13 @@ private fun EnhancedRecentChip(
     onMoreClick: (Song) -> Unit = {}
 ) {
     val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
     
     Card(
-        onClick = onClick,
+        onClick = {
+            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            onClick()
+        },
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
         ),
@@ -1981,6 +2075,7 @@ private fun DefaultSearchContent(
     onAddSongToPlaylist: (Song) -> Unit,
     onClearSearchHistory: () -> Unit
 ) {
+    val haptics = LocalHapticFeedback.current // Get the HapticFeedback instance
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
@@ -2041,7 +2136,10 @@ private fun DefaultSearchContent(
                         ) {
                             items(searchHistory.take(6)) { query ->
                                 Card(
-                                    onClick = { onSearchQuerySelect(query) },
+                                    onClick = {
+                                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        onSearchQuerySelect(query)
+                                    },
                                     colors = CardDefaults.cardColors(
                                         containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
                                     ),
@@ -2199,8 +2297,10 @@ private fun DefaultSearchContent(
 @Composable
 private fun NoSearchResults(
     searchQuery: String,
-    hasActiveFilters: Boolean
+    hasActiveFilters: Boolean,
+    onEnableFilters: () -> Unit
 ) {
+    val haptics = LocalHapticFeedback.current
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -2264,7 +2364,29 @@ private fun NoSearchResults(
             lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.2f
         )
         
-        if (hasActiveFilters) {
+        if (!hasActiveFilters) {
+            Spacer(modifier = Modifier.height(24.dp))
+            FilledTonalButton(
+                onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onEnableFilters()
+                },
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ),
+                shape = RoundedCornerShape(16.dp),
+                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.FilterList,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Enable Filters", style = MaterialTheme.typography.bodyMedium)
+            }
+        } else {
             Spacer(modifier = Modifier.height(24.dp))
             
             Card(
@@ -2374,11 +2496,15 @@ private fun RecommendedSongItem(
     onClick: () -> Unit
 ) {
     val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
     
     ListItem(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(onClick = {
+                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onClick()
+            })
             .padding(vertical = 4.dp),
         leadingContent = {
             Surface(
@@ -2448,6 +2574,7 @@ private fun MoodPlaylistCard(
     songs: List<Song>,
     onSongClick: (Song) -> Unit
 ) {
+    val haptics = LocalHapticFeedback.current
     Card(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
@@ -2479,7 +2606,10 @@ private fun MoodPlaylistCard(
                 }
                 
                 IconButton(
-                    onClick = { if (songs.isNotEmpty()) onSongClick(songs.first()) },
+                    onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        if (songs.isNotEmpty()) onSongClick(songs.first())
+                    },
                     colors = IconButtonDefaults.iconButtonColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f),
                         contentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -2500,7 +2630,10 @@ private fun MoodPlaylistCard(
                 ) {
                     items(songs.take(5)) { song ->
                         Card(
-                            onClick = { onSongClick(song) },
+                            onClick = {
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onSongClick(song)
+                            },
                             colors = CardDefaults.cardColors(
                                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                             ),
@@ -2553,7 +2686,8 @@ fun AllSongsPage(
     songs: List<Song>,
     onSongClick: (Song) -> Unit,
     onAddSongToPlaylist: (Song) -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback // Add haptics parameter
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
@@ -2562,7 +2696,10 @@ fun AllSongsPage(
                 .padding(horizontal = 4.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onBack) {
+            IconButton(onClick = {
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                onBack()
+            }) {
                 Icon(RhythmIcons.Back, contentDescription = "Back")
             }
             Text(
@@ -2583,7 +2720,8 @@ fun AllSongsPage(
                     SearchSongItem(
                         song = song,
                         onClick = { onSongClick(song) },
-                        onAddToPlaylist = { onAddSongToPlaylist(song) }
+                        onAddToPlaylist = { onAddSongToPlaylist(song) },
+                        haptics = haptics // Pass haptics to SearchSongItem
                     )
                 }
             }
