@@ -118,6 +118,8 @@ import android.content.Context
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.widget.Toast
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -803,6 +805,7 @@ fun SettingsToggleItem(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit
 ) {
+    val haptic = LocalHapticFeedback.current
     val scaleAnim by animateFloatAsState(
         targetValue = if (checked) 1f else 0.8f,
         animationSpec = spring(
@@ -817,12 +820,15 @@ fun SettingsToggleItem(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer
         ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp)
             .clip(RoundedCornerShape(16.dp))
-            .clickable { onCheckedChange(!checked) }
+            .clickable {
+                onCheckedChange(!checked)
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            }
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -874,7 +880,10 @@ fun SettingsToggleItem(
             // Switch
             Switch(
                 checked = checked,
-                onCheckedChange = onCheckedChange,
+                onCheckedChange = {
+                    onCheckedChange(it)
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                },
                 modifier = Modifier.scale(scaleAnim),
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = MaterialTheme.colorScheme.primary,
@@ -968,6 +977,7 @@ fun SettingsDropdownItem(
     iconTint: Color = MaterialTheme.colorScheme.primary,
     onOptionSelected: (String) -> Unit
 ) {
+    val haptic = LocalHapticFeedback.current
     var showDropdown by remember { mutableStateOf(false) }
     
     Card(
@@ -982,7 +992,10 @@ fun SettingsDropdownItem(
             .fillMaxWidth()
             .padding(vertical = 6.dp)
             .clip(RoundedCornerShape(16.dp))
-            .clickable { showDropdown = true }
+            .clickable {
+                showDropdown = true
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            }
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,

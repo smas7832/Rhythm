@@ -55,6 +55,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -83,6 +85,7 @@ fun DeviceOutputBottomSheet(
     sheetState: SheetState = rememberModalBottomSheetState()
 ) {
     val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
     
     // Get app settings to check if system volume is enabled
     // Note: You'll need to pass AppSettings as a parameter or inject it
@@ -164,7 +167,8 @@ fun DeviceOutputBottomSheet(
             ) {
                 DeviceOutputHeader(
                     onRefreshDevices = onRefreshDevices,
-                    devicesCount = locations.size
+                    devicesCount = locations.size,
+                    haptics = haptics
                 )
             }
             
@@ -188,7 +192,8 @@ fun DeviceOutputBottomSheet(
                     onMaxVolume = onMaxVolume,
                     onSystemVolumeChange = { newVolume ->
                         systemVolume = newVolume
-                    }
+                    },
+                    haptics = haptics
                 )
             }
             
@@ -251,7 +256,10 @@ fun DeviceOutputBottomSheet(
                         DeviceCard(
                             location = location,
                             isSelected = currentLocation?.id == location.id,
-                            onClick = { onLocationSelect(location) }
+                            onClick = {
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onLocationSelect(location)
+                            }
                         )
                     }
                 }
@@ -273,6 +281,7 @@ fun DeviceOutputBottomSheet(
 private fun DeviceOutputHeader(
     onRefreshDevices: () -> Unit,
     devicesCount: Int,
+    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -296,7 +305,10 @@ private fun DeviceOutputHeader(
         
         // Refresh devices button
         FilledTonalIconButton(
-            onClick = onRefreshDevices,
+            onClick = {
+                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onRefreshDevices()
+            },
             colors = IconButtonDefaults.filledTonalIconButtonColors(
                 containerColor = MaterialTheme.colorScheme.primaryContainer
             )
@@ -321,6 +333,7 @@ private fun VolumeControlCard(
     onToggleMute: () -> Unit,
     onMaxVolume: () -> Unit,
     onSystemVolumeChange: (Float) -> Unit,
+    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback,
     modifier: Modifier = Modifier
 ) {
     val useSystemVolume by appSettings.useSystemVolume.collectAsState()
@@ -413,6 +426,7 @@ private fun VolumeControlCard(
                 // Volume down button
                 IconButton(
                     onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         if (useSystemVolume) {
                             val newVolume = (systemVolume - 0.1f).coerceAtLeast(0f)
                             setSystemVolume(newVolume)
@@ -440,6 +454,7 @@ private fun VolumeControlCard(
                 Slider(
                     value = if (currentIsMuted) 0f else currentVolume,
                     onValueChange = { newVolume ->
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         if (useSystemVolume) {
                             setSystemVolume(newVolume)
                         } else {
@@ -459,6 +474,7 @@ private fun VolumeControlCard(
                 // Volume up button
                 IconButton(
                     onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         if (useSystemVolume) {
                             val newVolume = (systemVolume + 0.1f).coerceAtMost(1f)
                             setSystemVolume(newVolume)

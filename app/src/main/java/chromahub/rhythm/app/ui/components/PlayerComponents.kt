@@ -504,10 +504,10 @@ fun MiniPlayer(
                     
                     // Enhanced next track button with better styling
                     FilledTonalIconButton(
-                        onClick = { 
+                        onClick = {
                             // Strong haptic feedback for next track
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onSkipNext() 
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onSkipNext()
                         },
                         modifier = Modifier.size(36.dp), // Smaller secondary button
                         colors = IconButtonDefaults.filledTonalIconButtonColors(

@@ -20,6 +20,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -58,6 +60,7 @@ fun ArtistBottomSheet(
     sheetState: SheetState = rememberModalBottomSheetState()
 ) {
     val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
     // Store viewModel reference at composition level to avoid capturing it in lambdas
     val viewModel: MusicViewModel = viewModel()
     
@@ -163,7 +166,10 @@ fun ArtistBottomSheet(
 
                 // Enhanced close button with better design
                 FilledIconButton(
-                    onClick = onDismiss,
+                    onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onDismiss()
+                    },
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(WindowInsets.statusBars.asPaddingValues()) // Adjust for status bar
@@ -230,9 +236,10 @@ fun ArtistBottomSheet(
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        // Play All button with proper queue management
+                    // Play All button with proper queue management
                         Button(
                             onClick = {
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                 if (artistSongs.isNotEmpty()) {
                                     // Use the correct method to play all songs
                                     viewModel.playQueue(artistSongs)
@@ -262,6 +269,7 @@ fun ArtistBottomSheet(
                         // Shuffle button with proper queue management
                         FilledIconButton(
                             onClick = {
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                 if (artistSongs.isNotEmpty()) {
                                     // Play shuffled songs using the correct method
                                     viewModel.playQueue(artistSongs.shuffled())
@@ -336,7 +344,11 @@ fun ArtistBottomSheet(
                                 items(artistAlbums) { album ->
                                     ArtistAlbumCard(
                                         album = album,
-                                        onClick = { onAlbumClick(album) }
+                                        onClick = {
+                                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            onAlbumClick(album)
+                                        },
+                                        haptics = haptics
                                     )
                                 }
                             }
@@ -385,17 +397,27 @@ fun ArtistBottomSheet(
 
                             Column {
                                 artistSongs.forEach { song ->
-                                    EnhancedArtistSongItem(
+                                EnhancedArtistSongItem(
                                         song = song,
-                                        onClick = { onSongClick(song) },
-                                        onAddToQueue = { onAddToQueue(song) },
-                                        onAddToPlaylist = { onAddSongToPlaylist(song) },
+                                        onClick = {
+                                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            onSongClick(song)
+                                        },
+                                        onAddToQueue = {
+                                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            onAddToQueue(song)
+                                        },
+                                        onAddToPlaylist = {
+                                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            onAddSongToPlaylist(song)
+                                        },
                                         modifier = Modifier
                                             .graphicsLayer {
                                                 alpha = contentAlpha
                                                 translationY = contentTranslation
                                             }
-                                            .padding(horizontal = 16.dp, vertical = 4.dp) // Added padding to song item
+                                            .padding(horizontal = 16.dp, vertical = 4.dp), // Added padding to song item
+                                        haptics = haptics
                                     )
                                 }
                             }
@@ -421,12 +443,16 @@ fun ArtistBottomSheet(
 @Composable
 private fun ArtistAlbumCard(
     album: Album,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback
 ) {
     val context = LocalContext.current
     
     Card(
-        onClick = onClick,
+        onClick = {
+            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            onClick()
+        },
         modifier = Modifier
             .width(160.dp)
             .padding(4.dp), // Add some padding around the card
@@ -464,7 +490,10 @@ private fun ArtistAlbumCard(
                         .padding(10.dp) // Slightly more padding
                 ) {
                     FilledIconButton(
-                        onClick = onClick,
+                        onClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onClick()
+                        },
                         modifier = Modifier.size(40.dp), // Slightly larger button
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = MaterialTheme.colorScheme.primary,
@@ -512,7 +541,8 @@ private fun EnhancedArtistSongItem(
     onClick: () -> Unit,
     onAddToQueue: () -> Unit,
     onAddToPlaylist: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback
 ) {
     val context = LocalContext.current
     
@@ -584,7 +614,10 @@ private fun EnhancedArtistSongItem(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 FilledIconButton(
-                    onClick = onAddToQueue,
+                    onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onAddToQueue()
+                    },
                     modifier = Modifier.size(36.dp),
                     colors = IconButtonDefaults.filledIconButtonColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f),
@@ -600,7 +633,10 @@ private fun EnhancedArtistSongItem(
 
                 // Directly handle add to playlist action for better UX
                 FilledIconButton(
-                    onClick = onAddToPlaylist,
+                    onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onAddToPlaylist()
+                    },
                     modifier = Modifier.size(36.dp),
                     colors = IconButtonDefaults.filledIconButtonColors(
                         containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.8f),
@@ -615,7 +651,10 @@ private fun EnhancedArtistSongItem(
                 }
             }
         },
-        modifier = modifier.clickable(onClick = onClick),
+        modifier = modifier.clickable(onClick = {
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            onClick()
+        }),
         colors = ListItemDefaults.colors(
             containerColor = Color.Transparent
         )

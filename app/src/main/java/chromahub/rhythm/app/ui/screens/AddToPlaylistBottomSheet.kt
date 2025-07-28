@@ -50,6 +50,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -77,6 +79,7 @@ fun AddToPlaylistBottomSheet(
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
     
     // Animation states
     var showContent by remember { mutableStateOf(false) }
@@ -161,6 +164,7 @@ fun AddToPlaylistBottomSheet(
             // Create new playlist button
             CreateNewPlaylistCard(
                 onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     scope.launch { sheetState.hide() }.invokeOnCompletion {
                         if (!sheetState.isVisible) {
                             onCreateNewPlaylist()
@@ -191,7 +195,7 @@ fun AddToPlaylistBottomSheet(
                         text = "YOUR PLAYLISTS",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.primary
                     )
                     
                     Spacer(modifier = Modifier.width(8.dp))
@@ -232,6 +236,7 @@ fun AddToPlaylistBottomSheet(
                         PlaylistCard(
                             playlist = playlist,
                             onClick = {
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 scope.launch { sheetState.hide() }.invokeOnCompletion {
                                     if (!sheetState.isVisible) {
                                         onAddToPlaylist(playlist)
@@ -335,8 +340,12 @@ private fun CreateNewPlaylistCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val haptics = LocalHapticFeedback.current
     Card(
-        onClick = onClick,
+        onClick = {
+            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            onClick()
+        },
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 24.dp),
@@ -395,8 +404,12 @@ private fun PlaylistCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val haptics = LocalHapticFeedback.current
     Card(
-        onClick = onClick,
+        onClick = {
+            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            onClick()
+        },
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface

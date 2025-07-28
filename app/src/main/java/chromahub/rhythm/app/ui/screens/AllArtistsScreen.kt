@@ -80,6 +80,8 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -97,6 +99,7 @@ fun AllArtistsScreen(
     onAddSongToPlaylist: (Song, String) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
     val appSettings = remember { chromahub.rhythm.app.data.AppSettings.getInstance(context) }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
 
@@ -193,7 +196,10 @@ fun AllArtistsScreen(
                 },
                 navigationIcon = {
                     FilledIconButton(
-                        onClick = onBackClick,
+                        onClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onBackClick()
+                        },
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer,
                             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -208,7 +214,10 @@ fun AllArtistsScreen(
                 actions = {
                     // Search icon
                     FilledIconButton(
-                        onClick = onSearchClick,
+                        onClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onSearchClick()
+                        },
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = MaterialTheme.colorScheme.secondaryContainer,
                             contentColor = MaterialTheme.colorScheme.onSecondaryContainer
@@ -221,7 +230,8 @@ fun AllArtistsScreen(
                     }
                     // View toggle icon
                     FilledIconButton(
-                        onClick = { 
+                        onClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             val newViewType = if (isGridView) {
                                 chromahub.rhythm.app.data.ArtistViewType.LIST
                             } else {
@@ -241,7 +251,10 @@ fun AllArtistsScreen(
                     }
                     // Sort/Filter icon
                     FilledIconButton(
-                        onClick = { showSortOptions = true },
+                        onClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            showSortOptions = true
+                        },
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = MaterialTheme.colorScheme.secondaryContainer,
                             contentColor = MaterialTheme.colorScheme.onSecondaryContainer
@@ -381,6 +394,7 @@ fun AllArtistsScreen(
                                             AllArtistsCard(
                                                 artist = artist,
                                                 onClick = {
+                                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                                     selectedArtist = artist
                                                     showArtistSheet = true
                                                 }
@@ -402,6 +416,7 @@ fun AllArtistsScreen(
                                             ArtistListItem(
                                                 artist = artist,
                                                 onClick = {
+                                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                                     selectedArtist = artist
                                                     showArtistSheet = true
                                                 }
@@ -465,6 +480,7 @@ fun AllArtistsScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 currentSortOption = sortOption
                                 showSortOptions = false
                             }
@@ -536,9 +552,13 @@ private fun AllArtistsCard(
 ) {
     val context = LocalContext.current
     val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
+    val haptics = LocalHapticFeedback.current
     
     Card(
-        onClick = onClick,
+        onClick = {
+            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            onClick()
+        },
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface // Use a slightly higher surface color
@@ -602,7 +622,8 @@ private fun AllArtistsCard(
                 
                 // Play button overlay positioned at bottom right
                 Surface(
-                    onClick = { 
+                    onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         viewModel.playArtist(artist)
                     },
                     shape = CircleShape,
@@ -708,9 +729,13 @@ private fun ArtistListItem(
 ) {
     val context = LocalContext.current
     val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
+    val haptics = LocalHapticFeedback.current
 
     Card(
-        onClick = onClick,
+        onClick = {
+            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            onClick()
+        },
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer

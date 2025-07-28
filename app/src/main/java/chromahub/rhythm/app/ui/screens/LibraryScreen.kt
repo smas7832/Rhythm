@@ -110,6 +110,8 @@ import androidx.compose.ui.util.lerp
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import chromahub.rhythm.app.data.Album
 import chromahub.rhythm.app.data.Playlist
 import chromahub.rhythm.app.data.Song
@@ -168,6 +170,7 @@ fun LibraryScreen(
     var selectedTabIndex by remember { mutableStateOf(initialTab.ordinal) }
     val pagerState = rememberPagerState(initialPage = selectedTabIndex) { tabs.size }
     val scope = rememberCoroutineScope()
+    val haptics = LocalHapticFeedback.current
     
     // Dialog and bottom sheet states
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
@@ -281,7 +284,8 @@ fun LibraryScreen(
                 }
             },
             onPlayerClick = onPlayerClick,
-            sheetState = albumBottomSheetState
+            sheetState = albumBottomSheetState,
+            haptics = haptics
         )
     }
 
@@ -292,7 +296,10 @@ fun LibraryScreen(
                 navigationIcon = {
                     // Refresh button on far left
                     FilledIconButton(
-                        onClick = onRefreshClick,
+                        onClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onRefreshClick()
+                        },
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer,
                             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -326,7 +333,10 @@ fun LibraryScreen(
                 actions = {
                     // Sort button with indicator of current sort order
                     FilledTonalButton(
-                        onClick = onSort,
+                        onClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onSort()
+                        },
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                     ) {
                         Icon(
@@ -366,7 +376,10 @@ fun LibraryScreen(
                     modifier = Modifier.padding(
                         bottom = (LocalMiniPlayerPadding.current.calculateBottomPadding() * 0.5f) + 8.dp
                     ),
-                    onClick = { showCreatePlaylistDialog = true },
+                    onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        showCreatePlaylistDialog = true
+                    },
                     icon = {
                         Icon(
                             imageVector = RhythmIcons.Add,
@@ -409,6 +422,7 @@ fun LibraryScreen(
                     Tab(
                         selected = selectedTabIndex == index,
                         onClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                             selectedTabIndex = index
                             scope.launch {
                                 pagerState.animateScrollToPage(index)
@@ -444,11 +458,13 @@ fun LibraryScreen(
                         onShowSongInfo = { song ->
                             selectedSong = song
                             showSongInfoSheet = true
-                        }
+                        },
+                        haptics = haptics
                     )
                     LibraryTab.PLAYLISTS.ordinal -> PlaylistsTab(
                         playlists = playlists,
-                        onPlaylistClick = onPlaylistClick
+                        onPlaylistClick = onPlaylistClick,
+                        haptics = haptics
                     )
                     LibraryTab.ALBUMS.ordinal -> AlbumsTab(
                         albums = albums,
@@ -457,7 +473,8 @@ fun LibraryScreen(
                         onAlbumBottomSheetClick = { album ->
                             selectedAlbum = album
                             showAlbumBottomSheet = true
-                        }
+                        },
+                        haptics = haptics
                     )
                 }
             }
@@ -471,7 +488,8 @@ fun SongsTab(
     onSongClick: (Song) -> Unit,
     onAddToPlaylist: (Song) -> Unit,
     onAddToQueue: (Song) -> Unit,
-    onShowSongInfo: (Song) -> Unit
+    onShowSongInfo: (Song) -> Unit,
+    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback // Add haptics parameter
 ) {
     var selectedCategory by remember { mutableStateOf("All") }
     
@@ -660,7 +678,10 @@ fun SongsTab(
                 ) {
                     items(categories) { category ->
                         FilterChip(
-                            onClick = { selectedCategory = category },
+                            onClick = {
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                selectedCategory = category
+                            },
                             label = {
                                 Text(
                                     text = category,
@@ -715,7 +736,8 @@ fun SongsTab(
                                 onClick = { onSongClick(song) },
                                 onMoreClick = { onAddToPlaylist(song) },
                                 onAddToQueue = { onAddToQueue(song) },
-                                onShowSongInfo = { onShowSongInfo(song) }
+                                onShowSongInfo = { onShowSongInfo(song) },
+                                haptics = haptics // Pass haptics
                             )
                         }
                     }
@@ -729,7 +751,8 @@ fun SongsTab(
 @Composable
 fun PlaylistsTab(
     playlists: List<Playlist>,
-    onPlaylistClick: (Playlist) -> Unit
+    onPlaylistClick: (Playlist) -> Unit,
+    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback // Add haptics parameter
 ) {
     if (playlists.isEmpty()) {
         EmptyState(
@@ -824,7 +847,8 @@ fun PlaylistsTab(
                         AnimateIn {
                             PlaylistItem(
                                 playlist = playlist,
-                                onClick = { onPlaylistClick(playlist) }
+                                onClick = { onPlaylistClick(playlist) },
+                                haptics = haptics // Pass haptics
                             )
                         }
                     }
@@ -839,7 +863,8 @@ fun AlbumsTab(
     albums: List<Album>,
     onAlbumClick: (Album) -> Unit,
     onSongClick: (Song) -> Unit,
-    onAlbumBottomSheetClick: (Album) -> Unit = {}
+    onAlbumBottomSheetClick: (Album) -> Unit = {},
+    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback // Add haptics parameter
 ) {
     val context = LocalContext.current
     val appSettings = remember { AppSettings.getInstance(context) }
@@ -951,7 +976,8 @@ fun AlbumsTab(
                             onAlbumBottomSheetClick(album)
                         },
                         onAlbumPlay = onAlbumClick, // This plays the album
-                        onSongClick = onSongClick
+                        onSongClick = onSongClick,
+                        haptics = haptics // Pass haptics
                     )
                 } else {
                     LazyColumn(
@@ -972,7 +998,8 @@ fun AlbumsTab(
                                     onPlayClick = {
                                         // Play the entire album
                                         onAlbumClick(album)
-                                    }
+                                    },
+                                    haptics = haptics // Pass haptics
                                 )
                             }
                         }
@@ -990,7 +1017,8 @@ fun LibrarySongItem(
     onClick: () -> Unit,
     onMoreClick: () -> Unit,
     onAddToQueue: () -> Unit,
-    onShowSongInfo: () -> Unit
+    onShowSongInfo: () -> Unit,
+    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback
 ) {
     val context = LocalContext.current
     var showDropdown by remember { mutableStateOf(false) }
@@ -1047,7 +1075,10 @@ fun LibrarySongItem(
         trailingContent = {
             Row {
                 FilledIconButton(
-                    onClick = { onAddToQueue() },
+                    onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onAddToQueue()
+                    },
                     modifier = Modifier.size(36.dp),
                     colors = IconButtonDefaults.filledIconButtonColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -1064,7 +1095,10 @@ fun LibrarySongItem(
                 Spacer(modifier = Modifier.width(8.dp))
 
                 FilledIconButton(
-                    onClick = { showDropdown = true },
+                    onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        showDropdown = true
+                    },
                     modifier = Modifier.size(36.dp),
                     colors = IconButtonDefaults.filledIconButtonColors(
                         containerColor = MaterialTheme.colorScheme.secondaryContainer,
@@ -1093,6 +1127,7 @@ fun LibrarySongItem(
                             )
                         },
                         onClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             showDropdown = false
                             onMoreClick()
                         }
@@ -1106,6 +1141,7 @@ fun LibrarySongItem(
                             )
                         },
                         onClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             showDropdown = false
                             onShowSongInfo()
                         }
@@ -1118,7 +1154,10 @@ fun LibrarySongItem(
         ),
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(onClick = {
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                onClick()
+            })
             .padding(horizontal = 16.dp, vertical = 4.dp)
     )
 }
@@ -1127,10 +1166,14 @@ fun LibrarySongItem(
 @Composable
 fun PlaylistItem(
     playlist: Playlist,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback // Add haptics parameter
 ) {
     Surface(
-        onClick = onClick,
+        onClick = {
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            onClick()
+        },
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp),
@@ -1266,12 +1309,16 @@ fun PlaylistItem(
 fun LibraryAlbumItem(
     album: Album,
     onClick: () -> Unit,
-    onPlayClick: () -> Unit = {}
+    onPlayClick: () -> Unit = {},
+    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback // Add haptics parameter
 ) {
     val context = LocalContext.current
     
     Surface(
-        onClick = onClick,
+        onClick = {
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            onClick()
+        },
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp),
@@ -1362,7 +1409,7 @@ fun LibraryAlbumItem(
                     
                     Text(
                         text = "${album.numberOfSongs} ${if (album.numberOfSongs == 1) "song" else "songs"}",
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                     )
                     
@@ -1378,7 +1425,10 @@ fun LibraryAlbumItem(
             
             // Enhanced play button
             FilledIconButton(
-                onClick = onPlayClick,
+                onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onPlayClick()
+                },
                 colors = IconButtonDefaults.filledIconButtonColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -1502,7 +1552,8 @@ fun AlbumBottomSheet(
     onAddToQueue: (Song) -> Unit,
     onAddSongToPlaylist: (Song) -> Unit,
     onPlayerClick: () -> Unit,
-    sheetState: SheetState
+    sheetState: SheetState,
+    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback // Add haptics parameter
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -1751,6 +1802,7 @@ fun AlbumBottomSheet(
                             // Enhanced Play All button with sorted songs
                             Button(
                                 onClick = {
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                     // Clear queue first, then play sorted songs in order
                                     if (sortedSongs.isNotEmpty()) {
                                         // Pass the sorted songs to the callback for proper queue management
@@ -1792,6 +1844,7 @@ fun AlbumBottomSheet(
                             // Enhanced Shuffle button with sorted songs
                             FilledIconButton(
                                 onClick = {
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                     // Shuffle the sorted songs and play
                                     if (sortedSongs.isNotEmpty()) {
                                         // Pass the sorted and shuffled songs to the callback
@@ -1870,7 +1923,10 @@ fun AlbumBottomSheet(
                                 // Sort button with dropdown
                                 Box {
                                     FilledIconButton(
-                                        onClick = { showSortMenu = true },
+                                        onClick = {
+                                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            showSortMenu = true
+                                        },
                                         colors = IconButtonDefaults.filledIconButtonColors(
                                             containerColor = MaterialTheme.colorScheme.secondaryContainer,
                                             contentColor = MaterialTheme.colorScheme.onSecondaryContainer
@@ -1995,7 +2051,8 @@ fun AlbumBottomSheet(
                                     onAddToQueue = { onAddToQueue(song) },
                                     onAddToPlaylist = { onAddSongToPlaylist(song) },
                                     modifier = Modifier
-                                        .animateItem() // Keep item placement animation
+                                        .animateItem(), // Keep item placement animation
+                                    haptics = haptics
                                 )
                             }
                         } else {
@@ -2047,12 +2104,16 @@ fun EnhancedAlbumSongItem(
     onClick: () -> Unit,
     onAddToQueue: () -> Unit,
     onAddToPlaylist: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback
 ) {
     val context = LocalContext.current
     
     Surface(
-        onClick = onClick,
+        onClick = {
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            onClick()
+        },
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp), // Reduced vertical padding
@@ -2129,7 +2190,10 @@ fun EnhancedAlbumSongItem(
                     horizontalArrangement = Arrangement.spacedBy(8.dp) // Reduced spacing
                 ) {
                     FilledIconButton(
-                        onClick = onAddToQueue,
+                        onClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onAddToQueue()
+                        },
                         modifier = Modifier.size(36.dp), // Reduced size
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -2144,7 +2208,10 @@ fun EnhancedAlbumSongItem(
                     }
 
                     FilledIconButton(
-                        onClick = onAddToPlaylist,
+                        onClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onAddToPlaylist()
+                        },
                         modifier = Modifier.size(36.dp), // Reduced size
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = MaterialTheme.colorScheme.secondaryContainer,
@@ -2221,7 +2288,8 @@ fun AlbumsGrid(
     albums: List<Album>,
     onAlbumClick: (Album) -> Unit,
     onAlbumPlay: (Album) -> Unit,
-    onSongClick: (Song) -> Unit
+    onSongClick: (Song) -> Unit,
+    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback // Add haptics parameter
 ) {
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
@@ -2243,7 +2311,8 @@ fun AlbumsGrid(
                 AlbumGridItem(
                     album = album,
                     onClick = { onAlbumClick(album) }, // Card click opens bottom sheet
-                    onPlayClick = { onAlbumPlay(album) } // Play button plays album
+                    onPlayClick = { onAlbumPlay(album) }, // Play button plays album
+                    haptics = haptics // Pass haptics
                 )
             }
         }
@@ -2256,12 +2325,16 @@ fun AlbumGridItem(
     album: Album,
     onClick: () -> Unit,
     onPlayClick: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback // Add haptics parameter
 ) {
     val context = LocalContext.current
     
     Card(
-        onClick = onClick,
+        onClick = {
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            onClick()
+        },
         modifier = modifier
             .aspectRatio(0.72f),
         shape = RoundedCornerShape(20.dp),
@@ -2359,7 +2432,10 @@ fun AlbumGridItem(
                     .padding(12.dp)
             ) {
                 FilledIconButton(
-                    onClick = onPlayClick,
+                    onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onPlayClick()
+                    },
                     colors = IconButtonDefaults.filledIconButtonColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer,
                         contentColor = MaterialTheme.colorScheme.onPrimaryContainer

@@ -310,6 +310,7 @@ fun NewHomeScreen(
                 }
             },
             onPlayerClick = onPlayerClick,
+            haptics = LocalHapticFeedback.current,
             sheetState = albumSheetState
         )
     }
