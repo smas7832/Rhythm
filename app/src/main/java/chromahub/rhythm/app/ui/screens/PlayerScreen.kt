@@ -196,55 +196,60 @@ fun PlayerScreen(
     val density = LocalDensity.current
     val haptic = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
-    
+
     // Get AppSettings for volume control setting
-    val appSettingsInstance = appSettings ?: chromahub.rhythm.app.data.AppSettings.getInstance(context)
+    val appSettingsInstance =
+        appSettings ?: chromahub.rhythm.app.data.AppSettings.getInstance(context)
     val useSystemVolume by appSettingsInstance.useSystemVolume.collectAsState()
-    
+
     // System volume state
     var systemVolume by remember { mutableFloatStateOf(0.5f) }
-    
+
     // Monitor system volume changes
     LaunchedEffect(useSystemVolume) {
         if (useSystemVolume) {
             while (true) {
-                val audioManager = context.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
-                val currentVolume = audioManager.getStreamVolume(android.media.AudioManager.STREAM_MUSIC)
-                val maxVolume = audioManager.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)
-                val newSystemVolume = if (maxVolume > 0) currentVolume.toFloat() / maxVolume.toFloat() else 0f
-                
+                val audioManager =
+                    context.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
+                val currentVolume =
+                    audioManager.getStreamVolume(android.media.AudioManager.STREAM_MUSIC)
+                val maxVolume =
+                    audioManager.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)
+                val newSystemVolume =
+                    if (maxVolume > 0) currentVolume.toFloat() / maxVolume.toFloat() else 0f
+
                 if (newSystemVolume != systemVolume) {
                     systemVolume = newSystemVolume
                 }
-                
+
                 kotlinx.coroutines.delay(500) // Check every 500ms
             }
         }
     }
-    
+
     // Calculate screen dimensions
     val screenHeight = with(density) { configuration.screenHeightDp.dp.toPx() }
     val screenWidth = with(density) { configuration.screenWidthDp.dp.toPx() }
-    
+
     // Enhanced screen size detection for better responsiveness
     val isCompactHeight = configuration.screenHeightDp < 600
     val isLargeHeight = configuration.screenHeightDp > 800
     val isCompactWidth = configuration.screenWidthDp < 400
-    
+
     // Dynamic sizing based on screen dimensions
     val albumArtSize = when {
         isCompactHeight -> 0.55f
         isLargeHeight -> 0.65f
         else -> 0.6f
     }
-    
+
     // Animation for album art entry
     var showAlbumArt by remember { mutableStateOf(false) }
-    
+
     // Toggle between album art and lyrics
     var showLyricsView by remember { mutableStateOf(false) }
     var isLyricsContentVisible by remember { mutableStateOf(false) } // New state for lyrics content visibility
-    
+
     // Reset lyrics view when lyrics are disabled
     LaunchedEffect(showLyrics) {
         if (!showLyrics && showLyricsView) {
@@ -252,7 +257,7 @@ fun PlayerScreen(
             isLyricsContentVisible = false // Ensure lyrics content is hidden
         }
     }
-    
+
     // Manage lyrics content visibility with a delay for smoother transitions
     LaunchedEffect(showLyricsView) {
         if (showLyricsView) {
@@ -265,7 +270,7 @@ fun PlayerScreen(
             delay(150) // Small delay for lyrics to fade out before song info appears
         }
     }
-    
+
     // Bottom sheet states
     val queueSheetState = rememberModalBottomSheetState()
     val addToPlaylistSheetState = rememberModalBottomSheetState()
@@ -273,7 +278,7 @@ fun PlayerScreen(
     var showQueueSheet by remember { mutableStateOf(false) }
     var showDeviceOutputSheet by remember { mutableStateOf(false) }
     var showSongInfoSheet by remember { mutableStateOf(false) }
-    
+
     // For swipe down gesture detection - improved parameters
     var targetOffsetY by remember { mutableStateOf(0f) }
     val animatedOffsetY by animateFloatAsState(
@@ -287,23 +292,23 @@ fun PlayerScreen(
         label = "animatedOffsetY"
     )
     val swipeThreshold = 120f
-    
+
     // Animation for dismiss swipe gesture
     val dismissProgress = (animatedOffsetY / swipeThreshold).coerceIn(0f, 1f)
     val contentAlpha by animateFloatAsState(
         targetValue = 1f - (dismissProgress * 0.4f),
         label = "contentAlpha"
     )
-    
+
     // Scale effect for swipe
     val contentScale by animateFloatAsState(
         targetValue = 1f - (dismissProgress * 0.05f),
         label = "contentScale"
     )
-    
+
     // For dismissing animation
     var isDismissing by remember { mutableStateOf(false) }
-    
+
     // Handle dismissing animation
     LaunchedEffect(isDismissing) {
         if (isDismissing) {
@@ -311,36 +316,36 @@ fun PlayerScreen(
             onBack()
         }
     }
-    
+
     // Calculate current and total time
     val currentTimeMs = ((song?.duration ?: 0) * progress).toLong()
     val totalTimeMs = song?.duration ?: 0
-    
+
     // Format current and total time
     val currentTimeFormatted = formatDuration(currentTimeMs)
     val totalTimeFormatted = formatDuration(totalTimeMs)
-    
+
     LaunchedEffect(song?.id) {
         // Reset animation when song changes
         showAlbumArt = false
         delay(100)
         showAlbumArt = true
-        
+
         // Reset to album art view when song changes
         showLyricsView = false
     }
-    
+
     // Start device monitoring when player screen is shown and stop when closed
     LaunchedEffect(Unit) {
         onRefreshDevices()
     }
-    
+
     DisposableEffect(Unit) {
         onDispose {
             onStopDeviceMonitoring()
         }
     }
-    
+
     val albumScale by animateFloatAsState(
         targetValue = if (showAlbumArt) 1f else 0.8f,
         animationSpec = spring(
@@ -349,7 +354,7 @@ fun PlayerScreen(
         ),
         label = "albumScale"
     )
-    
+
     val albumAlpha by animateFloatAsState(
         targetValue = if (showAlbumArt) 1f else 0f,
         animationSpec = spring(
@@ -358,7 +363,7 @@ fun PlayerScreen(
         ),
         label = "albumAlpha"
     )
-    
+
     // Find which playlist the current song belongs to
     val songPlaylist = remember(song, playlists) {
         if (song == null) null
@@ -397,7 +402,7 @@ fun PlayerScreen(
             sheetState = queueSheetState
         )
     }
-    
+
     if (showAddToPlaylistSheet && song != null) {
         AddToPlaylistBottomSheet(
             song = song,
@@ -424,7 +429,7 @@ fun PlayerScreen(
                 onRefreshDevices()
             }
         }
-        
+
         DeviceOutputBottomSheet(
             locations = locations,
             currentLocation = location,
@@ -438,7 +443,7 @@ fun PlayerScreen(
             onToggleMute = onToggleMute,
             onMaxVolume = onMaxVolume,
             onRefreshDevices = onRefreshDevices,
-            onDismiss = { 
+            onDismiss = {
                 showDeviceOutputSheet = false
                 onStopDeviceMonitoring()
             },
@@ -471,50 +476,55 @@ fun PlayerScreen(
                                 .clip(RoundedCornerShape(2.dp))
                                 .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
                         )
-                        
+
                         // Small spacing after the pill
                         Spacer(modifier = Modifier.height(8.dp))
-                        
+
                         AnimatedVisibility(
                             visible = song != null,
                             enter = fadeIn() + slideInVertically { it / 2 },
                             exit = fadeOut() + slideOutVertically { it / 2 }
                         ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                // Enhanced NOW PLAYING with better styling
-                                Surface(
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
-                                    modifier = Modifier.padding(horizontal = 2.dp, vertical = 1.dp)
-                                ) {
-                                    Text(
-                                        text = "NOW PLAYING",
-                                        style = MaterialTheme.typography.labelMedium.copy(
-                                            fontWeight = FontWeight.ExtraBold,
-                                            letterSpacing = 1.4.sp
-                                        ),
-                                        color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
-                                    )
-                                }
-                                
-                                if (song != null && songPlaylist != null) {
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    
-                                    // Enhanced playlist name with better styling
-                                    Text(
-                                        text = songPlaylist.name,
-                                        style = MaterialTheme.typography.titleMedium.copy(
-                                            fontWeight = FontWeight.SemiBold,
-                                            letterSpacing = 0.25.sp
-                                        ),
-                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier.padding(horizontal = 16.dp) // Reduced from 48.dp
-                                    )
-                                }
+                            // Enhanced NOW PLAYING with better styling
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                                modifier = Modifier.padding(horizontal = 2.dp, vertical = 1.dp)
+                            ) {
+                                Text(
+                                    text = "NOW PLAYING",
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        fontWeight = FontWeight.ExtraBold,
+                                        letterSpacing = 1.4.sp
+                                    ),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
+
+                        // Song and playlist info, always visible if song is not null
+                        AnimatedVisibility(
+                            visible = song != null,
+                            enter = fadeIn() + slideInVertically { it / 2 },
+                            exit = fadeOut() + slideOutVertically { it / 2 }
+                        ) {
+                            if (song != null && songPlaylist != null) {
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                // Enhanced playlist name with better styling
+                                Text(
+                                    text = songPlaylist.name,
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.SemiBold,
+                                        letterSpacing = 0.25.sp
+                                    ),
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(horizontal = 16.dp)
+                                )
                             }
                         }
                     }
@@ -556,7 +566,7 @@ fun PlayerScreen(
                             )
                         ) {
                             Icon(
-                                imageVector =  Icons.Rounded.Info,
+                                imageVector = Icons.Rounded.Info,
                                 contentDescription = "About song",
                                 tint = MaterialTheme.colorScheme.onPrimaryContainer
                             )
@@ -682,216 +692,216 @@ fun PlayerScreen(
                                     showLyricsView = !showLyricsView
                                 }
                             },
-        contentAlignment = Alignment.TopCenter // Align content to the center
-    ) {
-        // Album Image
-        if (song?.artworkUri != null) {
-            AsyncImage(
-                model = ImageRequest.Builder(context)
-                    .apply(
-                        ImageUtils.buildImageRequest(
-                            song.artworkUri,
-                            song.title,
-                            context.cacheDir,
-                            M3PlaceholderType.TRACK
-                        )
-                    )
-                    .build(),
-                contentDescription = "Album artwork for ${song.title}",
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
-        } else {
-            // Fallback to a placeholder if artwork is null
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = RhythmIcons.MusicNote,
-                    contentDescription = "Album artwork for ${song?.title}",
-                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                    modifier = Modifier.size(96.dp)
-                )
-            }
-        }
-
-        // Enhanced gradient overlay with multiple layers
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Transparent,
-                            MaterialTheme.colorScheme.surface.copy(alpha = 0.6f), // Further increased
-                            MaterialTheme.colorScheme.surface.copy(alpha = 0.9f), // Further increased
-                            MaterialTheme.colorScheme.surface.copy(alpha = 1.0f)  // Fully opaque at bottom
-                        )
-                    )
-                )
-        )
-
-        // Horizontal gradient for more depth
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.horizontalGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.surface.copy(alpha = 0.2f), // Reduced from 0.4f
-                            Color.Transparent,
-                            Color.Transparent,
-                            MaterialTheme.colorScheme.surface.copy(alpha = 0.2f) // Reduced from 0.4f
-                        )
-                    )
-                )
-        )
-
-        Column(
-            modifier = Modifier.fillMaxSize(), // This Column will fill the Box
-            horizontalAlignment = Alignment.CenterHorizontally, // Center its children horizontally
-            verticalArrangement = Arrangement.Bottom // Align content to the bottom
-        ) {
-            // Song info overlay on album art
-            AnimatedVisibility(
-                visible = song != null && !showLyricsView, // Only show song info if lyrics are not visible
-                enter = fadeIn() + slideInVertically { -it }, // Slide up from bottom
-                exit = fadeOut(animationSpec = tween(durationMillis = 150)) + slideOutVertically { it } // Faster fade out
-            ) {
-                if (song != null) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(
-                                horizontal = if (isCompactWidth) 12.dp else 16.dp,
-                                vertical = 16.dp // Add padding from the bottom
-                            )
+                        contentAlignment = Alignment.TopCenter // Align content to the center
                     ) {
-                        Text(
-                            text = song.title,
-                            style = MaterialTheme.typography.headlineMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.15.sp,
-                                fontSize = if (isCompactHeight) 22.sp else 28.sp
-                            ),
-                            color = MaterialTheme.colorScheme.onSurface,
-                            textAlign = TextAlign.Center,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
+                        // Album Image
+                        if (song?.artworkUri != null) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .apply(
+                                        ImageUtils.buildImageRequest(
+                                            song.artworkUri,
+                                            song.title,
+                                            context.cacheDir,
+                                            M3PlaceholderType.TRACK
+                                        )
+                                    )
+                                    .build(),
+                                contentDescription = "Album artwork for ${song.title}",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            // Fallback to a placeholder if artwork is null
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = RhythmIcons.MusicNote,
+                                    contentDescription = "Album artwork for ${song?.title}",
+                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                                    modifier = Modifier.size(96.dp)
+                                )
+                            }
+                        }
+
+                        // Enhanced gradient overlay with multiple layers
+                        Box(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 4.dp)
-                                .graphicsLayer { alpha = 0.99f }
-                                .background(Color.Transparent) // Transparent background
+                                .fillMaxSize()
+                                .background(
+                                    Brush.verticalGradient(
+                                        colors = listOf(
+                                            Color.Transparent,
+                                            MaterialTheme.colorScheme.surface.copy(alpha = 0.6f), // Further increased
+                                            MaterialTheme.colorScheme.surface.copy(alpha = 0.9f), // Further increased
+                                            MaterialTheme.colorScheme.surface.copy(alpha = 1.0f)  // Fully opaque at bottom
+                                        )
+                                    )
+                                )
                         )
 
-                        Spacer(modifier = Modifier.height(if (isCompactHeight) 2.dp else 4.dp))
+                        // Horizontal gradient for more depth
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.horizontalGradient(
+                                        colors = listOf(
+                                            MaterialTheme.colorScheme.surface.copy(alpha = 0.2f), // Reduced from 0.4f
+                                            Color.Transparent,
+                                            Color.Transparent,
+                                            MaterialTheme.colorScheme.surface.copy(alpha = 0.2f) // Reduced from 0.4f
+                                        )
+                                    )
+                                )
+                        )
 
-                        Text(
-                            text = buildString {
-                                append(song.artist)
-                                if (!song.album.isNullOrBlank() && song.album != song.artist) {
-                                    append(" • ")
-                                    append(song.album)
+                        Column(
+                            modifier = Modifier.fillMaxSize(), // This Column will fill the Box
+                            horizontalAlignment = Alignment.CenterHorizontally, // Center its children horizontally
+                            verticalArrangement = Arrangement.Bottom // Align content to the bottom
+                        ) {
+                            // Song info overlay on album art
+                            AnimatedVisibility(
+                                visible = song != null && !showLyricsView, // Only show song info if lyrics are not visible
+                                enter = fadeIn() + slideInVertically { -it }, // Slide up from bottom
+                                exit = fadeOut(animationSpec = tween(durationMillis = 150)) + slideOutVertically { it } // Faster fade out
+                            ) {
+                                if (song != null) {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(
+                                                horizontal = if (isCompactWidth) 12.dp else 16.dp,
+                                                vertical = 16.dp // Add padding from the bottom
+                                            )
+                                    ) {
+                                        Text(
+                                            text = song.title,
+                                            style = MaterialTheme.typography.headlineMedium.copy(
+                                                fontWeight = FontWeight.Bold,
+                                                letterSpacing = 0.15.sp,
+                                                fontSize = if (isCompactHeight) 22.sp else 28.sp
+                                            ),
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            textAlign = TextAlign.Center,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 4.dp)
+                                                .graphicsLayer { alpha = 0.99f }
+                                                .background(Color.Transparent) // Transparent background
+                                        )
+
+                                        Spacer(modifier = Modifier.height(if (isCompactHeight) 2.dp else 4.dp))
+
+                                        Text(
+                                            text = buildString {
+                                                append(song.artist)
+                                                if (!song.album.isNullOrBlank() && song.album != song.artist) {
+                                                    append(" • ")
+                                                    append(song.album)
+                                                }
+                                            },
+                                            style = MaterialTheme.typography.titleMedium.copy(
+                                                fontWeight = FontWeight.Medium,
+                                                letterSpacing = 0.4.sp,
+                                                fontSize = if (isCompactHeight) 14.sp else 16.sp
+                                            ),
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
+                                            textAlign = TextAlign.Center,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 4.dp)
+                                                .graphicsLayer { alpha = 0.99f }
+                                                .background(Color.Transparent) // Transparent background
+                                        )
+                                    }
                                 }
-                            },
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Medium,
-                                letterSpacing = 0.4.sp,
-                                fontSize = if (isCompactHeight) 14.sp else 16.sp
-                            ),
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
-                            textAlign = TextAlign.Center,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 4.dp)
-                                .graphicsLayer { alpha = 0.99f }
-                                .background(Color.Transparent) // Transparent background
-                        )
-                    }
-                }
-            }
+                            }
 
-            // Lyrics overlay view
-            AnimatedVisibility(
-                visible = isLyricsContentVisible, // Use the new state for lyrics content visibility
-                enter = fadeIn(animationSpec = tween(durationMillis = 400)),
-                exit = fadeOut(animationSpec = tween(durationMillis = 300)),
-                modifier = Modifier.fillMaxSize() // Fill the album art box
-            ) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    // Deeper gradient overlay for lyrics
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(
-                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.0f), // Start more transparent
-                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.3f), // Reduced from 0.5f
-                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.7f), // Reduced from 0.9f
-                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)  // Reduced from 1.0f
+                            // Lyrics overlay view
+                            AnimatedVisibility(
+                                visible = isLyricsContentVisible, // Use the new state for lyrics content visibility
+                                enter = fadeIn(animationSpec = tween(durationMillis = 400)) + slideInVertically { -it }, // Slide in from top
+                                exit = fadeOut(animationSpec = tween(durationMillis = 300)) + slideOutVertically { -it }, // Slide out to top
+                                modifier = Modifier.fillMaxSize() // Fill the album art box
+                            ) {
+                                Box(modifier = Modifier.fillMaxSize()) {
+                                    // Deeper gradient overlay for lyrics
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(
+                                                Brush.verticalGradient(
+                                                    colors = listOf(
+                                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.0f), // Start more transparent
+                                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.3f), // Reduced from 0.5f
+                                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.7f), // Reduced from 0.9f
+                                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)  // Reduced from 1.0f
+                                                    )
+                                                )
+                                            )
                                     )
-                                )
-                            )
-                    )
 
-                    // Horizontal gradient for more depth
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                Brush.horizontalGradient(
-                                    colors = listOf(
-                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.4f), // Reduced from 0.6f
-                                        Color.Transparent,
-                                        Color.Transparent,
-                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.4f) // Reduced from 0.6f
+                                    // Horizontal gradient for more depth
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(
+                                                Brush.horizontalGradient(
+                                                    colors = listOf(
+                                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.4f), // Reduced from 0.6f
+                                                        Color.Transparent,
+                                                        Color.Transparent,
+                                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.4f) // Reduced from 0.6f
+                                                    )
+                                                )
+                                            )
                                     )
-                                )
-                            )
-                    )
 
-                    // Overlay with semi-transparent background for text readability (from original lyrics view)
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                brush = Brush.verticalGradient(
-                                    colors = listOf(
-                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.50f), // Reduced from 0.70f
-                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.60f), // Reduced from 0.80f
-                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.75f)  // Reduced from 0.85f
+                                    // Overlay with semi-transparent background for text readability (from original lyrics view)
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(
+                                                brush = Brush.verticalGradient(
+                                                    colors = listOf(
+                                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.50f), // Reduced from 0.70f
+                                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.60f), // Reduced from 0.80f
+                                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.75f)  // Reduced from 0.85f
+                                                    )
+                                                ),
+                                                shape = RoundedCornerShape(if (isCompactHeight) 20.dp else 28.dp) // Keep rounded corners
+                                            )
                                     )
-                                ),
-                                shape = RoundedCornerShape(if (isCompactHeight) 20.dp else 28.dp) // Keep rounded corners
-                            )
-                    )
 
-                    // Additional subtle overlay for better text contrast (from original lyrics view)
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                brush = Brush.radialGradient(
-                                    colors = listOf(
-                                        Color.Transparent,
-                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.10f) // Reduced from 0.15f
-                                    ),
-                                    radius = 500f
-                                ),
-                                shape = RoundedCornerShape(if (isCompactHeight) 20.dp else 28.dp) // Keep rounded corners
-                            )
-                    )
+                                    // Additional subtle overlay for better text contrast (from original lyrics view)
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(
+                                                brush = Brush.radialGradient(
+                                                    colors = listOf(
+                                                        Color.Transparent,
+                                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.10f) // Reduced from 0.15f
+                                                    ),
+                                                    radius = 500f
+                                                ),
+                                                shape = RoundedCornerShape(if (isCompactHeight) 20.dp else 28.dp) // Keep rounded corners
+                                            )
+                                    )
 
                                     // Content area with lyrics - optimized padding (from original lyrics view)
                                     Box(
                                         modifier = Modifier
-                                            .fillMaxSize()
+                                            .fillMaxSize() // Use full artwork length
                                             .padding(
                                                 when {
                                                     isCompactHeight -> 12.dp
@@ -1214,7 +1224,8 @@ fun PlayerScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             // Optimized button size for action buttons
-                            val actionButtonSize = if (isLargeHeight) 48.dp else 44.dp // Reduced sizes
+                            val actionButtonSize =
+                                if (isLargeHeight) 48.dp else 44.dp // Reduced sizes
 
                             // Shuffle button with badge if enabled
                             BadgedBox(
@@ -1315,7 +1326,10 @@ fun PlayerScreen(
                                             containerColor = MaterialTheme.colorScheme.primary
                                         ) {
                                             if (repeatMode == 1) {
-                                                Text("1", style = MaterialTheme.typography.labelSmall)
+                                                Text(
+                                                    "1",
+                                                    style = MaterialTheme.typography.labelSmall
+                                                )
                                             }
                                         }
                                     }
@@ -1406,7 +1420,7 @@ fun PlayerScreen(
                                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                     modifier = Modifier.size(if (isCompactHeight) 20.dp else 24.dp)
                                 )
-                                
+
                                 if (!isCompactWidth) {
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -1420,14 +1434,17 @@ fun PlayerScreen(
                                             overflow = TextOverflow.Ellipsis,
                                             textAlign = TextAlign.Center
                                         )
-                                        val displayVolume = if (useSystemVolume) systemVolume else volume
+                                        val displayVolume =
+                                            if (useSystemVolume) systemVolume else volume
                                         val volumeText = if (useSystemVolume) "System" else "App"
                                         Text(
                                             text = "${(displayVolume * 100).toInt()}% $volumeText",
                                             style = MaterialTheme.typography.labelSmall.copy(
                                                 fontSize = if (isCompactHeight) 10.sp else 12.sp
                                             ),
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(
+                                                alpha = 0.7f
+                                            ),
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis,
                                             textAlign = TextAlign.Center
@@ -1472,7 +1489,7 @@ fun PlayerScreen(
                                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                     modifier = Modifier.size(if (isCompactHeight) 20.dp else 24.dp)
                                 )
-                                
+
                                 if (!isCompactWidth) {
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -1491,7 +1508,9 @@ fun PlayerScreen(
                                             style = MaterialTheme.typography.labelSmall.copy(
                                                 fontSize = if (isCompactHeight) 10.sp else 12.sp
                                             ),
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(
+                                                alpha = 0.7f
+                                            ),
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis,
                                             textAlign = TextAlign.Center
@@ -1505,4 +1524,4 @@ fun PlayerScreen(
             }
         }
     }
-    }
+}

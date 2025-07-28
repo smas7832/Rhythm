@@ -45,12 +45,11 @@ fun SyncedLyricsView(
             val visibleItems = listState.layoutInfo.visibleItemsInfo
             val firstVisibleItem = visibleItems.firstOrNull()?.index ?: 0
             val lastVisibleItem = visibleItems.lastOrNull()?.index ?: 0
-            // Calculate the offset to place the current line at the very top
-            val offset = 0 // Set offset to 0 to show active lyrics on top
-
+            // Calculate the offset to place the current line at the middle
+            val offset = listState.layoutInfo.viewportSize.height / 3
             coroutineScope.launch {
                 // Scroll to the current line with an offset
-                listState.animateScrollToItem(currentLineIndex, scrollOffset = offset)
+                listState.animateScrollToItem(currentLineIndex, scrollOffset = -offset)
             }
         }
     }
@@ -72,7 +71,7 @@ fun SyncedLyricsView(
             state = listState,
             modifier = modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
-            contentPadding = PaddingValues(top = 0.dp, bottom = 80.dp) // Adjusted padding for top alignment
+            contentPadding = PaddingValues(vertical = 30.dp) // Increased padding for better centering
         ) {
             itemsIndexed(parsedLyrics) { index, line ->
                 val isCurrentLine = currentLineIndex == index
