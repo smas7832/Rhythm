@@ -76,8 +76,17 @@ import coil.request.ImageRequest
 import chromahub.rhythm.app.ui.components.M3PlaceholderType
 import chromahub.rhythm.app.util.ImageUtils
 import kotlinx.coroutines.delay // Import delay
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun PlaylistDetailScreen(
     playlist: Playlist,
@@ -104,6 +113,8 @@ fun PlaylistDetailScreen(
     var searchQuery by remember { mutableStateOf("") }
     var showSearchBar by remember { mutableStateOf(false) }
 
+    val haptics = LocalHapticFeedback.current
+
     if (showRenameDialog) {
         AlertDialog(
             onDismissRequest = { showRenameDialog = false },
@@ -120,6 +131,7 @@ fun PlaylistDetailScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         onRenamePlaylist(newPlaylistName)
                         showRenameDialog = false
                     }
@@ -128,7 +140,10 @@ fun PlaylistDetailScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showRenameDialog = false }) {
+                TextButton(onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    showRenameDialog = false
+                }) {
                     Text("Cancel")
                 }
             }
@@ -143,6 +158,7 @@ fun PlaylistDetailScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         onDeletePlaylist()
                         showDeleteDialog = false
                     }
@@ -151,7 +167,10 @@ fun PlaylistDetailScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
+                TextButton(onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    showDeleteDialog = false
+                }) {
                     Text("Cancel")
                 }
             }
@@ -186,9 +205,11 @@ fun PlaylistDetailScreen(
                     FilledIconButton(
                         onClick = {
                             if (showSearchBar) {
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                 showSearchBar = false
                                 searchQuery = ""
                             } else {
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                 onBack()
                             }
                         },
@@ -206,7 +227,10 @@ fun PlaylistDetailScreen(
                 actions = {
                     if (!showSearchBar) {
                         FilledIconButton(
-                            onClick = { showSearchBar = true },
+                            onClick = {
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                showSearchBar = true
+                            },
                             colors = IconButtonDefaults.filledIconButtonColors(
                                 containerColor = MaterialTheme.colorScheme.secondaryContainer,
                                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer
@@ -221,7 +245,10 @@ fun PlaylistDetailScreen(
                     }
                     if (playlist.id != "1" && playlist.id != "2" && playlist.id != "3") {
                         FilledIconButton(
-                            onClick = { showMenu = true },
+                            onClick = {
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                showMenu = true
+                            },
                             colors = IconButtonDefaults.filledIconButtonColors(
                                 containerColor = MaterialTheme.colorScheme.secondaryContainer,
                                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer
@@ -242,6 +269,7 @@ fun PlaylistDetailScreen(
                             DropdownMenuItem(
                                 text = { Text("Rename playlist") },
                                 onClick = {
+                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     showMenu = false
                                     newPlaylistName = playlist.name
                                     showRenameDialog = true
@@ -256,6 +284,7 @@ fun PlaylistDetailScreen(
                             DropdownMenuItem(
                                 text = { Text("Delete playlist") },
                                 onClick = {
+                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     showMenu = false
                                     showDeleteDialog = true
                                 },
@@ -281,7 +310,10 @@ fun PlaylistDetailScreen(
         floatingActionButton = {
             FloatingActionButton(
                 modifier = Modifier.padding(bottom = (LocalMiniPlayerPadding.current.calculateBottomPadding() * 0.5f) + 8.dp),
-                onClick = onAddSongsToPlaylist,
+                onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onAddSongsToPlaylist()
+                },
                 containerColor = MaterialTheme.colorScheme.primary,
                 shape = CircleShape
             ) {
@@ -399,7 +431,10 @@ fun PlaylistDetailScreen(
                                 if (playlist.songs.isNotEmpty()) {
                                     // Play All button with enhanced design
                                     Button(
-                                        onClick = onPlayAll,
+                                        onClick = {
+                                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            onPlayAll()
+                                        },
                                         shape = RoundedCornerShape(24.dp),
                                         contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
                                     ) {
@@ -417,7 +452,10 @@ fun PlaylistDetailScreen(
 
                                     // Shuffle button
                                     FilledIconButton(
-                                        onClick = onShufflePlay,
+                                        onClick = {
+                                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            onShufflePlay()
+                                        },
                                         colors = IconButtonDefaults.filledIconButtonColors(
                                             containerColor = MaterialTheme.colorScheme.secondaryContainer,
                                             contentColor = MaterialTheme.colorScheme.onSecondaryContainer
@@ -449,7 +487,10 @@ fun PlaylistDetailScreen(
                             shape = RoundedCornerShape(24.dp), // Added rounded corners
                             trailingIcon = {
                                 if (searchQuery.isNotEmpty()) {
-                                    IconButton(onClick = { searchQuery = "" }) {
+                                    IconButton(onClick = {
+                                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        searchQuery = ""
+                                    }) {
                                         Icon(
                                             imageVector = RhythmIcons.Close,
                                             contentDescription = "Clear search"
@@ -545,7 +586,10 @@ fun PlaylistDetailScreen(
 
                             // Call-to-action button
                             Button(
-                                onClick = onAddSongsToPlaylist,
+                                onClick = {
+                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    onAddSongsToPlaylist()
+                                },
                                 shape = RoundedCornerShape(24.dp),
                                 contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
                             ) {
@@ -563,12 +607,17 @@ fun PlaylistDetailScreen(
                         }
                     }
                 } else {
-                    items(filteredSongs) { song ->
-                        PlaylistSongItem(
-                            song = song,
-                            onClick = { onSongClick(song) },
-                            onRemove = { message -> onRemoveSong(song, message) }
-                        )
+                    items(filteredSongs, key = { it.id }) { song ->
+                        AnimateIn {
+                            PlaylistSongItem(
+                                song = song,
+                                onClick = {
+                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    onSongClick(song)
+                                },
+                                onRemove = { message -> onRemoveSong(song, message) }
+                            )
+                        }
                     }
                 }
                 item { // Extra bottom space for mini player
@@ -578,6 +627,41 @@ fun PlaylistDetailScreen(
         }
     }
 
+@Composable
+private fun AnimateIn(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        visible = true
+    }
+
+    val alpha by animateFloatAsState(
+        targetValue = if (visible) 1f else 0f,
+        animationSpec = tween(durationMillis = 300, delayMillis = 50),
+        label = "alpha"
+    )
+
+    val scale by animateFloatAsState(
+        targetValue = if (visible) 1f else 0.95f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "scale"
+    )
+
+    Box(
+        modifier = modifier.graphicsLayer(
+            alpha = alpha,
+            scaleX = scale,
+            scaleY = scale
+        )
+    ) {
+        content()
+    }
+}
 
 @Composable
 fun PlaylistSongItem(
@@ -587,6 +671,7 @@ fun PlaylistSongItem(
 ) {
     val context = LocalContext.current
     var showRemoveDialog by remember { mutableStateOf(false) }
+    val haptics = LocalHapticFeedback.current // Capture haptics here
     
     // Remove confirmation dialog
     if (showRemoveDialog) {
@@ -597,6 +682,7 @@ fun PlaylistSongItem(
             confirmButton = {
                 TextButton(
                     onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) // Use captured haptics
                         onRemove("Removed ${song.title} from playlist")
                         showRemoveDialog = false
                     }
@@ -605,7 +691,10 @@ fun PlaylistSongItem(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showRemoveDialog = false }) {
+                TextButton(onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) // Use captured haptics
+                    showRemoveDialog = false
+                }) {
                     Text("Cancel")
                 }
             }
@@ -697,7 +786,10 @@ fun PlaylistSongItem(
             
             // Enhanced remove button with confirmation
             FilledIconButton(
-                onClick = { showRemoveDialog = true },
+                onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) // Use captured haptics
+                    showRemoveDialog = true
+                },
                 colors = IconButtonDefaults.filledIconButtonColors(
                     containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f),
                     contentColor = MaterialTheme.colorScheme.onErrorContainer
