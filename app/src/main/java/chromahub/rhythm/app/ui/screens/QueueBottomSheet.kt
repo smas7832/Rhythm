@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -164,7 +165,7 @@ fun QueueBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         dragHandle = { BottomSheetDefaults.DragHandle() },
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
         contentColor = MaterialTheme.colorScheme.onBackground,
         tonalElevation = 0.dp
     ) {
@@ -271,11 +272,7 @@ fun QueueBottomSheet(
                         state = reorderableState.listState,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .reorderable(reorderableState)
-                            .graphicsLayer {
-                                alpha = contentAlpha
-                                translationY = contentTranslation
-                            },
+                            .reorderable(reorderableState),
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
@@ -286,24 +283,26 @@ fun QueueBottomSheet(
                             val originalIndex = indexedSong.index
                             val song = indexedSong.value
                             ReorderableItem(reorderableState, key = "${originalIndex}_${song.id}") { isDragging ->
-                                QueueItem(
-                                    song = song,
-                                    index = originalIndex,
-                                    isDragging = isDragging,
-                                    onSongClick = { onSongClick(song) },
-                                    onRemove = { 
-                                        try {
-                                            val indexToRemove = mutableQueue.indexOf(song)
-                                            if (indexToRemove >= 0 && indexToRemove < mutableQueue.size) {
-                                                mutableQueue.removeAt(indexToRemove)
+                                AnimateIn {
+                                    QueueItem(
+                                        song = song,
+                                        index = originalIndex,
+                                        isDragging = isDragging,
+                                        onSongClick = { onSongClick(song) },
+                                        onRemove = { 
+                                            try {
+                                                val indexToRemove = mutableQueue.indexOf(song)
+                                                if (indexToRemove >= 0 && indexToRemove < mutableQueue.size) {
+                                                    mutableQueue.removeAt(indexToRemove)
+                                                }
+                                                onRemoveSong(song)
+                                            } catch (e: Exception) {
+                                                // Handle error
                                             }
-                                            onRemoveSong(song)
-                                        } catch (e: Exception) {
-                                            // Handle error
-                                        }
-                                    },
-                                    reorderableState = reorderableState
-                                )
+                                        },
+                                        reorderableState = reorderableState
+                                    )
+                                }
                             }
                         }
                     }
@@ -313,11 +312,7 @@ fun QueueBottomSheet(
                     Spacer(modifier = Modifier.height(8.dp))
                     
                     EmptyUpNextContent(
-                        onAddSongsClick = onAddSongsClick,
-                        modifier = Modifier.graphicsLayer {
-                            alpha = contentAlpha
-                            translationY = contentTranslation
-                        }
+                        onAddSongsClick = onAddSongsClick
                     )
                 }
             }
@@ -490,7 +485,7 @@ private fun QueueItem(
             containerColor = if (isDragging) 
                 MaterialTheme.colorScheme.surfaceVariant
             else
-                MaterialTheme.colorScheme.surface
+                MaterialTheme.colorScheme.surfaceContainer
         ),
         border = BorderStroke(
             width = 1.dp,
@@ -499,7 +494,7 @@ private fun QueueItem(
             else
                 MaterialTheme.colorScheme.outlineVariant
         ),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(15.dp),
         modifier = Modifier
             .fillMaxWidth()
             .detectReorderAfterLongPress(reorderableState)
@@ -601,6 +596,42 @@ private fun QueueItem(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun AnimateIn(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        visible = true
+    }
+
+    val alpha by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (visible) 1f else 0f,
+        animationSpec = tween(durationMillis = 300, delayMillis = 50),
+        label = "alpha"
+    )
+
+    val scale by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (visible) 1f else 0.95f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "scale"
+    )
+
+    Box(
+        modifier = modifier.graphicsLayer(
+            alpha = alpha,
+            scaleX = scale,
+            scaleY = scale
+        )
+    ) {
+        content()
     }
 }
 

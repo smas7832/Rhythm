@@ -134,7 +134,7 @@ class CrashActivity : ComponentActivity() {
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
                             text = "Don't fret! Our app just had a little 'oopsie'. Please copy the crash details below – it's like a secret message for our developers to fix things! Then, let's try that again, shall we?", // Comic text
-                            style = MaterialTheme.typography.bodyLarge,
+                            style = MaterialTheme.typography.bodyMedium,
                             textAlign = TextAlign.Center,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

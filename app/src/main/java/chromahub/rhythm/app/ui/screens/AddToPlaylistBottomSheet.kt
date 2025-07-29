@@ -9,6 +9,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -110,7 +111,7 @@ fun AddToPlaylistBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
         contentColor = MaterialTheme.colorScheme.onBackground,
         tonalElevation = 0.dp
     ) {
@@ -131,40 +132,40 @@ fun AddToPlaylistBottomSheet(
             Spacer(modifier = Modifier.height(24.dp))
             
             // Add to playlist section header
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-                    .graphicsLayer {
-                        alpha = contentAlpha
-                        translationY = contentTranslation
-                    },
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "ADD TO PLAYLIST",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                
-                Spacer(modifier = Modifier.width(8.dp))
-                
-                HorizontalDivider(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(horizontal = 8.dp),
-                    thickness = 1.dp,
-                    color = MaterialTheme.colorScheme.outlineVariant
-                )
-            }
+//            Row(
+//                modifier = Modifier
+//                    .fillMaxWidth()
+//                    .padding(horizontal = 24.dp)
+//                    .graphicsLayer {
+//                        alpha = contentAlpha
+//                        translationY = contentTranslation
+//                    },
+//                verticalAlignment = Alignment.CenterVertically
+//            ) {
+//                Text(
+//                    text = "ADD TO PLAYLIST",
+//                    style = MaterialTheme.typography.titleSmall,
+//                    fontWeight = FontWeight.Bold,
+//                    color = MaterialTheme.colorScheme.primary
+//                )
+//
+//                Spacer(modifier = Modifier.width(8.dp))
+//
+//                HorizontalDivider(
+//                    modifier = Modifier
+//                        .weight(1f)
+//                        .padding(horizontal = 8.dp),
+//                    thickness = 1.dp,
+//                    color = MaterialTheme.colorScheme.outlineVariant
+//                )
+//            }
             
-            Spacer(modifier = Modifier.height(16.dp))
+//            Spacer(modifier = Modifier.height(16.dp))
 
             // Create new playlist button
             CreateNewPlaylistCard(
                 onClick = {
-                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     scope.launch { sheetState.hide() }.invokeOnCompletion {
                         if (!sheetState.isVisible) {
                             onCreateNewPlaylist()
@@ -236,7 +237,7 @@ fun AddToPlaylistBottomSheet(
                         PlaylistCard(
                             playlist = playlist,
                             onClick = {
-                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                 scope.launch { sheetState.hide() }.invokeOnCompletion {
                                     if (!sheetState.isVisible) {
                                         onAddToPlaylist(playlist)
@@ -269,7 +270,7 @@ private fun SongHeaderCard(
             .fillMaxWidth()
             .padding(horizontal = 24.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer
+            containerColor = MaterialTheme.colorScheme.surface
         ),
         shape = RoundedCornerShape(20.dp)
     ) {
@@ -410,11 +411,18 @@ private fun PlaylistCard(
             haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
             onClick()
         },
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant,
+                shape = RoundedCornerShape(12.dp)
+            ),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
         ),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         ListItem(
             headlineContent = {
@@ -436,12 +444,12 @@ private fun PlaylistCard(
             leadingContent = {
                 Surface(
                     modifier = Modifier.size(48.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHighest
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
-                            imageVector = RhythmIcons.Playlist,
+                            imageVector = RhythmIcons.PlaylistFilled,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(24.dp)
@@ -451,10 +459,10 @@ private fun PlaylistCard(
             },
             trailingContent = {
                 Icon(
-                    imageVector = RhythmIcons.Forward,
+                    imageVector = Icons.Default.Add,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                    modifier = Modifier.size(20.dp)
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
                 )
             }
         )

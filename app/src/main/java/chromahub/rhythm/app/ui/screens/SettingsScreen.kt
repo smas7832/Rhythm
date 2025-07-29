@@ -271,9 +271,9 @@ fun SettingsScreen(
                 .padding(paddingValues)
                 .padding(horizontal = 16.dp)
         ) {
-            // Appearance section
+            // Display & Theme section
             item {
-                SettingsSectionHeader(title = "Appearance")
+                SettingsSectionHeader(title = "Display & Theme")
 
                 SettingsToggleItem(
                     title = "Use system theme",
@@ -314,12 +314,114 @@ fun SettingsScreen(
                 SettingsDivider()
             }
             
-            // Library section
+            // Audio & Playback section
             item {
-                SettingsSectionHeader(title = "Personalization")
+                SettingsSectionHeader(title = "Audio & Playback")
+
+                val useSystemVolume by appSettings.useSystemVolume.collectAsState()
+                SettingsToggleItem(
+                    title = "System volume control",
+                    description = "Use device volume controls for music playback",
+                    icon = RhythmIcons.Player.VolumeUp,
+                    checked = useSystemVolume,
+                    onCheckedChange = {
+                        appSettings.setUseSystemVolume(it)
+                    }
+                )
+
+                // SettingsToggleItem(
+                //     title = "High quality audio",
+                //     description = "Enable higher bitrate audio streaming/playback",
+                //     icon = RhythmIcons.VolumeUp,
+                //     checked = highQualityAudio,
+                //     onCheckedChange = { appSettings.setHighQualityAudio(it) }
+                // )
+
+                // SettingsToggleItem(
+                //     title = "Gapless playback",
+                //     description = "Eliminate gaps between tracks for continuous listening",
+                //     icon = RhythmIcons.Queue,
+                //     checked = gaplessPlayback,
+                //     onCheckedChange = { appSettings.setGaplessPlayback(it) }
+                // )
+
+                // SettingsToggleItem(
+                //     title = "Crossfade",
+                //     description = "Smoothly transition between songs",
+                //     icon = RhythmIcons.Shuffle,
+                //     checked = crossfade,
+                //     onCheckedChange = { appSettings.setCrossfade(it) }
+                // )
+
+                // AnimatedVisibility(
+                //     visible = crossfade,
+                //     enter = fadeIn() + expandVertically(),
+                //     exit = fadeOut() + shrinkVertically()
+                // ) {
+                //     SettingsClickableItem(
+                //         title = "Crossfade duration",
+                //         description = "Set crossfade duration: ${crossfadeDuration.toInt()} seconds",
+                //         icon = RhythmIcons.Player.Timer,
+                //         onClick = { showCrossfadeDurationDialog = true }
+                //     )
+                // }
+
+                // SettingsToggleItem(
+                //     title = "Audio normalization",
+                //     description = "Adjust volume levels to a consistent loudness",
+                //     icon = RhythmIcons.VolumeUp,
+                //     checked = audioNormalization,
+                //     onCheckedChange = { appSettings.setAudioNormalization(it) }
+                // )
+
+                // SettingsToggleItem(
+                //     title = "ReplayGain",
+                //     description = "Apply ReplayGain tags for consistent playback volume",
+                //     icon = RhythmIcons.VolumeUp,
+                //     checked = replayGain,
+                //     onCheckedChange = { appSettings.setReplayGain(it) }
+                // )
+
+                SettingsToggleItem(
+                    title = "Show lyrics",
+                    description = "Display lyrics when available",
+                    icon = Icons.Filled.Lyrics,
+                    checked = showLyrics,
+                    onCheckedChange = {
+                        onShowLyricsChange(it)
+                    }
+                )
+
+                AnimatedVisibility(
+                    visible = showLyrics,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically()
+                ) {                        SettingsToggleItem(
+                            title = "Online lyrics only",
+                            description = "Only show lyrics when connected to the internet",
+                            icon = Icons.Filled.Cloud,
+                            checked = showOnlineOnlyLyrics,
+                            onCheckedChange = {
+                                onShowOnlineOnlyLyricsChange(it)
+                            }
+                        )
+                }
+
+                SettingsClickableItem(
+                    title = "Equalizer",
+                    description = "Open system equalizer to adjust audio frequencies",
+                    icon = Icons.Filled.GraphicEq,
+                    onClick = onOpenSystemEqualizer
+                )
+
+                SettingsDivider()
+            }
+
+            // Library & Content Display section
+            item {
+                SettingsSectionHeader(title = "Library & Content Display")
 
                 val albumViewType by appSettings.albumViewType.collectAsState()
-                var showAlbumViewDropdown by remember { mutableStateOf(false) }
                 
                 SettingsDropdownItem(
                     title = "Album view type",
@@ -385,112 +487,9 @@ fun SettingsScreen(
                 SettingsDivider()
             }
 
-            // Playback section
+            // Data & Storage section
             item {
-                SettingsSectionHeader(title = "Playback")
-
-//                SettingsToggleItem(
-//                    title = "High quality audio",
-//                    description = "Enable higher bitrate audio streaming/playback",
-//                    icon = RhythmIcons.VolumeUp,
-//                    checked = highQualityAudio,
-//                    onCheckedChange = { appSettings.setHighQualityAudio(it) }
-//                )
-//
-//                SettingsToggleItem(
-//                    title = "Gapless playback",
-//                    description = "Eliminate gaps between tracks for continuous listening",
-//                    icon = RhythmIcons.Queue,
-//                    checked = gaplessPlayback,
-//                    onCheckedChange = { appSettings.setGaplessPlayback(it) }
-//                )
-//
-//                SettingsToggleItem(
-//                    title = "Crossfade",
-//                    description = "Smoothly transition between songs",
-//                    icon = RhythmIcons.Shuffle,
-//                    checked = crossfade,
-//                    onCheckedChange = { appSettings.setCrossfade(it) }
-//                )
-//
-//                AnimatedVisibility(
-//                    visible = crossfade,
-//                    enter = fadeIn() + expandVertically(),
-//                    exit = fadeOut() + shrinkVertically()
-//                ) {
-//                    SettingsClickableItem(
-//                        title = "Crossfade duration",
-//                        description = "Set crossfade duration: ${crossfadeDuration.toInt()} seconds",
-//                        icon = RhythmIcons.Player.Timer,
-//                        onClick = { showCrossfadeDurationDialog = true }
-//                    )
-//                }
-//
-//                SettingsToggleItem(
-//                    title = "Audio normalization",
-//                    description = "Adjust volume levels to a consistent loudness",
-//                    icon = RhythmIcons.VolumeUp,
-//                    checked = audioNormalization,
-//                    onCheckedChange = { appSettings.setAudioNormalization(it) }
-//                )
-//
-//                SettingsToggleItem(
-//                    title = "ReplayGain",
-//                    description = "Apply ReplayGain tags for consistent playback volume",
-//                    icon = RhythmIcons.VolumeUp,
-//                    checked = replayGain,
-//                    onCheckedChange = { appSettings.setReplayGain(it) }
-//                )
-
-                SettingsToggleItem(
-                    title = "Show lyrics",
-                    description = "Display lyrics when available",
-                    icon = Icons.Filled.Lyrics,
-                    checked = showLyrics,
-                    onCheckedChange = {
-                        onShowLyricsChange(it)
-                    }
-                )
-
-                AnimatedVisibility(
-                    visible = showLyrics,
-                    enter = fadeIn() + expandVertically(),
-                    exit = fadeOut() + shrinkVertically()
-                ) {                        SettingsToggleItem(
-                            title = "Online lyrics only",
-                            description = "Only show lyrics when connected to the internet",
-                            icon = Icons.Filled.Cloud,
-                            checked = showOnlineOnlyLyrics,
-                            onCheckedChange = {
-                                onShowOnlineOnlyLyricsChange(it)
-                            }
-                        )
-                }
-
-                val useSystemVolume by appSettings.useSystemVolume.collectAsState()
-                SettingsToggleItem(
-                    title = "System volume control",
-                    description = "Use device volume controls for music playback",
-                    icon = RhythmIcons.Player.VolumeUp,
-                    checked = useSystemVolume,
-                    onCheckedChange = {
-                        appSettings.setUseSystemVolume(it)
-                    }
-                )
-
-                SettingsClickableItem(
-                    title = "Equalizer",
-                    description = "Open system equalizer to adjust audio frequencies",
-                    icon = Icons.Filled.GraphicEq,
-                    onClick = onOpenSystemEqualizer
-                )
-
-                SettingsDivider()
-            }
-
-            // Cache section
-            item {
-                SettingsSectionHeader(title = "Cache")
+                SettingsSectionHeader(title = "Data & Storage")
 
                 SettingsClickableItem(
                     title = "Max cache size",
@@ -499,6 +498,7 @@ fun SettingsScreen(
                     onClick = { showCacheSizeDialog = true }
                 )
 
+                val clearCacheOnExit by appSettings.clearCacheOnExit.collectAsState()
                 SettingsToggleItem(
                     title = "Clear cache on exit",
                     description = "Automatically clear cached data when the app closes",
@@ -510,9 +510,11 @@ fun SettingsScreen(
                 SettingsDivider()
             }
 
-            // API Management section
+            
+
+            // Integrations & Services section
             item {
-                SettingsSectionHeader(title = "API Management")
+                SettingsSectionHeader(title = "Integrations & Services")
 
                 SettingsClickableItem(
                     title = "Manage API Settings",
@@ -526,9 +528,9 @@ fun SettingsScreen(
                 SettingsDivider()
             }
 
-            // Updates section
+            // App Updates section
             item {
-                SettingsSectionHeader(title = "Updates")
+                SettingsSectionHeader(title = "App Updates")
 
                 val autoCheckForUpdates by appSettings.autoCheckForUpdates.collectAsState()
                 val updateChannel by appSettings.updateChannel.collectAsState()
@@ -574,9 +576,9 @@ fun SettingsScreen(
                 SettingsDivider()
             }
 
-            // Diagnostics section
+            // Troubleshooting & Diagnostics section
             item {
-                SettingsSectionHeader(title = "Diagnostics")
+                SettingsSectionHeader(title = "Troubleshooting & Diagnostics")
 
                 SettingsClickableItem(
                     title = "Crash Log History",
@@ -1381,7 +1383,7 @@ fun ApiManagementBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = bottomSheetState,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        containerColor = MaterialTheme.colorScheme.surface,
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
@@ -1395,7 +1397,7 @@ fun ApiManagementBottomSheet(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Icon(
-                    imageVector = RhythmIcons.Settings,
+                    imageVector = Icons.Filled.Api,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(28.dp)
@@ -1451,16 +1453,16 @@ fun ApiManagementBottomSheet(
                 }
 
                 // MusicBrainz
-                item {
-                    ApiServiceCard(
-                        title = "MusicBrainz",
-                        description = "Music metadata and artist information",
-                        status = "Always active",
-                        isConfigured = true,
-                        icon = RhythmIcons.Album,
-                        onClick = { /* No action needed */ }
-                    )
-                }
+//                item {
+//                    ApiServiceCard(
+//                        title = "MusicBrainz",
+//                        description = "Music metadata and artist information",
+//                        status = "Always active",
+//                        isConfigured = true,
+//                        icon = RhythmIcons.Album,
+//                        onClick = { /* No action needed */ }
+//                    )
+//                }
 
                 // CoverArt Archive
                 item {
@@ -1475,16 +1477,16 @@ fun ApiManagementBottomSheet(
                 }
 
                 // Last.fm
-                item {
-                    ApiServiceCard(
-                        title = "Last.fm",
-                        description = "Artist images and music information",
-                        status = "Always active",
-                        isConfigured = true,
-                        icon = RhythmIcons.Artist,
-                        onClick = { /* No action needed */ }
-                    )
-                }
+//                item {
+//                    ApiServiceCard(
+//                        title = "Last.fm",
+//                        description = "Artist images and music information",
+//                        status = "Always active",
+//                        isConfigured = true,
+//                        icon = RhythmIcons.Artist,
+//                        onClick = { /* No action needed */ }
+//                    )
+//                }
 
                 // YouTube Music
                 item {
@@ -1661,7 +1663,7 @@ fun ApiServiceCard(
     Card(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer
+            containerColor = MaterialTheme.colorScheme.surface
         ),
         elevation = CardDefaults.cardElevation(
             defaultElevation = 2.dp
@@ -1899,7 +1901,7 @@ fun CrashLogHistoryBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = bottomSheetState,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        containerColor = MaterialTheme.colorScheme.surface,
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
@@ -1970,37 +1972,58 @@ fun CrashLogHistoryBottomSheet(
                         }
                     }
                 }
+            }
 
-                Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (crashLogHistory.isNotEmpty()) {
                     Button(
                         onClick = {
                             appSettings.clearCrashLogHistory()
-                            onDismiss()
                         },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.errorContainer,
                             contentColor = MaterialTheme.colorScheme.onErrorContainer
                         ),
-                        shape = RoundedCornerShape(16.dp)
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.weight(1f)
                     ) {
                         Text("Clear All Logs")
                     }
-
-                    Button(
-                        onClick = onDismiss,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary
-                        ),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Text("Close")
-                    }
+                    Spacer(modifier = Modifier.width(8.dp))
                 }
+
+                Button(
+                    onClick = {
+                        chromahub.rhythm.app.util.CrashReporter.testCrash() // Call the test crash function
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                    ),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Test Crash")
+                }
+
+                // Spacer(modifier = Modifier.width(8.dp))
+
+                // Button(
+                //     onClick = onDismiss,
+                //     colors = ButtonDefaults.buttonColors(
+                //         containerColor = MaterialTheme.colorScheme.primary
+                //     ),
+                //     shape = RoundedCornerShape(16.dp),
+                //     modifier = Modifier.weight(1f)
+                // ) {
+                //     Text("Close")
+                // }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -2049,7 +2072,7 @@ fun CrashLogEntryCard(entry: chromahub.rhythm.app.data.CrashLogEntry, onClick: (
     Card(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer
+            containerColor = MaterialTheme.colorScheme.surface
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier = Modifier

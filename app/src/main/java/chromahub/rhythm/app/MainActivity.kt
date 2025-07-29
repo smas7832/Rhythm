@@ -1337,7 +1337,7 @@ fun PermissionHandler(
             
             Text(
                 text = "Let's make Rhythm look as awesome as your music! Pick your favorite colors and make it truly yours. No fashion faux pas here!",
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 32.dp)
@@ -1366,7 +1366,7 @@ fun PermissionHandler(
                     EnhancedThemeOption(
                         icon = Icons.Filled.DarkMode,
                         title = "Dark mode",
-                        description = "Embrace the dark side (we have cookies... and cool colors!)",
+                        description = "Embrace the dark side (we have cool colors!)",
                         isChecked = darkMode,
                         onCheckedChange = { themeViewModel.setDarkMode(it) }
                     )
@@ -1540,7 +1540,7 @@ fun PermissionHandler(
             
             Text(
                 text = "Configure how Rhythm checks for updates and new features.",
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 32.dp)
@@ -1976,7 +1976,7 @@ fun PermissionHandler(
                     .padding(16.dp)
                     .clickable(enabled = false) { /* Prevent dismissal when clicking inside card */ },
                 shape = MaterialTheme.shapes.large,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
             ) {
                 Column(
                     modifier = Modifier.padding(24.dp),
