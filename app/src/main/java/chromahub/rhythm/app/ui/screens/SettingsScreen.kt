@@ -1962,6 +1962,7 @@ fun CrashLogHistoryBottomSheet(
                 }
             } else {
                 LazyColumn(
+                    // modifier = Modifier.weight(1f), // Make LazyColumn fill available space
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(crashLogHistory.size) { index ->
@@ -1981,22 +1982,21 @@ fun CrashLogHistoryBottomSheet(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (crashLogHistory.isNotEmpty()) {
-                    Button(
-                        onClick = {
-                            appSettings.clearCrashLogHistory()
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer,
-                            contentColor = MaterialTheme.colorScheme.onErrorContainer
-                        ),
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("Clear All Logs")
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
+                Button(
+                    onClick = {
+                        appSettings.clearCrashLogHistory()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer
+                    ),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.weight(1f),
+                    enabled = crashLogHistory.isNotEmpty() // Enable only if history is not empty
+                ) {
+                    Text("Clear All Logs")
                 }
+                Spacer(modifier = Modifier.width(8.dp))
 
                 Button(
                     onClick = {
@@ -2011,19 +2011,6 @@ fun CrashLogHistoryBottomSheet(
                 ) {
                     Text("Test Crash")
                 }
-
-                // Spacer(modifier = Modifier.width(8.dp))
-
-                // Button(
-                //     onClick = onDismiss,
-                //     colors = ButtonDefaults.buttonColors(
-                //         containerColor = MaterialTheme.colorScheme.primary
-                //     ),
-                //     shape = RoundedCornerShape(16.dp),
-                //     modifier = Modifier.weight(1f)
-                // ) {
-                //     Text("Close")
-                // }
             }
 
             Spacer(modifier = Modifier.height(16.dp))

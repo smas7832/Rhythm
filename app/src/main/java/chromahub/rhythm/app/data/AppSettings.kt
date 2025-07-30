@@ -631,8 +631,8 @@ class AppSettings private constructor(context: Context) {
         val currentHistory = _crashLogHistory.value.toMutableList()
         val newEntry = CrashLogEntry(System.currentTimeMillis(), log)
         currentHistory.add(0, newEntry) // Add to the beginning
-        // Keep only the last 10 crash logs to prevent excessive storage
-        val limitedHistory = currentHistory.take(10)
+        // Keep only the last 8 crash logs to prevent excessive storage
+        val limitedHistory = currentHistory.take(6)
         val json = Gson().toJson(limitedHistory)
         prefs.edit().putString(KEY_CRASH_LOG_HISTORY, json).commit() // Changed to commit() for synchronous write
         _crashLogHistory.value = limitedHistory
