@@ -169,6 +169,10 @@ class MusicRepository(private val context: Context) {
 
         val sortOrder = "${MediaStore.Audio.Albums.ALBUM} ASC"
 
+        // Load all songs once
+        val allSongs = loadSongs()
+        val songsByAlbumTitle = allSongs.groupBy { it.album }
+
         context.contentResolver.query(
             collection,
             projection,
@@ -196,13 +200,8 @@ class MusicRepository(private val context: Context) {
                     id
                 )
 
-                Log.d(TAG, "Loaded album: $title by $artist with artwork URI: $albumArtUri")
-
-                // Get songs for this album
-                val albumSongs = withContext(Dispatchers.IO) {
-                    val allSongs = loadSongs()
-                    allSongs.filter { it.album == title }
-                }
+                // Get songs for this album from the pre-loaded map
+                val albumSongs = songsByAlbumTitle[title] ?: emptyList()
 
                 val album = Album(
                     id = id.toString(),
@@ -1035,31 +1034,26 @@ class MusicRepository(private val context: Context) {
         updatedSongs
     }
 
-    suspend fun getSongsForAlbum(albumId: String): List<Song> {
-        val songs = loadSongs()
-        val albums = loadAlbums()
+    suspend fun getSongsForAlbum(albumId: String): List<Song> = withContext(Dispatchers.IO) {
+        val allSongs = loadSongs() // Ensure songs are loaded once
+        val allAlbums = loadAlbums() // Ensure albums are loaded once
 
         Log.d("MusicRepository", "Getting songs for album ID: $albumId")
 
-        // First, find the album by ID to get its title
-        val album = albums.find { it.id == albumId }
+        // Find the album by ID
+        val album = allAlbums.find { it.id == albumId }
         if (album == null) {
             Log.e("MusicRepository", "Album not found with ID: $albumId")
-            return emptyList()
+            return@withContext emptyList()
         }
 
         Log.d("MusicRepository", "Found album: ${album.title} (ID: $albumId)")
 
-        // Now find songs that match the album title
-        val albumSongs = songs.filter { song ->
-            val albumMatch = song.album == album.title
-            if (albumMatch) {
-                Log.d(
-                    "MusicRepository",
-                    "Found song ${song.title} matching album title: ${song.album}"
-                )
-            }
-            albumMatch
+        // Filter songs that match the album's title and ID
+        val albumSongs = allSongs.filter { song ->
+            val albumTitleMatch = song.album == album.title
+            val albumIdMatch = song.albumId == albumId
+            albumTitleMatch && albumIdMatch
         }
 
         Log.d("MusicRepository", "Found ${albumSongs.size} songs for album: ${album.title}")
@@ -1067,12 +1061,12 @@ class MusicRepository(private val context: Context) {
         if (albumSongs.isEmpty()) {
             Log.d(
                 "MusicRepository",
-                "No songs found for album title: ${album.title}, trying direct lookup"
+                "No songs found for album title: ${album.title} and ID: $albumId, trying direct lookup"
             )
-            return loadSongsForAlbumDirect(albumId)
+            return@withContext loadSongsForAlbumDirect(albumId)
         }
 
-        return albumSongs
+        return@withContext albumSongs
     }
 
     private suspend fun loadSongsForAlbumDirect(albumId: String): List<Song> =
@@ -1149,37 +1143,52 @@ class MusicRepository(private val context: Context) {
             songs
         }
 
-    suspend fun getSongsForArtist(artistId: String): List<Song> {
-        val songs = loadSongs()
-        val artists = loadArtists()
+    suspend fun getSongsForArtist(artistId: String): List<Song> = withContext(Dispatchers.IO) {
+        val allSongs = loadSongs() // Ensure songs are loaded once
+        val allArtists = loadArtists() // Ensure artists are loaded once
 
         Log.d("MusicRepository", "Getting songs for artist ID: $artistId")
 
-        // First, find the artist by ID to get the name
-        val artist = artists.find { it.id == artistId }
+        // Find the artist by ID
+        val artist = allArtists.find { it.id == artistId }
         if (artist == null) {
             Log.e("MusicRepository", "Artist not found with ID: $artistId")
-            return emptyList()
+            return@withContext emptyList()
         }
 
         Log.d("MusicRepository", "Found artist: ${artist.name} (ID: $artistId)")
 
-        // Now find songs that match the artist name
-        val artistSongs = songs.filter { song ->
-            val artistMatch = song.artist == artist.name
-            if (artistMatch) {
-                Log.d("MusicRepository", "Found song ${song.title} by artist: ${song.artist}")
-            }
-            artistMatch
+        // Filter songs that match the artist's name
+        val artistSongs = allSongs.filter { song ->
+            song.artist == artist.name
         }
 
         Log.d("MusicRepository", "Found ${artistSongs.size} songs for artist: ${artist.name}")
-        return artistSongs
+        return@withContext artistSongs
     }
 
-    suspend fun getAlbumsForArtist(artistId: String): List<Album> {
-        val albums = loadAlbums()
-        return albums.filter { it.artist == artistId }
+    suspend fun getAlbumsForArtist(artistId: String): List<Album> = withContext(Dispatchers.IO) {
+        val allAlbums = loadAlbums() // Ensure albums are loaded once
+        val allArtists = loadArtists() // Ensure artists are loaded once
+
+        Log.d("MusicRepository", "Getting albums for artist ID: $artistId")
+
+        // Find the artist by ID
+        val artist = allArtists.find { it.id == artistId }
+        if (artist == null) {
+            Log.e("MusicRepository", "Artist not found with ID: $artistId")
+            return@withContext emptyList()
+        }
+
+        Log.d("MusicRepository", "Found artist: ${artist.name} (ID: $artistId)")
+
+        // Filter albums that match the artist's name
+        val artistAlbums = allAlbums.filter { album ->
+            album.artist == artist.name
+        }
+
+        Log.d("MusicRepository", "Found ${artistAlbums.size} albums for artist: ${artist.name}")
+        return@withContext artistAlbums
     }
 
     suspend fun createPlaylist(name: String): Playlist {
