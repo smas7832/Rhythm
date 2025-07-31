@@ -84,18 +84,20 @@ fun WaveSlider(
             val height = size.height / 2
             val centerY = size.height / 2
             
-            // Draw background track
-            drawLine(
-                color = trackColor,
-                start = Offset(0f, centerY),
-                end = Offset(width, centerY),
-                strokeWidth = 4.dp.toPx(),
-                cap = StrokeCap.Round
-            )
+            val progressWidth = width * sliderPosition
+
+            // Draw background track for the inactive part
+            if (sliderPosition < 1f) {
+                drawLine(
+                    color = trackColor,
+                    start = Offset(progressWidth, centerY),
+                    end = Offset(width, centerY),
+                    strokeWidth = 4.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+            }
             
             if (sliderPosition > 0f) {
-                val progressWidth = width * sliderPosition
-                
                 if (isPlaying) {
                     // Draw wavy progress line when playing
                     val path = Path()
@@ -154,4 +156,4 @@ fun WaveSlider(
             )
         )
     }
-} 
+}
