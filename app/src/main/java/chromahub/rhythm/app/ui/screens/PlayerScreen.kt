@@ -696,8 +696,8 @@ fun PlayerScreen(
                     ) {
                         // Album Image
                         if (song?.artworkUri != null) {
-                            AsyncImage(
-                                model = ImageRequest.Builder(context)
+                            val imageRequest = remember(song.artworkUri, song.title) {
+                                ImageRequest.Builder(context)
                                     .apply(
                                         ImageUtils.buildImageRequest(
                                             song.artworkUri,
@@ -706,7 +706,10 @@ fun PlayerScreen(
                                             M3PlaceholderType.TRACK
                                         )
                                     )
-                                    .build(),
+                                    .build()
+                            }
+                            AsyncImage(
+                                model = imageRequest,
                                 contentDescription = "Album artwork for ${song.title}",
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()
