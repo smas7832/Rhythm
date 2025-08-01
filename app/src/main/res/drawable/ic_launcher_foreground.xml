@@ -6,21 +6,105 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
     
-    <!-- Music note stem -->
+    <!-- Headphone Arc (Top) - Positioned within safe area -->
     <path
-        android:pathData="M42,33L42,63C42,63 42,70 35,70C28,70 28,63 28,63C28,63 28,56 35,56C37.5,56 39.5,56.8 42,58L42,33L70,40L70,60C70,60 70,67 63,67C56,67 56,60 56,60C56,60 56,53 63,53C65.5,53 67.5,53.8 70,55L70,40L42,33Z"
-        android:fillColor="#FFFFFF" />
-    
-    <!-- Sound waves -->
-    <path
-        android:pathData="M80,40C83.5,45 85,50 85,54C85,58 83.5,63 80,68"
+        android:pathData="M34,54C34,38 42,26 54,26C66,26 74,38 74,54"
         android:strokeColor="#FFFFFF"
-        android:strokeWidth="3"
-        android:strokeLineCap="round" />
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    
+    <!-- Headphone padding/cushion -->
+    <!-- <path
+        android:pathData="M49,21C50,19 52,18 54,18C56,18 58,19 59,21"
+        android:strokeColor="#B3FFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" /> -->
+    
+    <!-- Left Headphone Ear Cup - Optimized for all shapes -->
+    <path
+        android:pathData="M30,48C26,48 24,51 24,55L24,63C24,67 26,70 30,70C34,70 36,67 36,63L36,55C36,51 34,48 30,48Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="24"
+                android:startY="48"
+                android:endX="36"
+                android:endY="70"
+                android:startColor="#FFFFFF"
+                android:endColor="#FFFFFF" />
+        </aapt:attr>
+    </path>
+    
+    <!-- Right Headphone Ear Cup - Optimized for all shapes -->
+    <path
+        android:pathData="M78,48C74,48 72,51 72,55L72,63C72,67 74,70 78,70C82,70 84,67 84,63L84,55C84,51 82,48 78,48Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="72"
+                android:startY="48"
+                android:endX="84"
+                android:endY="70"
+                android:startColor="#FFFFFF"
+                android:endColor="#FFFFFF" />
+        </aapt:attr>
+    </path>
+    
+    <!-- Left Ear Cup Inner Detail -->
+    <path
+        android:pathData="M30,51C28,51 27,52 27,55L27,63C27,66 28,67 30,67C32,67 33,66 33,63L33,55C33,52 32,51 30,51Z"
+        android:fillColor="#7C4DFF"
+        android:fillAlpha="0.7" />
+    
+    <!-- Right Ear Cup Inner Detail -->
+    <path
+        android:pathData="M78,51C76,51 75,52 75,55L75,63C75,66 76,67 78,67C80,67 81,66 81,63L81,55C81,52 80,51 78,51Z"
+        android:fillColor="#7C4DFF"
+        android:fillAlpha="0.7" />
+    
+    <!-- Central Play Button Circle - Optimized size for all shapes -->
+    <path
+        android:pathData="M54,60m-16,0a16,16 0,1 1,32 0a16,16 0,1 1,-32 0">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="54"
+                android:centerY="60"
+                android:gradientRadius="16"
+                android:startColor="#ffffffff"
+                android:endColor="#FFFFFF" />
+        </aapt:attr>
+    </path>
+    
+    <!-- Play Button Shadow -->
+    <!-- <path
+        android:pathData="M54,55.5m-16,0a16,16 0,1 1,32 0a16,16 0,1 1,-32 0"
+        android:fillColor="#000000"
+        android:fillAlpha="0.1" /> -->
+    
+    <!-- Play Triangle - Perfectly centered and sized -->
+    <path
+        android:pathData="M48,52C48,50.5 49,49.5 50.5,50.5L65,58.5C66.5,59.5 66.5,60.5 65,61.5L50.5,69.5C49,70.5 48,69.5 48,68Z"
+        android:fillColor="#7C4DFF" />
+    
+    <!-- Subtle sound wave indicators with particles -->
+    <!-- <path
+        android:pathData="M88,48C92,52 94,56 94,60C94,64 92,68 88,72"
+        android:strokeColor="#7C4DFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:strokeAlpha="0.6" />
     
     <path
-        android:pathData="M87,34C92,42 94,48 94,54C94,60 92,66 87,74"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="3"
-        android:strokeLineCap="round" />
+        android:pathData="M20,48C16,52 14,56 14,60C14,64 16,68 20,72"
+        android:strokeColor="#7C4DFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:strokeAlpha="0.6" /> -->
+    
+
 </vector>
