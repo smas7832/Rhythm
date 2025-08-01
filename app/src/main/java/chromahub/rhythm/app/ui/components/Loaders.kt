@@ -2,6 +2,7 @@ package chromahub.rhythm.app.ui.components
 
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
@@ -554,4 +555,46 @@ fun M3StepProgressIndicator(
         trackColor = inactiveColor,
         showLabel = true // Show label for step progress
     )
+}
+
+/**
+ * Simple circular loading indicator for quick actions like blacklisting/whitelisting
+ */
+@Composable
+fun SimpleCircularLoader(
+    modifier: Modifier = Modifier,
+    size: androidx.compose.ui.unit.Dp = 16.dp,
+    strokeWidth: androidx.compose.ui.unit.Dp = 2.dp,
+    color: Color = MaterialTheme.colorScheme.primary
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "simpleCircularLoader")
+    val rotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "rotation"
+    )
+
+    Canvas(
+        modifier = modifier
+            .size(size)
+            .graphicsLayer { rotationZ = rotation }
+    ) {
+        val strokeWidthPx = strokeWidth.toPx()
+        val radius = (size.toPx() - strokeWidthPx) / 2
+        val center = androidx.compose.ui.geometry.Offset(size.toPx() / 2, size.toPx() / 2)
+        
+        drawArc(
+            color = color,
+            startAngle = 0f,
+            sweepAngle = 270f,
+            useCenter = false,
+            style = Stroke(width = strokeWidthPx, cap = StrokeCap.Round),
+            topLeft = androidx.compose.ui.geometry.Offset(center.x - radius, center.y - radius),
+            size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2)
+        )
+    }
 }

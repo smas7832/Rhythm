@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,6 +19,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -24,11 +27,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import chromahub.rhythm.app.data.AppSettings
+import chromahub.rhythm.app.util.HapticUtils
 import chromahub.rhythm.app.data.Song
 import chromahub.rhythm.app.ui.components.M3PlaceholderType
 import chromahub.rhythm.app.ui.components.RhythmIcons
+import chromahub.rhythm.app.ui.components.SimpleCircularLoader
 import chromahub.rhythm.app.util.ImageUtils
 import chromahub.rhythm.app.util.MediaUtils
+import chromahub.rhythm.app.util.performIfEnabled
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -56,7 +63,7 @@ data class ExtendedSongInfo(
 fun SongInfoBottomSheet(
     song: Song?,
     onDismiss: () -> Unit,
-    sheetState: SheetState = rememberModalBottomSheetState()
+    sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 ) {
     val context = LocalContext.current
     var extendedInfo by remember { mutableStateOf<ExtendedSongInfo?>(null) }
@@ -275,6 +282,14 @@ fun SongInfoBottomSheet(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
+            
+            // Action buttons
+            ActionButtonsSection(
+                song = song,
+                onDismiss = onDismiss
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }
@@ -335,4 +350,395 @@ private fun formatDate(timestampMs: Long): String {
     val date = Date(timestampMs)
     val formatter = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
     return formatter.format(date)
+}
+
+@Composable
+private fun ActionButtonsSection(
+    song: Song,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val appSettings = remember { AppSettings.getInstance(context) }
+    val haptic = LocalHapticFeedback.current
+    val blacklistedSongs by appSettings.blacklistedSongs.collectAsState()
+    val blacklistedFolders by appSettings.blacklistedFolders.collectAsState()
+    
+    // Loading states for blacklist operations
+    var isLoadingSongBlacklist by remember { mutableStateOf(false) }
+    var isLoadingFolderBlacklist by remember { mutableStateOf(false) }
+    
+    val isBlacklisted = blacklistedSongs.contains(song.id)
+    
+    // Check if song is in a blacklisted folder
+    val folderPath = remember(song.uri) {
+        try {
+            when (song.uri.scheme) {
+                "content" -> {
+                    val projection = arrayOf(MediaStore.Audio.Media.DATA)
+                    context.contentResolver.query(song.uri, projection, null, null, null)
+                        ?.use { cursor ->
+                            if (cursor.moveToFirst()) {
+                                val dataIndex =
+                                    cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
+                                val filePath = cursor.getString(dataIndex)
+                                File(filePath).parent
+                            } else null
+                        }
+                }
+                "file" -> File(song.uri.path ?: "").parent
+                else -> null
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+    
+    val isInBlacklistedFolder = folderPath != null && blacklistedFolders.any { blacklistedPath ->
+        folderPath.startsWith(blacklistedPath, ignoreCase = true)
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Text(
+                text = "Actions",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+
+            // Only show individual song blacklist section if folder is not blacklisted
+            // or if song is already individually blacklisted (to allow removal)
+            if (!isInBlacklistedFolder || isBlacklisted) {
+                // Blacklist toggle button
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    if (isBlacklisted) {
+                        FilledTonalButton(
+                            onClick = {
+                                isLoadingSongBlacklist = true
+                                HapticUtils.performHapticFeedback(context, haptic, androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                                appSettings.removeFromBlacklist(song.id)
+                                isLoadingSongBlacklist = false
+                            },
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            ),
+                            modifier = Modifier.weight(1f),
+                            enabled = !isLoadingSongBlacklist
+                        ) {
+                            if (isLoadingSongBlacklist) {
+                                SimpleCircularLoader(
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    size = 18.dp
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Filled.Check,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Remove from Blacklist")
+                        }
+                    } else {
+                        OutlinedButton(
+                            onClick = {
+                                isLoadingSongBlacklist = true
+                                HapticUtils.performHapticFeedback(context, haptic, androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                                appSettings.addToBlacklist(song.id)
+                                isLoadingSongBlacklist = false
+                            },
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error
+                            ),
+                            modifier = Modifier.weight(1f),
+                            enabled = !isLoadingSongBlacklist
+                        ) {
+                            if (isLoadingSongBlacklist) {
+                                SimpleCircularLoader(
+                                    color = MaterialTheme.colorScheme.error,
+                                    size = 18.dp
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Filled.Block,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Add to Blacklist")
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                // Enhanced status message with synchronization info - centered
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = when {
+                            isBlacklisted && isInBlacklistedFolder -> 
+                                "This song is hidden (both individually blacklisted and in blocked folder)"
+                            isBlacklisted -> 
+                                "This song is individually hidden from search results and recommendations"
+                            isInBlacklistedFolder -> 
+                                "This song is hidden because its folder is blocked"
+                            else -> 
+                                "Hide this song from search results and recommendations"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = when {
+                            isBlacklisted && isInBlacklistedFolder -> MaterialTheme.colorScheme.error
+                            isBlacklisted || isInBlacklistedFolder -> MaterialTheme.colorScheme.primary
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        textAlign = TextAlign.Center
+                    )
+                    
+                    // Show warning for conflicting states
+                    if (isBlacklisted && isInBlacklistedFolder) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "💡 Tip: Unblock the folder to remove both restrictions at once",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            } else {
+                // Show a simple message when folder is blacklisted and song is not individually blacklisted - centered
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "This song is hidden because its folder is blocked",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Folder blacklist functionality
+            FolderBlacklistSection(song = song, appSettings = appSettings, haptic = haptic)
+        }
+    }
+}
+
+@Composable
+private fun FolderBlacklistSection(
+    song: Song,
+    appSettings: AppSettings,
+    haptic: androidx.compose.ui.hapticfeedback.HapticFeedback
+) {
+    val context = LocalContext.current
+    val blacklistedFolders by appSettings.blacklistedFolders.collectAsState()
+    val blacklistedSongs by appSettings.blacklistedSongs.collectAsState()
+    
+    // Loading state for folder blacklist operations
+    var isLoadingFolderBlacklist by remember { mutableStateOf(false) }
+
+    // Get folder path from song URI
+    val folderPath = remember(song.uri) {
+        try {
+            when (song.uri.scheme) {
+                "content" -> {
+                    // For content URIs, query the MediaStore to get the file path
+                    val projection = arrayOf(MediaStore.Audio.Media.DATA)
+                    context.contentResolver.query(song.uri, projection, null, null, null)
+                        ?.use { cursor ->
+                            if (cursor.moveToFirst()) {
+                                val dataIndex =
+                                    cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
+                                val filePath = cursor.getString(dataIndex)
+                                File(filePath).parent // Get parent directory
+                            } else null
+                        }
+                }
+
+                "file" -> {
+                    File(song.uri.path ?: "").parent
+                }
+
+                else -> null
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    val isFolderBlacklisted = folderPath != null && blacklistedFolders.any { blacklistedPath ->
+        folderPath.startsWith(blacklistedPath, ignoreCase = true)
+    }
+    
+    // Check if song is individually blacklisted
+    val isSongBlacklisted = blacklistedSongs.contains(song.id)
+
+    if (folderPath != null) {
+        Text(
+            text = "Folder Actions",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            if (isFolderBlacklisted) {
+                FilledTonalButton(
+                    onClick = {
+                        isLoadingFolderBlacklist = true
+                        HapticUtils.performHapticFeedback(
+                            context,
+                            haptic,
+                            androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress
+                        )
+                        // Find the exact blacklisted folder path and remove it
+                        val matchingPath = blacklistedFolders.find { blacklistedPath ->
+                            folderPath.startsWith(blacklistedPath, ignoreCase = true)
+                        }
+                        matchingPath?.let { 
+                            // Use the new method to remove folder and related song
+                            appSettings.removeFolderAndRelatedSongs(it, listOf(song.id))
+                        }
+                        isLoadingFolderBlacklist = false
+                    },
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    ),
+                    modifier = Modifier.weight(1f),
+                    enabled = !isLoadingFolderBlacklist
+                ) {
+                    if (isLoadingFolderBlacklist) {
+                        SimpleCircularLoader(
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            size = 18.dp
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Filled.Folder,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Unblock Folder")
+                }
+            } else {
+                OutlinedButton(
+                    onClick = {
+                        isLoadingFolderBlacklist = true
+                        HapticUtils.performHapticFeedback(
+                            context,
+                            haptic,
+                            androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress
+                        )
+                        // Use the new method to add folder and optionally song for immediate sync
+                        appSettings.addFolderAndOptionalSong(folderPath, if (!isSongBlacklisted) song.id else null)
+                        isLoadingFolderBlacklist = false
+                    },
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    ),
+                    modifier = Modifier.weight(1f),
+                    enabled = !isLoadingFolderBlacklist
+                ) {
+                    if (isLoadingFolderBlacklist) {
+                        SimpleCircularLoader(
+                            color = MaterialTheme.colorScheme.error,
+                            size = 18.dp
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Filled.Block,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Block Folder")
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = if (isFolderBlacklisted) {
+                    "All songs in this folder are hidden from search results and recommendations"
+                } else {
+                    "Hide all songs in this folder from search results and recommendations"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = "Folder: ${File(folderPath).name}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Medium,
+                textAlign = TextAlign.Center
+            )
+            
+            // Show sync status
+            if (isFolderBlacklisted && isSongBlacklisted) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "⚠️ Song is individually blacklisted and in blocked folder",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    fontWeight = FontWeight.Medium,
+                    textAlign = TextAlign.Center
+                )
+            } else if (isFolderBlacklisted && !isSongBlacklisted) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "✓ Song is hidden due to folder blacklist",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Medium,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+    }
 }

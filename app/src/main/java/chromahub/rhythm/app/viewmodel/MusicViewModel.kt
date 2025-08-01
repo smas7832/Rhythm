@@ -5,6 +5,8 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.media.audiofx.AudioEffect
+import android.net.Uri
+import android.provider.MediaStore
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -33,6 +35,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.time.Duration
@@ -86,12 +90,54 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     // Main music data
     private val _songs = MutableStateFlow<List<Song>>(emptyList())
     val songs: StateFlow<List<Song>> = _songs.asStateFlow()
+    
+    // Filtered songs excluding blacklisted ones (both songs and folders)
+    val filteredSongs: StateFlow<List<Song>> = kotlinx.coroutines.flow.combine(
+        _songs,
+        appSettings.blacklistedSongs,
+        appSettings.blacklistedFolders
+    ) { songs, blacklistedIds, blacklistedFolders ->
+        songs.filter { song ->
+            // Check if song ID is blacklisted
+            if (blacklistedIds.contains(song.id)) return@filter false
+            
+            // Check if song is in a blacklisted folder
+            val songPath = getPathFromUri(song.uri)
+            if (songPath != null && blacklistedFolders.any { folderPath ->
+                songPath.startsWith(folderPath, ignoreCase = true)
+            }) return@filter false
+            
+            true
+        }
+    }.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Lazily, emptyList())
 
     private val _albums = MutableStateFlow<List<Album>>(emptyList())
     val albums: StateFlow<List<Album>> = _albums.asStateFlow()
+    
+    // Filtered albums excluding albums with all songs blacklisted
+    val filteredAlbums: StateFlow<List<Album>> = kotlinx.coroutines.flow.combine(
+        _albums,
+        filteredSongs
+    ) { albums, filteredSongs ->
+        albums.filter { album ->
+            // Include album if it has at least one non-blacklisted song
+            filteredSongs.any { song -> song.album == album.title && song.artist == album.artist }
+        }
+    }.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Lazily, emptyList())
 
     private val _artists = MutableStateFlow<List<Artist>>(emptyList())
     val artists: StateFlow<List<Artist>> = _artists.asStateFlow()
+    
+    // Filtered artists excluding artists with all songs blacklisted
+    val filteredArtists: StateFlow<List<Artist>> = kotlinx.coroutines.flow.combine(
+        _artists,
+        filteredSongs
+    ) { artists, filteredSongs ->
+        artists.filter { artist ->
+            // Include artist if they have at least one non-blacklisted song
+            filteredSongs.any { song -> song.artist == artist.name }
+        }
+    }.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Lazily, emptyList())
 
     private val _playlists = MutableStateFlow<List<Playlist>>(emptyList())
     val playlists: StateFlow<List<Playlist>> = _playlists.asStateFlow()
@@ -2424,9 +2470,13 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             song.genre in preferredGenres
         }
         
+        // Filter out blacklisted songs
+        val blacklistedIds = appSettings.blacklistedSongs.value
+        
         // Combine and shuffle recommendations
         return (timeBasedSongs + genreBasedSongs)
             .distinct()
+            .filter { !blacklistedIds.contains(it.id) } // Exclude blacklisted songs
             .shuffled()
             .take(10)
     }
@@ -2657,6 +2707,34 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             Log.d(TAG, "Started shuffled playback of playlist: ${playlist.name}")
         } else {
             Log.e(TAG, "No songs found in playlist: ${playlist.name}")
+        }
+    }
+    
+    /**
+     * Helper function to get file path from URI
+     */
+    private fun getPathFromUri(uri: Uri): String? {
+        return try {
+            when (uri.scheme) {
+                "content" -> {
+                    // For content URIs, query the MediaStore to get the file path
+                    val projection = arrayOf(MediaStore.Audio.Media.DATA)
+                    getApplication<Application>().contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
+                        if (cursor.moveToFirst()) {
+                            val dataIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
+                            cursor.getString(dataIndex)
+                        } else null
+                    }
+                }
+                "file" -> {
+                    // For file URIs, get the path directly
+                    uri.path
+                }
+                else -> null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting path from URI: $uri", e)
+            null
         }
     }
 }

@@ -114,6 +114,16 @@ class AppSettings private constructor(context: Context) {
         private const val KEY_LAST_CRASH_LOG = "last_crash_log"
         private const val KEY_CRASH_LOG_HISTORY = "crash_log_history" // New key for crash log history
         
+        // Haptic Feedback
+        private const val KEY_HAPTIC_FEEDBACK_ENABLED = "haptic_feedback_enabled"
+        
+        // Blacklisted Songs
+        private const val KEY_BLACKLISTED_SONGS = "blacklisted_songs"
+        
+        // Blacklisted Folders
+        private const val KEY_BLACKLISTED_FOLDERS = "blacklisted_folders"
+        
+        
         @Volatile
         private var INSTANCE: AppSettings? = null
         
@@ -371,6 +381,40 @@ class AppSettings private constructor(context: Context) {
         }
     )
     val crashLogHistory: StateFlow<List<CrashLogEntry>> = _crashLogHistory.asStateFlow()
+    
+    // Haptic Feedback Settings
+    private val _hapticFeedbackEnabled = MutableStateFlow(prefs.getBoolean(KEY_HAPTIC_FEEDBACK_ENABLED, true))
+    val hapticFeedbackEnabled: StateFlow<Boolean> = _hapticFeedbackEnabled.asStateFlow()
+    
+    // Blacklisted Songs
+    private val _blacklistedSongs = MutableStateFlow<List<String>>(
+        try {
+            val json = prefs.getString(KEY_BLACKLISTED_SONGS, null)
+            if (json != null) {
+                Gson().fromJson(json, object : TypeToken<List<String>>() {}.type)
+            } else {
+                emptyList()
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    )
+    val blacklistedSongs: StateFlow<List<String>> = _blacklistedSongs.asStateFlow()
+    
+    // Blacklisted Folders
+    private val _blacklistedFolders = MutableStateFlow<List<String>>(
+        try {
+            val json = prefs.getString(KEY_BLACKLISTED_FOLDERS, null)
+            if (json != null) {
+                Gson().fromJson(json, object : TypeToken<List<String>>() {}.type)
+            } else {
+                emptyList()
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    )
+    val blacklistedFolders: StateFlow<List<String>> = _blacklistedFolders.asStateFlow()
     
     // Playback Settings Methods
     fun setHighQualityAudio(enable: Boolean) {
@@ -641,5 +685,134 @@ class AppSettings private constructor(context: Context) {
     fun clearCrashLogHistory() {
         prefs.edit().remove(KEY_CRASH_LOG_HISTORY).apply()
         _crashLogHistory.value = emptyList()
+    }
+    
+    // Haptic Feedback Methods
+    fun setHapticFeedbackEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_HAPTIC_FEEDBACK_ENABLED, enabled).apply()
+        _hapticFeedbackEnabled.value = enabled
+    }
+    
+    // Blacklisted Songs Methods
+    fun addToBlacklist(songId: String) {
+        val currentList = _blacklistedSongs.value.toMutableList()
+        if (!currentList.contains(songId)) {
+            currentList.add(songId)
+            val json = Gson().toJson(currentList)
+            prefs.edit().putString(KEY_BLACKLISTED_SONGS, json).apply()
+            _blacklistedSongs.value = currentList
+        }
+    }
+    
+    fun removeFromBlacklist(songId: String) {
+        val currentList = _blacklistedSongs.value.toMutableList()
+        if (currentList.remove(songId)) {
+            val json = Gson().toJson(currentList)
+            prefs.edit().putString(KEY_BLACKLISTED_SONGS, json).apply()
+            _blacklistedSongs.value = currentList
+        }
+    }
+    
+    fun isBlacklisted(songId: String): Boolean {
+        return _blacklistedSongs.value.contains(songId)
+    }
+    
+    fun clearBlacklist() {
+        prefs.edit().remove(KEY_BLACKLISTED_SONGS).apply()
+        _blacklistedSongs.value = emptyList()
+    }
+    
+    // Blacklisted Folders Methods
+    fun addFolderToBlacklist(folderPath: String) {
+        val currentList = _blacklistedFolders.value.toMutableList()
+        if (!currentList.contains(folderPath)) {
+            currentList.add(folderPath)
+            val json = Gson().toJson(currentList)
+            prefs.edit().putString(KEY_BLACKLISTED_FOLDERS, json).apply()
+            _blacklistedFolders.value = currentList
+        }
+    }
+    
+    fun removeFolderFromBlacklist(folderPath: String) {
+        val currentList = _blacklistedFolders.value.toMutableList()
+        if (currentList.remove(folderPath)) {
+            val json = Gson().toJson(currentList)
+            prefs.edit().putString(KEY_BLACKLISTED_FOLDERS, json).apply()
+            _blacklistedFolders.value = currentList
+        }
+    }
+    
+    fun isFolderBlacklisted(folderPath: String): Boolean {
+        return _blacklistedFolders.value.any { blacklistedPath ->
+            folderPath.startsWith(blacklistedPath, ignoreCase = true)
+        }
+    }
+    
+    fun clearFolderBlacklist() {
+        prefs.edit().remove(KEY_BLACKLISTED_FOLDERS).apply()
+        _blacklistedFolders.value = emptyList()
+    }
+    
+    // Bulk operations for better synchronization
+    fun removeFolderAndRelatedSongs(folderPath: String, songsInFolder: List<String>) {
+        // Remove folder from blacklist
+        val currentFolders = _blacklistedFolders.value.toMutableList()
+        if (currentFolders.remove(folderPath)) {
+            val foldersJson = Gson().toJson(currentFolders)
+            prefs.edit().putString(KEY_BLACKLISTED_FOLDERS, foldersJson).apply()
+            _blacklistedFolders.value = currentFolders
+        }
+        
+        // Remove related songs from individual blacklist
+        val currentSongs = _blacklistedSongs.value.toMutableList()
+        var songsRemoved = false
+        songsInFolder.forEach { songId ->
+            if (currentSongs.remove(songId)) {
+                songsRemoved = true
+            }
+        }
+        
+        if (songsRemoved) {
+            val songsJson = Gson().toJson(currentSongs)
+            prefs.edit().putString(KEY_BLACKLISTED_SONGS, songsJson).apply()
+            _blacklistedSongs.value = currentSongs
+        }
+    }
+    
+    fun addFolderAndOptionalSong(folderPath: String, songId: String?) {
+        // Add folder to blacklist
+        val currentFolders = _blacklistedFolders.value.toMutableList()
+        if (!currentFolders.contains(folderPath)) {
+            currentFolders.add(folderPath)
+            val foldersJson = Gson().toJson(currentFolders)
+            prefs.edit().putString(KEY_BLACKLISTED_FOLDERS, foldersJson).apply()
+            _blacklistedFolders.value = currentFolders
+        }
+        
+        // Optionally add song to individual blacklist for immediate synchronization
+        songId?.let { id ->
+            val currentSongs = _blacklistedSongs.value.toMutableList()
+            if (!currentSongs.contains(id)) {
+                currentSongs.add(id)
+                val songsJson = Gson().toJson(currentSongs)
+                prefs.edit().putString(KEY_BLACKLISTED_SONGS, songsJson).apply()
+                _blacklistedSongs.value = currentSongs
+            }
+        }
+    }
+    
+    // Helper method to check if a song would be filtered by current blacklist rules
+    fun isEffectivelyBlacklisted(songId: String, songPath: String?): Boolean {
+        // Check individual song blacklist
+        if (_blacklistedSongs.value.contains(songId)) return true
+        
+        // Check folder blacklist
+        if (songPath != null) {
+            return _blacklistedFolders.value.any { folderPath ->
+                songPath.startsWith(folderPath, ignoreCase = true)
+            }
+        }
+        
+        return false
     }
 }

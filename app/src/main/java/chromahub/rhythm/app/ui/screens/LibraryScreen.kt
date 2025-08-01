@@ -2,6 +2,7 @@
 package chromahub.rhythm.app.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.rounded.Info
@@ -30,6 +31,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -166,6 +168,7 @@ fun LibraryScreen(
     musicViewModel: MusicViewModel // Add MusicViewModel as a parameter
 ) {
     val context = LocalContext.current
+    val appSettings = remember { AppSettings.getInstance(context) }
     val tabs = listOf("Songs", "Playlists", "Albums")
     var selectedTabIndex by remember { mutableStateOf(initialTab.ordinal) }
     val pagerState = rememberPagerState(initialPage = selectedTabIndex) { tabs.size }
@@ -459,6 +462,9 @@ fun LibraryScreen(
                             selectedSong = song
                             showSongInfoSheet = true
                         },
+                        onAddToBlacklist = { song ->
+                            appSettings.addToBlacklist(song.id)
+                        },
                         haptics = haptics
                     )
                     LibraryTab.PLAYLISTS.ordinal -> PlaylistsTab(
@@ -489,6 +495,7 @@ fun SongsTab(
     onAddToPlaylist: (Song) -> Unit,
     onAddToQueue: (Song) -> Unit,
     onShowSongInfo: (Song) -> Unit,
+    onAddToBlacklist: (Song) -> Unit, // Add blacklist callback
     haptics: androidx.compose.ui.hapticfeedback.HapticFeedback // Add haptics parameter
 ) {
     var selectedCategory by remember { mutableStateOf("All") }
@@ -737,6 +744,7 @@ fun SongsTab(
                                 onMoreClick = { onAddToPlaylist(song) },
                                 onAddToQueue = { onAddToQueue(song) },
                                 onShowSongInfo = { onShowSongInfo(song) },
+                                onAddToBlacklist = { onAddToBlacklist(song) },
                                 haptics = haptics // Pass haptics
                             )
                         }
@@ -1018,6 +1026,7 @@ fun LibrarySongItem(
     onMoreClick: () -> Unit,
     onAddToQueue: () -> Unit,
     onShowSongInfo: () -> Unit,
+    onAddToBlacklist: () -> Unit, // Add blacklist callback
     haptics: androidx.compose.ui.hapticfeedback.HapticFeedback
 ) {
     val context = LocalContext.current
@@ -1096,7 +1105,7 @@ fun LibrarySongItem(
 
                 FilledIconButton(
                     onClick = {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                         showDropdown = true
                     },
                     modifier = Modifier.size(36.dp),
@@ -1114,37 +1123,109 @@ fun LibrarySongItem(
 
                 DropdownMenu(
                     expanded = showDropdown,
-                    onDismissRequest = { showDropdown = false },
-                    modifier = Modifier,
-                    shape = MaterialTheme.shapes.medium
+                    onDismissRequest = { 
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        showDropdown = false 
+                    },
+                    modifier = Modifier.widthIn(min = 200.dp),
+                    shape = RoundedCornerShape(18.dp)
                 ) {
                     DropdownMenuItem(
-                        text = { Text("Add to playlist") },
+                        text = { 
+                            Text(
+                                "Add to playlist",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
+                            ) 
+                        },
                         leadingIcon = {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
-                                contentDescription = null
-                            )
+                            Surface(
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                                shape = CircleShape,
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(6.dp)
+                                )
+                            }
                         },
                         onClick = {
-                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                             showDropdown = false
                             onMoreClick()
-                        }
+                        },
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp)
                     )
                     DropdownMenuItem(
-                        text = { Text("Song info") },
+                        text = { 
+                            Text(
+                                "Song info",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
+                            ) 
+                        },
                         leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Rounded.Info,
-                                contentDescription = null
-                            )
+                            Surface(
+                                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
+                                shape = CircleShape,
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Info,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(6.dp)
+                                )
+                            }
                         },
                         onClick = {
-                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                             showDropdown = false
                             onShowSongInfo()
-                        }
+                        },
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp)
+                    )
+                    DropdownMenuItem(
+                        text = { 
+                            Text(
+                                "Add to blacklist",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.error
+                            ) 
+                        },
+                        leadingIcon = {
+                            Surface(
+                                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f),
+                                shape = CircleShape,
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Block,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(6.dp)
+                                )
+                            }
+                        },
+                        onClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            showDropdown = false
+                            onAddToBlacklist()
+                        },
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp)
                     )
                 }
             }
@@ -1990,6 +2071,7 @@ fun AlbumBottomSheet(
                                                         )
                                                     },
                                                     onClick = {
+                                                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                                         sortOrder = order
                                                         showSortMenu = false
                                                         // Save the new sort order to persistent storage

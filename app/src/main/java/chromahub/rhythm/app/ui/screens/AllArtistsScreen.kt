@@ -846,6 +846,7 @@ private fun ArtistListItem(
             // Play button
             FilledIconButton(
                 onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     viewModel.playArtist(artist)
                 },
                 colors = IconButtonDefaults.filledIconButtonColors(

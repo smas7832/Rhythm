@@ -16,6 +16,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -66,6 +67,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -97,6 +99,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.SpanStyle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import chromahub.rhythm.app.viewmodel.AppUpdaterViewModel
+import chromahub.rhythm.app.viewmodel.MusicViewModel
 import android.content.Intent
 import android.net.Uri
 import java.util.Locale
@@ -119,7 +122,9 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import chromahub.rhythm.app.util.HapticUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -141,6 +146,7 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val appSettings = remember { AppSettings.getInstance(context) }
+    val musicViewModel: MusicViewModel = viewModel()
     
     // Use AppSettings for theme settings
     val useSystemTheme by appSettings.useSystemTheme.collectAsState()
@@ -165,10 +171,12 @@ fun SettingsScreen(
     var showCrossfadeDurationDialog by remember { mutableStateOf(false) }
     var showCacheSizeDialog by remember { mutableStateOf(false) }
     var showCrashLogHistoryBottomSheet by remember { mutableStateOf(false) } // New state for crash log history
+    var showBlacklistManagementBottomSheet by remember { mutableStateOf(false) } // New state for blacklist management
 
     val updaterViewModel: AppUpdaterViewModel = viewModel()
     val currentAppVersion by updaterViewModel.currentVersion.collectAsState()
 
+    val haptics = LocalHapticFeedback.current
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
 
     if (showApiBottomSheet) {
@@ -207,6 +215,13 @@ fun SettingsScreen(
         )
     }
 
+    if (showBlacklistManagementBottomSheet) {
+        BlacklistManagementBottomSheet(
+            onDismiss = { showBlacklistManagementBottomSheet = false },
+            appSettings = appSettings
+        )
+    }
+
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
@@ -232,7 +247,10 @@ fun SettingsScreen(
                 },
                 navigationIcon = {
                     FilledIconButton(
-                        onClick = onBack,
+                        onClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onBack()
+                        },
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer,
                             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -310,6 +328,22 @@ fun SettingsScreen(
                         }
                     )
                 }
+
+                SettingsDivider()
+            }
+            
+            // User Interface & Controls section
+            item {
+                SettingsSectionHeader(title = "User Interface & Controls")
+
+                val hapticFeedbackEnabled by appSettings.hapticFeedbackEnabled.collectAsState()
+                SettingsToggleItem(
+                    title = "Haptic feedback",
+                    description = "Vibrate when tapping buttons and interacting with the interface",
+                    icon = Icons.Filled.TouchApp,
+                    checked = hapticFeedbackEnabled,
+                    onCheckedChange = { appSettings.setHapticFeedbackEnabled(it) }
+                )
 
                 SettingsDivider()
             }
@@ -484,6 +518,34 @@ fun SettingsScreen(
                     }
                 )
 
+                val blacklistedSongs by appSettings.blacklistedSongs.collectAsState()
+                val blacklistedFolders by appSettings.blacklistedFolders.collectAsState()
+                
+                // Get the effective blacklist counts using the same method as BlacklistManagementBottomSheet
+                val allSongs by musicViewModel.songs.collectAsState()
+                val filteredSongs by musicViewModel.filteredSongs.collectAsState()
+                
+                // Calculate effective blacklist counts considering both individual songs and folder blacklists
+                val totalSongsCount = allSongs.size
+                val availableSongsCount = filteredSongs.size // This already excludes blacklisted songs
+                val effectivelyBlacklistedSongsCount = totalSongsCount - availableSongsCount
+                val blacklistedFoldersCount = blacklistedFolders.size
+                
+                SettingsChipItem(
+                    title = "Manage blacklist",
+                    description = "Control which songs and folders are hidden",
+                    primaryChipText = "$effectivelyBlacklistedSongsCount songs",
+                    secondaryChipText = "$blacklistedFoldersCount folders",
+                    icon = Icons.Filled.Block,
+                    primaryChipColor = MaterialTheme.colorScheme.errorContainer,
+                    primaryChipTextColor = MaterialTheme.colorScheme.onErrorContainer,
+                    secondaryChipColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    secondaryChipTextColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                    onClick = { 
+                        showBlacklistManagementBottomSheet = true
+                    }
+                )
+
                 SettingsDivider()
             }
 
@@ -491,10 +553,16 @@ fun SettingsScreen(
             item {
                 SettingsSectionHeader(title = "Data & Storage")
 
-                SettingsClickableItem(
+                SettingsChipItem(
                     title = "Max cache size",
-                    description = "Current: ${String.format("%.1f", maxCacheSize / (1024f * 1024f))} MB",
+                    description = "Control how much storage is used for cache",
+                    primaryChipText = "${String.format("%.1f", maxCacheSize / (1024f * 1024f))} MB",
+                    secondaryChipText = "Current limit",
                     icon = Icons.Filled.Storage,
+                    primaryChipColor = MaterialTheme.colorScheme.primaryContainer,
+                    primaryChipTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    secondaryChipColor = MaterialTheme.colorScheme.secondaryContainer,
+                    secondaryChipTextColor = MaterialTheme.colorScheme.onSecondaryContainer,
                     onClick = { showCacheSizeDialog = true }
                 )
 
@@ -807,6 +875,7 @@ fun SettingsToggleItem(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit
 ) {
+    val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     val scaleAnim by animateFloatAsState(
         targetValue = if (checked) 1f else 0.8f,
@@ -829,7 +898,7 @@ fun SettingsToggleItem(
             .clip(RoundedCornerShape(16.dp))
             .clickable {
                 onCheckedChange(!checked)
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
             }
     ) {
         Row(
@@ -884,7 +953,7 @@ fun SettingsToggleItem(
                 checked = checked,
                 onCheckedChange = {
                     onCheckedChange(it)
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                 },
                 modifier = Modifier.scale(scaleAnim),
                 colors = SwitchDefaults.colors(
@@ -1133,6 +1202,121 @@ fun SettingsDropdownItem(
 }
 
 @Composable
+fun SettingsChipItem(
+    title: String,
+    description: String,
+    primaryChipText: String,
+    secondaryChipText: String,
+    icon: ImageVector,
+    iconTint: Color = MaterialTheme.colorScheme.primary,
+    primaryChipColor: Color = MaterialTheme.colorScheme.primaryContainer,
+    primaryChipTextColor: Color = MaterialTheme.colorScheme.onPrimaryContainer,
+    secondaryChipColor: Color = MaterialTheme.colorScheme.secondaryContainer,
+    secondaryChipTextColor: Color = MaterialTheme.colorScheme.onSecondaryContainer,
+    onClick: () -> Unit
+) {
+    val haptic = LocalHapticFeedback.current
+    
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .clickable {
+                onClick()
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            }
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp)
+        ) {
+            // Icon
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconTint,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            // Text
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 16.dp)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // Chips
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Surface(
+                    color = primaryChipColor,
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        text = primaryChipText,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = primaryChipTextColor,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
+                
+                Surface(
+                    color = secondaryChipColor,
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        text = secondaryChipText,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = secondaryChipTextColor,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // Forward arrow
+            Icon(
+                imageVector = RhythmIcons.Forward,
+                contentDescription = "Open",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
+@Composable
 fun SettingsDivider() {
     Spacer(modifier = Modifier.height(8.dp))
 }
@@ -1144,6 +1328,7 @@ fun AboutDialog(
     currentAppVersion: chromahub.rhythm.app.viewmodel.AppVersion // Pass currentAppVersion
 ) {
     val context = LocalContext.current // Get context for opening URL
+    val haptics = LocalHapticFeedback.current
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = null,
@@ -1223,6 +1408,7 @@ fun AboutDialog(
                 // Add a Report Bug button inside the dialog
                 Button(
                     onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         onDismiss() // Close the dialog first
                         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/cromaguy/Rhythm/issues"))
                         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -1370,6 +1556,7 @@ fun ApiManagementBottomSheet(
     val bottomSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val haptics = LocalHapticFeedback.current
     
     // API states
     val spotifyKey by appSettings.spotifyApiKey.collectAsState()
@@ -1603,6 +1790,7 @@ fun ApiManagementBottomSheet(
                 Button(
                     onClick = {
                         if (isChecking) return@Button
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         isChecking = true
                         checkResult = null
                         scope.launch {
@@ -1626,7 +1814,12 @@ fun ApiManagementBottomSheet(
             },
             dismissButton = {
                 Row {
-                    TextButton(onClick = { if(!isChecking) showSpotifyDialog = false }) {
+                    TextButton(onClick = { 
+                        if(!isChecking) {
+                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            showSpotifyDialog = false 
+                        }
+                    }) {
                         Text("Cancel")
                     }
                     if (!spotifyKey.isNullOrBlank()) {
@@ -1634,6 +1827,7 @@ fun ApiManagementBottomSheet(
                         Button(
                             onClick = {
                                 if (isChecking) return@Button
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 scope.launch {
                                     appSettings.setSpotifyApiKey(null)
                                     showSpotifyDialog = false
@@ -1779,6 +1973,7 @@ fun CrossfadeDurationDialog(
     onSave: (Float) -> Unit
 ) {
     var sliderPosition by remember { mutableFloatStateOf(currentDuration) }
+    val haptics = LocalHapticFeedback.current
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1803,7 +1998,10 @@ fun CrossfadeDurationDialog(
             }
         },
         confirmButton = {
-            Button(onClick = { onSave(sliderPosition) }) {
+            Button(onClick = { 
+                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onSave(sliderPosition) 
+            }) {
                 Text("Save")
             }
         },
@@ -1822,6 +2020,7 @@ fun CacheSizeDialog(
     onSave: (Long) -> Unit
 ) {
     val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
     var selectedSizeIndex by remember {
         mutableIntStateOf(
             when (currentSize) {
@@ -1871,7 +2070,10 @@ fun CacheSizeDialog(
             }
         },
         confirmButton = {
-            Button(onClick = { onSave(cacheSizes[selectedSizeIndex]) }) {
+            Button(onClick = { 
+                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onSave(cacheSizes[selectedSizeIndex]) 
+            }) {
                 Text("Save")
             }
         },

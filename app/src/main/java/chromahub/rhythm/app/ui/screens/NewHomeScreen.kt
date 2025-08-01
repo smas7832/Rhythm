@@ -103,6 +103,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import chromahub.rhythm.app.util.performIfEnabled
+import chromahub.rhythm.app.util.HapticUtils
 import chromahub.rhythm.app.R
 import chromahub.rhythm.app.data.Album
 import chromahub.rhythm.app.data.Artist
@@ -166,6 +168,8 @@ fun NewHomeScreen(
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val scope = rememberCoroutineScope()
     val musicViewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
+    val haptics = LocalHapticFeedback.current
+    val context = LocalContext.current
     
     // State for artist bottom sheet
     var showArtistSheet by remember { mutableStateOf(false) }
@@ -385,7 +389,10 @@ fun NewHomeScreen(
                 actions = {
                     // Settings icon
                     FilledIconButton(
-                        onClick = onSettingsClick,
+                        onClick = {
+                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                            onSettingsClick()
+                        },
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer,
                             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -474,7 +481,7 @@ private fun EnhancedScrollableContent(
 ) {
     val scrollState = rememberScrollState()
     val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
-    val allSongs by viewModel.songs.collectAsState()
+    val allSongs by viewModel.filteredSongs.collectAsState() // Use filtered songs to exclude blacklisted ones
     
     // Optimize artist computation with improved filtering for collaborations
     val availableArtists = remember(allSongs, topArtists) {
@@ -838,7 +845,7 @@ private fun ArtistCarouselCard(
         modifier = modifier
             .width(128.dp)
             .clickable { 
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                 onClick() 
             },
         horizontalAlignment = Alignment.CenterHorizontally

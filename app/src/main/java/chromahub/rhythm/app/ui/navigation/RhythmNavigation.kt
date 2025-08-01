@@ -201,9 +201,10 @@ fun RhythmNavigation(
     appSettings: chromahub.rhythm.app.data.AppSettings // Add appSettings parameter
 ) {
     // Collect state from ViewModel
-    val songs by viewModel.songs.collectAsState()
-    val albums by viewModel.albums.collectAsState()
-    val artists by viewModel.artists.collectAsState()
+    val songs by viewModel.filteredSongs.collectAsState() // Use filtered songs to exclude blacklisted ones
+    val allSongs by viewModel.songs.collectAsState() // Keep all songs for specific cases
+    val albums by viewModel.filteredAlbums.collectAsState() // Use filtered albums to exclude albums with all songs blacklisted
+    val artists by viewModel.filteredArtists.collectAsState() // Use filtered artists to exclude artists with all songs blacklisted
     val playlists by viewModel.playlists.collectAsState()
     val currentSong by viewModel.currentSong.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
@@ -1332,8 +1333,8 @@ fun RhythmNavigation(
 
                         if (targetPlaylist != null) {
                             // Show song selection screen
-                            val availableSongs = remember(songs, targetPlaylist.songs, searchQuery) {
-                                songs.filter { song ->
+                            val availableSongs = remember(allSongs, targetPlaylist.songs, searchQuery) {
+                                allSongs.filter { song ->
                                     // Filter out songs that are already in the playlist
                                     !targetPlaylist.songs.any { it.id == song.id }
                                 }.filter { song ->
