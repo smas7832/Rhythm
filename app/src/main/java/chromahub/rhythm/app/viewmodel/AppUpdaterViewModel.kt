@@ -133,14 +133,14 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
     // Current app version info
     private val _currentVersion = MutableStateFlow(
         AppVersion(
-            versionName = "2.3.128.372 Beta",
-            versionCode = 23128372, // Updated to reflect major*10M + minor*100K + patch*1K + buildNumber
-            releaseDate = "2025-07-17",
+            versionName = "2.4.150.414 Beta",
+            versionCode = 24150414, // Updated to reflect major*10M + minor*100K + patch*1K + buildNumber
+            releaseDate = "2025-07-30",
             whatsNew = emptyList(),
             knownIssues = emptyList(),
             downloadUrl = "",
             isPreRelease = true,
-            buildNumber = 372
+            buildNumber = 414
         )
     )
     val currentVersion: StateFlow<AppVersion> = _currentVersion.asStateFlow()
