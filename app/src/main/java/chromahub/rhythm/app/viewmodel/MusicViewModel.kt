@@ -37,8 +37,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import java.time.Duration
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -91,25 +94,31 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _songs = MutableStateFlow<List<Song>>(emptyList())
     val songs: StateFlow<List<Song>> = _songs.asStateFlow()
     
+    // Cache for file paths to avoid repeated ContentResolver queries
+    private val pathCache = mutableMapOf<String, String?>()
+    
     // Filtered songs excluding blacklisted ones (both songs and folders)
     val filteredSongs: StateFlow<List<Song>> = kotlinx.coroutines.flow.combine(
         _songs,
         appSettings.blacklistedSongs,
         appSettings.blacklistedFolders
     ) { songs, blacklistedIds, blacklistedFolders ->
-        songs.filter { song ->
-            // Check if song ID is blacklisted
-            if (blacklistedIds.contains(song.id)) return@filter false
-            
-            // Check if song is in a blacklisted folder
-            val songPath = getPathFromUri(song.uri)
-            if (songPath != null && blacklistedFolders.any { folderPath ->
-                songPath.startsWith(folderPath, ignoreCase = true)
-            }) return@filter false
-            
-            true
+        // Move expensive operations to background thread
+        withContext(Dispatchers.IO) {
+            songs.filter { song ->
+                // Check if song ID is blacklisted
+                if (blacklistedIds.contains(song.id)) return@filter false
+                
+                // Check if song is in a blacklisted folder (with caching)
+                val songPath = getPathFromUriCached(song.uri)
+                if (songPath != null && blacklistedFolders.any { folderPath ->
+                    songPath.startsWith(folderPath, ignoreCase = true)
+                }) return@filter false
+                
+                true
+            }
         }
-    }.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Lazily, emptyList())
+    }.flowOn(Dispatchers.IO).stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Lazily, emptyList())
 
     private val _albums = MutableStateFlow<List<Album>>(emptyList())
     val albums: StateFlow<List<Album>> = _albums.asStateFlow()
@@ -2735,6 +2744,16 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         } catch (e: Exception) {
             Log.e(TAG, "Error getting path from URI: $uri", e)
             null
+        }
+    }
+    
+    /**
+     * Cached version of getPathFromUri to avoid repeated ContentResolver queries
+     */
+    private fun getPathFromUriCached(uri: Uri): String? {
+        val uriString = uri.toString()
+        return pathCache.getOrPut(uriString) {
+            getPathFromUri(uri)
         }
     }
 }
