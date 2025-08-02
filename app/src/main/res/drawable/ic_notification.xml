@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    
+    <!-- Simplified headphone design for notification -->
+    <!-- Headphone Arc -->
+    <path
+        android:pathData="M7,10C7,6.5 9.5,4 12,4C14.5,4 17,6.5 17,10"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    
+    <!-- Left Ear Cup -->
+    <path
+        android:pathData="M6,9C5,9 4.5,9.5 4.5,10.5L4.5,13.5C4.5,14.5 5,15 6,15C7,15 7.5,14.5 7.5,13.5L7.5,10.5C7.5,9.5 7,9 6,9Z"
+        android:fillColor="#FFFFFF" />
+    
+    <!-- Right Ear Cup -->
+    <path
+        android:pathData="M18,9C17,9 16.5,9.5 16.5,10.5L16.5,13.5C16.5,14.5 17,15 18,15C19,15 19.5,14.5 19.5,13.5L19.5,10.5C19.5,9.5 19,9 18,9Z"
+        android:fillColor="#FFFFFF" />
+    
+    <!-- Central Play Button Circle -->
+    <path
+        android:pathData="M12,12m-4,0a4,4 0,1 1,8 0a4,4 0,1 1,-8 0"
+        android:fillColor="#FFFFFF" />
+    
+    <!-- Play Triangle - Centered between ear cups -->
+    <path
+        android:pathData="M10.5,10C10.5,9.5 10.8,9.2 11.2,9.4L14.8,11.4C15.2,11.6 15.2,12.4 14.8,12.6L11.2,14.6C10.8,14.8 10.5,14.5 10.5,14Z"
+        android:fillColor="#7C4DFF" />
+
+</vector>

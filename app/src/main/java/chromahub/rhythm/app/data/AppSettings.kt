@@ -106,6 +106,7 @@ class AppSettings private constructor(context: Context) {
         private const val KEY_AUTO_CHECK_FOR_UPDATES = "auto_check_for_updates"
         private const val KEY_UPDATE_CHANNEL = "update_channel" // New key for update channel
         private const val KEY_UPDATES_ENABLED = "updates_enabled" // Master switch for updates
+        private const val KEY_UPDATE_CHECK_INTERVAL_HOURS = "update_check_interval_hours" // Configurable interval
 
         // Beta Program
         private const val KEY_HAS_SHOWN_BETA_POPUP = "has_shown_beta_popup"
@@ -359,6 +360,9 @@ class AppSettings private constructor(context: Context) {
 
     private val _updatesEnabled = MutableStateFlow(prefs.getBoolean(KEY_UPDATES_ENABLED, true))
     val updatesEnabled: StateFlow<Boolean> = _updatesEnabled.asStateFlow()
+
+    private val _updateCheckIntervalHours = MutableStateFlow(prefs.getInt(KEY_UPDATE_CHECK_INTERVAL_HOURS, 6))
+    val updateCheckIntervalHours: StateFlow<Int> = _updateCheckIntervalHours.asStateFlow()
 
     // Beta Program
     private val _hasShownBetaPopup = MutableStateFlow(prefs.getBoolean(KEY_HAS_SHOWN_BETA_POPUP, false))
@@ -653,6 +657,11 @@ class AppSettings private constructor(context: Context) {
     fun setUpdatesEnabled(enable: Boolean) {
         prefs.edit().putBoolean(KEY_UPDATES_ENABLED, enable).apply()
         _updatesEnabled.value = enable
+    }
+
+    fun setUpdateCheckIntervalHours(hours: Int) {
+        prefs.edit().putInt(KEY_UPDATE_CHECK_INTERVAL_HOURS, hours).apply()
+        _updateCheckIntervalHours.value = hours
     }
 
     // Beta Program Methods
