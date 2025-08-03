@@ -2,6 +2,7 @@ package chromahub.rhythm.app.ui.screens
 
 import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.EaseInOut
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -246,28 +247,41 @@ fun PlayerScreen(
     // Animation for album art entry
     var showAlbumArt by remember { mutableStateOf(false) }
 
-    // Toggle between album art and lyrics
+    // Toggle between album art and lyrics with improved state management
     var showLyricsView by remember { mutableStateOf(false) }
-    var isLyricsContentVisible by remember { mutableStateOf(false) } // New state for lyrics content visibility
+    var isLyricsContentVisible by remember { mutableStateOf(false) }
+    var isSongInfoVisible by remember { mutableStateOf(true) }
 
     // Reset lyrics view when lyrics are disabled
     LaunchedEffect(showLyrics) {
         if (!showLyrics && showLyricsView) {
             showLyricsView = false
-            isLyricsContentVisible = false // Ensure lyrics content is hidden
+            isLyricsContentVisible = false
+            isSongInfoVisible = true  // Ensure song info is shown when lyrics are disabled
         }
     }
 
-    // Manage lyrics content visibility with a delay for smoother transitions
-    LaunchedEffect(showLyricsView) {
-        if (showLyricsView) {
-            // When transitioning to lyrics, hide song info (handled by its visibility condition)
-            delay(150) // Small delay for song info to start fading out
+    // Reset to song info when song changes
+    LaunchedEffect(song?.id) {
+        if (song != null) {
+            showLyricsView = false
+            isLyricsContentVisible = false
+            isSongInfoVisible = true
+        }
+    }
+
+    // Improved state management for smooth, non-overlapping transitions
+    LaunchedEffect(showLyricsView, showLyrics) {
+        if (showLyrics && showLyricsView) {
+            // Transitioning to lyrics view
+            isSongInfoVisible = false // Hide song info immediately
+            delay(200) // Wait for song info to fade out completely
             isLyricsContentVisible = true // Then show lyrics content
         } else {
-            // When transitioning back to album art, hide lyrics content immediately
-            isLyricsContentVisible = false
-            delay(150) // Small delay for lyrics to fade out before song info appears
+            // Transitioning back to song info view
+            isLyricsContentVisible = false // Hide lyrics immediately
+            delay(250) // Wait for lyrics to fade out completely
+            isSongInfoVisible = true // Then show song info
         }
     }
 
@@ -347,7 +361,9 @@ fun PlayerScreen(
     }
 
     val albumScale by animateFloatAsState(
-        targetValue = if (showAlbumArt) 1f else 0.8f,
+        targetValue = if (showAlbumArt) {
+            if (showLyricsView) 0.98f else 1f  // Slightly smaller when showing lyrics
+        } else 0.8f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessLow
@@ -356,7 +372,13 @@ fun PlayerScreen(
     )
 
     val albumAlpha by animateFloatAsState(
-        targetValue = if (showAlbumArt) 1f else 0f,
+        targetValue = if (showAlbumArt) {
+            when {
+                showLyricsView && isLyricsContentVisible -> 0.95f  // Slightly dimmed when lyrics are showing
+                !isSongInfoVisible && !isLyricsContentVisible -> 0.8f  // Dimmed during transition
+                else -> 1f
+            }
+        } else 0f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessLow
@@ -676,7 +698,7 @@ fun PlayerScreen(
                     }
 
                     // Album artwork or lyrics view with smooth transitions
-                    // Album artwork with optimized padding
+                    // Album artwork with optimized padding and improved click handling
                     Box(
                         modifier = Modifier
                             .fillMaxWidth(1.2f) // Enlarged album art to touch screen edges
@@ -687,8 +709,16 @@ fun PlayerScreen(
                                 scaleY = albumScale,
                                 alpha = albumAlpha
                             )
-                            .clickable {
-                                if (showLyrics) { // Only toggle if lyrics are enabled
+                            .clickable(
+                                enabled = showLyrics // Only enable click if lyrics are available
+                            ) {
+                                // Add haptic feedback and prevent rapid toggling
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                if (showLyrics && !isLyricsContentVisible && isSongInfoVisible) {
+                                    // Only toggle if not currently transitioning
+                                    showLyricsView = !showLyricsView
+                                } else if (showLyrics && isLyricsContentVisible && !isSongInfoVisible) {
+                                    // Allow toggling back from lyrics view
                                     showLyricsView = !showLyricsView
                                 }
                             },
@@ -766,11 +796,17 @@ fun PlayerScreen(
                             horizontalAlignment = Alignment.CenterHorizontally, // Center its children horizontally
                             verticalArrangement = Arrangement.Bottom // Align content to the bottom
                         ) {
-                            // Song info overlay on album art
+                            // Song info overlay on album art with improved animations
                             AnimatedVisibility(
-                                visible = song != null && !showLyricsView, // Only show song info if lyrics are not visible
-                                enter = fadeIn() + slideInVertically { -it }, // Slide up from bottom
-                                exit = fadeOut(animationSpec = tween(durationMillis = 150)) + slideOutVertically { it } // Faster fade out
+                                visible = song != null && isSongInfoVisible && !showLyricsView,
+                                enter = fadeIn(animationSpec = tween(durationMillis = 300, easing = EaseInOut)) + 
+                                       slideInVertically(
+                                           animationSpec = tween(durationMillis = 300, easing = EaseInOut)
+                                       ) { it / 3 },
+                                exit = fadeOut(animationSpec = tween(durationMillis = 200, easing = EaseInOut)) + 
+                                      slideOutVertically(
+                                          animationSpec = tween(durationMillis = 200, easing = EaseInOut)
+                                      ) { it / 3 }
                             ) {
                                 if (song != null) {
                                     Column(
@@ -829,12 +865,18 @@ fun PlayerScreen(
                                 }
                             }
 
-                            // Lyrics overlay view
+                            // Lyrics overlay view with improved animations
                             AnimatedVisibility(
-                                visible = isLyricsContentVisible, // Use the new state for lyrics content visibility
-                                enter = fadeIn(animationSpec = tween(durationMillis = 400)) + slideInVertically { -it }, // Slide in from top
-                                exit = fadeOut(animationSpec = tween(durationMillis = 300)) + slideOutVertically { -it }, // Slide out to top
-                                modifier = Modifier.fillMaxSize() // Fill the album art box
+                                visible = isLyricsContentVisible && showLyrics && showLyricsView,
+                                enter = fadeIn(animationSpec = tween(durationMillis = 350, easing = EaseInOut)) + 
+                                       slideInVertically(
+                                           animationSpec = tween(durationMillis = 350, easing = EaseInOut)
+                                       ) { -it / 2 },
+                                exit = fadeOut(animationSpec = tween(durationMillis = 250, easing = EaseInOut)) + 
+                                      slideOutVertically(
+                                          animationSpec = tween(durationMillis = 250, easing = EaseInOut)
+                                      ) { -it / 2 },
+                                modifier = Modifier.fillMaxSize()
                             ) {
                                 Box(modifier = Modifier.fillMaxSize()) {
                                     // Deeper gradient overlay for lyrics
@@ -1285,7 +1327,14 @@ fun PlayerScreen(
                                 FilledTonalIconButton(
                                     onClick = {
                                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        showLyricsView = !showLyricsView
+                                        // Use same improved logic as album art click
+                                        if (!isLyricsContentVisible && isSongInfoVisible) {
+                                            // Only toggle if not currently transitioning
+                                            showLyricsView = !showLyricsView
+                                        } else if (isLyricsContentVisible && !isSongInfoVisible) {
+                                            // Allow toggling back from lyrics view
+                                            showLyricsView = !showLyricsView
+                                        }
                                     },
                                     modifier = Modifier.size(actionButtonSize),
                                     colors = IconButtonDefaults.filledTonalIconButtonColors(
