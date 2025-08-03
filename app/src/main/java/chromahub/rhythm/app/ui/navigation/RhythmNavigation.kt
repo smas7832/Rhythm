@@ -638,10 +638,22 @@ fun RhythmNavigation(
                         },
                         onViewAllSongs = {
                             // Navigate to songs screen
-                            navController.navigate(Screen.Library.createRoute(LibraryTab.SONGS))
+                            navController.navigate(Screen.Library.createRoute(LibraryTab.SONGS)) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
                         },
                         onViewAllAlbums = {
-                            navController.navigate(Screen.Library.createRoute(LibraryTab.PLAYLISTS))
+                            navController.navigate(Screen.Library.createRoute(LibraryTab.PLAYLISTS)) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
                         },
                         onViewAllArtists = {
                             navController.navigate(Screen.AllArtists.route)
@@ -660,7 +672,13 @@ fun RhythmNavigation(
                         },
                         onNavigateToLibrary = {
                             // Navigate to library with playlists tab selected
-                            navController.navigate(Screen.Library.createRoute(LibraryTab.PLAYLISTS))
+                            navController.navigate(Screen.Library.createRoute(LibraryTab.PLAYLISTS)) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
                         },
                         onNavigateToPlaylist = { playlistId ->
                             // Navigate to the specified playlist
@@ -1206,7 +1224,13 @@ fun RhythmNavigation(
                         },
                         onNavigateToLibrary = { tab ->
                             // Navigate to the LibraryScreen with the specified tab
-                            navController.navigate(Screen.Library.createRoute(tab))
+                            navController.navigate(Screen.Library.createRoute(tab)) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
                         },
                         showAddToPlaylistSheet = showAddToPlaylistSheet.value,
                         onAddToPlaylistSheetDismiss = {
