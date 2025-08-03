@@ -472,6 +472,7 @@ fun SettingsScreen(
                        appSettings.setAlbumViewType(newViewType)
                     }
                 )
+                SettingsDivider()
 
                 val artistViewType by appSettings.artistViewType.collectAsState()
                 
@@ -490,6 +491,7 @@ fun SettingsScreen(
                         appSettings.setArtistViewType(newViewType)
                     }
                 )
+                SettingsDivider()
 
                 val albumSortOrder by appSettings.albumSortOrder.collectAsState()
                 
@@ -975,19 +977,22 @@ fun SettingsClickableItem(
     iconTint: Color = MaterialTheme.colorScheme.primary, // Added iconTint parameter
     onClick: () -> Unit
 ) {
+    val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
     Card(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer
         ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 1.dp
-        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp)
             .clip(RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick)
+            .clickable {
+                onClick()
+                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+            }
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -1056,9 +1061,7 @@ fun SettingsDropdownItem(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer
         ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 1.dp
-        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp)

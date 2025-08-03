@@ -1,7 +1,7 @@
 package chromahub.rhythm.app.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
@@ -12,7 +12,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInVertically
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -30,6 +29,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,9 +37,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -47,286 +44,235 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import chromahub.rhythm.app.R
-import chromahub.rhythm.app.ui.annotations.RhythmAnimation
+import chromahub.rhythm.app.viewmodel.MusicViewModel
 import kotlinx.coroutines.delay
 
-@RhythmAnimation(
-    type = chromahub.rhythm.app.ui.annotations.AnimationType.SCALE,
-    duration = 3000,
-    description = "Enhanced splash screen with sophisticated animations, floating particles, and dynamic text reveal"
-)
 @Composable
-fun SplashScreen() {
-    val infiniteTransition = rememberInfiniteTransition(label = "splashPulse")
+fun SplashScreen(
+    musicViewModel: MusicViewModel,
+    onMediaScanComplete: () -> Unit = {}
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "splashAnimations")
     
-    // Enhanced logo scaling with bounce effect
+    // Simple logo and text animation
     val logoScale by infiniteTransition.animateFloat(
-        initialValue = 0.9f,
-        targetValue = 1.1f,
+        initialValue = 0.95f,
+        targetValue = 1.05f,
         animationSpec = infiniteRepeatable(
             animation = tween(
                 durationMillis = 2000,
-                easing = androidx.compose.animation.core.FastOutSlowInEasing
+                easing = androidx.compose.animation.core.EaseInOutSine
             ),
             repeatMode = RepeatMode.Reverse
         ),
         label = "logoScale"
     )
 
-    // Floating logo animation
-    val logoOffsetY by infiniteTransition.animateFloat(
-        initialValue = -8f,
-        targetValue = 8f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(3000, easing = androidx.compose.animation.core.EaseInOutCubic),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "logoFloat"
-    )
+    // Animation state variables
+    var showContent by remember { mutableStateOf(false) }
+    var showLoadingDots by remember { mutableStateOf(false) }
+    var exitSplash by remember { mutableStateOf(false) }
 
-    // Dynamic glow effect
-    val glowAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 0.8f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1500, easing = androidx.compose.animation.core.EaseInOut),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "glow"
-    )
+    // Animatable for entrance and exit
+    val contentScale = remember { Animatable(0f) }
+    val contentAlpha = remember { Animatable(0f) }
+    val exitScale = remember { Animatable(1f) }
+    val exitAlpha = remember { Animatable(1f) }
 
-    // Rotating gradient background
-    val rotationAngle by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(15000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "backgroundRotation"
-    )
-
-    // Particle system simulation
-    val particleOffset1 by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(8000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "particle1"
-    )
-
-    val particleOffset2 by infiniteTransition.animateFloat(
-        initialValue = 180f,
-        targetValue = 540f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(12000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "particle2"
-    )
-
-    var showTagline by remember { mutableStateOf(false) }
-    var showSubtitle by remember { mutableStateOf(false) }
+    // Monitor media scanning completion
+    val isInitialized by musicViewModel.isInitialized.collectAsState()
 
     LaunchedEffect(Unit) {
-        delay(1200) // Delay before showing tagline
-        showTagline = true
-        delay(800) // Additional delay for subtitle
-        showSubtitle = true
+        // Start entrance animation
+        delay(200)
+        showContent = true
+        contentScale.animateTo(1f, animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ))
+        contentAlpha.animateTo(1f, animationSpec = tween(800))
+        
+        delay(400)
+        showLoadingDots = true
+    }
+
+    // Handle media scanning completion
+    LaunchedEffect(isInitialized) {
+        if (isInitialized && !exitSplash) {
+            exitSplash = true
+            
+            // Exit animation
+            exitScale.animateTo(0.95f, animationSpec = tween(1700))
+            exitAlpha.animateTo(0f, animationSpec = tween(1700))
+            
+            delay(400)
+            onMediaScanComplete()
+        }
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                brush = Brush.radialGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.background,
-                        MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
-                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f)
-                    ),
-                    radius = 800f
-                )
-            ),
+            .background(MaterialTheme.colorScheme.background)
+            .graphicsLayer {
+                scaleX = exitScale.value
+                scaleY = exitScale.value
+                alpha = exitAlpha.value
+            },
         contentAlignment = Alignment.Center
     ) {
-        // Animated background elements
-        Canvas(
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer { rotationZ = rotationAngle * 0.1f }
+        // Background particles using the drawable
+        AnimatedVisibility(
+            visible = showContent,
+            enter = fadeIn(animationSpec = tween(1000))
         ) {
-            val center = Offset(size.width / 2, size.height / 2)
-            
-            // Floating particles
-            for (i in 0..5) {
-                val angle = (particleOffset1 + i * 60f) * (kotlin.math.PI / 180f)
-                val radius = 150f + i * 30f
-                val x = center.x + kotlin.math.cos(angle).toFloat() * radius
-                val y = center.y + kotlin.math.sin(angle).toFloat() * radius
-                
-                drawCircle(
-                    color = Color(0xFF6750A4).copy(alpha = 0.2f * glowAlpha),
-                    radius = 4f + i * 2f,
-                    center = Offset(x, y)
-                )
-            }
-            
-            for (i in 0..3) {
-                val angle = (particleOffset2 + i * 90f) * (kotlin.math.PI / 180f)
-                val radius = 200f + i * 40f
-                val x = center.x + kotlin.math.cos(angle).toFloat() * radius
-                val y = center.y + kotlin.math.sin(angle).toFloat() * radius
-                
-                drawCircle(
-                    color = Color(0xFF7C4DFF).copy(alpha = 0.15f * glowAlpha),
-                    radius = 6f + i * 3f,
-                    center = Offset(x, y)
-                )
-            }
+            Image(
+                painter = painterResource(id = R.drawable.splash_particles),
+                contentDescription = null,
+                modifier = Modifier
+                    .size(300.dp)
+                    .graphicsLayer {
+                        alpha = 0.3f
+                        scaleX = logoScale * 1.2f
+                        scaleY = logoScale * 1.2f
+                    }
+            )
         }
 
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    scaleX = contentScale.value
+                    scaleY = contentScale.value
+                    alpha = contentAlpha.value
+                }
         ) {
-            // Enhanced logo container with glow effect
-            Box(
-                modifier = Modifier
-                    .size(300.dp)
-                    .graphicsLayer {
-                        // translationY = logoOffsetY
-                        // scaleX = logoScale
-                        // scaleY = logoScale
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                // Glow background
-                // Surface(
-                //     modifier = Modifier
-                //         .size(240.dp)
-                //         .scale(logoScale * 1.2f),
-                //     shape = CircleShape,
-                //     color = MaterialTheme.colorScheme.primary.copy(alpha = glowAlpha * 0.3f),
-                //     shadowElevation = 0.dp
-                // ) {}
-                
-                // // Secondary glow
-                // Surface(
-                //     modifier = Modifier
-                //         .size(200.dp)
-                //         .scale(logoScale),
-                //     shape = CircleShape,
-                //     color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = glowAlpha * 0.5f),
-                //     shadowElevation = 0.dp
-                // ) {}
-
-                // Main logo
-                Image(
-                    painter = painterResource(id = R.drawable.rhythm_splash_logo),
-                    contentDescription = "Rhythm",
-                    modifier = Modifier
-                        .size(220.dp)
-                        .graphicsLayer {
-                            alpha = 0.9f + (glowAlpha * 0.1f)
-                        }
-                )
-            }
-
-            Spacer(modifier = Modifier.height(0.dp))
-
-            // Animated title with letter-by-letter reveal
+            // Logo and title container with synchronized animation
             AnimatedVisibility(
-                visible = true,
+                visible = showContent,
                 enter = scaleIn(
                     animationSpec = spring(
                         dampingRatio = Spring.DampingRatioMediumBouncy,
-                        stiffness = Spring.StiffnessLow
+                        stiffness = Spring.StiffnessMedium
                     ),
-                    initialScale = 0.8f
+                    initialScale = 0.3f
                 ) + fadeIn(animationSpec = tween(800))
             ) {
-                Text(
-                    text = "Rhythm",
-                    style = MaterialTheme.typography.displayLarge.copy(
-                        fontSize = 48.sp,
-                        letterSpacing = 2.sp
-                    ),
-                    fontWeight = FontWeight.Black,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier
-                        .graphicsLayer {
-                            shadowElevation = 0f
-                            alpha = 0.8f + (glowAlpha * 0.2f)
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(24.dp)
+                ) {
+                    // App logo
+                    Image(
+                        painter = painterResource(id = R.drawable.rhythm_splash_logo),
+                        contentDescription = "Rhythm",
+                        modifier = Modifier
+                            .size(160.dp)
+                            .graphicsLayer {
+                                scaleX = logoScale
+                                scaleY = logoScale
+                            }
+                    )
+
+                    // App name with material design styling
+                    Text(
+                        text = "Rhythm",
+                        style = MaterialTheme.typography.displayMedium.copy(
+                            fontSize = 48.sp,
+                            letterSpacing = 2.sp
+                        ),
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.graphicsLayer {
+                            scaleX = logoScale
+                            scaleY = logoScale
                         }
-                )
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(40.dp))
 
-            // Enhanced tagline with slide-in animation
+            // Subtitle
             AnimatedVisibility(
-                visible = showTagline,
+                visible = showContent,
                 enter = slideInVertically(
-                    initialOffsetY = { it / 3 },
+                    initialOffsetY = { it / 2 },
                     animationSpec = spring(
                         dampingRatio = Spring.DampingRatioMediumBouncy,
                         stiffness = Spring.StiffnessMedium
                     )
-                ) + fadeIn(animationSpec = tween(1200, delayMillis = 200))
+                ) + fadeIn(animationSpec = tween(1000, delayMillis = 400))
             ) {
                 Text(
-                    text = "Your Music, Your Way",
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        letterSpacing = 1.sp
+                    text = "Your Music, Your Rhythm",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        letterSpacing = 1.sp,
+                        fontSize = 18.sp
                     ),
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
                     textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .padding(horizontal = 24.dp)
-                        .graphicsLayer {
-                            alpha = 0.7f + (glowAlpha * 0.3f)
-                        }
+                    modifier = Modifier.padding(horizontal = 32.dp)
                 )
             }
-
-            Spacer(modifier = Modifier.height(0.dp))
         }
 
-        // Loading indicator at the bottom
-        Box(
+        // Loading indicator with material design
+        AnimatedVisibility(
+            visible = showLoadingDots,
+            enter = fadeIn(animationSpec = tween(600, delayMillis = 600)),
             modifier = Modifier
                 .fillMaxSize()
                 .padding(bottom = 80.dp),
-            contentAlignment = Alignment.BottomCenter
         ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+            Box(
+                contentAlignment = Alignment.BottomCenter,
+                modifier = Modifier.fillMaxSize()
             ) {
-                repeat(3) { index ->
-                    val animationDelay = index * 200
-                    val dotScale by infiniteTransition.animateFloat(
-                        initialValue = 0.8f,
-                        targetValue = 1.4f,
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(600, delayMillis = animationDelay, easing = androidx.compose.animation.core.EaseInOut),
-                            repeatMode = RepeatMode.Reverse
-                        ),
-                        label = "dot$index"
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "Loading your music library...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                        fontWeight = FontWeight.Medium
                     )
                     
-                    Surface(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .scale(dotScale),
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
-                    ) {}
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        repeat(3) { index ->
+                            val animationDelay = index * 150
+                            val dotScale by infiniteTransition.animateFloat(
+                                initialValue = 0.8f,
+                                targetValue = 1.2f,
+                                animationSpec = infiniteRepeatable(
+                                    animation = tween(
+                                        600, 
+                                        delayMillis = animationDelay,
+                                        easing = androidx.compose.animation.core.EaseInOut
+                                    ),
+                                    repeatMode = RepeatMode.Reverse
+                                ),
+                                label = "dot$index"
+                            )
+                            
+                            Surface(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .scale(dotScale),
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primary
+                            ) {}
+                        }
+                    }
                 }
             }
         }

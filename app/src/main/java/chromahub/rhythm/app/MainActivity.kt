@@ -94,7 +94,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.animation.Crossfade
 import androidx.compose.ui.text.font.FontWeight
 import chromahub.rhythm.app.viewmodel.MusicViewModel
-import chromahub.rhythm.app.ui.annotations.RhythmAnimation
+//import chromahub.rhythm.app.ui.annotations.RhythmAnimation
 import android.provider.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -197,9 +197,14 @@ class MainActivity : ComponentActivity() {
                     var isInitializingApp by remember { mutableStateOf(false) }
                     val lastCrashLog by appSettings.lastCrashLog.collectAsState() // Observe last crash log
 
-                    // Animate the splash screen out after a delay
+                    // Handle splash screen completion and post-init tasks
                     LaunchedEffect(Unit) {
-                        delay(4000) // Increased delay for a longer gap between splash and onboarding
+                        // Wait for splash screen to complete (it will call onMediaScanComplete when ready)
+                        // This LaunchedEffect will handle post-splash tasks like beta popup and intent handling
+                    }
+                    
+                    // Function to handle splash completion
+                    fun onSplashComplete() {
                         showSplash = false
                         isLoading = false // Stop initial loading after splash
 
@@ -208,17 +213,18 @@ class MainActivity : ComponentActivity() {
                             showBetaPopup = true
                         }
 
-                        // Check for previous crash logs and show dialog if present
+                        // Check for previous crash logs
                         lastCrashLog?.let {
                             // CrashActivity is now responsible for showing the dialog
-                            // CrashReporter.showDialog(it) // This line is no longer needed
-                            // appSettings.setLastCrashLog(null) // Clear the log after showing - now handled by CrashActivity
                         }
                         
                         // Handle intent after splash screen disappears and app is initialized
                         if (startupIntent?.action == Intent.ACTION_VIEW && startupIntent.data != null) {
-                            delay(500) // Small additional delay to ensure view models are ready
-                            handleIntent(startupIntent)
+                            // Small delay to ensure view models are ready, then handle intent
+                            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+                                kotlinx.coroutines.delay(500)
+                                handleIntent(startupIntent)
+                            }
                         }
                     }
                     
@@ -249,7 +255,10 @@ class MainActivity : ComponentActivity() {
                             visible = showSplash,
                             exit = fadeOut(animationSpec = tween(1000, easing = androidx.compose.animation.core.EaseInCubic))
                         ) {
-                            SplashScreen()
+                            SplashScreen(
+                                musicViewModel = musicViewModel,
+                                onMediaScanComplete = { onSplashComplete() }
+                            )
                         }
 
                         // Beta Program Popup
