@@ -247,7 +247,8 @@ class MainActivity : ComponentActivity() {
                                 isLoading = isLoading,
                                 isInitializingApp = isInitializingApp,
                                 onSetIsLoading = { isLoading = it },
-                                onSetIsInitializingApp = { isInitializingApp = it }
+                                onSetIsInitializingApp = { isInitializingApp = it },
+                                musicViewModel = musicViewModel
                             )
                         }
                         

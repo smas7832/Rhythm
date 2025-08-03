@@ -37,7 +37,10 @@ import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.google.accompanist.permissions.shouldShowRationale
 import kotlinx.coroutines.delay
+import androidx.lifecycle.viewmodel.compose.viewModel
+import chromahub.rhythm.app.viewmodel.MusicViewModel
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
@@ -48,12 +51,15 @@ fun PermissionHandler(
     isLoading: Boolean, // Pass as parameter
     isInitializingApp: Boolean, // Pass as parameter
     onSetIsLoading: (Boolean) -> Unit, // Callback to update state
-    onSetIsInitializingApp: (Boolean) -> Unit // Callback to update state
+    onSetIsInitializingApp: (Boolean) -> Unit, // Callback to update state
+    musicViewModel: MusicViewModel = viewModel()
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val onboardingCompleted by appSettings.onboardingCompleted.collectAsState()
     var permissionScreenState by remember { mutableStateOf<PermissionScreenState>(PermissionScreenState.Loading) }
     var permissionRequestLaunched by remember { mutableStateOf(false) } // New state to track if permission request has been launched
+    var showMediaScanLoader by remember { mutableStateOf(false) } // New state for media scan loader
 
     var currentOnboardingStep by remember {
         mutableStateOf(
@@ -112,7 +118,7 @@ fun PermissionHandler(
     val lifecycleOwner = LocalLifecycleOwner.current
 
     // Centralized function to evaluate permission status and update onboarding step
-    val evaluatePermissionsAndSetStep: suspend () -> Unit = {
+    suspend fun evaluatePermissionsAndSetStep() {
         // Check if we have the essential storage permissions
         val hasStoragePermissions = storagePermissions.all { permission ->
             permissionsState.permissions.find { it.permission == permission }?.status?.isGranted == true
@@ -124,6 +130,10 @@ fun PermissionHandler(
                 currentOnboardingStep = OnboardingStep.AUDIO_PLAYBACK // Move to audio/playback step
             } else {
                 currentOnboardingStep = OnboardingStep.COMPLETE
+                // Show media scan loader if onboarding was already completed (first startup after onboarding)
+                if (!showMediaScanLoader) {
+                    showMediaScanLoader = true
+                }
                 onSetIsInitializingApp(true) // Start app initialization
                 val intent = Intent(context, chromahub.rhythm.app.service.MediaPlaybackService::class.java)
                 intent.action = chromahub.rhythm.app.service.MediaPlaybackService.ACTION_INIT_SERVICE
@@ -186,7 +196,9 @@ fun PermissionHandler(
                 }
             } else if (permissionScreenState == PermissionScreenState.Loading) {
                 // If still in loading, re-evaluate to determine the correct state
-                evaluatePermissionsAndSetStep()
+                scope.launch {
+                    evaluatePermissionsAndSetStep()
+                }
             }
         }
     }
@@ -210,7 +222,7 @@ fun PermissionHandler(
                 super.onResume(owner)
                 // When activity resumes, if we are on the permissions step, re-check
                 if (currentOnboardingStep == OnboardingStep.PERMISSIONS || (onboardingCompleted && permissionScreenState != PermissionScreenState.PermissionsGranted)) {
-                    launch {
+                    scope.launch {
                         delay(500) // Small delay to ensure system permission dialogs are fully dismissed
                         onSetIsLoading(true) // Start loading when re-checking permissions on resume
                         evaluatePermissionsAndSetStep()
@@ -222,8 +234,9 @@ fun PermissionHandler(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
+        // Show the main app only after media scanning is complete
         AnimatedVisibility(
-            visible = currentOnboardingStep == OnboardingStep.COMPLETE && !isInitializingApp, // Show app when complete AND not initializing
+            visible = currentOnboardingStep == OnboardingStep.COMPLETE && !isInitializingApp && !showMediaScanLoader, // Show app when complete AND not initializing AND media scan is done
             enter = fadeIn(animationSpec = tween(1000, easing = androidx.compose.animation.core.EaseOutCubic)) +
                    slideInVertically(
                        initialOffsetY = { it / 3 },
@@ -231,6 +244,20 @@ fun PermissionHandler(
                    )
         ) {
             onPermissionsGranted()
+        }
+
+        // Show media scan loader after onboarding completion
+        AnimatedVisibility(
+            visible = showMediaScanLoader,
+            enter = fadeIn(animationSpec = tween(800, easing = androidx.compose.animation.core.EaseOutCubic)),
+            exit = fadeOut(animationSpec = tween(800, easing = androidx.compose.animation.core.EaseInCubic))
+        ) {
+            MediaScanLoader(
+                musicViewModel = musicViewModel,
+                onScanComplete = {
+                    showMediaScanLoader = false
+                }
+            )
         }
 
         AnimatedVisibility(
@@ -270,6 +297,7 @@ fun PermissionHandler(
                         OnboardingStep.UPDATER -> {
                             appSettings.setOnboardingCompleted(true) // Mark onboarding as complete
                             currentOnboardingStep = OnboardingStep.COMPLETE // Move to complete
+                            showMediaScanLoader = true // Show media scan loader after onboarding
                             // The evaluatePermissionsAndSetStep will handle setting isInitializingApp = true
                             // and then false after service init.
                         }
