@@ -2,25 +2,32 @@ package chromahub.rhythm.app.ui.components
 
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.EaseInOutCubic
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -28,6 +35,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.drawBehind
@@ -40,62 +48,404 @@ import androidx.compose.ui.graphics.asAndroidPath
 import kotlin.math.PI
 import kotlin.math.sin
 import kotlin.math.cos
+import kotlin.math.abs
 
 /**
- * Material Design 3 compliant linear progress indicator with rounded corners
- * Updated to match the latest Material 3 specifications
+ * Material Design 3 Expressive Linear Progress Indicator
+ * Features dynamic breathing animations, enhanced visual feedback, and smart color transitions
  */
 @Composable
 fun M3LinearLoader(
     progress: Float? = null,
     modifier: Modifier = Modifier,
     color: Color = MaterialTheme.colorScheme.primary,
-    trackColor: Color = MaterialTheme.colorScheme.surfaceVariant,
-    showTrackGap: Boolean = true, // This parameter will be ignored for wavy loader
-    showStopIndicator: Boolean = true, // This parameter will be ignored for wavy loader
-    fourColor: Boolean = false // This parameter will be ignored for wavy loader
+    trackColor: Color = MaterialTheme.colorScheme.surfaceContainerHighest,
+    showTrackGap: Boolean = true,
+    showStopIndicator: Boolean = true,
+    fourColor: Boolean = false,
+    isExpressive: Boolean = true
 ) {
-    M3WaveProgressIndicator(
-        progress = progress ?: 1f, // Use 1f for indeterminate
-        modifier = modifier,
-        waveColor = color,
-        trackColor = trackColor,
-        showLabel = false // Linear loader typically doesn't show label
-    )
+    if (isExpressive) {
+        M3ExpressiveLinearIndicator(
+            progress = progress,
+            modifier = modifier,
+            primaryColor = color,
+            trackColor = trackColor,
+            fourColor = fourColor
+        )
+    } else {
+        M3WaveProgressIndicator(
+            progress = progress ?: 1f,
+            modifier = modifier,
+            waveColor = color,
+            trackColor = trackColor,
+            showLabel = false
+        )
+    }
 }
 
 /**
- * Material Design 3 compliant circular progress indicator
- * Updated to match the latest Material 3 specifications
+ * Material Design 3 Expressive Circular Progress Indicator
+ * Features breathing animations, dynamic stroke variations, and enhanced visual impact
  */
 @Composable
 fun M3CircularLoader(
     progress: Float? = null,
     modifier: Modifier = Modifier,
     color: Color = MaterialTheme.colorScheme.primary,
-    trackColor: Color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-    strokeWidth: Float = 4f, // This parameter will be ignored for wavy loader
-    showTrackGap: Boolean = true, // This parameter will be ignored for wavy loader
-    fourColor: Boolean = false // This parameter will be ignored for wavy loader
+    trackColor: Color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.4f),
+    strokeWidth: Float = 4f,
+    showTrackGap: Boolean = true,
+    fourColor: Boolean = false,
+    isExpressive: Boolean = true
 ) {
-    M3CircularWaveProgressIndicator(
-        progress = progress ?: 1f, // Use 1f for indeterminate
-        modifier = modifier,
-        colors = if (fourColor) {
-            listOf(
-                MaterialTheme.colorScheme.primary,
-                MaterialTheme.colorScheme.secondary,
-                MaterialTheme.colorScheme.tertiary,
-                MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        } else {
-            listOf(color, color) // Ensure at least two colors for sweepGradient
-        },
-        trackColor = trackColor,
-        strokeWidth = strokeWidth
-    )
+    if (isExpressive) {
+        M3ExpressiveCircularIndicator(
+            progress = progress,
+            modifier = modifier,
+            primaryColor = color,
+            trackColor = trackColor,
+            baseStrokeWidth = strokeWidth,
+            fourColor = fourColor
+        )
+    } else {
+        M3CircularWaveProgressIndicator(
+            progress = progress ?: 1f,
+            modifier = modifier,
+            colors = if (fourColor) {
+                listOf(
+                    MaterialTheme.colorScheme.primary,
+                    MaterialTheme.colorScheme.secondary,
+                    MaterialTheme.colorScheme.tertiary,
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                listOf(color, color)
+            },
+            trackColor = trackColor,
+            strokeWidth = strokeWidth
+        )
+    }
 }
 
+/**
+ * Material Design 3 Expressive Linear Progress Indicator
+ * Features breathing animations, smart color transitions, and enhanced visual feedback
+ */
+@Composable
+fun M3ExpressiveLinearIndicator(
+    progress: Float? = null,
+    modifier: Modifier = Modifier,
+    primaryColor: Color = MaterialTheme.colorScheme.primary,
+    trackColor: Color = MaterialTheme.colorScheme.surfaceContainerHighest,
+    fourColor: Boolean = false
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "expressiveLinearAnimation")
+    
+    // Breathing animation for indeterminate state
+    val breathingScale by infiniteTransition.animateFloat(
+        initialValue = 0.95f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = EaseInOutCubic),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "breathingScale"
+    )
+    
+    // Shimmer effect for indeterminate
+    val shimmerOffset by infiniteTransition.animateFloat(
+        initialValue = -1f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "shimmerOffset"
+    )
+    
+    // Color pulsing for four-color mode
+    val colorPhase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 4f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(3000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "colorPhase"
+    )
+    
+    // Animate determinate progress
+    val animatedProgress by animateFloatAsState(
+        targetValue = progress ?: 0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "progressAnimation"
+    )
+    
+    val isIndeterminate = progress == null
+    
+    // Pre-calculate colors outside of Canvas context
+    val fourColorPalette = listOf(
+        MaterialTheme.colorScheme.primary,
+        MaterialTheme.colorScheme.secondary,
+        MaterialTheme.colorScheme.tertiary,
+        MaterialTheme.colorScheme.error
+    )
+    
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(8.dp)
+            .clip(RoundedCornerShape(4.dp))
+            .graphicsLayer {
+                if (isIndeterminate) {
+                    scaleY = breathingScale
+                }
+            },
+        color = trackColor,
+        shadowElevation = if (isIndeterminate) 2.dp else 0.dp
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val width = size.width
+            val height = size.height
+            
+            if (isIndeterminate) {
+                // Indeterminate shimmer effect
+                val shimmerWidth = width * 0.3f
+                val shimmerStart = (width + shimmerWidth) * shimmerOffset - shimmerWidth
+                val shimmerEnd = shimmerStart + shimmerWidth
+                
+                if (fourColor) {
+                    // Four-color cycling animation
+                    val currentColorIndex = (colorPhase % 4).toInt()
+                    val nextColorIndex = ((colorPhase % 4).toInt() + 1) % 4
+                    val colorProgress = colorPhase % 1f
+                    
+                    val currentColor = fourColorPalette[currentColorIndex]
+                    val nextColor = fourColorPalette[nextColorIndex]
+                    val blendedColor = Color(
+                        red = currentColor.red * (1f - colorProgress) + nextColor.red * colorProgress,
+                        green = currentColor.green * (1f - colorProgress) + nextColor.green * colorProgress,
+                        blue = currentColor.blue * (1f - colorProgress) + nextColor.blue * colorProgress,
+                        alpha = currentColor.alpha
+                    )
+                    
+                    val gradient = Brush.horizontalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            blendedColor.copy(alpha = 0.3f),
+                            blendedColor,
+                            blendedColor.copy(alpha = 0.3f),
+                            Color.Transparent
+                        ),
+                        startX = shimmerStart,
+                        endX = shimmerEnd
+                    )
+                    
+                    drawRect(
+                        brush = gradient,
+                        size = size
+                    )
+                } else {
+                    val gradient = Brush.horizontalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            primaryColor.copy(alpha = 0.3f),
+                            primaryColor,
+                            primaryColor.copy(alpha = 0.3f),
+                            Color.Transparent
+                        ),
+                        startX = shimmerStart,
+                        endX = shimmerEnd
+                    )
+                    
+                    drawRect(
+                        brush = gradient,
+                        size = size
+                    )
+                }
+            } else {
+                // Determinate progress with gradient
+                val progressWidth = width * animatedProgress
+                
+                if (progressWidth > 0) {
+                    val gradient = Brush.horizontalGradient(
+                        colors = listOf(
+                            primaryColor.copy(alpha = 0.8f),
+                            primaryColor,
+                            primaryColor.copy(alpha = 0.9f)
+                        ),
+                        startX = 0f,
+                        endX = progressWidth
+                    )
+                    
+                    drawRect(
+                        brush = gradient,
+                        size = androidx.compose.ui.geometry.Size(progressWidth, height)
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Material Design 3 Expressive Circular Progress Indicator
+ * Features breathing animations, dynamic stroke variations, and enhanced visual impact
+ */
+@Composable
+fun M3ExpressiveCircularIndicator(
+    progress: Float? = null,
+    modifier: Modifier = Modifier,
+    primaryColor: Color = MaterialTheme.colorScheme.primary,
+    trackColor: Color = MaterialTheme.colorScheme.surfaceContainerHighest,
+    baseStrokeWidth: Float = 4f,
+    fourColor: Boolean = false
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "expressiveCircularAnimation")
+    
+    // Rotation for indeterminate
+    val rotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "rotation"
+    )
+    
+    // Stroke width breathing
+    val strokeMultiplier by infiniteTransition.animateFloat(
+        initialValue = 0.8f,
+        targetValue = 1.4f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1800, easing = EaseInOutCubic),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "strokeBreathing"
+    )
+    
+    // Arc length pulsing for indeterminate
+    val arcLength by infiniteTransition.animateFloat(
+        initialValue = 30f,
+        targetValue = 300f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = EaseInOutCubic),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "arcLength"
+    )
+    
+    // Color cycling for four-color mode
+    val colorPhase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 4f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(4000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "colorPhase"
+    )
+    
+    // Animate determinate progress
+    val animatedProgress by animateFloatAsState(
+        targetValue = progress ?: 0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "progressAnimation"
+    )
+    
+    val isIndeterminate = progress == null
+    
+    // Pre-calculate colors outside of Canvas context
+    val fourColorPalette = listOf(
+        MaterialTheme.colorScheme.primary,
+        MaterialTheme.colorScheme.secondary,
+        MaterialTheme.colorScheme.tertiary,
+        MaterialTheme.colorScheme.error
+    )
+    
+    Box(
+        modifier = modifier.size(48.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(
+            modifier = Modifier
+                .size(48.dp)
+                .graphicsLayer {
+                    if (isIndeterminate) {
+                        rotationZ = rotation
+                    }
+                }
+        ) {
+            val strokeWidth = baseStrokeWidth.dp.toPx() * if (isIndeterminate) strokeMultiplier else 1f
+            val radius = (size.minDimension - strokeWidth) / 2
+            val center = Offset(size.width / 2, size.height / 2)
+            
+            // Draw track
+            drawCircle(
+                color = trackColor,
+                radius = radius,
+                center = center,
+                style = Stroke(width = strokeWidth * 0.6f, cap = StrokeCap.Round)
+            )
+            
+            if (isIndeterminate) {
+                // Indeterminate mode
+                val sweepAngle = arcLength
+                val startAngle = -90f
+                
+                val drawColor = if (fourColor) {
+                    val currentColorIndex = (colorPhase % 4).toInt()
+                    val nextColorIndex = ((colorPhase % 4).toInt() + 1) % 4
+                    val colorProgress = colorPhase % 1f
+                    
+                    val currentColor = fourColorPalette[currentColorIndex]
+                    val nextColor = fourColorPalette[nextColorIndex]
+                    Color(
+                        red = currentColor.red * (1f - colorProgress) + nextColor.red * colorProgress,
+                        green = currentColor.green * (1f - colorProgress) + nextColor.green * colorProgress,
+                        blue = currentColor.blue * (1f - colorProgress) + nextColor.blue * colorProgress,
+                        alpha = currentColor.alpha
+                    )
+                } else {
+                    primaryColor
+                }
+                
+                drawArc(
+                    color = drawColor,
+                    startAngle = startAngle,
+                    sweepAngle = sweepAngle,
+                    useCenter = false,
+                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
+                    topLeft = Offset(center.x - radius, center.y - radius),
+                    size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2)
+                )
+            } else {
+                // Determinate mode
+                val sweepAngle = animatedProgress * 360f
+                
+                if (sweepAngle > 0f) {
+                    drawArc(
+                        color = primaryColor,
+                        startAngle = -90f,
+                        sweepAngle = sweepAngle,
+                        useCenter = false,
+                        style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
+                        topLeft = Offset(center.x - radius, center.y - radius),
+                        size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2)
+                    )
+                }
+            }
+        }
+    }
+}
 /**
  * Material Design 3 four-color circular progress indicator
  * Uses four colors from the Material 3 color scheme for indeterminate progress
@@ -103,21 +453,32 @@ fun M3CircularLoader(
 @Composable
 fun M3FourColorCircularLoader(
     modifier: Modifier = Modifier,
-    strokeWidth: Float = 4f // This parameter will be ignored for wavy loader
+    strokeWidth: Float = 4f,
+    isExpressive: Boolean = true
 ) {
-    // The four-color animation will be replaced by a single wave color
-    M3CircularWaveProgressIndicator(
-        progress = 1f, // Indeterminate, so full wave
-        modifier = modifier,
-        colors = listOf(
-            MaterialTheme.colorScheme.primary,
-            MaterialTheme.colorScheme.secondary,
-            MaterialTheme.colorScheme.tertiary,
-            MaterialTheme.colorScheme.onSurfaceVariant
-        ),
-        trackColor = MaterialTheme.colorScheme.surfaceVariant,
-        strokeWidth = strokeWidth
-    )
+    if (isExpressive) {
+        M3ExpressiveCircularIndicator(
+            progress = null, // Indeterminate
+            modifier = modifier,
+            primaryColor = MaterialTheme.colorScheme.primary,
+            trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+            baseStrokeWidth = strokeWidth,
+            fourColor = true
+        )
+    } else {
+        M3CircularWaveProgressIndicator(
+            progress = 1f,
+            modifier = modifier,
+            colors = listOf(
+                MaterialTheme.colorScheme.primary,
+                MaterialTheme.colorScheme.secondary,
+                MaterialTheme.colorScheme.tertiary,
+                MaterialTheme.colorScheme.onSurfaceVariant
+            ),
+            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+            strokeWidth = strokeWidth
+        )
+    }
 }
 
 /**
@@ -126,38 +487,134 @@ fun M3FourColorCircularLoader(
  */
 @Composable
 fun M3FourColorLinearLoader(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isExpressive: Boolean = true
 ) {
-    // The four-color animation will be replaced by a single wave color
-    M3WaveProgressIndicator(
-        progress = 1f, // Indeterminate, so full wave
-        modifier = modifier,
-        waveColor = MaterialTheme.colorScheme.primary, // Use primary color
-        trackColor = MaterialTheme.colorScheme.surfaceVariant,
-        showLabel = false
-    )
+    if (isExpressive) {
+        M3ExpressiveLinearIndicator(
+            progress = null, // Indeterminate
+            modifier = modifier,
+            primaryColor = MaterialTheme.colorScheme.primary,
+            trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+            fourColor = true
+        )
+    } else {
+        M3WaveProgressIndicator(
+            progress = 1f,
+            modifier = modifier,
+            waveColor = MaterialTheme.colorScheme.primary,
+            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+            showLabel = false
+        )
+    }
 }
 
 /**
  * Material Design 3 linear progress indicator with buffer
- * Shows both determinate progress and buffer progress
+ * Shows both determinate progress and buffer progress with expressive animations
  */
 @Composable
 fun M3BufferedLinearLoader(
     progress: Float,
-    buffer: Float, // This parameter will be ignored for wavy loader
+    buffer: Float,
     modifier: Modifier = Modifier,
     color: Color = MaterialTheme.colorScheme.primary,
-    trackColor: Color = MaterialTheme.colorScheme.surfaceVariant,
-    bufferColor: Color = color.copy(alpha = 0.4f) // This parameter will be ignored for wavy loader
+    trackColor: Color = MaterialTheme.colorScheme.surfaceContainerHighest,
+    bufferColor: Color = color.copy(alpha = 0.4f),
+    isExpressive: Boolean = true
 ) {
-    M3WaveProgressIndicator(
-        progress = progress,
-        modifier = modifier,
-        waveColor = color,
-        trackColor = trackColor,
-        showLabel = false
+    if (isExpressive) {
+        M3ExpressiveBufferedIndicator(
+            progress = progress,
+            buffer = buffer,
+            modifier = modifier,
+            primaryColor = color,
+            trackColor = trackColor,
+            bufferColor = bufferColor
+        )
+    } else {
+        M3WaveProgressIndicator(
+            progress = progress,
+            modifier = modifier,
+            waveColor = color,
+            trackColor = trackColor,
+            showLabel = false
+        )
+    }
+}
+
+/**
+ * Material Design 3 Expressive Buffered Linear Indicator
+ * Shows progress and buffer with sophisticated animations
+ */
+@Composable
+fun M3ExpressiveBufferedIndicator(
+    progress: Float,
+    buffer: Float,
+    modifier: Modifier = Modifier,
+    primaryColor: Color = MaterialTheme.colorScheme.primary,
+    trackColor: Color = MaterialTheme.colorScheme.surfaceContainerHighest,
+    bufferColor: Color = primaryColor.copy(alpha = 0.4f)
+) {
+    val animatedProgress by animateFloatAsState(
+        targetValue = progress,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "progressAnimation"
     )
+    
+    val animatedBuffer by animateFloatAsState(
+        targetValue = buffer,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioLowBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "bufferAnimation"
+    )
+    
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(8.dp)
+            .clip(RoundedCornerShape(4.dp)),
+        color = trackColor,
+        shadowElevation = 1.dp
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val width = size.width
+            val height = size.height
+            
+            // Draw buffer
+            val bufferWidth = width * animatedBuffer.coerceIn(0f, 1f)
+            if (bufferWidth > 0) {
+                drawRect(
+                    color = bufferColor,
+                    size = androidx.compose.ui.geometry.Size(bufferWidth, height)
+                )
+            }
+            
+            // Draw progress with gradient
+            val progressWidth = width * animatedProgress.coerceIn(0f, 1f)
+            if (progressWidth > 0) {
+                val gradient = Brush.horizontalGradient(
+                    colors = listOf(
+                        primaryColor.copy(alpha = 0.8f),
+                        primaryColor,
+                        primaryColor.copy(alpha = 0.9f)
+                    ),
+                    startX = 0f,
+                    endX = progressWidth
+                )
+                
+                drawRect(
+                    brush = gradient,
+                    size = androidx.compose.ui.geometry.Size(progressWidth, height)
+                )
+            }
+        }
+    }
 }
 
 /**
@@ -301,7 +758,9 @@ fun M3WaveProgressIndicator(
         if (showLabel) {
             Text(
                 text = "${(progress * 100).toInt()}%",
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontWeight = FontWeight.Medium
+                ),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
@@ -450,21 +909,121 @@ fun M3CircularWaveProgressIndicator(
 }
 
 /**
- * Pulsating circular loader that follows Material Design 3 guidelines
+ * Pulsating circular loader that follows Material Design 3 expressive guidelines
  */
 @Composable
 fun M3PulseLoader(
     modifier: Modifier = Modifier,
-    color: Color = MaterialTheme.colorScheme.primary
+    color: Color = MaterialTheme.colorScheme.primary,
+    isExpressive: Boolean = true
 ) {
-    // Pulse animation will be replaced by circular wave animation
-    M3CircularWaveProgressIndicator(
-        progress = 1f, // Indeterminate, so full wave
-        modifier = modifier,
-        colors = listOf(color, color), // Ensure at least two colors for sweepGradient
-        trackColor = MaterialTheme.colorScheme.surfaceVariant,
-        strokeWidth = 4f
+    if (isExpressive) {
+        M3ExpressivePulseIndicator(
+            modifier = modifier,
+            primaryColor = color
+        )
+    } else {
+        M3CircularWaveProgressIndicator(
+            progress = 1f,
+            modifier = modifier,
+            colors = listOf(color, color),
+            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+            strokeWidth = 4f
+        )
+    }
+}
+
+/**
+ * Material Design 3 Expressive Pulse Indicator
+ * Features sophisticated pulsing animations with breathing effects
+ */
+@Composable
+fun M3ExpressivePulseIndicator(
+    modifier: Modifier = Modifier,
+    primaryColor: Color = MaterialTheme.colorScheme.primary
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "pulseAnimation")
+    
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = EaseInOutCubic),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "pulseScale"
     )
+    
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 0.1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = EaseInOutCubic),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "pulseAlpha"
+    )
+    
+    Box(
+        modifier = modifier.size(48.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        // Multiple pulse rings for enhanced effect
+        repeat(3) { index ->
+            val delay = index * 500
+            val ringScale by infiniteTransition.animateFloat(
+                initialValue = 0.3f,
+                targetValue = 1.2f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(1500, delayMillis = delay, easing = EaseInOutCubic),
+                    repeatMode = RepeatMode.Restart
+                ),
+                label = "ringScale$index"
+            )
+            
+            val ringAlpha by infiniteTransition.animateFloat(
+                initialValue = 0.8f,
+                targetValue = 0f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(1500, delayMillis = delay, easing = EaseInOutCubic),
+                    repeatMode = RepeatMode.Restart
+                ),
+                label = "ringAlpha$index"
+            )
+            
+            Canvas(
+                modifier = Modifier
+                    .size(48.dp)
+                    .graphicsLayer {
+                        scaleX = ringScale
+                        scaleY = ringScale
+                        alpha = ringAlpha
+                    }
+            ) {
+                drawCircle(
+                    color = primaryColor,
+                    radius = size.minDimension / 4,
+                    style = Stroke(width = 2.dp.toPx())
+                )
+            }
+        }
+        
+        // Central pulsing dot
+        Canvas(
+            modifier = Modifier
+                .size(16.dp)
+                .graphicsLayer {
+                    scaleX = pulseScale
+                    scaleY = pulseScale
+                    alpha = pulseAlpha
+                }
+        ) {
+            drawCircle(
+                color = primaryColor,
+                radius = size.minDimension / 2
+            )
+        }
+    }
 }
 
 /**
@@ -559,40 +1118,116 @@ fun M3StepProgressIndicator(
 
 /**
  * Simple circular loading indicator for quick actions like blacklisting/whitelisting
+ * Enhanced with Material 3 expressive design
  */
 @Composable
 fun SimpleCircularLoader(
     modifier: Modifier = Modifier,
     size: androidx.compose.ui.unit.Dp = 16.dp,
     strokeWidth: androidx.compose.ui.unit.Dp = 2.dp,
+    color: Color = MaterialTheme.colorScheme.primary,
+    isExpressive: Boolean = true
+) {
+    if (isExpressive) {
+        SimpleExpressiveCircularLoader(
+            modifier = modifier,
+            size = size,
+            strokeWidth = strokeWidth,
+            color = color
+        )
+    } else {
+        val infiniteTransition = rememberInfiniteTransition(label = "simpleCircularLoader")
+        val rotation by infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 1000, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "rotation"
+        )
+
+        Canvas(
+            modifier = modifier
+                .size(size)
+                .graphicsLayer { rotationZ = rotation }
+        ) {
+            val strokeWidthPx = strokeWidth.toPx()
+            val radius = (size.toPx() - strokeWidthPx) / 2
+            val center = androidx.compose.ui.geometry.Offset(size.toPx() / 2, size.toPx() / 2)
+            
+            drawArc(
+                color = color,
+                startAngle = 0f,
+                sweepAngle = 270f,
+                useCenter = false,
+                style = Stroke(width = strokeWidthPx, cap = StrokeCap.Round),
+                topLeft = androidx.compose.ui.geometry.Offset(center.x - radius, center.y - radius),
+                size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2)
+            )
+        }
+    }
+}
+
+/**
+ * Simple Expressive Circular Loader with breathing and rotation
+ */
+@Composable
+fun SimpleExpressiveCircularLoader(
+    modifier: Modifier = Modifier,
+    size: androidx.compose.ui.unit.Dp = 16.dp,
+    strokeWidth: androidx.compose.ui.unit.Dp = 2.dp,
     color: Color = MaterialTheme.colorScheme.primary
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "simpleCircularLoader")
+    val infiniteTransition = rememberInfiniteTransition(label = "simpleExpressiveLoader")
+    
     val rotation by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1000, easing = LinearEasing),
+            animation = tween(1200, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "rotation"
+    )
+    
+    val strokeMultiplier by infiniteTransition.animateFloat(
+        initialValue = 0.7f,
+        targetValue = 1.3f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = EaseInOutCubic),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "strokeBreathing"
+    )
+    
+    val arcLength by infiniteTransition.animateFloat(
+        initialValue = 60f,
+        targetValue = 300f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = EaseInOutCubic),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "arcLength"
     )
 
     Canvas(
         modifier = modifier
             .size(size)
-            .graphicsLayer { rotationZ = rotation }
+            .graphicsLayer { 
+                rotationZ = rotation
+            }
     ) {
-        val strokeWidthPx = strokeWidth.toPx()
-        val radius = (size.toPx() - strokeWidthPx) / 2
+        val dynamicStrokeWidth = strokeWidth.toPx() * strokeMultiplier
+        val radius = (size.toPx() - dynamicStrokeWidth) / 2
         val center = androidx.compose.ui.geometry.Offset(size.toPx() / 2, size.toPx() / 2)
         
         drawArc(
             color = color,
             startAngle = 0f,
-            sweepAngle = 270f,
+            sweepAngle = arcLength,
             useCenter = false,
-            style = Stroke(width = strokeWidthPx, cap = StrokeCap.Round),
+            style = Stroke(width = dynamicStrokeWidth, cap = StrokeCap.Round),
             topLeft = androidx.compose.ui.geometry.Offset(center.x - radius, center.y - radius),
             size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2)
         )
