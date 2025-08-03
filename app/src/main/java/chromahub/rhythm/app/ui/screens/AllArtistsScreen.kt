@@ -72,6 +72,7 @@ import chromahub.rhythm.app.ui.components.M3PlaceholderType
 import chromahub.rhythm.app.ui.components.M3CircularWaveProgressIndicator // Added import
 import chromahub.rhythm.app.util.ImageUtils
 import chromahub.rhythm.app.util.ArtistCollaborationUtils
+import chromahub.rhythm.app.util.HapticUtils
 import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.lazy.LazyColumn
@@ -197,7 +198,7 @@ fun AllArtistsScreen(
                 navigationIcon = {
                     FilledIconButton(
                         onClick = {
-                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                             onBackClick()
                         },
                         colors = IconButtonDefaults.filledIconButtonColors(
@@ -215,7 +216,7 @@ fun AllArtistsScreen(
                     // Search icon
                     FilledIconButton(
                         onClick = {
-                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                             onSearchClick()
                         },
                         colors = IconButtonDefaults.filledIconButtonColors(
@@ -231,7 +232,7 @@ fun AllArtistsScreen(
                     // View toggle icon
                     FilledIconButton(
                         onClick = {
-                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                             val newViewType = if (isGridView) {
                                 chromahub.rhythm.app.data.ArtistViewType.LIST
                             } else {
@@ -252,7 +253,7 @@ fun AllArtistsScreen(
                     // Sort/Filter icon
                     FilledIconButton(
                         onClick = {
-                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                             showSortOptions = true
                         },
                         colors = IconButtonDefaults.filledIconButtonColors(
@@ -394,7 +395,7 @@ fun AllArtistsScreen(
                                             AllArtistsCard(
                                                 artist = artist,
                                                 onClick = {
-                                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                                                     selectedArtist = artist
                                                     showArtistSheet = true
                                                 }
@@ -416,7 +417,7 @@ fun AllArtistsScreen(
                                             ArtistListItem(
                                                 artist = artist,
                                                 onClick = {
-                                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                                                     selectedArtist = artist
                                                     showArtistSheet = true
                                                 }
@@ -480,7 +481,7 @@ fun AllArtistsScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                                 currentSortOption = sortOption
                                 showSortOptions = false
                             }
@@ -556,7 +557,7 @@ private fun AllArtistsCard(
     
     Card(
         onClick = {
-            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
             onClick()
         },
         modifier = modifier.fillMaxWidth(),
@@ -623,7 +624,7 @@ private fun AllArtistsCard(
                 // Play button overlay positioned at bottom right
                 Surface(
                     onClick = {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                         viewModel.playArtist(artist)
                     },
                     shape = CircleShape,
@@ -733,7 +734,7 @@ private fun ArtistListItem(
 
     Card(
         onClick = {
-            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
             onClick()
         },
         modifier = modifier.fillMaxWidth(),
@@ -846,7 +847,7 @@ private fun ArtistListItem(
             // Play button
             FilledIconButton(
                 onClick = {
-                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                     viewModel.playArtist(artist)
                 },
                 colors = IconButtonDefaults.filledIconButtonColors(

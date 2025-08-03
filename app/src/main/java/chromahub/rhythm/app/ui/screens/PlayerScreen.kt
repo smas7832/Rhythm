@@ -116,15 +116,11 @@ import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.ui.theme.PlayerButtonColor
 import chromahub.rhythm.app.ui.components.M3PlaceholderType
 import chromahub.rhythm.app.util.ImageUtils
+import chromahub.rhythm.app.util.HapticUtils
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import org.burnoutcrew.reorderable.ReorderableItem
-import org.burnoutcrew.reorderable.ReorderableLazyListState
-import org.burnoutcrew.reorderable.detectReorderAfterLongPress
-import org.burnoutcrew.reorderable.rememberReorderableLazyListState
-import org.burnoutcrew.reorderable.reorderable
 import java.util.Locale
 import kotlin.math.abs
 import chromahub.rhythm.app.ui.components.M3CircularLoader
@@ -280,7 +276,7 @@ fun PlayerScreen(
         } else {
             // Transitioning back to song info view
             isLyricsContentVisible = false // Hide lyrics immediately
-            delay(250) // Wait for lyrics to fade out completely
+            delay(300) // Wait for lyrics to fade out completely
             isSongInfoVisible = true // Then show song info
         }
     }
@@ -293,30 +289,52 @@ fun PlayerScreen(
     var showDeviceOutputSheet by remember { mutableStateOf(false) }
     var showSongInfoSheet by remember { mutableStateOf(false) }
 
-    // For swipe down gesture detection - improved parameters
+    // For swipe down gesture detection - enhanced for continuous sliding
     var targetOffsetY by remember { mutableStateOf(0f) }
+    var isActivelySwiping by remember { mutableStateOf(false) }
+    
     val animatedOffsetY by animateFloatAsState(
         targetValue = targetOffsetY,
-        animationSpec = tween(
-            durationMillis = 300,
-            easing = { fraction ->
-                OvershootInterpolator(2.0f).getInterpolation(fraction)
-            }
-        ),
+        animationSpec = if (isActivelySwiping) {
+            // During active swiping, use immediate response for real-time feedback
+            spring(
+                dampingRatio = Spring.DampingRatioNoBouncy,
+                stiffness = Spring.StiffnessHigh
+            )
+        } else {
+            // When releasing, use smooth bouncy animation
+            spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessMedium
+            )
+        },
         label = "animatedOffsetY"
     )
-    val swipeThreshold = 120f
+    val swipeThreshold = 80f // Further reduced for easier dismissal
+    val miniPlayerThreshold = screenHeight * 0.4f // Threshold for mini player transition
 
-    // Animation for dismiss swipe gesture
+    // Enhanced animation for dismiss swipe gesture with continuous feedback
     val dismissProgress = (animatedOffsetY / swipeThreshold).coerceIn(0f, 1f)
+    val miniPlayerProgress = (animatedOffsetY / miniPlayerThreshold).coerceIn(0f, 1f)
+    
     val contentAlpha by animateFloatAsState(
-        targetValue = 1f - (dismissProgress * 0.4f),
+        targetValue = 1f - (dismissProgress * 0.2f), // Even more subtle fade
+        animationSpec = if (isActivelySwiping) {
+            spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessHigh)
+        } else {
+            spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium)
+        },
         label = "contentAlpha"
     )
 
-    // Scale effect for swipe
+    // Enhanced scale effect with continuous interpolation
     val contentScale by animateFloatAsState(
-        targetValue = 1f - (dismissProgress * 0.05f),
+        targetValue = 1f - (miniPlayerProgress * 0.05f), // Scale based on mini player progress
+        animationSpec = if (isActivelySwiping) {
+            spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessHigh)
+        } else {
+            spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium)
+        },
         label = "contentScale"
     )
 
@@ -326,7 +344,7 @@ fun PlayerScreen(
     // Handle dismissing animation
     LaunchedEffect(isDismissing) {
         if (isDismissing) {
-            delay(50)
+            delay(0)
             onBack()
         }
     }
@@ -410,7 +428,6 @@ fun PlayerScreen(
                 onRemoveFromQueue(songToRemove)
             },
             onMoveQueueItem = { fromIndex, toIndex ->
-                // Move queue item in the actual queue
                 onMoveQueueItem(fromIndex, toIndex)
             },
             onAddSongsClick = {
@@ -556,7 +573,7 @@ fun PlayerScreen(
                     Box(modifier = Modifier.padding(start = 16.dp)) {
                         FilledTonalIconButton(
                             onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                                 onBack()
                             },
                             modifier = Modifier.size(48.dp),
@@ -578,7 +595,7 @@ fun PlayerScreen(
                     Box(modifier = Modifier.padding(end = 16.dp)) {
                         FilledTonalIconButton(
                             onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                                 showSongInfoSheet = true
                             },
                             modifier = Modifier.size(48.dp),
@@ -603,11 +620,21 @@ fun PlayerScreen(
         },
         modifier = Modifier
             .graphicsLayer {
-                // Apply translation and alpha effects based on swipe gesture
+                // Apply translation and enhanced effects based on swipe gesture
                 translationY = animatedOffsetY
                 alpha = contentAlpha
                 scaleX = contentScale
                 scaleY = contentScale
+                
+                // Add subtle rotation and blur effect during transition
+                rotationX = miniPlayerProgress * 2f // Subtle 3D effect
+                
+                // Create depth effect by adjusting corner radius during swipe
+                clip = true
+                shape = RoundedCornerShape(
+                    topStart = (miniPlayerProgress * 16).dp,
+                    topEnd = (miniPlayerProgress * 16).dp
+                )
             }
     ) { paddingValues ->
         // Use Box as the root container to allow absolute positioning
@@ -617,58 +644,150 @@ fun PlayerScreen(
                 .padding(paddingValues)
                 .pointerInput(Unit) {
                     var dragAmountY = 0f
+                    var velocityY = 0f
+                    var lastDragTime = 0L
 
                     detectVerticalDragGestures(
-                        onDragStart = {
+                        onDragStart = { offset ->
                             dragAmountY = 0f
+                            velocityY = 0f
+                            lastDragTime = System.currentTimeMillis()
+                            isActivelySwiping = true
                         },
                         onVerticalDrag = { change, dragAmount ->
                             change.consume()
-
-                            // Only track downward swipes for dismissal
-                            if (dragAmount > 0) {
-                                dragAmountY += dragAmount
-                                // Apply resistance effect - slower movement as user drags further
-                                targetOffsetY = (dragAmountY * 0.6f).coerceIn(0f, screenHeight / 2)
+                            val currentTime = System.currentTimeMillis()
+                            val deltaTime = (currentTime - lastDragTime).coerceAtLeast(1L)
+                            
+                            // Track both upward and downward swipes for more natural feel
+                            if (dragAmount > 0 || (dragAmount < 0 && dragAmountY > 0)) {
+                                dragAmountY = (dragAmountY + dragAmount).coerceAtLeast(0f)
+                                velocityY = dragAmount / deltaTime * 1000f // pixels per second
+                                
+                                // Smooth resistance curve that doesn't stop the movement
+                                val maxDrag = screenHeight * 0.8f
+                                val resistanceFactor = when {
+                                    dragAmountY < swipeThreshold -> 1.0f
+                                    dragAmountY < miniPlayerThreshold -> 0.8f
+                                    else -> {
+                                        val overDrag = dragAmountY - miniPlayerThreshold
+                                        val remainingDistance = maxDrag - miniPlayerThreshold
+                                        0.3f + (0.5f * (1f - (overDrag / remainingDistance).coerceIn(0f, 1f)))
+                                    }
+                                }
+                                
+                                targetOffsetY = (dragAmountY * resistanceFactor).coerceIn(0f, maxDrag)
                             }
+                            lastDragTime = currentTime
                         },
                         onDragEnd = {
-                            // If we've dragged enough, close the player with haptic feedback
-                            if (dragAmountY > swipeThreshold) {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                isDismissing = true
-                            } else {
-                                targetOffsetY = 0f
+                            isActivelySwiping = false
+                            
+                            // Enhanced decision logic for smooth transitions
+                            when {
+                                // Quick flick down - immediate dismiss
+                                velocityY > 800f && dragAmountY > swipeThreshold * 0.3f -> {
+                                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                                    isDismissing = true
+                                }
+                                // Dragged past mini player threshold - dismiss
+                                dragAmountY > miniPlayerThreshold -> {
+                                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                                    isDismissing = true
+                                }
+                                // Moderate drag with some velocity - dismiss
+                                dragAmountY > swipeThreshold && velocityY > 300f -> {
+                                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                                    isDismissing = true
+                                }
+                                // Otherwise spring back smoothly
+                                else -> {
+                                    targetOffsetY = 0f
+                                }
                             }
                         },
                         onDragCancel = {
-                            // Reset position immediately if not dismissing
+                            isActivelySwiping = false
+                            // Smooth spring back animation
                             targetOffsetY = 0f
                         }
                     )
                 }
         ) {
-            // Add swipe down indicator text when dragging down
-            if (animatedOffsetY > swipeThreshold * 0.3f) {
+            // Enhanced swipe down indicator with progressive feedback
+            if (animatedOffsetY > swipeThreshold * 0.1f) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 8.dp)
+                        .padding(top = 12.dp)
                 ) {
                     val textAlpha =
-                        ((animatedOffsetY - (swipeThreshold * 0.3f)) / (swipeThreshold * 0.7f)).coerceIn(
+                        ((animatedOffsetY - (swipeThreshold * 0.1f)) / (swipeThreshold * 0.9f)).coerceIn(
                             0f,
                             1f
                         )
-                    Text(
-                        text = "Release to close",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = textAlpha),
+                    
+                    // Progressive feedback based on drag distance
+                    val (feedbackText, feedbackColor) = when {
+                        animatedOffsetY > miniPlayerThreshold * 0.8f -> 
+                            "Release to close" to MaterialTheme.colorScheme.error
+                        animatedOffsetY > swipeThreshold * 2f -> 
+                            "Continue to minimize" to MaterialTheme.colorScheme.tertiary
+                        animatedOffsetY > swipeThreshold * 0.8f -> 
+                            "Keep swiping to close" to MaterialTheme.colorScheme.primary
+                        else -> 
+                            "Swipe down to minimize" to MaterialTheme.colorScheme.secondary
+                    }
+                    
+                    // Enhanced visual feedback with animated background and progress indicator
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = feedbackColor.copy(alpha = textAlpha * 0.15f),
                         modifier = Modifier.graphicsLayer {
                             this.alpha = textAlpha
+                            scaleX = 0.7f + (textAlpha * 0.3f)
+                            scaleY = 0.7f + (textAlpha * 0.3f)
                         }
-                    )
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = feedbackText,
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = FontWeight.Medium
+                                ),
+                                color = feedbackColor,
+                                textAlign = TextAlign.Center
+                            )
+                            
+                            // Progress indicator showing swipe progress
+                            if (animatedOffsetY > swipeThreshold * 0.3f) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .width(60.dp)
+                                        .height(3.dp)
+                                        .clip(RoundedCornerShape(1.5.dp))
+                                        .background(feedbackColor.copy(alpha = 0.3f))
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxHeight()
+                                            .fillMaxWidth(
+                                                (animatedOffsetY / miniPlayerThreshold).coerceIn(0f, 1f)
+                                            )
+                                            .background(
+                                                feedbackColor,
+                                                RoundedCornerShape(1.5.dp)
+                                            )
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -704,16 +823,17 @@ fun PlayerScreen(
                             .fillMaxWidth(1.2f) // Enlarged album art to touch screen edges
                             .aspectRatio(1f)
                             .clip(RoundedCornerShape(if (isCompactHeight) 20.dp else 28.dp))
-                            .graphicsLayer(
-                                scaleX = albumScale,
-                                scaleY = albumScale,
-                                alpha = albumAlpha
-                            )
+                            .graphicsLayer {
+                                scaleX = albumScale * (1f - miniPlayerProgress * 0.1f) // Subtle shrink during swipe
+                                scaleY = albumScale * (1f - miniPlayerProgress * 0.1f)
+                                alpha = albumAlpha * (1f - miniPlayerProgress * 0.3f) // Fade during transition
+                                translationY = miniPlayerProgress * 20f // Slight upward movement
+                            }
                             .clickable(
                                 enabled = showLyrics // Only enable click if lyrics are available
                             ) {
                                 // Add haptic feedback and prevent rapid toggling
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                                 if (showLyrics && !isLyricsContentVisible && isSongInfoVisible) {
                                     // Only toggle if not currently transitioning
                                     showLyricsView = !showLyricsView
@@ -1056,7 +1176,7 @@ fun PlayerScreen(
 
                     Spacer(modifier = Modifier.height(if (isCompactHeight) 2.dp else 4.dp)) // Much reduced from contentSpacing
 
-                    // Optimized progress slider and time indicators - reduced padding
+                    // Optimized progress slider and time indicators - reduced padding with swipe responsiveness
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1064,6 +1184,11 @@ fun PlayerScreen(
                                 horizontal = if (isCompactWidth) 12.dp else 16.dp, // Reduced padding
                                 vertical = 0.dp // Removed vertical padding
                             )
+                            .graphicsLayer {
+                                // Fade out during swipe transition
+                                alpha = 1f - (miniPlayerProgress * 0.5f)
+                                translationY = miniPlayerProgress * 10f
+                            }
                     ) {
                         // Progress slider
                         WaveSlider(
@@ -1131,14 +1256,20 @@ fun PlayerScreen(
 
                     Spacer(modifier = Modifier.height(if (isCompactHeight) 4.dp else 6.dp)) // Reduced spacing before controls
 
-                    // Player controls - optimized spacing and sizing
+                    // Player controls - optimized spacing and sizing with swipe responsiveness
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(
                                 horizontal = if (isCompactWidth) 12.dp else 16.dp, // Reduced padding
                                 vertical = 0.dp // Removed vertical padding
-                            ),
+                            )
+                            .graphicsLayer {
+                                // Subtle fade and scale during swipe
+                                alpha = 1f - (miniPlayerProgress * 0.4f)
+                                scaleX = 1f - (miniPlayerProgress * 0.05f)
+                                scaleY = 1f - (miniPlayerProgress * 0.05f)
+                            },
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -1153,7 +1284,7 @@ fun PlayerScreen(
                         // Skip previous button
                         FilledTonalIconButton(
                             onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                                 onSkipPrevious()
                             },
                             modifier = Modifier.size(smallButtonSize),
@@ -1173,7 +1304,7 @@ fun PlayerScreen(
                         // Skip backward 10 seconds button
                         FilledTonalIconButton(
                             onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                                 onSeek(
                                     progress - (10000f / (song?.duration ?: 1))
                                 )
@@ -1195,7 +1326,7 @@ fun PlayerScreen(
                         // Play/pause button (larger)
                         FilledIconButton(
                             onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                                 onPlayPause()
                             },
                             modifier = Modifier.size(largeButtonSize),
@@ -1215,7 +1346,7 @@ fun PlayerScreen(
                         // Skip forward 10 seconds button
                         FilledTonalIconButton(
                             onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                                 onSeek(
                                     progress + (10000f / (song?.duration ?: 1))
                                 )
@@ -1237,7 +1368,7 @@ fun PlayerScreen(
                         // Skip next button
                         FilledTonalIconButton(
                             onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                                 onSkipNext()
                             },
                             modifier = Modifier.size(smallButtonSize),
@@ -1284,7 +1415,7 @@ fun PlayerScreen(
                             ) {
                                 IconButton(
                                     onClick = {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                                         onToggleShuffle()
                                     },
                                     modifier = Modifier.size(actionButtonSize)
@@ -1303,7 +1434,7 @@ fun PlayerScreen(
                             // Favorite button
                             FilledTonalIconButton(
                                 onClick = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                                     onToggleFavorite()
                                 },
                                 modifier = Modifier.size(actionButtonSize),
@@ -1326,7 +1457,7 @@ fun PlayerScreen(
                             if (showLyrics) {
                                 FilledTonalIconButton(
                                     onClick = {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                                         // Use same improved logic as album art click
                                         if (!isLyricsContentVisible && isSongInfoVisible) {
                                             // Only toggle if not currently transitioning
@@ -1355,7 +1486,7 @@ fun PlayerScreen(
 
                             FilledTonalIconButton(
                                 onClick = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                                     onAddToPlaylist()
                                 },
                                 modifier = Modifier.size(actionButtonSize),
@@ -1389,7 +1520,7 @@ fun PlayerScreen(
                             ) {
                                 IconButton(
                                     onClick = {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                                         onToggleRepeat()
                                     },
                                     modifier = Modifier.size(actionButtonSize)
@@ -1436,7 +1567,7 @@ fun PlayerScreen(
                         // Device Output button with rounded pill shape - optimized padding
                         Card(
                             onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                                 showDeviceOutputSheet = true
                             },
                             shape = RoundedCornerShape(if (isCompactHeight) 20.dp else 24.dp),
@@ -1509,7 +1640,7 @@ fun PlayerScreen(
                         // Queue button - optimized design with reduced padding
                         Card(
                             onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                                 if (song != null) {
                                     showQueueSheet = true
                                 } else {

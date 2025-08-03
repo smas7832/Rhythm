@@ -1428,6 +1428,20 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun clearCurrentSong() {
+        Log.d(TAG, "Clearing current song (mini player dismissed)")
+        mediaController?.let { controller ->
+            controller.stop()
+            controller.clearMediaItems()
+        }
+        _currentSong.value = null
+        _isPlaying.value = false
+        _progress.value = 0f
+        _duration.value = 0L
+        _currentQueue.value = Queue(emptyList(), -1)
+        progressUpdateJob?.cancel()
+    }
+
     /**
      * Start monitoring for audio device changes
      */

@@ -170,7 +170,7 @@ fun SplashScreen(
                         painter = painterResource(id = R.drawable.rhythm_splash_logo),
                         contentDescription = "Rhythm",
                         modifier = Modifier
-                            .size(160.dp)
+                            .size(190.dp)
                             .graphicsLayer {
                                 scaleX = logoScale
                                 scaleY = logoScale

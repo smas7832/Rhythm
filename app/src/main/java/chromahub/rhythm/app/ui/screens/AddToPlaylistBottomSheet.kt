@@ -68,6 +68,7 @@ import chromahub.rhythm.app.data.Song
 import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.ui.components.M3PlaceholderType
 import chromahub.rhythm.app.util.ImageUtils
+import chromahub.rhythm.app.util.HapticUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -165,7 +166,7 @@ fun AddToPlaylistBottomSheet(
             // Create new playlist button
             CreateNewPlaylistCard(
                 onClick = {
-                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                     scope.launch { sheetState.hide() }.invokeOnCompletion {
                         if (!sheetState.isVisible) {
                             onCreateNewPlaylist()
@@ -237,7 +238,7 @@ fun AddToPlaylistBottomSheet(
                         PlaylistCard(
                             playlist = playlist,
                             onClick = {
-                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                                 scope.launch { sheetState.hide() }.invokeOnCompletion {
                                     if (!sheetState.isVisible) {
                                         onAddToPlaylist(playlist)
@@ -341,10 +342,11 @@ private fun CreateNewPlaylistCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
     Card(
         onClick = {
-            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
             onClick()
         },
         modifier = modifier
@@ -405,6 +407,7 @@ private fun PlaylistCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
     var isPressed by remember { mutableStateOf(false) }
     
@@ -416,7 +419,7 @@ private fun PlaylistCard(
     
     Card(
         onClick = {
-            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
             onClick()
         },
         modifier = modifier

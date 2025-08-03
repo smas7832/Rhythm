@@ -7,14 +7,14 @@ plugins {
 
 android {
     namespace = "chromahub.rhythm.app"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "chromahub.rhythm.app"
         minSdk = 26
-        targetSdk = 34
-        versionCode = 24150414
-        versionName = "2.4.150.414"
+        targetSdk = 36
+        versionCode = 24156439
+        versionName = "2.4.156.439"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -22,18 +22,26 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
+//            isShrinkResources = true
+//            proguardFiles(
+//                getDefaultProguardFile("proguard-android-optimize.txt"),
+//                "proguard-rules.pro"
+//            )
+//            signingConfig = signingConfigs.getByName("debug") // Remove this in production
+        }
+        debug {
+            isMinifyEnabled = false
+            isDebuggable = true
         }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        }
     }
     buildFeatures {
         compose = true
@@ -51,7 +59,7 @@ android {
 dependencies {
     // Core Android dependencies
     implementation(libs.androidx.core.ktx)
-    implementation("androidx.core:core:1.12.0") // Explicitly add core dependency for HtmlCompat
+    implementation("androidx.core:core:1.16.0") // Downgrade core dependency for compatibility
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
     
@@ -68,48 +76,45 @@ dependencies {
     implementation("androidx.compose.material3:material3-window-size-class")
     
     // Media3 dependencies
-    implementation("androidx.media3:media3-exoplayer:1.2.1")
-    implementation("androidx.media3:media3-exoplayer-dash:1.2.1")
-    implementation("androidx.media3:media3-ui:1.2.1")
-    implementation("androidx.media3:media3-session:1.2.1")
+    implementation("androidx.media3:media3-exoplayer:1.8.0")
+    implementation("androidx.media3:media3-exoplayer-dash:1.8.0")
+    implementation("androidx.media3:media3-ui:1.8.0")
+    implementation("androidx.media3:media3-session:1.8.0")
     
     // Icons
-    implementation("androidx.compose.material:material-icons-extended:1.6.2")
+    implementation("androidx.compose.material:material-icons-extended:1.7.8")
     implementation("androidx.palette:palette-ktx:1.0.0")
     
     // Physics-based animations
-    implementation("androidx.compose.animation:animation:1.6.2")
-    implementation("androidx.compose.animation:animation-graphics:1.6.2")
-    implementation("androidx.compose.animation:animation-core:1.6.2")
+    implementation("androidx.compose.animation:animation:1.8.3")
+    implementation("androidx.compose.animation:animation-graphics:1.8.3")
+    implementation("androidx.compose.animation:animation-core:1.8.3")
     
     // Navigation
-    implementation("androidx.navigation:navigation-compose:2.7.7")
+    implementation("androidx.navigation:navigation-compose:2.9.3")
     
     // Permissions
-    implementation("com.google.accompanist:accompanist-permissions:0.32.0")
+    implementation("com.google.accompanist:accompanist-permissions:0.37.3")
     
     // Fragment
-    implementation("androidx.fragment:fragment-ktx:1.6.2")
+    implementation("androidx.fragment:fragment-ktx:1.8.8")
     
     // MediaRouter
-    implementation("androidx.mediarouter:mediarouter:1.6.0")
+    implementation("androidx.mediarouter:mediarouter:1.8.1")
     
     // Coil for image loading
-    implementation("io.coil-kt:coil-compose:2.5.0")
+    implementation("io.coil-kt:coil-compose:2.7.0")
     
     // Network
-    implementation("com.squareup.retrofit2:retrofit:2.9.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
-    implementation("com.squareup.okhttp3:okhttp:4.11.0")
-    implementation("com.squareup.okhttp3:logging-interceptor:4.11.0")
-    implementation("com.google.code.gson:gson:2.10.1")
+    implementation("com.squareup.retrofit2:retrofit:3.0.0")
+    implementation("com.squareup.retrofit2:converter-gson:3.0.0")
+    implementation("com.squareup.okhttp3:okhttp:5.1.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:5.1.0")
+    implementation("com.google.code.gson:gson:2.13.1")
 
     // Coroutines for async operations
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-    
-    // Reorderable library for drag-and-drop functionality
-    implementation("org.burnoutcrew.composereorderable:reorderable:0.9.6")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     
     // Testing
     testImplementation(libs.junit)

@@ -763,7 +763,7 @@ private fun EnhancedScrollableContent(
                                 EnhancedRecentChip(
                                     song = song,
                                     onClick = { 
-//                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress);
+//                                        HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress);
                                         onSongClick(song) }
                                 )
                             }
@@ -796,6 +796,7 @@ private fun ArtistsCarouselSection(
     onArtistClick: (Artist) -> Unit,
     onViewAllArtists: () -> Unit
 ) {
+    val context = LocalContext.current
     Column(
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -898,7 +899,7 @@ private fun ArtistCarouselCard(
             // Play button overlay positioned at bottom right
             Surface(
                 onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                     val artistSongs = chromahub.rhythm.app.util.ArtistCollaborationUtils.filterSongsByArtist(songs, artist.name)
                     if (artistSongs.isNotEmpty()) {
                         viewModel.playQueue(artistSongs)
@@ -950,6 +951,7 @@ private fun WelcomeSection(
     greeting: String,
     onSearchClick: () -> Unit
 ) {
+    val context = LocalContext.current
     val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
     val recentlyPlayed by viewModel.recentlyPlayed.collectAsState()
     val haptic = LocalHapticFeedback.current
@@ -1135,7 +1137,7 @@ private fun WelcomeSection(
             .fillMaxWidth()
             .padding(horizontal = 5.dp, vertical = 8.dp)
             .clickable { 
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                 onSearchClick() 
             }
     ) {
@@ -1302,13 +1304,14 @@ private fun QuickActionButton(
     text: String,
     onClick: () -> Unit
 ) {
+    val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .padding(vertical = 8.dp, horizontal = 4.dp)
             .clickable(onClick = {
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                 onClick()
             })
     ) {
@@ -1317,7 +1320,7 @@ private fun QuickActionButton(
             color = MaterialTheme.colorScheme.secondaryContainer,
             modifier = Modifier.size(48.dp),
             onClick = {
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                 onClick()
             }
         ) {
@@ -1348,6 +1351,7 @@ private fun QuickActionButton(
 
 @Composable
 private fun ListeningStatsSection() {
+    val context = LocalContext.current
     val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
     val recentlyPlayed by viewModel.recentlyPlayed.collectAsState()
 
@@ -1409,7 +1413,7 @@ private fun ListeningStatsSection() {
         ) {
             // Stat Card 1: Listening Time
             ElevatedCard(
-//                onClick = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) /* Optional: navigate to detailed stats */ },
+//                onClick = { HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove) /* Optional: navigate to detailed stats */ },
                 modifier = Modifier.weight(1f),
                 colors = CardDefaults.elevatedCardColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer
@@ -1431,7 +1435,7 @@ private fun ListeningStatsSection() {
 
             // Stat Card 2: Songs Played
             ElevatedCard(
-//                onClick = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) /* Optional: navigate to detailed stats */ },
+//                onClick = { HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove) /* Optional: navigate to detailed stats */ },
                 modifier = Modifier.weight(1f),
                 colors = CardDefaults.elevatedCardColors(
                     containerColor = MaterialTheme.colorScheme.secondaryContainer
@@ -1453,7 +1457,7 @@ private fun ListeningStatsSection() {
 
             // Stat Card 3: Artists
             ElevatedCard(
-//                onClick = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) /* Optional: navigate to detailed stats */ },
+//                onClick = { HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove) /* Optional: navigate to detailed stats */ },
                 modifier = Modifier.weight(1f),
                 colors = CardDefaults.elevatedCardColors(
                     containerColor = MaterialTheme.colorScheme.tertiaryContainer
@@ -1484,6 +1488,7 @@ private fun EnhancedStatCardContent(
     contentColor: Color,
     backgroundColor: Color
 ) {
+    val context = LocalContext.current
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -1585,6 +1590,7 @@ private fun MoodBasedPlaylistsSection(
     relaxingSongs: List<Song>,
     onSongClick: (Song) -> Unit
 ) {
+    val context = LocalContext.current
     val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
     val haptic = LocalHapticFeedback.current
     
@@ -1614,7 +1620,7 @@ private fun MoodBasedPlaylistsSection(
                     icon = RhythmIcons.Energy,
                     songCount = energeticSongs.size, // Pass song count
                     onPlayClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                         if (energeticSongs.isNotEmpty()) {
                             // Play with queue replacement and shuffling for better variety
                             viewModel.playSongWithQueueOption(
@@ -1626,7 +1632,7 @@ private fun MoodBasedPlaylistsSection(
                         }
                     },
                     onAddToQueueClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                         if (energeticSongs.isNotEmpty()) {
                             viewModel.addContextToQueue(energeticSongs, shuffled = true)
                         }
@@ -1644,7 +1650,7 @@ private fun MoodBasedPlaylistsSection(
                     icon = RhythmIcons.Relax,
                     songCount = relaxingSongs.size, // Pass song count
                     onPlayClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                         if (relaxingSongs.isNotEmpty()) {
                             viewModel.playSongWithQueueOption(
                                 song = relaxingSongs.first(), 
@@ -1654,7 +1660,7 @@ private fun MoodBasedPlaylistsSection(
                         }
                     },
                     onAddToQueueClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                         if (relaxingSongs.isNotEmpty()) {
                             viewModel.addContextToQueue(relaxingSongs)
                         }
@@ -1672,7 +1678,7 @@ private fun MoodBasedPlaylistsSection(
                     icon = RhythmIcons.Focus,
                     songCount = moodBasedSongs.size, // Pass song count
                     onPlayClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                         if (moodBasedSongs.isNotEmpty()) {
                             viewModel.playSongWithQueueOption(
                                 song = moodBasedSongs.first(), 
@@ -1682,7 +1688,7 @@ private fun MoodBasedPlaylistsSection(
                         }
                     },
                     onAddToQueueClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                         if (moodBasedSongs.isNotEmpty()) {
                             viewModel.addContextToQueue(moodBasedSongs)
                         }
@@ -1705,6 +1711,7 @@ private fun MoodPlaylistCard(
     onPlayClick: () -> Unit,
     onAddToQueueClick: () -> Unit = {}
 ) {
+    val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     Surface(
         color = backgroundColor,
@@ -1766,7 +1773,7 @@ private fun MoodPlaylistCard(
                     // Play button with enhanced styling
                     Surface(
                         onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                             onPlayClick()
                         },
                         shape = CircleShape,
@@ -1810,6 +1817,7 @@ private fun SectionTitle(
     modifier: Modifier = Modifier,
     viewAllAction: (() -> Unit)? = null
 ) {
+    val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     Row(
         modifier = modifier
@@ -1828,7 +1836,7 @@ private fun SectionTitle(
         if (viewAllAction != null) {
             FilledIconButton(
                 onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                     viewAllAction()
                 },
                 colors = IconButtonDefaults.filledIconButtonColors(
@@ -1853,6 +1861,7 @@ private fun FeaturedContentSection(
     onAlbumClick: (Album) -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     
     Column(
@@ -1908,7 +1917,7 @@ private fun FeaturedContentSection(
                         .clip(CircleShape)
                         .background(color)
                         .clickable { 
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                             scope.launch {
                                 pagerState.animateScrollToPage(
                                     page = index,
@@ -2009,7 +2018,7 @@ private fun EnhancedRecentChip(
 
     ElevatedCard(
         onClick = {
-            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
             onClick()
         },
         colors = CardDefaults.elevatedCardColors(
@@ -2103,7 +2112,7 @@ private fun QuickPickCard(
     
     Surface(
         onClick = {
-            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
             onClick()
         },
         modifier = modifier.fillMaxWidth(),
@@ -2167,7 +2176,7 @@ private fun QuickPickCard(
             // Play button with improved design
             FilledIconButton(
                 onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                     onClick()
                 },
                 modifier = Modifier.size(42.dp),
@@ -2220,7 +2229,7 @@ private fun FeaturedCard(
     
     ElevatedCard(
         onClick = {
-            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
             onClick(album)
         },
         modifier = Modifier
@@ -2355,7 +2364,7 @@ private fun FeaturedCard(
                     // Play button - play the album directly
                     FilledIconButton(
                         onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                             viewModel.playAlbum(album)
                             onClick(album) // Also trigger the original click to open bottom sheet if needed
                         },
@@ -2405,7 +2414,7 @@ private fun NewAlbumCard(
     
     Surface(
         onClick = {
-            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
             onClick(album)
         },
         modifier = modifier.width(180.dp),
@@ -2448,7 +2457,7 @@ private fun NewAlbumCard(
                         // Play button
                         Surface(
                             onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                                 viewModel.playAlbum(album)
                             },
                             modifier = Modifier.size(48.dp),
@@ -2513,7 +2522,7 @@ private fun EnhancedArtistCard(
         modifier = modifier
             .width(140.dp)
             .clickable {
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                 onClick()
             }
     ) {
@@ -2546,7 +2555,7 @@ private fun EnhancedArtistCard(
                 // Play button with enhanced design
                 Surface(
                     onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                         viewModel.playArtist(artist)
                     },
                     shape = CircleShape,
@@ -2600,7 +2609,7 @@ private fun CompactArtistCard(
     
     Surface(
         onClick = {
-            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
             onClick()
         },
         shape = RoundedCornerShape(16.dp),
@@ -2652,7 +2661,7 @@ private fun CompactArtistCard(
             // Play button
             IconButton(
                 onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                     viewModel.playArtist(artist)
                 },
                 modifier = Modifier.size(36.dp)
@@ -2682,7 +2691,7 @@ private fun NewArtistCard(
         modifier = modifier
             .width(110.dp)
             .clickable {
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                 onClick()
             },
         horizontalAlignment = Alignment.CenterHorizontally
@@ -2713,7 +2722,7 @@ private fun NewArtistCard(
             // Add play button overlay
             FilledIconButton(
                 onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                     viewModel.playArtist(artist)
                 },
                 modifier = Modifier
@@ -2817,7 +2826,7 @@ private fun RecommendedSongItem(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = {
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                 onClick()
             })
             .padding(vertical = 4.dp),
@@ -2862,7 +2871,7 @@ private fun RecommendedSongItem(
         trailingContent = {
             FilledIconButton(
                 onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                     onClick()
                 },
                 modifier = Modifier.size(36.dp),
@@ -2901,7 +2910,7 @@ private fun UpdateAvailableSection(
             .padding(horizontal = 8.dp, vertical = 8.dp)
             .clickable(onClick = {
                 if (!isDownloading) {
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                     onUpdateClick(false)
                 }
             })
@@ -3035,7 +3044,7 @@ private fun UpdateAvailableSection(
                     .clickable {
                         if (!isDownloading) {
                             isDownloading = true
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                             // Navigate to AppUpdaterScreen instead of auto-downloading
                             onUpdateClick(false) // Pass false to navigate to updater screen
                         }

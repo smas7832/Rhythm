@@ -36,6 +36,7 @@ import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.ui.components.M3PlaceholderType
 import chromahub.rhythm.app.util.ImageUtils
 import chromahub.rhythm.app.util.ArtistCollaborationUtils
+import chromahub.rhythm.app.util.HapticUtils
 import chromahub.rhythm.app.viewmodel.MusicViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -167,7 +168,7 @@ fun ArtistBottomSheet(
                 // Enhanced close button with better design
                 FilledIconButton(
                     onClick = {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                         onDismiss()
                     },
                     modifier = Modifier
@@ -239,7 +240,7 @@ fun ArtistBottomSheet(
                     // Play All button with proper queue management
                         Button(
                             onClick = {
-                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                                 if (artistSongs.isNotEmpty()) {
                                     // Use the correct method to play all songs
                                     viewModel.playQueue(artistSongs)
@@ -269,7 +270,7 @@ fun ArtistBottomSheet(
                         // Shuffle button with proper queue management
                         FilledIconButton(
                             onClick = {
-                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                                 if (artistSongs.isNotEmpty()) {
                                     // Play shuffled songs using the correct method
                                     viewModel.playQueue(artistSongs.shuffled())
@@ -345,7 +346,7 @@ fun ArtistBottomSheet(
                                     ArtistAlbumCard(
                                         album = album,
                                         onClick = {
-                                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                                             onAlbumClick(album)
                                         },
                                         haptics = haptics
@@ -400,15 +401,15 @@ fun ArtistBottomSheet(
                                 EnhancedArtistSongItem(
                                         song = song,
                                         onClick = {
-                                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                                             onSongClick(song)
                                         },
                                         onAddToQueue = {
-                                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                                             onAddToQueue(song)
                                         },
                                         onAddToPlaylist = {
-                                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                                             onAddSongToPlaylist(song)
                                         },
                                         modifier = Modifier
@@ -450,7 +451,7 @@ private fun ArtistAlbumCard(
     
     Card(
         onClick = {
-            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
             onClick()
         },
         modifier = Modifier
@@ -491,7 +492,7 @@ private fun ArtistAlbumCard(
                 ) {
                     FilledIconButton(
                         onClick = {
-                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                             onClick()
                         },
                         modifier = Modifier.size(40.dp), // Slightly larger button
@@ -615,7 +616,7 @@ private fun EnhancedArtistSongItem(
             ) {
                 FilledIconButton(
                     onClick = {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                         onAddToQueue()
                     },
                     modifier = Modifier.size(36.dp),
@@ -634,7 +635,7 @@ private fun EnhancedArtistSongItem(
                 // Directly handle add to playlist action for better UX
                 FilledIconButton(
                     onClick = {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                         onAddToPlaylist()
                     },
                     modifier = Modifier.size(36.dp),
@@ -652,7 +653,7 @@ private fun EnhancedArtistSongItem(
             }
         },
         modifier = modifier.clickable(onClick = {
-            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
             onClick()
         }),
         colors = ListItemDefaults.colors(

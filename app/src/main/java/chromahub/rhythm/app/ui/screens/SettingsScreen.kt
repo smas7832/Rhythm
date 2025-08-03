@@ -248,7 +248,7 @@ fun SettingsScreen(
                 navigationIcon = {
                     FilledIconButton(
                         onClick = {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                             onBack()
                         },
                         colors = IconButtonDefaults.filledIconButtonColors(
@@ -836,6 +836,7 @@ fun SettingsScreen(
 
 @Composable
 fun SettingsSectionHeader(title: String) {
+    val context = LocalContext.current
     Surface(
         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
         shape = RoundedCornerShape(12.dp),
@@ -1053,6 +1054,7 @@ fun SettingsDropdownItem(
     iconTint: Color = MaterialTheme.colorScheme.primary,
     onOptionSelected: (String) -> Unit
 ) {
+    val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     var showDropdown by remember { mutableStateOf(false) }
     
@@ -1068,7 +1070,7 @@ fun SettingsDropdownItem(
             .clip(RoundedCornerShape(16.dp))
             .clickable {
                 showDropdown = true
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
             }
     ) {
         Row(
@@ -1218,6 +1220,7 @@ fun SettingsChipItem(
     secondaryChipTextColor: Color = MaterialTheme.colorScheme.onSecondaryContainer,
     onClick: () -> Unit
 ) {
+    val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     
     Card(
@@ -1232,7 +1235,7 @@ fun SettingsChipItem(
             .clip(RoundedCornerShape(16.dp))
             .clickable {
                 onClick()
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
             }
     ) {
         Row(
@@ -1411,7 +1414,7 @@ fun AboutDialog(
                 // Add a Report Bug button inside the dialog
                 Button(
                     onClick = {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                         onDismiss() // Close the dialog first
                         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/cromaguy/Rhythm/issues"))
                         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -1793,7 +1796,7 @@ fun ApiManagementBottomSheet(
                 Button(
                     onClick = {
                         if (isChecking) return@Button
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                         isChecking = true
                         checkResult = null
                         scope.launch {
@@ -1819,7 +1822,7 @@ fun ApiManagementBottomSheet(
                 Row {
                     TextButton(onClick = { 
                         if(!isChecking) {
-                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                             showSpotifyDialog = false 
                         }
                     }) {
@@ -1830,7 +1833,7 @@ fun ApiManagementBottomSheet(
                         Button(
                             onClick = {
                                 if (isChecking) return@Button
-                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                                 scope.launch {
                                     appSettings.setSpotifyApiKey(null)
                                     showSpotifyDialog = false
@@ -1975,6 +1978,7 @@ fun CrossfadeDurationDialog(
     onDismiss: () -> Unit,
     onSave: (Float) -> Unit
 ) {
+    val context = LocalContext.current
     var sliderPosition by remember { mutableFloatStateOf(currentDuration) }
     val haptics = LocalHapticFeedback.current
 
@@ -2002,7 +2006,7 @@ fun CrossfadeDurationDialog(
         },
         confirmButton = {
             Button(onClick = { 
-                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                 onSave(sliderPosition) 
             }) {
                 Text("Save")
@@ -2074,7 +2078,7 @@ fun CacheSizeDialog(
         },
         confirmButton = {
             Button(onClick = { 
-                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                 onSave(cacheSizes[selectedSizeIndex]) 
             }) {
                 Text("Save")

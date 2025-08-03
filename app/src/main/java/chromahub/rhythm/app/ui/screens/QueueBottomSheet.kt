@@ -74,14 +74,12 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import kotlinx.coroutines.delay
-import org.burnoutcrew.reorderable.ReorderableItem
-import org.burnoutcrew.reorderable.ReorderableLazyListState
-import org.burnoutcrew.reorderable.detectReorderAfterLongPress
-import org.burnoutcrew.reorderable.rememberReorderableLazyListState
-import org.burnoutcrew.reorderable.reorderable
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.filled.Delete
 import chromahub.rhythm.app.data.Song
 import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.ui.components.M3PlaceholderType
+import chromahub.rhythm.app.ui.components.DragDropLazyColumn
 import chromahub.rhythm.app.util.ImageUtils
 import kotlin.collections.IndexedValue
 
@@ -128,38 +126,9 @@ fun QueueBottomSheet(
     }
 
     // Create a mutable queue for reordering that updates when the queue changes
-    val mutableQueue = remember(queue) { queue.toMutableStateList() }
-    
-    // Track if we're currently performing a reorder operation to prevent conflicts
-    var isReordering by remember { mutableStateOf(false) }
-    
-    // Set up reorderable state for drag and drop functionality
-    val reorderableState = rememberReorderableLazyListState(
-        onMove = { from, to ->
-            if (isReordering) return@rememberReorderableLazyListState
-            
-            try {
-                isReordering = true
-                
-                // Validate indices
-                if (from.index < 0 || from.index >= mutableQueue.size || 
-                    to.index < 0 || to.index >= mutableQueue.size) {
-                    return@rememberReorderableLazyListState
-                }
-                
-                // Move the item in the UI first for immediate feedback
-                val item = mutableQueue.removeAt(from.index)
-                mutableQueue.add(to.index, item)
-                
-                // Call the callback to update the actual queue in ViewModel
-                onMoveQueueItem(from.index, to.index)
-            } catch (e: Exception) {
-                // Handle error
-            } finally {
-                isReordering = false
-            }
-        }
-    )
+    val mutableQueue = remember(queue) { 
+        if (queue.isNotEmpty()) queue.toMutableStateList() else mutableStateListOf()
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -267,42 +236,48 @@ fun QueueBottomSheet(
                         )
                     }
                     
-                    // Queue list with reordering
-                    LazyColumn(
-                        state = reorderableState.listState,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .reorderable(reorderableState),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        itemsIndexed(
-                            items = upcomingQueue,
-                            key = { _, indexedSong -> "${indexedSong.index}_${indexedSong.value.id}" }
-                        ) { _, indexedSong ->
-                            val originalIndex = indexedSong.index
-                            val song = indexedSong.value
-                            ReorderableItem(reorderableState, key = "${originalIndex}_${song.id}") { isDragging ->
-                                AnimateIn {
-                                    QueueItem(
-                                        song = song,
-                                        index = originalIndex,
-                                        isDragging = isDragging,
-                                        onSongClick = { onSongClick(song) },
-                                        onRemove = { 
-                                            try {
-                                                val indexToRemove = mutableQueue.indexOf(song)
-                                                if (indexToRemove >= 0 && indexToRemove < mutableQueue.size) {
-                                                    mutableQueue.removeAt(indexToRemove)
-                                                }
-                                                onRemoveSong(song)
-                                            } catch (e: Exception) {
-                                                // Handle error
+                    // Queue list with reordering using custom drag and drop
+                    val lazyListState = rememberLazyListState()
+                    
+                    DragDropLazyColumn(
+                        items = upcomingQueue,
+                        modifier = Modifier.fillMaxWidth(),
+                        lazyListState = lazyListState,
+                        onMove = { fromIndex, toIndex ->
+                            // Calculate actual queue indices accounting for current song offset
+                            val actualFromIndex = currentQueueIndex + fromIndex + 1
+                            val actualToIndex = currentQueueIndex + toIndex + 1
+                            onMoveQueueItem(actualFromIndex, actualToIndex)
+                        },
+                        itemKey = { indexedSong -> "${indexedSong.index}_${indexedSong.value.id}" }
+                    ) { indexedSong, isDragging, displayIndex ->
+                        val song = indexedSong.value
+                        val actualQueuePosition = currentQueueIndex + displayIndex + 1
+                        
+                        Box(
+                            modifier = Modifier.padding(
+                                horizontal = 16.dp,
+                                vertical = 2.dp
+                            )
+                        ) {
+                            AnimateIn {
+                                QueueItem(
+                                    song = song,
+                                    index = actualQueuePosition,
+                                    isDragging = isDragging,
+                                    onSongClick = { onSongClick(song) },
+                                    onRemove = { 
+                                        try {
+                                            val indexToRemove = mutableQueue.indexOf(song)
+                                            if (indexToRemove >= 0 && indexToRemove < mutableQueue.size) {
+                                                mutableQueue.removeAt(indexToRemove)
                                             }
-                                        },
-                                        reorderableState = reorderableState
-                                    )
-                                }
+                                            onRemoveSong(song)
+                                        } catch (e: Exception) {
+                                            // Handle error silently
+                                        }
+                                    }
+                                )
                             }
                         }
                     }
@@ -358,7 +333,7 @@ private fun QueueHeader(
                     )
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Clear,
+                        imageVector = Icons.Default.Delete,
                         contentDescription = "Clear queue"
                     )
                 }
@@ -473,22 +448,20 @@ private fun QueueItem(
     index: Int,
     isDragging: Boolean,
     onSongClick: () -> Unit,
-    onRemove: () -> Unit,
-    reorderableState: ReorderableLazyListState
+    onRemove: () -> Unit
 ) {
     val context = LocalContext.current
-    val haptic = LocalHapticFeedback.current
     
     OutlinedCard(
         onClick = onSongClick,
         colors = CardDefaults.outlinedCardColors(
             containerColor = if (isDragging) 
-                MaterialTheme.colorScheme.surfaceVariant
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
             else
                 MaterialTheme.colorScheme.surfaceContainer
         ),
         border = BorderStroke(
-            width = 1.dp,
+            width = if (isDragging) 2.dp else 1.dp,
             color = if (isDragging)
                 MaterialTheme.colorScheme.primary
             else
@@ -497,7 +470,13 @@ private fun QueueItem(
         shape = RoundedCornerShape(15.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .detectReorderAfterLongPress(reorderableState)
+            .graphicsLayer {
+                if (isDragging) {
+                    shadowElevation = 8f
+                    scaleX = 1.02f
+                    scaleY = 1.02f
+                }
+            }
     ) {
         Row(
             modifier = Modifier
@@ -570,15 +549,25 @@ private fun QueueItem(
                 )
             }
             
-            // Drag handle (remove the 3-dot menu)
+            // Drag handle with improved visual feedback
             Icon(
                 imageVector = Icons.Default.DragHandle,
                 contentDescription = "Drag to reorder",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                modifier = Modifier.size(20.dp)
+                tint = if (isDragging) 
+                    MaterialTheme.colorScheme.primary 
+                else 
+                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                modifier = Modifier
+                    .size(20.dp)
+                    .graphicsLayer {
+                        if (isDragging) {
+                            scaleX = 1.2f
+                            scaleY = 1.2f
+                        }
+                    }
             )
                         
-                        Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(8.dp))
             
             // Remove button
             IconButton(

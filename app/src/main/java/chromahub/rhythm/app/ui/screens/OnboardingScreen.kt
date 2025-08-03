@@ -91,6 +91,7 @@ import chromahub.rhythm.app.ui.screens.onboarding.OnboardingStep
 import chromahub.rhythm.app.ui.screens.onboarding.PermissionScreenState
 import chromahub.rhythm.app.viewmodel.AppUpdaterViewModel
 import chromahub.rhythm.app.viewmodel.ThemeViewModel
+import chromahub.rhythm.app.util.HapticUtils
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
@@ -256,6 +257,7 @@ fun OnboardingScreen(
 
 @Composable
 fun EnhancedWelcomeContent(onNextStep: () -> Unit) {
+    val context = LocalContext.current
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
@@ -328,7 +330,7 @@ fun EnhancedWelcomeContent(onNextStep: () -> Unit) {
         val haptic = LocalHapticFeedback.current
         FilledTonalButton(
             onClick = {
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                 onNextStep()
             },
             modifier = Modifier
@@ -360,6 +362,7 @@ fun FeatureHighlight(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     text: String
 ) {
+    val context = LocalContext.current
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth()
@@ -566,7 +569,7 @@ fun EnhancedPermissionContent(
         val haptic = LocalHapticFeedback.current
         FilledTonalButton(
             onClick = {
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                 when (permissionScreenState) {
                     PermissionScreenState.RedirectToSettings -> onOpenSettings()
                     else -> onGrantAccess()
@@ -686,6 +689,7 @@ fun EnhancedAudioPlaybackContent(
     onNextStep: () -> Unit,
     appSettings: AppSettings
 ) {
+    val context = LocalContext.current
     val hapticFeedbackEnabled by appSettings.hapticFeedbackEnabled.collectAsState()
     val useSystemVolume by appSettings.useSystemVolume.collectAsState()
 
@@ -760,7 +764,7 @@ fun EnhancedAudioPlaybackContent(
         val haptic = LocalHapticFeedback.current
         FilledTonalButton(
             onClick = {
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                 onNextStep()
             },
             modifier = Modifier
@@ -792,6 +796,7 @@ fun EnhancedLibrarySetupContent(
     onNextStep: () -> Unit,
     appSettings: AppSettings
 ) {
+    val context = LocalContext.current
     val albumViewType by appSettings.albumViewType.collectAsState()
     val artistViewType by appSettings.artistViewType.collectAsState()
     val albumSortOrder by appSettings.albumSortOrder.collectAsState()
@@ -901,7 +906,7 @@ fun EnhancedLibrarySetupContent(
         val haptic = LocalHapticFeedback.current
         FilledTonalButton(
             onClick = {
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                 onNextStep()
             },
             modifier = Modifier
@@ -933,6 +938,7 @@ fun EnhancedThemingContent(
     onNextStep: () -> Unit,
     themeViewModel: ThemeViewModel
 ) {
+    val context = LocalContext.current
     val useSystemTheme by themeViewModel.useSystemTheme.collectAsState()
     val darkMode by themeViewModel.darkMode.collectAsState()
     val useDynamicColors by themeViewModel.useDynamicColors.collectAsState()
@@ -1038,7 +1044,7 @@ fun EnhancedThemingContent(
         val haptic = LocalHapticFeedback.current
         FilledTonalButton(
             onClick = {
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                 onNextStep()
             },
             modifier = Modifier
@@ -1073,6 +1079,7 @@ fun EnhancedThemeOption(
     isEnabled: Boolean,
     onToggle: (Boolean) -> Unit
 ) {
+    val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     
     Card(
@@ -1080,7 +1087,7 @@ fun EnhancedThemeOption(
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .clickable { 
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                 onToggle(!isEnabled) 
             },
         colors = CardDefaults.cardColors(
@@ -1131,7 +1138,7 @@ fun EnhancedThemeOption(
             Switch(
                 checked = isEnabled,
                 onCheckedChange = { enabled ->
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                     onToggle(enabled)
                 },
                 colors = SwitchDefaults.colors(
@@ -1150,6 +1157,7 @@ fun EnhancedUpdaterContent(
     onNextStep: () -> Unit,
     appSettings: AppSettings
 ) {
+    val context = LocalContext.current
     val autoCheckForUpdates by appSettings.autoCheckForUpdates.collectAsState()
     val updateChannel by appSettings.updateChannel.collectAsState()
     val updateCheckIntervalHours by appSettings.updateCheckIntervalHours.collectAsState()
@@ -1314,7 +1322,7 @@ fun EnhancedUpdaterContent(
         val haptic = LocalHapticFeedback.current
         FilledTonalButton(
             onClick = {
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                 onNextStep()
             },
             modifier = Modifier
@@ -1349,6 +1357,7 @@ fun EnhancedUpdateOption(
     isEnabled: Boolean,
     onToggle: (Boolean) -> Unit
 ) {
+    val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     
     Card(
@@ -1356,7 +1365,7 @@ fun EnhancedUpdateOption(
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .clickable { 
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                 onToggle(!isEnabled) 
             },
         colors = CardDefaults.cardColors(
@@ -1407,7 +1416,7 @@ fun EnhancedUpdateOption(
             Switch(
                 checked = isEnabled,
                 onCheckedChange = { enabled ->
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                     onToggle(enabled)
                 },
                 colors = SwitchDefaults.colors(
@@ -1479,6 +1488,7 @@ fun SettingsDropdownItem(
     options: List<String>,
     onOptionSelected: (String) -> Unit
 ) {
+    val context = LocalContext.current
     var showDropdown by remember { mutableStateOf(false) }
     val haptic = LocalHapticFeedback.current
     
@@ -1487,7 +1497,7 @@ fun SettingsDropdownItem(
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .clickable { 
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                 showDropdown = true 
             },
         colors = CardDefaults.cardColors(
@@ -1608,7 +1618,7 @@ fun SettingsDropdownItem(
                             )
                         },
                         onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                             onOptionSelected(option)
                             showDropdown = false
                         },

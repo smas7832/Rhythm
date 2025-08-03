@@ -58,6 +58,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import chromahub.rhythm.app.R
 import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.viewmodel.AppUpdaterViewModel
+import chromahub.rhythm.app.util.HapticUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -98,7 +99,7 @@ fun AboutScreen(
                 navigationIcon = {
                     FilledIconButton(
                         onClick = {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                             onBack()
                         },
                         colors = IconButtonDefaults.filledIconButtonColors(
@@ -465,7 +466,7 @@ fun AboutScreen(
 
                         Button(
                             onClick = {
-                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                                 onCheckForUpdates()
                             },
                             colors = ButtonDefaults.buttonColors(
@@ -495,7 +496,7 @@ fun AboutScreen(
 
                         Button(
                             onClick = {
-                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/cromaguy/Rhythm"))
                                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                 context.startActivity(intent)
@@ -527,7 +528,7 @@ fun AboutScreen(
 
                         Button(
                             onClick = {
-                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/cromaguy/Rhythm/issues"))
                                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                 context.startActivity(intent)

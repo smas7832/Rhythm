@@ -93,6 +93,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.windowInsetsPadding
+import chromahub.rhythm.app.util.HapticUtils
 
 
 /**
@@ -107,6 +108,7 @@ fun MiniPlayer(
     onPlayPause: () -> Unit,
     onPlayerClick: () -> Unit,
     onSkipNext: () -> Unit,
+    onDismiss: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -138,12 +140,30 @@ fun MiniPlayer(
         label = "songBounceScale"
     )
 
-    // Trigger bounce animation when song changes
+    // Animation for initial appearance bounce effect
+    var initialAppearanceBounceTrigger by remember { mutableStateOf(false) }
+    val initialAppearanceBounceScale by animateFloatAsState(
+        targetValue = if (initialAppearanceBounceTrigger) 1.05f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "initialAppearanceBounceScale"
+    )
+
+    // Trigger bounce animation when mini player first appears
     LaunchedEffect(song) {
         if (song != null) {
+            // Trigger initial appearance bounce
+            initialAppearanceBounceTrigger = true
+            delay(150)
+            initialAppearanceBounceTrigger = false
+            
+            // Then trigger song change bounce after a short delay
+            delay(50)
             songChangeBounceTrigger = true
-            delay(100) // Short delay to initiate the bounce
-            songChangeBounceTrigger = false // Let the spring animation bring it back to 1f
+            delay(100)
+            songChangeBounceTrigger = false
         }
     }
     
@@ -187,9 +207,9 @@ fun MiniPlayer(
                 onPlayPause()
             }
             delay(300) // Wait for animation to complete
-            // We should actually hide the player when dismissed
-            // In a real app, this would communicate back to parent that player should be hidden
-            // For now, just reset the state
+            // Call the dismiss callback to hide the player
+            onDismiss()
+            // Reset local state
             isDismissingPlayer = false
             offsetY = 0f
         }
@@ -201,8 +221,8 @@ fun MiniPlayer(
     Card(
         onClick = {
             if (!isDismissingPlayer) {
-                // Enhanced haptic feedback for click
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                // Enhanced haptic feedback for click - respecting settings
+                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                 onPlayerClick()
             }
         },
@@ -219,7 +239,7 @@ fun MiniPlayer(
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .padding(bottom = bottomPadding) // Use our calculated smart bottom padding
-            .scale(scale * songBounceScale) // Combined scale for press and song change bounce
+            .scale(scale * songBounceScale * initialAppearanceBounceScale) // Combined scale for all bounce effects
             .graphicsLayer { 
                 // Apply translation based on swipe gesture
                 translationY = if (isDismissingPlayer) 300f else translationOffset
@@ -231,21 +251,21 @@ fun MiniPlayer(
                         // Reset the last haptic offset on new drag
                         lastHapticOffset = 0f
                         
-                        // Initial feedback when starting to drag
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        // Initial feedback when starting to drag - respecting settings
+                        HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                     },
                     onDragEnd = {
                         if (offsetY < -swipeUpThreshold) {
                             // Swipe up detected, open player with stronger feedback
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                             onPlayerClick()
                         } else if (offsetY > swipeDownThreshold) {
                             // Swipe down detected, dismiss mini player with stronger feedback
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                             isDismissingPlayer = true
                         } else {
                             // Snap-back haptic when releasing before threshold
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                         }
                         // Reset offset if not dismissing
                         if (!isDismissingPlayer) {
@@ -254,7 +274,7 @@ fun MiniPlayer(
                     },
                     onDragCancel = {
                         // Feedback when drag canceled
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                         // Reset offset if not dismissing
                         if (!isDismissingPlayer) {
                             offsetY = 0f
@@ -268,12 +288,12 @@ fun MiniPlayer(
                         // Provide interval haptic feedback during drag
                         // For swipe up (negative offsetY)
                         if (offsetY < 0 && abs(offsetY) - abs(lastHapticOffset) > swipeUpThreshold / 3) {
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                             lastHapticOffset = offsetY
                         }
                         // For swipe down (positive offsetY)
                         else if (offsetY > 0 && abs(offsetY) - abs(lastHapticOffset) > swipeDownThreshold / 3) {
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                             lastHapticOffset = offsetY
                         }
                     }
@@ -484,8 +504,8 @@ fun MiniPlayer(
                     // Dynamic shape play/pause button - rounded square for pause, circle for play
                     FilledIconButton(
                         onClick = {
-                            // Enhanced haptic feedback for primary action
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            // Enhanced haptic feedback for primary action - respecting settings
+                            HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                             onPlayPause()
                         },
                         modifier = Modifier.size(44.dp), // Slightly smaller for better proportion
@@ -505,8 +525,8 @@ fun MiniPlayer(
                     // Enhanced next track button with better styling
                     FilledTonalIconButton(
                         onClick = {
-                            // Strong haptic feedback for next track
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            // Strong haptic feedback for next track - respecting settings
+                            HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                             onSkipNext()
                         },
                         modifier = Modifier.size(36.dp), // Smaller secondary button

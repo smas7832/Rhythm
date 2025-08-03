@@ -88,6 +88,7 @@ import chromahub.rhythm.app.ui.screens.PlaylistDetailScreen
 import chromahub.rhythm.app.ui.screens.SearchScreen
 import chromahub.rhythm.app.ui.screens.SettingsScreen
 import chromahub.rhythm.app.ui.screens.AboutScreen // Added import for AboutScreen
+import chromahub.rhythm.app.util.HapticUtils
 import chromahub.rhythm.app.viewmodel.MusicViewModel
 import chromahub.rhythm.app.viewmodel.ThemeViewModel
 import coil.compose.AsyncImage
@@ -227,6 +228,7 @@ fun RhythmNavigation(
     var selectedTab by remember { mutableIntStateOf(0) }
 
     val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
 
     val onPlayPause = { viewModel.togglePlayPause() }
     val onSkipNext = { viewModel.skipToNext() }
@@ -375,7 +377,11 @@ fun RhythmNavigation(
                             progress = progress,
                             onPlayPause = onPlayPause,
                             onPlayerClick = onPlayerClick,
-                            onSkipNext = onSkipNext
+                            onSkipNext = onSkipNext,
+                            onDismiss = { 
+                                // Clear the current song to hide the mini player
+                                viewModel.clearCurrentSong()
+                            }
                         )
                     }
 
@@ -463,7 +469,7 @@ fun RhythmNavigation(
                                                     .weight(1f)
                                                     .fillMaxHeight()
                                                     .clickable {
-                                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                        HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                                                         navController.navigate(route) {
                                                             popUpTo(navController.graph.findStartDestination().id) {
                                                                 saveState = true
@@ -526,7 +532,7 @@ fun RhythmNavigation(
                                 // Separate Search Icon Button
                                 FilledIconButton(
                                     onClick = {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                                         navController.navigate(Screen.Search.route) {
                                             popUpTo(navController.graph.findStartDestination().id) {
                                                 saveState = true
@@ -1249,6 +1255,21 @@ fun RhythmNavigation(
                         },
                         onShowCreatePlaylistDialog = {
                             showCreatePlaylistDialog.value = true
+                        },
+                        onClearQueue = {
+                            // TODO: Implement clearQueue method in viewModel
+                            // For now, we'll remove all songs except the current one
+                            val currentQueue = viewModel.currentQueue.value
+                            if (currentQueue.songs.size > 1) {
+                                // Remove all songs except the currently playing one
+                                val currentIndex = currentQueue.currentIndex
+                                val songsToRemove = currentQueue.songs.filterIndexed { index, _ -> 
+                                    index != currentIndex 
+                                }
+                                songsToRemove.forEach { song ->
+                                    viewModel.removeFromQueue(song)
+                                }
+                            }
                         }
                     )
                 }
@@ -1427,7 +1448,7 @@ fun RhythmNavigation(
                                             navigationIcon = {
                                                 FilledIconButton(
                                                     onClick = {
-                                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                        HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                                                         if (showSearchBar) {
                                                             showSearchBar = false
                                                             searchQuery = ""
@@ -1451,7 +1472,7 @@ fun RhythmNavigation(
                                                 if (!showSearchBar) {
                                                     FilledIconButton(
                                                         onClick = {
-                                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                            HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                                                             showSearchBar = true
                                                         },
                                                         colors = IconButtonDefaults.filledIconButtonColors(
@@ -1497,7 +1518,7 @@ fun RhythmNavigation(
                                                     trailingIcon = {
                                                         if (searchQuery.isNotEmpty()) {
                                                             IconButton(onClick = {
-                                                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                                                                 searchQuery = ""
                                                             }) {
                                                                 Icon(
@@ -1560,7 +1581,7 @@ fun RhythmNavigation(
                                             items(availableSongs) { song ->
                                                 Surface(
                                                     onClick = {
-                                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                        HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                                                         viewModel.addSongToPlaylist(
                                                             song,
                                                             targetPlaylistId
@@ -1626,7 +1647,7 @@ fun RhythmNavigation(
                                                             // Add button
                                                             FilledIconButton(
                                                                 onClick = {
-                                                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                                                                     viewModel.addSongToPlaylist(
                                                                         song,
                                                                         targetPlaylistId

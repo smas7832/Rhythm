@@ -110,6 +110,7 @@ import chromahub.rhythm.app.ui.components.CreatePlaylistDialog
 import chromahub.rhythm.app.ui.screens.ArtistBottomSheet
 import chromahub.rhythm.app.util.ArtistCollaborationUtils
 import chromahub.rhythm.app.util.ImageUtils
+import chromahub.rhythm.app.util.HapticUtils
 import chromahub.rhythm.app.ui.screens.SettingsSectionHeader
 import chromahub.rhythm.app.ui.components.M3PlaceholderType
 
@@ -134,6 +135,7 @@ fun SearchScreen(
     onCreatePlaylist: (String) -> Unit = {},
     onBack: () -> Unit = {}
 ) {
+    val context = LocalContext.current
     val viewModel: MusicViewModel = viewModel()
     var searchQuery by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
@@ -335,7 +337,7 @@ fun SearchScreen(
                             ) {
                                 IconButton(
                                     onClick = {
-                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                                         onBack()
                                     },
                                     colors = IconButtonDefaults.iconButtonColors(
@@ -368,7 +370,7 @@ fun SearchScreen(
                                     // Filter toggle button with accent background
                                     IconButton(
                                         onClick = {
-                                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                                             showFilterOptions = !showFilterOptions
                                         },
                                         colors = IconButtonDefaults.iconButtonColors(
@@ -395,7 +397,7 @@ fun SearchScreen(
 
                                     IconButton(
                                         onClick = {
-                                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                                             searchQuery = ""
                                             isSearchActive = false
                                             focusManager.clearFocus()
@@ -510,7 +512,7 @@ fun SearchScreen(
 
                                                     FilterChip(
                                                         onClick = {
-                                                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                                                             if (allSelected || (!allSelected && !noneSelected)) {
                                                                 // Deselect all
                                                                 filterSongs = false
@@ -542,7 +544,7 @@ fun SearchScreen(
                                                 item {
                                                     FilterChip(
                                                         onClick = {
-                                                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                                                             filterSongs = !filterSongs
                                                         },
                                                         label = {
@@ -562,7 +564,7 @@ fun SearchScreen(
                                                 item {
                                                     FilterChip(
                                                         onClick = {
-                                                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                                                             filterAlbums = !filterAlbums
                                                         },
                                                         label = {
@@ -582,7 +584,7 @@ fun SearchScreen(
                                                 item {
                                                     FilterChip(
                                                         onClick = {
-                                                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                                                             filterArtists = !filterArtists
                                                         },
                                                         label = {
@@ -602,7 +604,7 @@ fun SearchScreen(
                                                 item {
                                                     FilterChip(
                                                         onClick = {
-                                                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                                                             filterPlaylists = !filterPlaylists
                                                         },
                                                         label = {
@@ -830,6 +832,7 @@ fun SearchResults(
     onViewAllSongsClick: () -> Unit,
     filterSection: @Composable () -> Unit // Add this parameter
 ) {
+    val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -945,7 +948,7 @@ fun SearchResults(
                                 .fillMaxWidth()
                                 .padding(horizontal = 4.dp)
                                 .clickable {
-                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                                     onViewAllSongsClick()
                                 }
                         ) {
@@ -1317,10 +1320,11 @@ fun RecentSearchItem(
     searchTerm: String,
     onClick: () -> Unit
 ) {
+    val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
     Card(
         onClick = {
-            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
             onClick()
         },
         colors = CardDefaults.cardColors(
@@ -1395,7 +1399,7 @@ fun SearchSongItem(
     
     Card(
         onClick = {
-            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
             onClick()
         },
         colors = CardDefaults.cardColors(
@@ -1460,7 +1464,7 @@ fun SearchSongItem(
             // Add to playlist button with enhanced styling
             FilledIconButton(
                 onClick = {
-                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                     onAddToPlaylist(song)
                 },
                 modifier = Modifier.size(40.dp),
@@ -1491,7 +1495,7 @@ fun SearchAlbumItem(
         modifier = Modifier
             .width(140.dp)
             .clickable(onClick = {
-                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                 onClick()
             }),
         shape = RoundedCornerShape(20.dp),
@@ -1558,7 +1562,7 @@ fun SearchArtistItem(
         modifier = Modifier
             .width(120.dp)
             .clickable(onClick = {
-                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                 onClick()
             }),
         shape = RoundedCornerShape(20.dp),
@@ -1614,10 +1618,11 @@ fun GenreCard(
     genre: String,
     onClick: () -> Unit
 ) {
+    val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
     Card(
         onClick = {
-            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
             onClick()
         },
         shape = RoundedCornerShape(16.dp),
@@ -1625,7 +1630,7 @@ fun GenreCard(
             containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
         ),
         modifier = Modifier.clickable(onClick = {
-            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
             onClick()
         })
     ) {
@@ -1655,7 +1660,7 @@ fun SearchPlaylistItem(
     
     Card(
         onClick = {
-            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
             onClick()
         },
         modifier = Modifier
@@ -1743,6 +1748,7 @@ fun CategoryCard(
     color: Color,
     onClick: () -> Unit
 ) {
+    val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
     Card(
         colors = CardDefaults.cardColors(
@@ -1753,7 +1759,7 @@ fun CategoryCard(
             .fillMaxWidth()
             .aspectRatio(1.5f)
             .clickable(onClick = {
-                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                 onClick()
             })
     ) {
@@ -1795,12 +1801,13 @@ fun RecommendedAlbumItem(
     album: Album,
     onClick: () -> Unit
 ) {
+    val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
     Column(
         modifier = Modifier
             .width(160.dp)
             .clickable(onClick = {
-                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                 onClick()
             })
     ) {
@@ -1863,6 +1870,7 @@ fun MoodCard(
     icon: ImageVector,
     onClick: () -> Unit
 ) {
+    val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
     Surface(
         color = backgroundColor,
@@ -1871,7 +1879,7 @@ fun MoodCard(
             .width(200.dp)
             .height(200.dp)
             .clickable {
-                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                 onClick()
             }
     ) {
@@ -1908,7 +1916,7 @@ fun MoodCard(
                 modifier = Modifier
                     .size(36.dp)
                     .clickable {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                         onClick()
                     }
             ) {
@@ -2005,7 +2013,7 @@ private fun EnhancedRecentChip(
     
     Card(
         onClick = {
-            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
             onClick()
         },
         colors = CardDefaults.cardColors(
@@ -2075,6 +2083,7 @@ private fun DefaultSearchContent(
     onAddSongToPlaylist: (Song) -> Unit,
     onClearSearchHistory: () -> Unit
 ) {
+    val context = LocalContext.current
     val haptics = LocalHapticFeedback.current // Get the HapticFeedback instance
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -2137,7 +2146,7 @@ private fun DefaultSearchContent(
                             items(searchHistory.take(6)) { query ->
                                 Card(
                                     onClick = {
-                                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                                         onSearchQuerySelect(query)
                                     },
                                     colors = CardDefaults.cardColors(
@@ -2300,6 +2309,7 @@ private fun NoSearchResults(
     hasActiveFilters: Boolean,
     onEnableFilters: () -> Unit
 ) {
+    val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
     Column(
         modifier = Modifier
@@ -2368,7 +2378,7 @@ private fun NoSearchResults(
             Spacer(modifier = Modifier.height(24.dp))
             FilledTonalButton(
                 onClick = {
-                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                     onEnableFilters()
                 },
                 colors = ButtonDefaults.filledTonalButtonColors(
@@ -2502,7 +2512,7 @@ private fun RecommendedSongItem(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = {
-                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                 onClick()
             })
             .padding(vertical = 4.dp),
@@ -2574,6 +2584,7 @@ private fun MoodPlaylistCard(
     songs: List<Song>,
     onSongClick: (Song) -> Unit
 ) {
+    val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
     Card(
         colors = CardDefaults.cardColors(
@@ -2607,7 +2618,7 @@ private fun MoodPlaylistCard(
                 
                 IconButton(
                     onClick = {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                         if (songs.isNotEmpty()) onSongClick(songs.first())
                     },
                     colors = IconButtonDefaults.iconButtonColors(
@@ -2631,7 +2642,7 @@ private fun MoodPlaylistCard(
                     items(songs.take(5)) { song ->
                         Card(
                             onClick = {
-                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                                 onSongClick(song)
                             },
                             colors = CardDefaults.cardColors(
@@ -2689,6 +2700,7 @@ fun AllSongsPage(
     onBack: () -> Unit,
     haptics: androidx.compose.ui.hapticfeedback.HapticFeedback // Add haptics parameter
 ) {
+    val context = LocalContext.current
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
             modifier = Modifier
@@ -2697,7 +2709,7 @@ fun AllSongsPage(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = {
-                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                 onBack()
             }) {
                 Icon(RhythmIcons.Back, contentDescription = "Back")
