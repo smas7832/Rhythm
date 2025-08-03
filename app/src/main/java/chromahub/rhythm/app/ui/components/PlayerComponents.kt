@@ -325,45 +325,46 @@ fun MiniPlayer(
             }
 
             // Visual indicator for swipe actions with improved positioning
-            AnimatedVisibility(
-                visible = offsetY < -20f,
-                enter = fadeIn() + slideInVertically(),
-                exit = fadeOut() + slideOutVertically()
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center
             ) {
-                Surface(
-                    shape = RoundedCornerShape(50),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = (-offsetY / swipeUpThreshold).coerceIn(0f, 0.8f)),
-                    modifier = Modifier
-                        .align(Alignment.CenterHorizontally)
-                        .padding(bottom = 4.dp)
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = offsetY < -20f,
+                    enter = fadeIn() + slideInVertically(),
+                    exit = fadeOut() + slideOutVertically()
                 ) {
-                    Text(
-                        text = "⬆ Swipe up for full player",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = (-offsetY / swipeUpThreshold).coerceIn(0f, 0.8f)),
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    ) {
+                        Text(
+                            text = "⬆ Swipe up for full player",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
                 }
-            }
 
-            AnimatedVisibility(
-                visible = offsetY > 20f,
-                enter = fadeIn() + slideInVertically(),
-                exit = fadeOut() + slideOutVertically()
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(50),
-                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = (offsetY / swipeDownThreshold).coerceIn(0f, 0.8f)),
-                    modifier = Modifier
-                        .align(Alignment.CenterHorizontally)
-                        .padding(bottom = 4.dp)
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = offsetY > 20f,
+                    enter = fadeIn() + slideInVertically(),
+                    exit = fadeOut() + slideOutVertically()
                 ) {
-                    Text(
-                        text = "⬇ Swipe down to dismiss",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = (offsetY / swipeDownThreshold).coerceIn(0f, 0.8f)),
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    ) {
+                        Text(
+                            text = "⬇ Swipe down to dismiss",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
                 }
             }
 

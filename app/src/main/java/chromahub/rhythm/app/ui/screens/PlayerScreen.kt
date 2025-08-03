@@ -1043,7 +1043,7 @@ fun PlayerScreen(
                                                         MaterialTheme.colorScheme.surface.copy(alpha = 0.75f)  // Reduced from 0.85f
                                                     )
                                                 ),
-                                                shape = RoundedCornerShape(if (isCompactHeight) 20.dp else 28.dp) // Keep rounded corners
+                                                shape = RoundedCornerShape(if (isCompactHeight) 0.dp else 0.dp) // Keep rounded corners
                                             )
                                     )
 
@@ -1059,7 +1059,7 @@ fun PlayerScreen(
                                                     ),
                                                     radius = 500f
                                                 ),
-                                                shape = RoundedCornerShape(if (isCompactHeight) 20.dp else 28.dp) // Keep rounded corners
+                                                shape = RoundedCornerShape(if (isCompactHeight) 0.dp else 0.dp) // Keep rounded corners
                                             )
                                     )
 
