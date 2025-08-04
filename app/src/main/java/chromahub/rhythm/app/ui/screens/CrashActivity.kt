@@ -63,7 +63,7 @@ class CrashActivity : ComponentActivity() {
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
             ) {
-                // App name and logo, similar to onboarding
+                // App name and logo, matching onboarding format exactly
                 Column(
                     horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
                     modifier = Modifier.padding(bottom = 32.dp)
@@ -71,14 +71,14 @@ class CrashActivity : ComponentActivity() {
                     Row(
                         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center,
-                        modifier = Modifier.padding(bottom = 16.dp)
+                        modifier = Modifier.padding(bottom = 24.dp)
                     ) {
                         Image(
-                            painter = painterResource(id = R.drawable.rhythm_logo),
+                            painter = painterResource(id = R.drawable.rhythm_splash_logo),
                             contentDescription = null,
-                            modifier = Modifier.size(56.dp)
+                            modifier = Modifier.size(66.dp)
                         )
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Spacer(modifier = Modifier.width(3.dp))
                         Text(
                             text = "Rhythm",
                             style = MaterialTheme.typography.displaySmall,

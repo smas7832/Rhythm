@@ -101,6 +101,7 @@ class AppSettings private constructor(context: Context) {
 
         // Onboarding
         private const val KEY_ONBOARDING_COMPLETED = "onboarding_completed"
+        private const val KEY_INITIAL_MEDIA_SCAN_COMPLETED = "initial_media_scan_completed"
 
         // App Updater Settings
         private const val KEY_AUTO_CHECK_FOR_UPDATES = "auto_check_for_updates"
@@ -350,6 +351,9 @@ class AppSettings private constructor(context: Context) {
     // Onboarding
     private val _onboardingCompleted = MutableStateFlow(prefs.getBoolean(KEY_ONBOARDING_COMPLETED, false))
     val onboardingCompleted: StateFlow<Boolean> = _onboardingCompleted.asStateFlow()
+
+    private val _initialMediaScanCompleted = MutableStateFlow(prefs.getBoolean(KEY_INITIAL_MEDIA_SCAN_COMPLETED, false))
+    val initialMediaScanCompleted: StateFlow<Boolean> = _initialMediaScanCompleted.asStateFlow()
 
     // App Updater Settings
     private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CHECK_FOR_UPDATES, true))
@@ -641,6 +645,11 @@ class AppSettings private constructor(context: Context) {
     fun setOnboardingCompleted(completed: Boolean) {
         prefs.edit().putBoolean(KEY_ONBOARDING_COMPLETED, completed).apply()
         _onboardingCompleted.value = completed
+    }
+
+    fun setInitialMediaScanCompleted(completed: Boolean) {
+        prefs.edit().putBoolean(KEY_INITIAL_MEDIA_SCAN_COMPLETED, completed).apply()
+        _initialMediaScanCompleted.value = completed
     }
 
     // App Updater Settings Methods

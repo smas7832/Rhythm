@@ -190,27 +190,27 @@ fun MediaScanLoader(
                     .fillMaxSize()
                     .padding(32.dp)
             ) {
-                // App logo with breathing animation
-                Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.surface,
+                // App logo and name with breathing animation - matching onboarding format
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
                     modifier = Modifier
-                        .size(120.dp)
+                        .padding(bottom = 48.dp)
                         // .scale(breathingScale)
                 ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.rhythm_splash_logo),
-                            contentDescription = "Rhythm Logo",
-                            modifier = Modifier.size(120.dp)
-                        )
-                    }
+                    Image(
+                        painter = painterResource(id = R.drawable.rhythm_splash_logo),
+                        contentDescription = null,
+                        modifier = Modifier.size(66.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Rhythm",
+                        style = MaterialTheme.typography.displaySmall,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
-                
-                Spacer(modifier = Modifier.height(48.dp))
                 
                 // Progress card
                 Card(

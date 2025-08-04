@@ -57,6 +57,7 @@ fun PermissionHandler(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val onboardingCompleted by appSettings.onboardingCompleted.collectAsState()
+    val initialMediaScanCompleted by appSettings.initialMediaScanCompleted.collectAsState()
     var permissionScreenState by remember { mutableStateOf<PermissionScreenState>(PermissionScreenState.Loading) }
     var permissionRequestLaunched by remember { mutableStateOf(false) } // New state to track if permission request has been launched
     var showMediaScanLoader by remember { mutableStateOf(false) } // New state for media scan loader
@@ -130,8 +131,8 @@ fun PermissionHandler(
                 currentOnboardingStep = OnboardingStep.AUDIO_PLAYBACK // Move to audio/playback step
             } else {
                 currentOnboardingStep = OnboardingStep.COMPLETE
-                // Show media scan loader if onboarding was already completed (first startup after onboarding)
-                if (!showMediaScanLoader) {
+                // Show media scan loader only if onboarding was completed but initial media scan hasn't happened yet
+                if (!initialMediaScanCompleted && !showMediaScanLoader) {
                     showMediaScanLoader = true
                 }
                 onSetIsInitializingApp(true) // Start app initialization
@@ -234,7 +235,7 @@ fun PermissionHandler(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Show the main app only after media scanning is complete
+        // Show the main app when onboarding is complete, not initializing, and media scan is not needed
         AnimatedVisibility(
             visible = currentOnboardingStep == OnboardingStep.COMPLETE && !isInitializingApp && !showMediaScanLoader, // Show app when complete AND not initializing AND media scan is done
             enter = fadeIn(animationSpec = tween(1000, easing = androidx.compose.animation.core.EaseOutCubic)) +
@@ -246,7 +247,7 @@ fun PermissionHandler(
             onPermissionsGranted()
         }
 
-        // Show media scan loader after onboarding completion
+        // Show media scan loader only on first launch after onboarding completion
         AnimatedVisibility(
             visible = showMediaScanLoader,
             enter = fadeIn(animationSpec = tween(800, easing = androidx.compose.animation.core.EaseOutCubic)),
@@ -256,6 +257,8 @@ fun PermissionHandler(
                 musicViewModel = musicViewModel,
                 onScanComplete = {
                     showMediaScanLoader = false
+                    // Mark initial media scan as completed
+                    appSettings.setInitialMediaScanCompleted(true)
                 }
             )
         }
@@ -297,7 +300,10 @@ fun PermissionHandler(
                         OnboardingStep.UPDATER -> {
                             appSettings.setOnboardingCompleted(true) // Mark onboarding as complete
                             currentOnboardingStep = OnboardingStep.COMPLETE // Move to complete
-                            showMediaScanLoader = true // Show media scan loader after onboarding
+                            // Show media scan loader only after onboarding completion for the first time
+                            if (!initialMediaScanCompleted) {
+                                showMediaScanLoader = true
+                            }
                             // The evaluatePermissionsAndSetStep will handle setting isInitializingApp = true
                             // and then false after service init.
                         }
