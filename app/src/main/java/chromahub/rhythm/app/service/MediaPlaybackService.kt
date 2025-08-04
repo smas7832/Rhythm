@@ -1,13 +1,8 @@
 package chromahub.rhythm.app.service
 
 import android.app.PendingIntent
-import android.content.Context
 import android.content.Intent
-import android.media.AudioAttributes
-import android.media.AudioFocusRequest
-import android.media.AudioManager
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.annotation.OptIn
@@ -33,7 +28,6 @@ import java.util.concurrent.ConcurrentHashMap
 import androidx.media3.common.AudioAttributes as ExoAudioAttributes
 
 class MediaPlaybackService : MediaLibraryService(), Player.Listener {
-    private val TAG = "MediaPlaybackService"
     private var mediaSession: MediaLibrarySession? = null
     private lateinit var player: ExoPlayer
     private lateinit var customCommands: List<CommandButton>
@@ -57,17 +51,14 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
 
     // Track external files that have been played
     private val externalUriCache = ConcurrentHashMap<String, MediaItem>()
-    
-    // Audio focus variables
-    private var audioFocusRequest: AudioFocusRequest? = null
-    private var audioManager: AudioManager? = null
-    private var playOnAudioFocusGain = false
 
     // Settings manager
     private lateinit var appSettings: AppSettings
     
     // SharedPreferences keys
     companion object {
+        private const val TAG = "MediaPlaybackService"
+
         private const val PREF_NAME = "rhythm_preferences"
         private const val PREF_HIGH_QUALITY_AUDIO = "high_quality_audio"
         private const val PREF_GAPLESS_PLAYBACK = "gapless_playback"
@@ -93,47 +84,13 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
         const val SHUFFLE_MODE_OFF = "shuffle_off"
     }
 
-    // Audio focus change listener
-    private val audioFocusChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
-        when (focusChange) {
-            AudioManager.AUDIOFOCUS_GAIN -> {
-                Log.d(TAG, "Audio focus gained")
-                if (playOnAudioFocusGain) {
-                    player.volume = 1.0f
-                    player.play()
-                    playOnAudioFocusGain = false
-                }
-            }
-            AudioManager.AUDIOFOCUS_LOSS -> {
-                Log.d(TAG, "Audio focus lost")
-                // Save state and pause
-                playOnAudioFocusGain = player.isPlaying
-                player.pause()
-            }
-            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
-                Log.d(TAG, "Audio focus lost temporarily")
-                // Save state and pause
-                playOnAudioFocusGain = player.isPlaying
-                player.pause()
-            }
-            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
-                Log.d(TAG, "Audio focus loss - can duck")
-                // Lower volume but continue playing
-                player.volume = 0.3f
-            }
-        }
-    }
-
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "Service created")
         
         // Initialize settings manager
         appSettings = AppSettings.getInstance(applicationContext)
-        
-        // Initialize AudioManager for audio focus
-        audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        
+
         try {
             // Initialize the player with settings
             initializePlayer()
@@ -157,7 +114,7 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
                     .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
                     .setUsage(C.USAGE_MEDIA)
                     .build(),
-                !appSettings.highQualityAudio.value
+                true
             )
             .setHandleAudioBecomingNoisy(true)
             .build()
@@ -232,38 +189,25 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     
     private fun applyPlayerSettings() {
         player.apply {
-            // Apply gapless playback
-            if (appSettings.gaplessPlayback.value) {
-                // ExoPlayer doesn't have a direct setGaplessPlayback method
-                // Instead, we configure it through the audio renderer
-                setAudioAttributes(
-                    ExoAudioAttributes.Builder()
-                        .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-                        .setUsage(C.USAGE_MEDIA)
-                        .build(),
-                    /* handleAudioFocus= */ !appSettings.highQualityAudio.value
-                )
-            }
-            
             // Apply crossfade if enabled
             if (appSettings.crossfade.value) {
                 // Note: This is a placeholder. In a real implementation,
                 // you would configure the actual crossfade duration
                 // using the appSettings.crossfadeDuration.value
             }
-            
+
             // Apply audio normalization
             if (appSettings.audioNormalization.value) {
                 volume = 1.0f
             }
-            
+
             // Apply replay gain if enabled
             if (appSettings.replayGain.value) {
                 // Note: This is a placeholder. In a real implementation,
                 // you would configure replay gain processing
             }
         }
-        
+
         Log.d(TAG, "Applied player settings: " +
                 "HQ Audio=${appSettings.highQualityAudio.value}, " +
                 "Gapless=${appSettings.gaplessPlayback.value}, " +
@@ -301,32 +245,14 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
      */
     private fun playExternalFile(uri: Uri) {
         Log.d(TAG, "Playing external file: $uri")
-        
-        // Release audio focus first to ensure we can request it again
-        abandonAudioFocus()
-        
+
         // Wait longer before requesting audio focus again
         try {
             Thread.sleep(500)  // Increased from 100ms to 500ms
         } catch (e: InterruptedException) {
             Log.w(TAG, "Sleep interrupted while waiting for audio focus", e)
         }
-        
-        // Request audio focus before playing
-        if (!requestAudioFocus()) {
-            Log.e(TAG, "Failed to obtain audio focus, will retry once more")
-            try {
-                Thread.sleep(1000)  // Wait even longer for second attempt
-                if (!requestAudioFocus()) {
-                    Log.e(TAG, "Failed to obtain audio focus after retry")
-                    return
-                }
-            } catch (e: InterruptedException) {
-                Log.w(TAG, "Sleep interrupted during audio focus retry", e)
-                return
-            }
-        }
-        
+
         // Check if we've seen this URI before
         val cachedItem = externalUriCache[uri.toString()]
         if (cachedItem != null) {
@@ -416,7 +342,6 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     override fun onDestroy() {
         Log.d(TAG, "Service being destroyed")
         mediaSession?.run {
-            abandonAudioFocus()
             player.release()
             controller?.release()
             release()
@@ -524,7 +449,7 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
         override fun onGetLibraryRoot(
             session: MediaLibrarySession,
             browser: MediaSession.ControllerInfo,
-            params: androidx.media3.session.MediaLibraryService.LibraryParams?
+            params: LibraryParams?
         ): ListenableFuture<androidx.media3.session.LibraryResult<MediaItem>> {
             Log.d(TAG, "onGetLibraryRoot from ${browser.packageName}")
             
@@ -554,62 +479,4 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
         super<Player.Listener>.onRepeatModeChanged(repeatMode)
         mediaSession?.setCustomLayout(ImmutableList.of(shuffleCommand, repeatCommand))
     }
-
-    /**
-     * Requests audio focus using the appropriate API based on Android version
-     */
-    private fun requestAudioFocus(): Boolean {
-        audioManager?.let { am ->
-            val result = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val attributes = AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_MEDIA)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                    .build()
-                
-                audioFocusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
-                    .setAudioAttributes(attributes)
-                    .setWillPauseWhenDucked(false)
-                    .setOnAudioFocusChangeListener(audioFocusChangeListener)
-                    .build()
-                
-                audioFocusRequest?.let { request ->
-                    am.requestAudioFocus(request)
-                } ?: AudioManager.AUDIOFOCUS_REQUEST_FAILED
-            } else {
-                @Suppress("DEPRECATION")
-                am.requestAudioFocus(
-                    audioFocusChangeListener,
-                    AudioManager.STREAM_MUSIC,
-                    AudioManager.AUDIOFOCUS_GAIN
-                )
-            }
-            
-            val success = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
-            if (!success) {
-                Log.w(TAG, "Failed to get audio focus, result: $result")
-            } else {
-                Log.d(TAG, "Audio focus request granted")
-            }
-            return success
-        }
-        return false
-    }
-    
-    /**
-     * Abandons audio focus using the appropriate API based on Android version
-     */
-    private fun abandonAudioFocus() {
-        audioManager?.let { am ->
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                audioFocusRequest?.let { request ->
-                    am.abandonAudioFocusRequest(request)
-                    Log.d(TAG, "Abandoned audio focus using API 26+ method")
-                }
-            } else {
-                @Suppress("DEPRECATION")
-                am.abandonAudioFocus(audioFocusChangeListener)
-                Log.d(TAG, "Abandoned audio focus using legacy method")
-            }
-        }
-    }
-} 
+}
