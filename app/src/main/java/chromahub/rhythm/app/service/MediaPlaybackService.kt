@@ -1,8 +1,5 @@
 package chromahub.rhythm.app.service
 
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -12,37 +9,52 @@ import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.support.v4.media.MediaBrowserCompat
-import android.support.v4.media.MediaDescriptionCompat
-import android.support.v4.media.session.MediaControllerCompat
-import android.support.v4.media.session.MediaSessionCompat
-import android.support.v4.media.session.PlaybackStateCompat
 import android.util.Log
-import androidx.core.app.NotificationCompat
-import androidx.media3.common.AudioAttributes as ExoAudioAttributes
+import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
-import androidx.media3.common.PlaybackException
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.CommandButton
+import androidx.media3.session.MediaController
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
-import androidx.media3.session.MediaSessionService
+import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionError
+import androidx.media3.session.SessionResult
+import chromahub.rhythm.app.MainActivity
+import chromahub.rhythm.app.data.AppSettings
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
-import chromahub.rhythm.app.R
-import chromahub.rhythm.app.MainActivity
-import chromahub.rhythm.app.data.AppSettings
-import chromahub.rhythm.app.data.Song
 import java.util.concurrent.ConcurrentHashMap
+import androidx.media3.common.AudioAttributes as ExoAudioAttributes
 
-class MediaPlaybackService : MediaLibraryService() {
+class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     private val TAG = "MediaPlaybackService"
     private var mediaSession: MediaLibrarySession? = null
     private lateinit var player: ExoPlayer
-    
+    private lateinit var customCommands: List<CommandButton>
+
+    private var controller: MediaController? = null
+
+    private val repeatCommand: CommandButton
+        get() = when (val mode = controller?.repeatMode) {
+            Player.REPEAT_MODE_OFF -> customCommands[2]
+            Player.REPEAT_MODE_ALL -> customCommands[3]
+            Player.REPEAT_MODE_ONE -> customCommands[4]
+            else -> error("Unknown mode: $mode") //Just in case. Perhaps we could be less aggressive and just fallback to REPEAT_MODE_OFF.
+        }
+
+    private val shuffleCommand: CommandButton
+        get() = if (controller?.shuffleModeEnabled == true) {
+            customCommands[1]
+        } else {
+            customCommands[0]
+        }
+
     // Track external files that have been played
     private val externalUriCache = ConcurrentHashMap<String, MediaItem>()
     
@@ -50,7 +62,7 @@ class MediaPlaybackService : MediaLibraryService() {
     private var audioFocusRequest: AudioFocusRequest? = null
     private var audioManager: AudioManager? = null
     private var playOnAudioFocusGain = false
-    
+
     // Settings manager
     private lateinit var appSettings: AppSettings
     
@@ -72,6 +84,13 @@ class MediaPlaybackService : MediaLibraryService() {
         
         // Intent action for initializing the service
         const val ACTION_INIT_SERVICE = "chromahub.rhythm.app.action.INIT_SERVICE"
+
+        // Playback custom commands
+        const val REPEAT_MODE_ALL = "repeat_all"
+        const val REPEAT_MODE_ONE = "repeat_one"
+        const val REPEAT_MODE_OFF = "repeat_off"
+        const val SHUFFLE_MODE_ON = "shuffle_on"
+        const val SHUFFLE_MODE_OFF = "shuffle_off"
     }
 
     // Audio focus change listener
@@ -118,10 +137,12 @@ class MediaPlaybackService : MediaLibraryService() {
         try {
             // Initialize the player with settings
             initializePlayer()
-            
+
+            createCustomCommands()
+
             // Create the media session
             mediaSession = createMediaSession()
-            
+            createController()
             Log.d(TAG, "Service initialized successfully")
         } catch (e: Exception) {
             Log.e(TAG, "Error initializing service", e)
@@ -144,7 +165,50 @@ class MediaPlaybackService : MediaLibraryService() {
         // Apply current settings
         applyPlayerSettings()
     }
-    
+
+    private fun createController() {
+        controller = MediaController.Builder(this, mediaSession!!.token)
+            .buildAsync()
+            .get()
+        controller?.addListener(this)
+        mediaSession?.setCustomLayout(ImmutableList.of(shuffleCommand, repeatCommand))
+    }
+
+    private fun createCustomCommands() {
+        customCommands = listOf(
+            CommandButton.Builder(CommandButton.ICON_SHUFFLE_OFF)
+                .setDisplayName("Shuffle mode")
+                .setSessionCommand(
+                    SessionCommand(SHUFFLE_MODE_ON, Bundle.EMPTY)
+                )
+                .build(),
+            CommandButton.Builder(CommandButton.ICON_SHUFFLE_ON)
+                .setDisplayName("Shuffle mode")
+                .setSessionCommand(
+                    SessionCommand(SHUFFLE_MODE_OFF, Bundle.EMPTY)
+                )
+                .build(),
+            CommandButton.Builder(CommandButton.ICON_REPEAT_OFF)
+                .setDisplayName("Repeat mode")
+                .setSessionCommand(
+                    SessionCommand(REPEAT_MODE_ALL, Bundle.EMPTY)
+                )
+                .build(),
+            CommandButton.Builder(CommandButton.ICON_REPEAT_ALL)
+                .setDisplayName("Repeat mode")
+                .setSessionCommand(
+                    SessionCommand(REPEAT_MODE_ONE, Bundle.EMPTY)
+                )
+                .build(),
+            CommandButton.Builder(CommandButton.ICON_REPEAT_ONE)
+                .setDisplayName("Repeat mode")
+                .setSessionCommand(
+                    SessionCommand(REPEAT_MODE_OFF, Bundle.EMPTY)
+                )
+                .build()
+        )
+    }
+
     private fun createMediaSession(): MediaLibrarySession {
         // PendingIntent that launches MainActivity when user taps media controls
         val sessionIntent = Intent(this, MainActivity::class.java).apply {
@@ -354,6 +418,7 @@ class MediaPlaybackService : MediaLibraryService() {
         mediaSession?.run {
             abandonAudioFocus()
             player.release()
+            controller?.release()
             release()
             mediaSession = null
         }
@@ -363,12 +428,65 @@ class MediaPlaybackService : MediaLibraryService() {
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = mediaSession
 
     private inner class MediaSessionCallback : MediaLibrarySession.Callback {
+        @OptIn(UnstableApi::class)
         override fun onConnect(
             session: MediaSession,
             controller: MediaSession.ControllerInfo
         ): MediaSession.ConnectionResult {
             Log.d(TAG, "onConnect: ${controller.packageName}")
-            return super.onConnect(session, controller)
+            val availableCommands = MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS
+                .buildUpon()
+            if (session.isMediaNotificationController(controller) ||
+                session.isAutoCompanionController(controller) ||
+                session.isAutomotiveController(controller)
+            ) {
+                for (commandButton in customCommands) {
+                    commandButton.sessionCommand?.let { availableCommands.add(it) }
+                }
+            }
+            return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                .setAvailableSessionCommands(availableCommands.build())
+                .build()
+        }
+
+        @OptIn(UnstableApi::class)
+        override fun onCustomCommand(
+            session: MediaSession,
+            controller: MediaSession.ControllerInfo,
+            customCommand: SessionCommand,
+            args: Bundle
+        ): ListenableFuture<SessionResult> {
+            return Futures.immediateFuture(
+                when (customCommand.customAction) {
+                    SHUFFLE_MODE_ON -> {
+                        this@MediaPlaybackService.controller!!.shuffleModeEnabled = true
+                        SessionResult(SessionResult.RESULT_SUCCESS)
+                    }
+
+                    SHUFFLE_MODE_OFF -> {
+                        this@MediaPlaybackService.controller!!.shuffleModeEnabled = false
+                        SessionResult(SessionResult.RESULT_SUCCESS)
+                    }
+
+                    REPEAT_MODE_OFF -> {
+                        this@MediaPlaybackService.controller!!.repeatMode = Player.REPEAT_MODE_OFF
+                        SessionResult(SessionResult.RESULT_SUCCESS)
+                    }
+
+                    REPEAT_MODE_ONE -> {
+                        this@MediaPlaybackService.controller!!.repeatMode = Player.REPEAT_MODE_ONE
+                        SessionResult(SessionResult.RESULT_SUCCESS)
+                    }
+
+                    REPEAT_MODE_ALL -> {
+                        this@MediaPlaybackService.controller!!.repeatMode = Player.REPEAT_MODE_ALL
+                        SessionResult(SessionResult.RESULT_SUCCESS)
+                    }
+
+                    else -> {
+                        SessionResult(SessionError.ERROR_NOT_SUPPORTED)
+                    }
+                })
         }
 
         override fun onDisconnected(
@@ -426,7 +544,17 @@ class MediaPlaybackService : MediaLibraryService() {
             return Futures.immediateFuture(androidx.media3.session.LibraryResult.ofItem(rootItem, params))
         }
     }
-    
+
+    override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
+        super.onShuffleModeEnabledChanged(shuffleModeEnabled)
+        mediaSession?.setCustomLayout(ImmutableList.of(shuffleCommand, repeatCommand))
+    }
+
+    override fun onRepeatModeChanged(repeatMode: Int) {
+        super<Player.Listener>.onRepeatModeChanged(repeatMode)
+        mediaSession?.setCustomLayout(ImmutableList.of(shuffleCommand, repeatCommand))
+    }
+
     /**
      * Requests audio focus using the appropriate API based on Android version
      */
