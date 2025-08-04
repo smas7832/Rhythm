@@ -2,6 +2,7 @@ package chromahub.rhythm.app.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -125,6 +126,11 @@ class AppSettings private constructor(context: Context) {
         // Blacklisted Folders
         private const val KEY_BLACKLISTED_FOLDERS = "blacklisted_folders"
         
+        // Backup and Restore
+        private const val KEY_LAST_BACKUP_TIMESTAMP = "last_backup_timestamp"
+        private const val KEY_AUTO_BACKUP_ENABLED = "auto_backup_enabled"
+        private const val KEY_BACKUP_LOCATION = "backup_location"
+        
         
         @Volatile
         private var INSTANCE: AppSettings? = null
@@ -200,7 +206,7 @@ class AppSettings private constructor(context: Context) {
     val useSystemVolume: StateFlow<Boolean> = _useSystemVolume.asStateFlow()
     
     // Cache Settings
-    private val _maxCacheSize = MutableStateFlow(prefs.getLong(KEY_MAX_CACHE_SIZE, 1024L * 1024L * 512L)) // 512MB default
+    private val _maxCacheSize = MutableStateFlow(safeLong(KEY_MAX_CACHE_SIZE, 1024L * 1024L * 512L)) // 512MB default
     val maxCacheSize: StateFlow<Long> = _maxCacheSize.asStateFlow()
     
     private val _clearCacheOnExit = MutableStateFlow(prefs.getBoolean(KEY_CLEAR_CACHE_ON_EXIT, false))
@@ -218,7 +224,7 @@ class AppSettings private constructor(context: Context) {
     val favoriteSongs: StateFlow<String?> = _favoriteSongs.asStateFlow()
     
     // User Statistics
-    private val _listeningTime = MutableStateFlow(prefs.getLong(KEY_LISTENING_TIME, 0L))
+    private val _listeningTime = MutableStateFlow(safeLong(KEY_LISTENING_TIME, 0L))
     val listeningTime: StateFlow<Long> = _listeningTime.asStateFlow()
     
     private val _songsPlayed = MutableStateFlow(prefs.getInt(KEY_SONGS_PLAYED, 0))
@@ -270,7 +276,7 @@ class AppSettings private constructor(context: Context) {
     )
     val recentlyPlayed: StateFlow<List<String>> = _recentlyPlayed.asStateFlow()
     
-    private val _lastPlayedTimestamp = MutableStateFlow(prefs.getLong(KEY_LAST_PLAYED_TIMESTAMP, 0L))
+    private val _lastPlayedTimestamp = MutableStateFlow(safeLong(KEY_LAST_PLAYED_TIMESTAMP, 0L))
     val lastPlayedTimestamp: StateFlow<Long> = _lastPlayedTimestamp.asStateFlow()
     
     // Spotify RapidAPI Key
@@ -423,6 +429,16 @@ class AppSettings private constructor(context: Context) {
         }
     )
     val blacklistedFolders: StateFlow<List<String>> = _blacklistedFolders.asStateFlow()
+    
+    // Backup and Restore Settings
+    private val _lastBackupTimestamp = MutableStateFlow(safeLong(KEY_LAST_BACKUP_TIMESTAMP, 0L))
+    val lastBackupTimestamp: StateFlow<Long> = _lastBackupTimestamp.asStateFlow()
+    
+    private val _autoBackupEnabled = MutableStateFlow(prefs.getBoolean(KEY_AUTO_BACKUP_ENABLED, false))
+    val autoBackupEnabled: StateFlow<Boolean> = _autoBackupEnabled.asStateFlow()
+    
+    private val _backupLocation = MutableStateFlow(prefs.getString(KEY_BACKUP_LOCATION, null))
+    val backupLocation: StateFlow<String?> = _backupLocation.asStateFlow()
     
     // Playback Settings Methods
     fun setHighQualityAudio(enable: Boolean) {
@@ -832,5 +848,252 @@ class AppSettings private constructor(context: Context) {
         }
         
         return false
+    }
+    
+    // Backup and Restore Methods
+    fun setLastBackupTimestamp(timestamp: Long) {
+        prefs.edit().putLong(KEY_LAST_BACKUP_TIMESTAMP, timestamp).apply()
+        _lastBackupTimestamp.value = timestamp
+    }
+    
+    fun setAutoBackupEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_AUTO_BACKUP_ENABLED, enabled).apply()
+        _autoBackupEnabled.value = enabled
+    }
+    
+    fun setBackupLocation(location: String?) {
+        if (location == null) {
+            prefs.edit().remove(KEY_BACKUP_LOCATION).apply()
+        } else {
+            prefs.edit().putString(KEY_BACKUP_LOCATION, location).apply()
+        }
+        _backupLocation.value = location
+    }
+    
+    /**
+     * Creates a complete backup of all app data as JSON
+     */
+    fun createBackup(): String {
+        val backupData = mutableMapOf<String, Any?>()
+        val preferencesTypes = mutableMapOf<String, String>()
+        
+        // Get all preferences
+        val allPrefs = prefs.all
+        
+        // Filter out sensitive or temporary data if needed
+        val filteredPrefs = allPrefs.filterKeys { key ->
+            // Include all keys for now, but you could exclude sensitive data here
+            true
+        }
+        
+        // Store type information for each preference
+        filteredPrefs.forEach { (key, value) ->
+            preferencesTypes[key] = when (value) {
+                is Boolean -> "Boolean"
+                is Float -> "Float"
+                is Int -> "Int"
+                is Long -> "Long"
+                is String -> "String"
+                is Set<*> -> "StringSet"
+                else -> "Unknown"
+            }
+        }
+        
+        backupData["preferences"] = filteredPrefs
+        backupData["preferences_types"] = preferencesTypes
+        backupData["timestamp"] = System.currentTimeMillis()
+        backupData["app_version"] = "1.0.0" // You might want to get this dynamically
+        backupData["backup_version"] = 1
+        
+        return Gson().toJson(backupData)
+    }
+    
+    /**
+     * Restores app data from a backup JSON string
+     */
+    fun restoreFromBackup(backupJson: String): Boolean {
+        return try {
+            val backupData = Gson().fromJson(backupJson, Map::class.java) as Map<String, Any?>
+            val preferences = backupData["preferences"] as? Map<String, Any?> ?: return false
+            val preferencesTypes = backupData["preferences_types"] as? Map<String, String> ?: emptyMap()
+            
+            // Clear existing preferences (optional - you might want to merge instead)
+            val editor = prefs.edit()
+            
+            // Restore all preferences with proper type handling
+            preferences.forEach { (key, value) ->
+                val originalType = preferencesTypes[key]
+                when (value) {
+                    is Boolean -> editor.putBoolean(key, value)
+                    is Float -> {
+                        // Check if this should be a Long or Int based on original type
+                        when (originalType) {
+                            "Long" -> editor.putLong(key, value.toLong())
+                            "Int" -> editor.putInt(key, value.toInt())
+                            else -> editor.putFloat(key, value)
+                        }
+                    }
+                    is Int -> editor.putInt(key, value)
+                    is Long -> editor.putLong(key, value)
+                    is String -> editor.putString(key, value)
+                    is Double -> {
+                        // JSON deserializes numbers as Double, convert based on original type
+                        when (originalType) {
+                            "Float" -> editor.putFloat(key, value.toFloat())
+                            "Long" -> editor.putLong(key, value.toLong())
+                            "Int" -> editor.putInt(key, value.toInt())
+                            else -> editor.putFloat(key, value.toFloat()) // Default fallback
+                        }
+                    }
+                    // Handle any other types as needed
+                }
+            }
+            
+            editor.apply()
+            
+            // Refresh all StateFlows to reflect the restored data
+            refreshAllStateFlows()
+            
+            true
+        } catch (e: Exception) {
+            Log.e("AppSettings", "Failed to restore backup", e)
+            false
+        }
+    }
+    
+    /**
+     * Safely get a Long value from SharedPreferences, handling JSON restore type casting issues
+     */
+    private fun safeLong(key: String, defaultValue: Long): Long {
+        return try {
+            prefs.getLong(key, defaultValue)
+        } catch (e: ClassCastException) {
+            // Handle case where value was stored as Float/Double from JSON restore
+            try {
+                prefs.getFloat(key, defaultValue.toFloat()).toLong()
+            } catch (e2: Exception) {
+                // If all else fails, use default and fix the stored value
+                prefs.edit().putLong(key, defaultValue).apply()
+                defaultValue
+            }
+        }
+    }
+    
+    /**
+     * Refreshes all StateFlows to reflect current SharedPreferences values
+     */
+    private fun refreshAllStateFlows() {
+        // Playback Settings
+        _highQualityAudio.value = prefs.getBoolean(KEY_HIGH_QUALITY_AUDIO, true)
+        _gaplessPlayback.value = prefs.getBoolean(KEY_GAPLESS_PLAYBACK, true)
+        _crossfade.value = prefs.getBoolean(KEY_CROSSFADE, false)
+        _crossfadeDuration.value = prefs.getFloat(KEY_CROSSFADE_DURATION, 2f)
+        _audioNormalization.value = prefs.getBoolean(KEY_AUDIO_NORMALIZATION, true)
+        _replayGain.value = prefs.getBoolean(KEY_REPLAY_GAIN, false)
+        
+        // Theme Settings
+        _useSystemTheme.value = prefs.getBoolean(KEY_USE_SYSTEM_THEME, true)
+        _darkMode.value = prefs.getBoolean(KEY_DARK_MODE, true)
+        _useDynamicColors.value = prefs.getBoolean(KEY_USE_DYNAMIC_COLORS, false)
+        
+        // Library Settings
+        _albumViewType.value = AlbumViewType.valueOf(prefs.getString(KEY_ALBUM_VIEW_TYPE, AlbumViewType.GRID.name) ?: AlbumViewType.GRID.name)
+        _artistViewType.value = ArtistViewType.valueOf(prefs.getString(KEY_ARTIST_VIEW_TYPE, ArtistViewType.GRID.name) ?: ArtistViewType.GRID.name)
+        _albumSortOrder.value = prefs.getString(KEY_ALBUM_SORT_ORDER, "TRACK_NUMBER") ?: "TRACK_NUMBER"
+        
+        // Audio Device Settings
+        _lastAudioDevice.value = prefs.getString(KEY_LAST_AUDIO_DEVICE, null)
+        _autoConnectDevice.value = prefs.getBoolean(KEY_AUTO_CONNECT_DEVICE, true)
+        _useSystemVolume.value = prefs.getBoolean(KEY_USE_SYSTEM_VOLUME, false)
+        
+        // Cache Settings
+        _maxCacheSize.value = safeLong(KEY_MAX_CACHE_SIZE, 500L * 1024L * 1024L)
+        _clearCacheOnExit.value = prefs.getBoolean(KEY_CLEAR_CACHE_ON_EXIT, false)
+        
+        // Other settings
+        _showLyrics.value = prefs.getBoolean(KEY_SHOW_LYRICS, true)
+        _onlineOnlyLyrics.value = prefs.getBoolean(KEY_ONLINE_ONLY_LYRICS, true)
+        _searchHistory.value = prefs.getString(KEY_SEARCH_HISTORY, null)
+        _playlists.value = prefs.getString(KEY_PLAYLISTS, null)
+        _favoriteSongs.value = prefs.getString(KEY_FAVORITE_SONGS, null)
+        
+        // User Statistics
+        _listeningTime.value = safeLong(KEY_LISTENING_TIME, 0L)
+        _songsPlayed.value = prefs.getInt(KEY_SONGS_PLAYED, 0)
+        _uniqueArtists.value = prefs.getInt(KEY_UNIQUE_ARTISTS, 0)
+        
+        // Enhanced User Preferences
+        _favoriteGenres.value = try {
+            val json = prefs.getString(KEY_FAVORITE_GENRES, null)
+            if (json != null) Gson().fromJson(json, object : TypeToken<Map<String, Int>>() {}.type) else emptyMap()
+        } catch (e: Exception) { emptyMap() }
+        
+        _dailyListeningStats.value = try {
+            val json = prefs.getString(KEY_DAILY_LISTENING_STATS, null)
+            if (json != null) Gson().fromJson(json, object : TypeToken<Map<String, Long>>() {}.type) else emptyMap()
+        } catch (e: Exception) { emptyMap() }
+        
+        _weeklyTopArtists.value = try {
+            val json = prefs.getString(KEY_WEEKLY_TOP_ARTISTS, null)
+            if (json != null) Gson().fromJson(json, object : TypeToken<Map<String, Int>>() {}.type) else emptyMap()
+        } catch (e: Exception) { emptyMap() }
+        
+        _moodPreferences.value = try {
+            val json = prefs.getString(KEY_MOOD_PREFERENCES, null)
+            if (json != null) Gson().fromJson(json, object : TypeToken<Map<String, List<String>>>() {}.type) else emptyMap()
+        } catch (e: Exception) { emptyMap() }
+        
+        _songPlayCounts.value = try {
+            val json = prefs.getString(KEY_SONG_PLAY_COUNTS, null)
+            if (json != null) Gson().fromJson(json, object : TypeToken<Map<String, Int>>() {}.type) else emptyMap()
+        } catch (e: Exception) { emptyMap() }
+        
+        // Recently Played
+        _recentlyPlayed.value = try {
+            val json = prefs.getString(KEY_RECENTLY_PLAYED, null)
+            if (json != null) Gson().fromJson(json, object : TypeToken<List<String>>() {}.type) else emptyList()
+        } catch (e: Exception) { emptyList() }
+        
+        _lastPlayedTimestamp.value = safeLong(KEY_LAST_PLAYED_TIMESTAMP, 0L)
+        
+        // API Keys
+        _spotifyApiKey.value = prefs.getString(KEY_SPOTIFY_API_KEY, null)
+        
+        // App Updates
+        _autoCheckForUpdates.value = prefs.getBoolean(KEY_AUTO_CHECK_FOR_UPDATES, true)
+        _updateChannel.value = prefs.getString(KEY_UPDATE_CHANNEL, "stable") ?: "stable"
+        _updatesEnabled.value = prefs.getBoolean(KEY_UPDATES_ENABLED, true)
+        _updateCheckIntervalHours.value = prefs.getInt(KEY_UPDATE_CHECK_INTERVAL_HOURS, 24)
+        
+        // Beta Program
+        _hasShownBetaPopup.value = prefs.getBoolean(KEY_HAS_SHOWN_BETA_POPUP, false)
+        
+        // Crash Reporting
+        _lastCrashLog.value = prefs.getString(KEY_LAST_CRASH_LOG, null)
+        _crashLogHistory.value = try {
+            val json = prefs.getString(KEY_CRASH_LOG_HISTORY, null)
+            if (json != null) Gson().fromJson(json, object : TypeToken<List<CrashLogEntry>>() {}.type) else emptyList()
+        } catch (e: Exception) { emptyList() }
+        
+        // Other settings
+        _hapticFeedbackEnabled.value = prefs.getBoolean(KEY_HAPTIC_FEEDBACK_ENABLED, true)
+        _onboardingCompleted.value = prefs.getBoolean(KEY_ONBOARDING_COMPLETED, false)
+        _initialMediaScanCompleted.value = prefs.getBoolean(KEY_INITIAL_MEDIA_SCAN_COMPLETED, false)
+        
+        // Blacklisted items
+        _blacklistedSongs.value = try {
+            val json = prefs.getString(KEY_BLACKLISTED_SONGS, null)
+            if (json != null) Gson().fromJson(json, object : TypeToken<List<String>>() {}.type) else emptyList()
+        } catch (e: Exception) { emptyList() }
+        
+        _blacklistedFolders.value = try {
+            val json = prefs.getString(KEY_BLACKLISTED_FOLDERS, null)
+            if (json != null) Gson().fromJson(json, object : TypeToken<List<String>>() {}.type) else emptyList()
+        } catch (e: Exception) { emptyList() }
+        
+        // Backup settings
+        _lastBackupTimestamp.value = safeLong(KEY_LAST_BACKUP_TIMESTAMP, 0L)
+        _autoBackupEnabled.value = prefs.getBoolean(KEY_AUTO_BACKUP_ENABLED, false)
+        _backupLocation.value = prefs.getString(KEY_BACKUP_LOCATION, null)
     }
 }

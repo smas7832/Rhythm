@@ -38,6 +38,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -172,6 +173,7 @@ fun SettingsScreen(
     var showCacheSizeDialog by remember { mutableStateOf(false) }
     var showCrashLogHistoryBottomSheet by remember { mutableStateOf(false) } // New state for crash log history
     var showBlacklistManagementBottomSheet by remember { mutableStateOf(false) } // New state for blacklist management
+    var showBackupRestoreBottomSheet by remember { mutableStateOf(false) } // New state for backup and restore
 
     val updaterViewModel: AppUpdaterViewModel = viewModel()
     val currentAppVersion by updaterViewModel.currentVersion.collectAsState()
@@ -218,6 +220,13 @@ fun SettingsScreen(
     if (showBlacklistManagementBottomSheet) {
         BlacklistManagementBottomSheet(
             onDismiss = { showBlacklistManagementBottomSheet = false },
+            appSettings = appSettings
+        )
+    }
+
+    if (showBackupRestoreBottomSheet) {
+        BackupRestoreBottomSheet(
+            onDismiss = { showBackupRestoreBottomSheet = false },
             appSettings = appSettings
         )
     }
@@ -575,6 +584,37 @@ fun SettingsScreen(
                     icon = Icons.Filled.ClearAll,
                     checked = clearCacheOnExit,
                     onCheckedChange = { appSettings.setClearCacheOnExit(it) }
+                )
+
+                val autoBackupEnabled by appSettings.autoBackupEnabled.collectAsState()
+                val lastBackupTimestamp by appSettings.lastBackupTimestamp.collectAsState()
+                
+                SettingsChipItem(
+                    title = "Backup & Restore",
+                    description = "Backup your settings, playlists, and preferences",
+                    primaryChipText = if (lastBackupTimestamp > 0) {
+                        val sdf = SimpleDateFormat("MMM dd", Locale.getDefault())
+                        "Last: ${sdf.format(Date(lastBackupTimestamp))}"
+                    } else "Never backed up",
+                    secondaryChipText = if (autoBackupEnabled) "Auto-backup ON" else "Manual only",
+                    icon = Icons.Filled.Backup,
+                    primaryChipColor = if (lastBackupTimestamp > 0) 
+                        MaterialTheme.colorScheme.primaryContainer 
+                    else 
+                        MaterialTheme.colorScheme.errorContainer,
+                    primaryChipTextColor = if (lastBackupTimestamp > 0) 
+                        MaterialTheme.colorScheme.onPrimaryContainer 
+                    else 
+                        MaterialTheme.colorScheme.onErrorContainer,
+                    secondaryChipColor = if (autoBackupEnabled) 
+                        MaterialTheme.colorScheme.tertiaryContainer 
+                    else 
+                        MaterialTheme.colorScheme.surfaceVariant,
+                    secondaryChipTextColor = if (autoBackupEnabled) 
+                        MaterialTheme.colorScheme.onTertiaryContainer 
+                    else 
+                        MaterialTheme.colorScheme.onSurfaceVariant,
+                    onClick = { showBackupRestoreBottomSheet = true }
                 )
 
                 SettingsDivider()
@@ -2291,5 +2331,656 @@ fun CrashLogEntryCard(entry: chromahub.rhythm.app.data.CrashLogEntry, onClick: (
                 overflow = TextOverflow.Ellipsis
             )
         }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun BackupRestoreBottomSheet(
+    onDismiss: () -> Unit,
+    appSettings: AppSettings
+) {
+    val bottomSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val haptics = LocalHapticFeedback.current
+    
+    // Collect states
+    val autoBackupEnabled by appSettings.autoBackupEnabled.collectAsState()
+    val lastBackupTimestamp by appSettings.lastBackupTimestamp.collectAsState()
+    val backupLocation by appSettings.backupLocation.collectAsState()
+    
+    // Local states
+    var isCreatingBackup by remember { mutableStateOf(false) }
+    var isRestoringBackup by remember { mutableStateOf(false) }
+    var showBackupSuccess by remember { mutableStateOf(false) }
+    var showRestoreSuccess by remember { mutableStateOf(false) }
+    var showError by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = bottomSheetState,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 16.dp)
+        ) {
+            // Header
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Backup,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(32.dp)
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                Column {
+                    Text(
+                        text = "Backup & Restore",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Text(
+                text = "Keep your settings, playlists, and preferences safe with automatic or manual backups",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Main content
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+
+                // Backup Status Cards Row
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Backup Status Card
+                        Card(
+                            modifier = Modifier.weight(1f),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (lastBackupTimestamp > 0) 
+                                    MaterialTheme.colorScheme.primaryContainer 
+                                else 
+                                    MaterialTheme.colorScheme.errorContainer
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    imageVector = if (lastBackupTimestamp > 0) Icons.Filled.CheckCircle else Icons.Filled.Warning,
+                                    contentDescription = null,
+                                    tint = if (lastBackupTimestamp > 0) 
+                                        MaterialTheme.colorScheme.onPrimaryContainer 
+                                    else 
+                                        MaterialTheme.colorScheme.onErrorContainer,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = if (lastBackupTimestamp > 0) {
+                                        val sdf = SimpleDateFormat("MMM dd", Locale.getDefault())
+                                        sdf.format(Date(lastBackupTimestamp))
+                                    } else "Never",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (lastBackupTimestamp > 0) 
+                                        MaterialTheme.colorScheme.onPrimaryContainer 
+                                    else 
+                                        MaterialTheme.colorScheme.onErrorContainer
+                                )
+                                Text(
+                                    text = "Last Backup",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (lastBackupTimestamp > 0) 
+                                        MaterialTheme.colorScheme.onPrimaryContainer 
+                                    else 
+                                        MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            }
+                        }
+                        
+                        // Auto Backup Status Card
+                        Card(
+                            modifier = Modifier.weight(1f),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (autoBackupEnabled) 
+                                    MaterialTheme.colorScheme.tertiaryContainer 
+                                else 
+                                    MaterialTheme.colorScheme.surfaceVariant
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    imageVector = if (autoBackupEnabled) Icons.Filled.AutoAwesome else Icons.Filled.Schedule,
+                                    contentDescription = null,
+                                    tint = if (autoBackupEnabled) 
+                                        MaterialTheme.colorScheme.onTertiaryContainer 
+                                    else 
+                                        MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = if (autoBackupEnabled) "Enabled" else "Manual",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (autoBackupEnabled) 
+                                        MaterialTheme.colorScheme.onTertiaryContainer 
+                                    else 
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = "Auto Backup",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (autoBackupEnabled) 
+                                        MaterialTheme.colorScheme.onTertiaryContainer 
+                                    else 
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                    
+                    // Backup location info if available
+                    backupLocation?.let { location ->
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Surface(
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Folder,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = location.substringAfterLast("/"),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Auto-backup toggle
+                item {
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                appSettings.setAutoBackupEnabled(!autoBackupEnabled)
+                                HapticUtils.performHapticFeedback(context, haptics, androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+                            }
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(16.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.AutoAwesome,
+                                contentDescription = null,
+                                tint = if (autoBackupEnabled) 
+                                    MaterialTheme.colorScheme.primary 
+                                else 
+                                    MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            
+                            Spacer(modifier = Modifier.width(16.dp))
+                            
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Auto-backup",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = "Automatically backup settings weekly",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            
+                            Switch(
+                                checked = autoBackupEnabled,
+                                onCheckedChange = {
+                                    appSettings.setAutoBackupEnabled(it)
+                                    HapticUtils.performHapticFeedback(context, haptics, androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                    checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+                                )
+                            )
+                        }
+                    }
+                }
+
+                // Create Backup Button
+                item {
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(enabled = !isCreatingBackup && !isRestoringBackup) {
+                                scope.launch {
+                                    try {
+                                        isCreatingBackup = true
+                                        HapticUtils.performHapticFeedback(context, haptics, androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+                                        
+                                        val backupJson = appSettings.createBackup()
+                                        
+                                        // Save backup to Downloads folder
+                                        val fileName = "rhythm_backup_${SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())}.json"
+                                        
+                                        // Use Storage Access Framework for Android 10+
+                                        val downloadsDir = context.getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS)
+                                        if (downloadsDir != null) {
+                                            val backupFile = java.io.File(downloadsDir, fileName)
+                                            backupFile.writeText(backupJson)
+                                            
+                                            appSettings.setLastBackupTimestamp(System.currentTimeMillis())
+                                            appSettings.setBackupLocation(backupFile.absolutePath)
+                                            
+                                            showBackupSuccess = true
+                                            
+                                            // Also copy to clipboard for easy sharing
+                                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                            val clip = ClipData.newPlainText("Rhythm Backup", backupJson)
+                                            clipboard.setPrimaryClip(clip)
+                                        } else {
+                                            errorMessage = "Unable to access storage for backup"
+                                            showError = true
+                                        }
+                                    } catch (e: Exception) {
+                                        errorMessage = "Failed to create backup: ${e.message}"
+                                        showError = true
+                                    } finally {
+                                        isCreatingBackup = false
+                                    }
+                                }
+                            }
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(16.dp)
+                        ) {
+                            if (isCreatingBackup) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Filled.CloudUpload,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                            
+                            Spacer(modifier = Modifier.width(16.dp))
+                            
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = if (isCreatingBackup) "Creating Backup..." else "Create Backup",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = "Save your data to file and clipboard",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            
+                            if (!isCreatingBackup && !isRestoringBackup) {
+                                Icon(
+                                    imageVector = Icons.Filled.ArrowForward,
+                                    contentDescription = "Create",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Restore Backup Button
+                item {
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(enabled = !isCreatingBackup && !isRestoringBackup) {
+                                scope.launch {
+                                    try {
+                                        isRestoringBackup = true
+                                        HapticUtils.performHapticFeedback(context, haptics, androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+                                        
+                                        // Get backup from clipboard
+                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                        val clip = clipboard.primaryClip
+                                        if (clip != null && clip.itemCount > 0) {
+                                            val backupJson = clip.getItemAt(0).text.toString()
+                                            
+                                            if (appSettings.restoreFromBackup(backupJson)) {
+                                                showRestoreSuccess = true
+                                            } else {
+                                                errorMessage = "Invalid backup format or corrupted data"
+                                                showError = true
+                                            }
+                                        } else {
+                                            errorMessage = "No backup data found in clipboard. Please copy a backup first."
+                                            showError = true
+                                        }
+                                    } catch (e: Exception) {
+                                        errorMessage = "Failed to restore backup: ${e.message}"
+                                        showError = true
+                                    } finally {
+                                        isRestoringBackup = false
+                                    }
+                                }
+                            }
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(16.dp)
+                        ) {
+                            if (isRestoringBackup) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Filled.CloudDownload,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.secondary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                            
+                            Spacer(modifier = Modifier.width(16.dp))
+                            
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = if (isRestoringBackup) "Restoring..." else "Restore from Clipboard",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = "Load your data from clipboard",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            
+                            if (!isCreatingBackup && !isRestoringBackup) {
+                                Icon(
+                                    imageVector = Icons.Filled.ArrowForward,
+                                    contentDescription = "Restore",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+                
+                // Compact Help Information Card
+                item {
+                    Card(
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainer
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Info,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Quick Info",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                CompactInfoItem(
+                                    icon = Icons.Filled.Save,
+                                    text = "Includes settings, playlists, and preferences"
+                                )
+                                
+                                CompactInfoItem(
+                                    icon = Icons.Filled.Folder,
+                                    text = "Saved to Downloads and copied to clipboard"
+                                )
+                                
+                                CompactInfoItem(
+                                    icon = Icons.Filled.Schedule,
+                                    text = "Auto-backup creates weekly backups"
+                                )
+                                
+                                CompactInfoItem(
+                                    icon = Icons.Filled.RestartAlt,
+                                    text = "Restore requires app restart"
+                                )
+                            }
+                        }
+                    }
+                }
+                
+                // Close button
+                item {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    FilledTonalButton(
+                        onClick = onDismiss,
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Close,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Close",
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+            }
+        }
+    }
+
+    // Success/Error Dialogs remain the same
+    if (showBackupSuccess) {
+        AlertDialog(
+            onDismissRequest = { showBackupSuccess = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Filled.CheckCircle,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            },
+            title = { Text("Backup Created Successfully") },
+            text = { Text("Your backup has been saved to Downloads folder and copied to clipboard. You can now share or save this backup safely.") },
+            confirmButton = {
+                TextButton(onClick = { showBackupSuccess = false }) {
+                    Text("OK")
+                }
+            }
+        )
+    }
+
+    if (showRestoreSuccess) {
+        AlertDialog(
+            onDismissRequest = { showRestoreSuccess = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Filled.CheckCircle,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            },
+            title = { Text("Restore Completed") },
+            text = { Text("Your settings have been restored successfully. Please restart the app for all changes to take effect.") },
+            confirmButton = {
+                TextButton(onClick = { showRestoreSuccess = false }) {
+                    Text("OK")
+                }
+            }
+        )
+    }
+
+    if (showError) {
+        AlertDialog(
+            onDismissRequest = { showError = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Filled.Error,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error
+                )
+            },
+            title = { Text("Error") },
+            text = { Text(errorMessage) },
+            confirmButton = {
+                TextButton(onClick = { showError = false }) {
+                    Text("OK")
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun InfoItem(
+    icon: ImageVector,
+    text: String
+) {
+    Row(
+        verticalAlignment = Alignment.Top,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(16.dp)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun CompactInfoItem(
+    icon: ImageVector,
+    text: String
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(12.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f)
+        )
     }
 }
