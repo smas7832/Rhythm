@@ -292,8 +292,8 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
             }
         }
         
-        // Always return START_STICKY to ensure the service restarts if killed
-        return START_STICKY
+        // We make sure to call the super implementation
+        return super.onStartCommand(intent, flags, startId)
     }
     
     /**
