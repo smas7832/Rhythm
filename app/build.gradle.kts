@@ -30,6 +30,7 @@ android {
 //            signingConfig = signingConfigs.getByName("debug") // Remove this in production
         }
         debug {
+            applicationIdSuffix = ".debug"
             isMinifyEnabled = false
             isDebuggable = true
         }
