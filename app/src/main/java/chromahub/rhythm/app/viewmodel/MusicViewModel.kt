@@ -534,7 +534,19 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         
         // Start the service first to ensure it's running
         val serviceIntent = Intent(context, MediaPlaybackService::class.java)
-        context.startService(serviceIntent)
+        serviceIntent.action = MediaPlaybackService.ACTION_INIT_SERVICE
+        
+        // Use startForegroundService for Android 8.0+ to avoid BackgroundServiceStartNotAllowedException
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                context.startForegroundService(serviceIntent)
+            } else {
+                context.startService(serviceIntent)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start media service: ${e.message}", e)
+            // Try to connect without starting the service - the MediaController might still work
+        }
         
         val sessionToken = SessionToken(
             context,
@@ -1912,7 +1924,15 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             val intent = Intent(context, MediaPlaybackService::class.java).apply {
                 action = MediaPlaybackService.ACTION_UPDATE_SETTINGS
             }
-            context.startService(intent)
+            try {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to start media service for settings update: ${e.message}", e)
+            }
         }
     }
 
