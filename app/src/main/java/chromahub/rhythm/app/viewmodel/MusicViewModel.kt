@@ -2795,4 +2795,12 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             getPathFromUri(uri)
         }
     }
+    
+    /**
+     * Exposes the MusicRepository instance for cache cleanup operations
+     * @return The MusicRepository instance
+     */
+    fun getMusicRepository(): MusicRepository {
+        return repository
+    }
 }

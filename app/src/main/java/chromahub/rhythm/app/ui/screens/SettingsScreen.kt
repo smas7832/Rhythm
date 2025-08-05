@@ -1,6 +1,9 @@
 @file:OptIn(ExperimentalMaterial3Api::class, androidx.compose.ui.text.ExperimentalTextApi::class)
 package chromahub.rhythm.app.ui.screens
 
+import android.app.Activity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material.icons.filled.*
@@ -89,6 +92,8 @@ import androidx.compose.material3.HorizontalDivider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.delay
+import android.util.Log
 import java.net.HttpURLConnection
 import java.net.URL
 import chromahub.rhythm.app.data.AppSettings
@@ -174,6 +179,7 @@ fun SettingsScreen(
     var showCrashLogHistoryBottomSheet by remember { mutableStateOf(false) } // New state for crash log history
     var showBlacklistManagementBottomSheet by remember { mutableStateOf(false) } // New state for blacklist management
     var showBackupRestoreBottomSheet by remember { mutableStateOf(false) } // New state for backup and restore
+    var showCacheManagementBottomSheet by remember { mutableStateOf(false) } // New state for cache management
 
     val updaterViewModel: AppUpdaterViewModel = viewModel()
     val currentAppVersion by updaterViewModel.currentVersion.collectAsState()
@@ -228,6 +234,14 @@ fun SettingsScreen(
         BackupRestoreBottomSheet(
             onDismiss = { showBackupRestoreBottomSheet = false },
             appSettings = appSettings
+        )
+    }
+
+    if (showCacheManagementBottomSheet) {
+        CacheManagementBottomSheet(
+            onDismiss = { showCacheManagementBottomSheet = false },
+            appSettings = appSettings,
+            musicViewModel = musicViewModel
         )
     }
 
@@ -564,26 +578,24 @@ fun SettingsScreen(
             item {
                 SettingsSectionHeader(title = "Data & Storage")
 
+                // Cache Management - consolidated into one item
                 SettingsChipItem(
-                    title = "Max cache size",
-                    description = "Control how much storage is used for cache",
+                    title = "Manage cache",
+                    description = "Control cache size, automatic clearing, and manual cleanup",
                     primaryChipText = "${String.format("%.1f", maxCacheSize / (1024f * 1024f))} MB",
-                    secondaryChipText = "Current limit",
+                    secondaryChipText = if (clearCacheOnExit) "Auto-clear ON" else "Manual only",
                     icon = Icons.Filled.Storage,
                     primaryChipColor = MaterialTheme.colorScheme.primaryContainer,
                     primaryChipTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    secondaryChipColor = MaterialTheme.colorScheme.secondaryContainer,
-                    secondaryChipTextColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                    onClick = { showCacheSizeDialog = true }
-                )
-
-                val clearCacheOnExit by appSettings.clearCacheOnExit.collectAsState()
-                SettingsToggleItem(
-                    title = "Clear cache on exit",
-                    description = "Automatically clear cached data when the app closes",
-                    icon = Icons.Filled.ClearAll,
-                    checked = clearCacheOnExit,
-                    onCheckedChange = { appSettings.setClearCacheOnExit(it) }
+                    secondaryChipColor = if (clearCacheOnExit) 
+                        MaterialTheme.colorScheme.tertiaryContainer 
+                    else 
+                        MaterialTheme.colorScheme.surfaceVariant,
+                    secondaryChipTextColor = if (clearCacheOnExit) 
+                        MaterialTheme.colorScheme.onTertiaryContainer 
+                    else 
+                        MaterialTheme.colorScheme.onSurfaceVariant,
+                    onClick = { showCacheManagementBottomSheet = true }
                 )
 
                 val autoBackupEnabled by appSettings.autoBackupEnabled.collectAsState()
@@ -2068,59 +2080,160 @@ fun CacheSizeDialog(
 ) {
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
-    var selectedSizeIndex by remember {
-        mutableIntStateOf(
-            when (currentSize) {
-                1024L * 1024L * 128L -> 0 // 128 MB
-                1024L * 1024L * 256L -> 1 // 256 MB
-                1024L * 1024L * 512L -> 2 // 512 MB
-                1024L * 1024L * 1024L -> 3 // 1 GB
-                else -> 2 // Default to 512MB if current size doesn't match predefined
-            }
-        )
+    
+    // Convert size ranges to slider values (in MB)
+    val minSize = 64L * 1024L * 1024L // 64 MB
+    val maxSize = 2048L * 1024L * 1024L // 2 GB
+    val stepSize = 64L * 1024L * 1024L // 64 MB steps
+    
+    // Current size in MB for slider
+    val currentSizeMB = (currentSize / (1024L * 1024L)).coerceIn(64L, 2048L)
+    var selectedSizeMB by remember { mutableFloatStateOf(currentSizeMB.toFloat()) }
+    
+    // Helper function to format size display
+    fun formatSizeDisplay(sizeMB: Float): String {
+        return when {
+            sizeMB >= 1024f -> "${String.format("%.1f", sizeMB / 1024f)} GB"
+            else -> "${sizeMB.toInt()} MB"
+        }
     }
-
-    val cacheSizes = listOf(
-        128L * 1024L * 1024L, // 128 MB
-        256L * 1024L * 1024L, // 256 MB
-        512L * 1024L * 1024L, // 512 MB
-        1024L * 1024L * 1024L // 1 GB
-    )
-
-    val cacheSizeLabels = listOf("128 MB", "256 MB", "512 MB", "1 GB")
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Max Cache Size") },
+        title = { 
+            Text(
+                text = "Max Cache Size",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            ) 
+        },
         text = {
             Column {
-                Text("Set the maximum size for cached audio and artwork.")
-                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Set the maximum size for cached audio and artwork.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                // Current selection display
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Text(
+                            text = formatSizeDisplay(selectedSizeMB),
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Text(
+                            text = "Cache Size Limit",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(20.dp))
+                
+                // Slider
                 Column {
-                    cacheSizeLabels.forEachIndexed { index, label ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { selectedSizeIndex = index }
-                                .padding(vertical = 8.dp)
+                    Row(
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "64 MB",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "2 GB",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Slider(
+                        value = selectedSizeMB,
+                        onValueChange = { newValue ->
+                            // Snap to 64MB increments
+                            val snappedValue = ((newValue / 64f).toInt() * 64f).coerceIn(64f, 2048f)
+                            selectedSizeMB = snappedValue
+                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                        },
+                        valueRange = 64f..2048f,
+                        steps = ((2048 - 64) / 64) - 1, // Number of steps between min and max
+                        colors = androidx.compose.material3.SliderDefaults.colors(
+                            thumbColor = MaterialTheme.colorScheme.primary,
+                            activeTrackColor = MaterialTheme.colorScheme.primary,
+                            inactiveTrackColor = MaterialTheme.colorScheme.primaryContainer
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Quick size options
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    val quickSizes = listOf(128f, 256f, 512f, 1024f)
+                    val quickLabels = listOf("128MB", "256MB", "512MB", "1GB")
+                    
+                    quickSizes.forEachIndexed { index, size ->
+                        Surface(
+                            onClick = { 
+                                selectedSizeMB = size
+                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (selectedSizeMB == size) 
+                                MaterialTheme.colorScheme.secondaryContainer 
+                            else 
+                                MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier.weight(1f)
                         ) {
-                            Switch(
-                                checked = selectedSizeIndex == index,
-                                onCheckedChange = { selectedSizeIndex = index }
+                            Text(
+                                text = quickLabels[index],
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (selectedSizeMB == size) 
+                                    MaterialTheme.colorScheme.onSecondaryContainer 
+                                else 
+                                    MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp)
                             )
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Text(label, style = MaterialTheme.typography.bodyLarge)
                         }
                     }
                 }
             }
         },
         confirmButton = {
-            Button(onClick = { 
-                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
-                onSave(cacheSizes[selectedSizeIndex]) 
-            }) {
+            Button(
+                onClick = { 
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                    val sizeInBytes = selectedSizeMB.toLong() * 1024L * 1024L
+                    onSave(sizeInBytes) 
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
+            ) {
                 Text("Save")
             }
         },
@@ -2128,7 +2241,8 @@ fun CacheSizeDialog(
             TextButton(onClick = onDismiss) {
                 Text("Cancel")
             }
-        }
+        },
+        shape = RoundedCornerShape(24.dp)
     )
 }
 
@@ -2353,10 +2467,52 @@ fun BackupRestoreBottomSheet(
     // Local states
     var isCreatingBackup by remember { mutableStateOf(false) }
     var isRestoringBackup by remember { mutableStateOf(false) }
+    var isRestoringFromFile by remember { mutableStateOf(false) }
     var showBackupSuccess by remember { mutableStateOf(false) }
     var showRestoreSuccess by remember { mutableStateOf(false) }
     var showError by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
+
+    // File picker launcher for restore functionality
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            result.data?.data?.let { uri ->
+                scope.launch {
+                    try {
+                        isRestoringFromFile = true
+                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                        
+                        // Read the backup file content
+                        val inputStream = context.contentResolver.openInputStream(uri)
+                        val backupJson = inputStream?.bufferedReader()?.use { it.readText() }
+                        
+                        if (!backupJson.isNullOrEmpty()) {
+                            if (appSettings.restoreFromBackup(backupJson)) {
+                                showRestoreSuccess = true
+                            } else {
+                                errorMessage = "Invalid backup format or corrupted data"
+                                showError = true
+                            }
+                        } else {
+                            errorMessage = "Unable to read the backup file"
+                            showError = true
+                        }
+                    } catch (e: Exception) {
+                        errorMessage = "Failed to restore from file: ${e.message}"
+                        showError = true
+                    } finally {
+                        isRestoringFromFile = false
+                        isRestoringBackup = false
+                    }
+                }
+            }
+        } else {
+            isRestoringFromFile = false
+            isRestoringBackup = false
+        }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -2694,87 +2850,143 @@ fun BackupRestoreBottomSheet(
                     }
                 }
 
-                // Restore Backup Button
+                // Restore Backup Buttons Row
                 item {
-                    Card(
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surface
-                        ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(enabled = !isCreatingBackup && !isRestoringBackup) {
-                                scope.launch {
-                                    try {
-                                        isRestoringBackup = true
-                                        HapticUtils.performHapticFeedback(context, haptics, androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
-                                        
-                                        // Get backup from clipboard
-                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                        val clip = clipboard.primaryClip
-                                        if (clip != null && clip.itemCount > 0) {
-                                            val backupJson = clip.getItemAt(0).text.toString()
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Restore from Clipboard Button
+                        Card(
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surface
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable(enabled = !isCreatingBackup && !isRestoringBackup && !isRestoringFromFile) {
+                                    scope.launch {
+                                        try {
+                                            isRestoringBackup = true
+                                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                                             
-                                            if (appSettings.restoreFromBackup(backupJson)) {
-                                                showRestoreSuccess = true
+                                            // Get backup from clipboard
+                                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                            val clip = clipboard.primaryClip
+                                            if (clip != null && clip.itemCount > 0) {
+                                                val backupJson = clip.getItemAt(0).text.toString()
+                                                
+                                                if (appSettings.restoreFromBackup(backupJson)) {
+                                                    showRestoreSuccess = true
+                                                } else {
+                                                    errorMessage = "Invalid backup format or corrupted data"
+                                                    showError = true
+                                                }
                                             } else {
-                                                errorMessage = "Invalid backup format or corrupted data"
+                                                errorMessage = "No backup data found in clipboard. Please copy a backup first."
                                                 showError = true
                                             }
-                                        } else {
-                                            errorMessage = "No backup data found in clipboard. Please copy a backup first."
+                                        } catch (e: Exception) {
+                                            errorMessage = "Failed to restore backup: ${e.message}"
                                             showError = true
+                                        } finally {
+                                            isRestoringBackup = false
                                         }
-                                    } catch (e: Exception) {
-                                        errorMessage = "Failed to restore backup: ${e.message}"
-                                        showError = true
-                                    } finally {
-                                        isRestoringBackup = false
                                     }
                                 }
-                            }
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(16.dp)
                         ) {
-                            if (isRestoringBackup) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(24.dp),
-                                    strokeWidth = 2.dp,
-                                    color = MaterialTheme.colorScheme.secondary
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Filled.CloudDownload,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.secondary,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                            
-                            Spacer(modifier = Modifier.width(16.dp))
-                            
-                            Column(modifier = Modifier.weight(1f)) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.padding(16.dp)
+                            ) {
+                                if (isRestoringBackup && !isRestoringFromFile) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(24.dp),
+                                        strokeWidth = 2.dp,
+                                        color = MaterialTheme.colorScheme.secondary
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Filled.ContentCopy,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.secondary,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                                
+                                Spacer(modifier = Modifier.height(8.dp))
+                                
                                 Text(
-                                    text = if (isRestoringBackup) "Restoring..." else "Restore from Clipboard",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.SemiBold
+                                    text = if (isRestoringBackup && !isRestoringFromFile) "Restoring..." else "From Clipboard",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    textAlign = TextAlign.Center
                                 )
                                 Text(
-                                    text = "Load your data from clipboard",
+                                    text = "Paste backup data",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center
                                 )
                             }
-                            
-                            if (!isCreatingBackup && !isRestoringBackup) {
-                                Icon(
-                                    imageVector = Icons.Filled.ArrowForward,
-                                    contentDescription = "Restore",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(20.dp)
+                        }
+                        
+                        // Restore from File Button
+                        Card(
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surface
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable(enabled = !isCreatingBackup && !isRestoringBackup && !isRestoringFromFile) {
+                                    isRestoringFromFile = true
+                                    isRestoringBackup = true
+                                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                    
+                                    val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                                        addCategory(Intent.CATEGORY_OPENABLE)
+                                        type = "application/json"
+                                        // Also accept all files in case JSON MIME type isn't recognized
+                                        putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("application/json", "text/plain", "*/*"))
+                                    }
+                                    filePickerLauncher.launch(intent)
+                                }
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.padding(16.dp)
+                            ) {
+                                if (isRestoringFromFile) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(24.dp),
+                                        strokeWidth = 2.dp,
+                                        color = MaterialTheme.colorScheme.tertiary
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Filled.FolderOpen,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.tertiary,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                                
+                                Spacer(modifier = Modifier.height(8.dp))
+                                
+                                Text(
+                                    text = if (isRestoringFromFile) "Opening..." else "From File",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    textAlign = TextAlign.Center
+                                )
+                                Text(
+                                    text = "Select backup file",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center
                                 )
                             }
                         }
@@ -2829,8 +3041,8 @@ fun BackupRestoreBottomSheet(
                                 )
                                 
                                 CompactInfoItem(
-                                    icon = Icons.Filled.Schedule,
-                                    text = "Auto-backup creates weekly backups"
+                                    icon = Icons.Filled.CloudUpload,
+                                    text = "Restore from clipboard or file picker"
                                 )
                                 
                                 CompactInfoItem(
@@ -2982,5 +3194,516 @@ private fun CompactInfoItem(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.weight(1f)
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CacheManagementBottomSheet(
+    onDismiss: () -> Unit,
+    appSettings: AppSettings,
+    musicViewModel: MusicViewModel
+) {
+    val bottomSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val haptics = LocalHapticFeedback.current
+    
+    // Collect states
+    val maxCacheSize by appSettings.maxCacheSize.collectAsState()
+    val clearCacheOnExit by appSettings.clearCacheOnExit.collectAsState()
+    
+    // Local states
+    var currentCacheSize by remember { mutableStateOf(0L) }
+    var isCalculatingSize by remember { mutableStateOf(false) }
+    var isClearingCache by remember { mutableStateOf(false) }
+    var showClearCacheSuccess by remember { mutableStateOf(false) }
+    var showCacheSizeDialog by remember { mutableStateOf(false) }
+    var cacheDetails by remember { mutableStateOf<Map<String, Long>>(emptyMap()) }
+
+    // Calculate cache size when the sheet opens
+    LaunchedEffect(Unit) {
+        isCalculatingSize = true
+        try {
+            currentCacheSize = chromahub.rhythm.app.util.CacheManager.getCacheSize(context)
+            
+            // Get detailed cache breakdown
+            val internalCacheSize = chromahub.rhythm.app.util.CacheManager.getDirectorySize(context.cacheDir)
+            val externalCacheSize = context.externalCacheDir?.let { 
+                chromahub.rhythm.app.util.CacheManager.getDirectorySize(it) 
+            } ?: 0L
+            
+            cacheDetails = mapOf(
+                "Internal Cache" to internalCacheSize,
+                "External Cache" to externalCacheSize
+            )
+        } catch (e: Exception) {
+            Log.e("CacheManagement", "Error calculating cache size", e)
+        } finally {
+            isCalculatingSize = false
+        }
+    }
+
+    if (showCacheSizeDialog) {
+        CacheSizeDialog(
+            currentSize = maxCacheSize,
+            onDismiss = { showCacheSizeDialog = false },
+            onSave = { size ->
+                appSettings.setMaxCacheSize(size)
+                showCacheSizeDialog = false
+            }
+        )
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = bottomSheetState,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 16.dp)
+        ) {
+            // Header
+            item {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Storage,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(28.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = "Cache Management",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Text(
+                    text = "Manage cached data including images, temporary files, and other app data.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+
+            // Current Cache Status
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(20.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.PieChart,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "Current Cache Status",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        if (isCalculatingSize) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = "Calculating cache size...",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        } else {
+                            // Total cache size
+                            Row(
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = "Total Cache Size:",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    text = chromahub.rhythm.app.util.CacheManager.formatBytes(currentCacheSize),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            
+                            Spacer(modifier = Modifier.height(12.dp))
+                            
+                            // Cache breakdown
+                            cacheDetails.forEach { (label, size) ->
+                                if (size > 0) {
+                                    Row(
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(
+                                            text = "  • $label:",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Text(
+                                            text = chromahub.rhythm.app.util.CacheManager.formatBytes(size),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.height(12.dp))
+                            
+                            // Cache limit
+                            Row(
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = "Cache Limit:",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = "${String.format("%.1f", maxCacheSize / (1024f * 1024f))} MB",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(20.dp))
+            }
+
+            // Cache Settings
+            // item {
+            //     Text(
+            //         text = "Cache Settings",
+            //         style = MaterialTheme.typography.titleMedium,
+            //         fontWeight = FontWeight.SemiBold,
+            //         modifier = Modifier.padding(bottom = 12.dp)
+            //     )
+            // }
+
+            // Max cache size setting
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable {
+                            showCacheSizeDialog = true
+                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                        }
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.DataUsage,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Maximum Cache Size",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = "Set the storage limit for cached data",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Surface(
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = "${String.format("%.1f", maxCacheSize / (1024f * 1024f))} MB",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(
+                            imageVector = Icons.Filled.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            // Clear cache on exit toggle
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable {
+                            appSettings.setClearCacheOnExit(!clearCacheOnExit)
+                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                        }
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.ExitToApp,
+                            contentDescription = null,
+                            tint = if (clearCacheOnExit) MaterialTheme.colorScheme.primary 
+                                  else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Clear Cache on Exit",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = "Automatically clear cached data when app closes",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = clearCacheOnExit,
+                            onCheckedChange = { 
+                                appSettings.setClearCacheOnExit(it)
+                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                            }
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(20.dp))
+            }
+
+            // Actions
+            // item {
+            //     Text(
+            //         text = "Actions",
+            //         style = MaterialTheme.typography.titleMedium,
+            //         fontWeight = FontWeight.SemiBold,
+            //         modifier = Modifier.padding(bottom = 12.dp)
+            //     )
+            // }
+
+            // Clear cache now button
+            item {
+                Button(
+                    onClick = {
+                        if (!isClearingCache) {
+                            isClearingCache = true
+                            scope.launch {
+                                try {
+                                    // Clear cache using CacheManager
+                                    chromahub.rhythm.app.util.CacheManager.clearAllCache(context)
+                                    
+                                    // Clear in-memory caches from MusicRepository
+                                    musicViewModel.getMusicRepository().clearInMemoryCaches()
+                                    
+                                    // Recalculate cache size
+                                    currentCacheSize = chromahub.rhythm.app.util.CacheManager.getCacheSize(context)
+                                    
+                                    val internalCacheSize = context.cacheDir.let { cacheDir ->
+                                        if (cacheDir.exists()) {
+                                            cacheDir.walkTopDown().filter { it.isFile }.map { it.length() }.sum()
+                                        } else 0L
+                                    }
+                                    val externalCacheSize = context.externalCacheDir?.let { externalCache ->
+                                        if (externalCache.exists()) {
+                                            externalCache.walkTopDown().filter { it.isFile }.map { it.length() }.sum()
+                                        } else 0L
+                                    } ?: 0L
+                                    
+                                    cacheDetails = mapOf(
+                                        "Internal Cache" to internalCacheSize,
+                                        "External Cache" to externalCacheSize
+                                    )
+                                    
+                                    showClearCacheSuccess = true
+                                    delay(3000)
+                                    showClearCacheSuccess = false
+                                } catch (e: Exception) {
+                                    Log.e("CacheManagement", "Error clearing cache", e)
+                                } finally {
+                                    isClearingCache = false
+                                }
+                            }
+                        }
+                    },
+                    enabled = !isClearingCache && !isCalculatingSize,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (showClearCacheSuccess) 
+                            MaterialTheme.colorScheme.primaryContainer 
+                        else 
+                            MaterialTheme.colorScheme.errorContainer,
+                        contentColor = if (showClearCacheSuccess) 
+                            MaterialTheme.colorScheme.onPrimaryContainer 
+                        else 
+                            MaterialTheme.colorScheme.onErrorContainer
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    if (isClearingCache) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Clearing cache...")
+                    } else if (showClearCacheSuccess) {
+                        Icon(
+                            imageVector = Icons.Filled.CheckCircle,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Cache cleared!")
+                    } else {
+                        Icon(
+                            imageVector = Icons.Filled.Delete,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Clear All Cache")
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            // Information section
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Info,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "About Cache",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        listOf(
+                            "Cache includes temporary files, images, and app data",
+                            "Clearing cache may temporarily slow down the app",
+                            "Cached data will rebuild automatically as needed",
+                            "Auto-clearing helps maintain optimal performance"
+                        ).forEach { info ->
+                            CompactInfoItem(
+                                icon = Icons.Filled.FiberManualRecord,
+                                text = info
+                            )
+                            if (info != "Auto-clearing helps maintain optimal performance") {
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(20.dp))
+            }
+
+            // Close button
+            item {
+                FilledTonalButton(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Close",
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+        }
     }
 }

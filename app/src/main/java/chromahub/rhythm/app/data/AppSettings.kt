@@ -980,6 +980,34 @@ class AppSettings private constructor(context: Context) {
     }
     
     /**
+     * Clears app cache if the clear cache on exit setting is enabled
+     * This should be called when the app is being destroyed
+     * 
+     * @param context Application context
+     * @param musicRepository Optional MusicRepository instance to clear in-memory caches
+     */
+    suspend fun performCacheCleanupOnExit(
+        context: Context, 
+        musicRepository: chromahub.rhythm.app.data.MusicRepository? = null
+    ) {
+        if (_clearCacheOnExit.value) {
+            try {
+                Log.d("AppSettings", "Performing cache cleanup on app exit...")
+                
+                // Clear file system caches
+                chromahub.rhythm.app.util.CacheManager.clearAllCache(context)
+                
+                // Clear in-memory caches from MusicRepository
+                musicRepository?.clearInMemoryCaches()
+                
+                Log.d("AppSettings", "Cache cleanup completed successfully")
+            } catch (e: Exception) {
+                Log.e("AppSettings", "Error during cache cleanup on exit", e)
+            }
+        }
+    }
+    
+    /**
      * Refreshes all StateFlows to reflect current SharedPreferences values
      */
     private fun refreshAllStateFlows() {

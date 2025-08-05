@@ -1268,4 +1268,30 @@ class MusicRepository(private val context: Context) {
             Log.e(TAG, "Error saving artist image to local file: ${e.message}", e)
         }
     }
+    
+    /**
+     * Clears all in-memory caches
+     */
+    fun clearInMemoryCaches() {
+        try {
+            artistImageCache.clear()
+            albumImageCache.clear()
+            lyricsCache.clear()
+            Log.d(TAG, "Cleared all in-memory caches (artist images, album images, lyrics)")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error clearing in-memory caches", e)
+        }
+    }
+    
+    /**
+     * Gets the current size of in-memory caches
+     * @return A map containing cache names and their sizes
+     */
+    fun getInMemoryCacheInfo(): Map<String, Int> {
+        return mapOf(
+            "artistImageCache" to artistImageCache.size,
+            "albumImageCache" to albumImageCache.size,
+            "lyricsCache" to lyricsCache.size
+        )
+    }
 }

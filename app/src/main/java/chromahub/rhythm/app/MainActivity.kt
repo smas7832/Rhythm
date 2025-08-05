@@ -371,8 +371,20 @@ class MainActivity : ComponentActivity() {
         }
     }
     
+    
     override fun onDestroy() {
         super.onDestroy()
+        
+        // Perform cache cleanup if enabled
+        lifecycleScope.launch {
+            try {
+                // Get MusicRepository instance from the ViewModel to clear in-memory caches
+                val musicRepository = musicViewModel.getMusicRepository()
+                appSettings.performCacheCleanupOnExit(applicationContext, musicRepository)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error during cache cleanup on app destroy", e)
+            }
+        }
     }
     
     // Helper function to get step name for accessibility
