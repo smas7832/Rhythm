@@ -858,23 +858,7 @@ class AudioDeviceManager(private val context: Context) {
                 Log.d(TAG, "Bluetooth SCO stopped")
             }
             
-            // For Android 11+, also clear any Bluetooth communication device
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                try {
-                    // Check if current communication device is Bluetooth
-                    val currentDevice = audioManager.communicationDevice
-                    if (currentDevice != null && 
-                       (currentDevice.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO || 
-                        currentDevice.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP)) {
-                        
-                        // Clear the communication device
-                        audioManager.clearCommunicationDevice()
-                        Log.d(TAG, "Cleared Bluetooth communication device")
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error clearing Bluetooth communication device: ${e.message}", e)
-                }
-            }
+            // Removed communicationDevice/clearCommunicationDevice usage for compatibility
         } catch (e: Exception) {
             Log.e(TAG, "Error in stopBluetoothSco: ${e.message}", e)
         }

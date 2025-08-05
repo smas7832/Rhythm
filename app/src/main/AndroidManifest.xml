@@ -44,6 +44,14 @@
         android:enableOnBackInvokedCallback="true"
         tools:targetApi="36">
         
+        <!-- Media3 notification icon -->
+        <meta-data
+            android:name="androidx.media3.ui.PlayerNotificationManager.smallIcon"
+            android:resource="@drawable/ic_notification" />
+        <meta-data
+            android:name="com.google.android.gms.car.notification.SmallIcon"
+            android:resource="@drawable/ic_notification" />
+        
         <!-- FileProvider for APK installation -->
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -69,6 +77,12 @@
                 <action android:name="androidx.media3.session.MediaSessionService" />
                 <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
+            <meta-data
+                android:name="androidx.media3.ui.PlayerNotificationManager.smallIcon"
+                android:resource="@drawable/ic_notification" />
+            <meta-data
+                android:name="androidx.media3.session.MediaNotification.smallIcon"
+                android:resource="@drawable/ic_notification" />
         </service>
         
         <activity
