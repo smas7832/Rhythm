@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import androidx.annotation.OptIn
+import androidx.core.content.ContextCompat
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -25,6 +26,11 @@ import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.*
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.os.Build
+import androidx.core.app.NotificationCompat
 import androidx.media3.common.AudioAttributes as ExoAudioAttributes
 
 class MediaPlaybackService : MediaLibraryService(), Player.Listener {
@@ -33,13 +39,16 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     private lateinit var customCommands: List<CommandButton>
 
     private var controller: MediaController? = null
+    
+    // Service-scoped coroutine scope for background operations
+    private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     private val repeatCommand: CommandButton
-        get() = when (val mode = controller?.repeatMode) {
+        get() = when (val mode = controller?.repeatMode ?: Player.REPEAT_MODE_OFF) {
             Player.REPEAT_MODE_OFF -> customCommands[2]
             Player.REPEAT_MODE_ALL -> customCommands[3]
             Player.REPEAT_MODE_ONE -> customCommands[4]
-            else -> error("Unknown mode: $mode") //Just in case. Perhaps we could be less aggressive and just fallback to REPEAT_MODE_OFF.
+            else -> customCommands[2] // Fallback to REPEAT_MODE_OFF command
         }
 
     private val shuffleCommand: CommandButton
@@ -58,6 +67,8 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     // SharedPreferences keys
     companion object {
         private const val TAG = "MediaPlaybackService"
+        private const val NOTIFICATION_ID = 1001
+        private const val CHANNEL_ID = "RhythmMediaPlayback"
 
         private const val PREF_NAME = "rhythm_preferences"
         private const val PREF_HIGH_QUALITY_AUDIO = "high_quality_audio"
@@ -88,22 +99,59 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
         super.onCreate()
         Log.d(TAG, "Service created")
         
-        // Initialize settings manager
+        // Create notification channel first (required for Android 8.0+)
+        createNotificationChannel()
+        
+        // Start foreground immediately to avoid ANR
+        startForeground()
+        
+        // Initialize settings manager (fast operation)
         appSettings = AppSettings.getInstance(applicationContext)
 
         try {
-            // Initialize the player with settings
+            // Initialize core components on main thread (required for media service)
             initializePlayer()
-
             createCustomCommands()
-
-            // Create the media session
+            
+            // Create the media session (required synchronously)
             mediaSession = createMediaSession()
+            
+            // Initialize controller asynchronously to avoid blocking
             createController()
+            
             Log.d(TAG, "Service initialized successfully")
         } catch (e: Exception) {
             Log.e(TAG, "Error initializing service", e)
         }
+    }
+    
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "Rhythm Media Playback",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Media playback controls"
+                setShowBadge(false)
+            }
+            
+            val notificationManager = getSystemService(NotificationManager::class.java)
+            notificationManager.createNotificationChannel(channel)
+        }
+    }
+    
+    private fun startForeground() {
+        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("Rhythm Music")
+            .setContentText("Initializing music service...")
+            .setSmallIcon(android.R.drawable.ic_media_play)
+            .setOngoing(true)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .build()
+            
+        startForeground(NOTIFICATION_ID, notification)
+        Log.d(TAG, "Started foreground service")
     }
     
     private fun initializePlayer() {
@@ -124,11 +172,23 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     }
 
     private fun createController() {
-        controller = MediaController.Builder(this, mediaSession!!.token)
+        // Build the controller asynchronously to avoid blocking the main thread
+        val controllerFuture = MediaController.Builder(this, mediaSession!!.token)
             .buildAsync()
-            .get()
-        controller?.addListener(this)
-        mediaSession?.setCustomLayout(ImmutableList.of(shuffleCommand, repeatCommand))
+        
+        controllerFuture.addListener({
+            try {
+                controller = controllerFuture.get()
+                controller?.addListener(this)
+                // Only set custom layout if controller is properly initialized
+                controller?.let {
+                    mediaSession?.setCustomLayout(ImmutableList.of(shuffleCommand, repeatCommand))
+                }
+                Log.d(TAG, "MediaController initialized successfully")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error initializing MediaController", e)
+            }
+        }, androidx.core.content.ContextCompat.getMainExecutor(this))
     }
 
     private fun createCustomCommands() {
@@ -246,101 +306,98 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     private fun playExternalFile(uri: Uri) {
         Log.d(TAG, "Playing external file: $uri")
 
-        // Wait longer before requesting audio focus again
-        try {
-            Thread.sleep(500)  // Increased from 100ms to 500ms
-        } catch (e: InterruptedException) {
-            Log.w(TAG, "Sleep interrupted while waiting for audio focus", e)
-        }
-
-        // Check if we've seen this URI before
-        val cachedItem = externalUriCache[uri.toString()]
-        if (cachedItem != null) {
-            Log.d(TAG, "Using cached media item for URI: $uri")
-            
-            // Clear the player first to avoid conflicts with existing items
-            player.clearMediaItems()
-            
-            // Play the media item
-            player.setMediaItem(cachedItem)
-            player.prepare()
-            player.play()
-            
-            return
-        }
-        
-        // Extract metadata from the audio file
-        try {
-            val song = chromahub.rhythm.app.util.MediaUtils.extractMetadataFromUri(this, uri)
-            Log.d(TAG, "Extracted metadata for external file: ${song.title} by ${song.artist}")
-            
-            // Create a media item with the extracted metadata
-            val mediaItem = MediaItem.Builder()
-                .setUri(uri)
-                .setMediaId(uri.toString())
-                .setMediaMetadata(
-                    MediaMetadata.Builder()
-                        .setTitle(song.title)
-                        .setArtist(song.artist)
-                        .setAlbumTitle(song.album)
-                        .setArtworkUri(song.artworkUri)
-                        .build()
-                )
-                .build()
-            
-            // Clear the player first to avoid conflicts with existing items
-            player.clearMediaItems()
-            
-            // Play the media item
-            player.setMediaItem(mediaItem)
-            player.prepare()
-            player.play()
-            
-            // Cache the media item
-            externalUriCache[uri.toString()] = mediaItem
-            
-            // Force a recheck of playback state in case it doesn't start
-            player.addListener(object : Player.Listener {
-                override fun onPlaybackStateChanged(playbackState: Int) {
-                    if (playbackState == Player.STATE_READY) {
-                        Log.d(TAG, "Playback ready, ensuring play is called")
-                        player.play()
-                        player.removeListener(this)
+        // Use service-scoped coroutine to handle operations without blocking the main thread
+        serviceScope.launch {
+            try {
+                // Check if we've seen this URI before (on main thread - quick cache lookup)
+                val cachedItem = externalUriCache[uri.toString()]
+                if (cachedItem != null) {
+                    Log.d(TAG, "Using cached media item for URI: $uri")
+                    
+                    // Clear the player first to avoid conflicts with existing items
+                    player.clearMediaItems()
+                    
+                    // Play the media item
+                    player.setMediaItem(cachedItem)
+                    player.prepare()
+                    player.play()
+                    
+                    return@launch
+                }
+                
+                // Add a small delay before processing to allow previous operations to complete
+                delay(500)
+                
+                // Extract metadata from the audio file in a background thread
+                val mediaItem = withContext(Dispatchers.IO) {
+                    try {
+                        val song = chromahub.rhythm.app.util.MediaUtils.extractMetadataFromUri(this@MediaPlaybackService, uri)
+                        Log.d(TAG, "Extracted metadata for external file: ${song.title} by ${song.artist}")
+                        
+                        // Create a media item with the extracted metadata
+                        MediaItem.Builder()
+                            .setUri(uri)
+                            .setMediaId(uri.toString())
+                            .setMediaMetadata(
+                                MediaMetadata.Builder()
+                                    .setTitle(song.title)
+                                    .setArtist(song.artist)
+                                    .setAlbumTitle(song.album)
+                                    .setArtworkUri(song.artworkUri)
+                                    .build()
+                            )
+                            .build()
+                            
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error extracting metadata from external file", e)
+                        
+                        // Fall back to basic playback if metadata extraction fails
+                        val mimeType = contentResolver.getType(uri)
+                        Log.d(TAG, "Falling back to basic playback with mime type: $mimeType")
+                        
+                        MediaItem.Builder()
+                            .setUri(uri)
+                            .setMediaMetadata(
+                                MediaMetadata.Builder()
+                                    .setTitle(uri.lastPathSegment ?: "Unknown")
+                                    .build()
+                            )
+                            .build()
                     }
                 }
-            })
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "Error extracting metadata from external file", e)
-            
-            // Fall back to basic playback if metadata extraction fails
-            val mimeType = contentResolver.getType(uri)
-            Log.d(TAG, "Falling back to basic playback with mime type: $mimeType")
-            
-            val mediaItem = MediaItem.Builder()
-                .setUri(uri)
-                .setMediaMetadata(
-                    MediaMetadata.Builder()
-                        .setTitle(uri.lastPathSegment ?: "Unknown")
-                        .build()
-                )
-                .build()
-            
-            // Clear the player first to avoid conflicts with existing items
-            player.clearMediaItems()
-            
-            // Play the media item
-            player.setMediaItem(mediaItem)
-            player.prepare()
-            player.play()
-            
-            // Cache the media item
-            externalUriCache[uri.toString()] = mediaItem
+                
+                // Back on main thread - set up playback
+                player.clearMediaItems()
+                player.setMediaItem(mediaItem)
+                player.prepare()
+                player.play()
+                
+                // Cache the media item
+                externalUriCache[uri.toString()] = mediaItem
+                
+                // Force a recheck of playback state in case it doesn't start
+                player.addListener(object : Player.Listener {
+                    override fun onPlaybackStateChanged(playbackState: Int) {
+                        if (playbackState == Player.STATE_READY) {
+                            Log.d(TAG, "Playback ready, ensuring play is called")
+                            player.play()
+                            player.removeListener(this)
+                        }
+                    }
+                })
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Error in playExternalFile coroutine", e)
+            }
         }
     }
 
     override fun onDestroy() {
         Log.d(TAG, "Service being destroyed")
+        
+        // Cancel all coroutines
+        serviceScope.cancel()
+        
         mediaSession?.run {
             player.release()
             controller?.release()
@@ -381,30 +438,36 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
             customCommand: SessionCommand,
             args: Bundle
         ): ListenableFuture<SessionResult> {
+            val serviceController = this@MediaPlaybackService.controller
+            if (serviceController == null) {
+                Log.w(TAG, "Controller not ready for custom command: ${customCommand.customAction}")
+                return Futures.immediateFuture(SessionResult(SessionError.ERROR_SESSION_DISCONNECTED))
+            }
+            
             return Futures.immediateFuture(
                 when (customCommand.customAction) {
                     SHUFFLE_MODE_ON -> {
-                        this@MediaPlaybackService.controller!!.shuffleModeEnabled = true
+                        serviceController.shuffleModeEnabled = true
                         SessionResult(SessionResult.RESULT_SUCCESS)
                     }
 
                     SHUFFLE_MODE_OFF -> {
-                        this@MediaPlaybackService.controller!!.shuffleModeEnabled = false
+                        serviceController.shuffleModeEnabled = false
                         SessionResult(SessionResult.RESULT_SUCCESS)
                     }
 
                     REPEAT_MODE_OFF -> {
-                        this@MediaPlaybackService.controller!!.repeatMode = Player.REPEAT_MODE_OFF
+                        serviceController.repeatMode = Player.REPEAT_MODE_OFF
                         SessionResult(SessionResult.RESULT_SUCCESS)
                     }
 
                     REPEAT_MODE_ONE -> {
-                        this@MediaPlaybackService.controller!!.repeatMode = Player.REPEAT_MODE_ONE
+                        serviceController.repeatMode = Player.REPEAT_MODE_ONE
                         SessionResult(SessionResult.RESULT_SUCCESS)
                     }
 
                     REPEAT_MODE_ALL -> {
-                        this@MediaPlaybackService.controller!!.repeatMode = Player.REPEAT_MODE_ALL
+                        serviceController.repeatMode = Player.REPEAT_MODE_ALL
                         SessionResult(SessionResult.RESULT_SUCCESS)
                     }
 
@@ -472,11 +535,17 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
 
     override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
         super.onShuffleModeEnabledChanged(shuffleModeEnabled)
-        mediaSession?.setCustomLayout(ImmutableList.of(shuffleCommand, repeatCommand))
+        // Only update custom layout if controller is available
+        controller?.let {
+            mediaSession?.setCustomLayout(ImmutableList.of(shuffleCommand, repeatCommand))
+        }
     }
 
     override fun onRepeatModeChanged(repeatMode: Int) {
         super<Player.Listener>.onRepeatModeChanged(repeatMode)
-        mediaSession?.setCustomLayout(ImmutableList.of(shuffleCommand, repeatCommand))
+        // Only update custom layout if controller is available
+        controller?.let {
+            mediaSession?.setCustomLayout(ImmutableList.of(shuffleCommand, repeatCommand))
+        }
     }
 }
