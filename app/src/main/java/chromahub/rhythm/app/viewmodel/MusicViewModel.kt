@@ -555,19 +555,20 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         
         controllerFuture = MediaController.Builder(context, sessionToken).buildAsync()
         controllerFuture?.addListener({
-            mediaController = controllerFuture?.get()
-            Log.d(TAG, "Media controller initialized: $mediaController")
-            
-            if (mediaController != null) {
-                mediaController?.addListener(playerListener)
-                _serviceConnected.value = true
+            try {
+                mediaController = controllerFuture?.get()
+                Log.d(TAG, "Media controller initialized: $mediaController")
                 
-                // Update shuffle and repeat mode from controller
-                mediaController?.let { controller ->
-                    _isShuffleEnabled.value = controller.shuffleModeEnabled
-                    val controllerRepeatMode = controller.repeatMode
-                    _repeatMode.value = controllerRepeatMode
-                    Log.d(TAG, "Initial repeat mode from controller: $controllerRepeatMode (${
+                if (mediaController != null) {
+                    mediaController?.addListener(playerListener)
+                    _serviceConnected.value = true
+                    
+                    // Update shuffle and repeat mode from controller
+                    mediaController?.let { controller ->
+                        _isShuffleEnabled.value = controller.shuffleModeEnabled
+                        val controllerRepeatMode = controller.repeatMode
+                        _repeatMode.value = controllerRepeatMode
+                        Log.d(TAG, "Initial repeat mode from controller: $controllerRepeatMode (${
                         when(controllerRepeatMode) {
                             Player.REPEAT_MODE_OFF -> "OFF"
                             Player.REPEAT_MODE_ONE -> "ONE"
@@ -604,6 +605,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 _serviceConnected.value = false
                 Log.e(TAG, "Failed to get media controller")
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error initializing media controller", e)
+            _serviceConnected.value = false
+        }
         }, MoreExecutors.directExecutor())
     }
     
