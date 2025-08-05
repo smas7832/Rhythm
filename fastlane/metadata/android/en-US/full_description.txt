@@ -1,1 +1,46 @@
-<p><i>Rhythm</i> is a music player for Android that delivers a seamless audio experience with a beautiful Material You design. Enjoy your music collection with advanced playback features, intuitive controls, and comprehensive audio format support.</p><p><b>Note:</b> The app includes an optional update checker. Be aware that installing updates from Github directly bypasses the extra screening applied at repositories like F-Droid and IzzyOnDroid.</p><p><br><b>Features:</b></p><ul><li><b>🎨 Modern UI:</b> Built with Jetpack Compose and Material 3 design</li><li><b>🎵 Comprehensive Audio Support:</b> Plays various formats including MP3, AAC, FLAC, OGG, WAV</li><li><b>📱 Android Support:</b> Targets Android API 34 with compatibility down to Android 8.0</li><li><b>🎯 Media3 Integration:</b> Robust media playback using ExoPlayer</li><li><b>📂 Advanced Playlist Management:</b> Create, edit, and organize playlists</li><li><b>🔄 Background Playback:</b> Continuous playback with foreground service</li><li><b>🎨 Dynamic Theming:</b> Material You/Monet theming and fluid animations</li><li><b>🔊 Smart Audio:</b> Gapless playback, crossfade, audio normalization</li><li><b>🎵 Advanced Features:</b> Equalizer, high-quality mode, replay gain</li><li><b>🔊 Output Control:</b> Seamless audio device and Bluetooth switching</li><li><b>📊 Personalization:</b> Listening stats, mood-based playlists</li><li><b>🌐 Online Integration:</b> Automatic updates, online lyrics</li><li><b>🔄 Auto-Resume:</b> Remembers playback state and queue</li><li><b>🎨 Adaptive UI:</b> Beautiful transitions and responsive design</li></ul>
+<p><b>Rhythm</b> is a powerful, open-source music player for Android that combines beautiful Material 3 design with advanced audio capabilities. Built with modern Android technologies, it delivers a premium music experience that respects your privacy and works entirely offline.</p>
+
+<p><b>🎵 Why Choose Rhythm?</b></p>
+<ul>
+<li><b>Privacy First:</b> No data collection, no tracking, no internet required</li>
+<li><b>Modern Design:</b> Material 3 with dynamic theming and smooth animations</li>
+<li><b>High-Quality Audio:</b> FLAC, ALAC, MP3, AAC, OGG, WAV support with gapless playback</li>
+<li><b>Smart Features:</b> AI-powered playlists, advanced queue management, and auto-resume</li>
+<li><b>Open Source:</b> Transparent, community-driven development</li>
+</ul>
+
+<p><b>🚀 Key Features:</b></p>
+<ul>
+<li><b>🎨 Beautiful Interface:</b> Material 3 design with wallpaper-based dynamic colors and fluid animations</li>
+<li><b>� Advanced Playback:</b> Gapless playback, crossfade, audio normalization, and replay gain</li>
+<li><b>📱 Smart Library:</b> Fast scanning, intelligent sorting, and powerful search across all your music</li>
+<li><b>🎯 Playlist Management:</b> Create custom playlists, mood-based collections, and recently played history</li>
+<li><b>� Lyrics Support:</b> Time-synced lyrics with online fetching and offline caching</li>
+<li><b>🔊 Audio Control:</b> Seamless Bluetooth switching, system equalizer, and multiple output devices</li>
+<li><b>⚡ Performance:</b> Memory-efficient background playback with foreground service</li>
+<li><b>🔄 Reliability:</b> Auto-resume playback state and queue after restart</li>
+<li><b>🌙 Accessibility:</b> Full dark/light theme support and accessibility features</li>
+<li><b>� Statistics:</b> Track your listening habits with detailed playback statistics</li>
+</ul>
+
+<p><b>� Perfect For:</b></p>
+<ul>
+<li>Audiophiles who demand high-quality playback and format support</li>
+<li>Privacy-conscious users who want offline-first functionality</li>
+<li>Music enthusiasts who organize large collections with smart playlists</li>
+<li>Android users who appreciate modern Material 3 design</li>
+<li>Anyone seeking a reliable, feature-rich alternative to mainstream players</li>
+</ul>
+
+<p><b>📱 Technical Excellence:</b></p>
+<ul>
+<li>Built with Jetpack Compose and Material 3 for modern UI</li>
+<li>Media3/ExoPlayer for robust audio playback</li>
+<li>Targets Android 14 (API 34) with support back to Android 8.0</li>
+<li>Efficient memory usage and battery optimization</li>
+<li>Comprehensive audio format support including lossless formats</li>
+</ul>
+
+<p><b>Note:</b> Rhythm includes an optional update checker that downloads updates directly from GitHub. This bypasses additional screening from F-Droid and IzzyOnDroid repositories. You can disable this feature in settings if preferred.</p>
+
+<p>Experience the future of mobile music playback with Rhythm - where premium features meet privacy-first design.</p>
