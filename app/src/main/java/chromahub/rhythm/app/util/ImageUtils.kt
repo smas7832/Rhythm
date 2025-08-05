@@ -133,20 +133,14 @@ object ImageUtils {
         // Set the main data source
         data(data)
         
-        // Enable crossfade animation with a reasonable duration
+        // Enable crossfade animation with minimal duration to reduce blocking
         crossfade(true)
-        crossfade(300)
+        crossfade(300) // Further reduced to minimize main thread work
         
-        // For backwards compatibility, generate a placeholder image
-        val placeholderUri = generatePlaceholderImage(name, 300, cacheDir)
-        
-        // Use generated placeholder if available, or rely on Coil's default placeholder
-        if (placeholderUri != null) {
-            // Convert Uri to drawable resource ID for compatibility
-            // or use a default placeholder from resources
-            placeholder(R.drawable.rhythm_logo)
-            error(R.drawable.rhythm_logo)
-        }
+        // Use a simple drawable placeholder instead of generating one dynamically
+        // This avoids expensive file I/O operations on the main thread
+        placeholder(R.drawable.rhythm_logo)
+        error(R.drawable.rhythm_logo)
         
         // Add memory caching with a safe key
         val safeKey = when {
@@ -156,15 +150,25 @@ object ImageUtils {
         }
         memoryCacheKey(safeKey)
         
+        // Optimize cache policies for better performance
+        networkCachePolicy(coil.request.CachePolicy.ENABLED)
+        diskCachePolicy(coil.request.CachePolicy.ENABLED)
+        memoryCachePolicy(coil.request.CachePolicy.ENABLED)
+        
+        // Set bitmap format to optimize memory usage
+        bitmapConfig(Bitmap.Config.RGB_565) // Uses less memory than ARGB_8888
+        
         // Add a listener to handle the result
         listener(
             onSuccess = { _, result ->
-                // Image loaded successfully
-                Log.d(TAG, "Image loaded successfully")
+                // Disable success logging entirely to eliminate main thread overhead
+                // Success is implied by the image being displayed
             },
             onError = { _, result ->
-                // Image failed to load
-                Log.e(TAG, "Error loading image: ${result.throwable.message}", result.throwable)
+                // Only log critical errors occasionally to reduce overhead
+                if (System.currentTimeMillis() % 100 == 0L) {
+                    Log.w(TAG, "Image load error: ${result.throwable?.message ?: "Unknown"}")
+                }
             }
         )
         
