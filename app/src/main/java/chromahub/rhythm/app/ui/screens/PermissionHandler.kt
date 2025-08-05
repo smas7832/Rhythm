@@ -294,6 +294,7 @@ fun PermissionHandler(
                             permissionsState.launchMultiplePermissionRequest() // Directly launch request
                             permissionRequestLaunched = true // Mark as launched
                         }
+                        OnboardingStep.BACKUP_RESTORE -> currentOnboardingStep = OnboardingStep.AUDIO_PLAYBACK // Move to audio playback
                         OnboardingStep.AUDIO_PLAYBACK -> currentOnboardingStep = OnboardingStep.THEMING // Move to theming
                         OnboardingStep.THEMING -> currentOnboardingStep = OnboardingStep.LIBRARY_SETUP // Move to library setup
                         OnboardingStep.LIBRARY_SETUP -> currentOnboardingStep = OnboardingStep.UPDATER // Move to updater

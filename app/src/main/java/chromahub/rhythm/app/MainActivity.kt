@@ -392,11 +392,11 @@ class MainActivity : ComponentActivity() {
         return when (step) {
             OnboardingStep.WELCOME -> "Welcome"
             OnboardingStep.PERMISSIONS -> "Permissions"
+            OnboardingStep.BACKUP_RESTORE -> "Backup & Restore"
             OnboardingStep.AUDIO_PLAYBACK -> "Audio & Playback"
             OnboardingStep.THEMING -> "Theming"
             OnboardingStep.LIBRARY_SETUP -> "Library Setup"
             OnboardingStep.UPDATER -> "Updates"
             OnboardingStep.COMPLETE -> "Complete"
         }
-    }
-}
+}}

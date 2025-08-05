@@ -91,7 +91,7 @@ fun AboutScreen(
                     val currentFontWeight = if (fraction < 0.5f) FontWeight.Bold else FontWeight.Bold
 
                     Text(
-                        text = "About Rhythm",
+                        text = "About App",
                         style = MaterialTheme.typography.headlineSmall.copy(
                             fontSize = currentFontSize,
                             fontWeight = currentFontWeight
@@ -159,7 +159,7 @@ fun AboutScreen(
                         Spacer(modifier = Modifier.height(16.dp))
 
                         Text(
-                            text = "Rhythm Music Player",
+                            text = "Project Rhythm",
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.Center,
@@ -176,7 +176,7 @@ fun AboutScreen(
                         Spacer(modifier = Modifier.height(12.dp))
 
                         Text(
-                            text = "A modern Material 3 music player with expressive design, physics-based animations, and seamless user experience.",
+                            text = "Modern Material 3 music player with simplistic yet feature packed interactive UI providing a premium music experience that respects your privacy and works seamlessly",
                             style = MaterialTheme.typography.bodyLarge,
                             textAlign = TextAlign.Center,
                             color = MaterialTheme.colorScheme.onSurface,
@@ -368,7 +368,7 @@ fun AboutScreen(
                             )
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
-                                text = "Credits & Team",
+                                text = "Team",
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -461,7 +461,7 @@ fun AboutScreen(
                             )
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
-                                text = "Community - Rhythm's Heart",
+                                text = "Community Credits: Rhythm's Heart",
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -483,7 +483,7 @@ fun AboutScreen(
                                                         
                             CommunityMember(
                                 name = "Izzy",
-                                role = "Contributer & IzzyOnDroid Owner",
+                                role = "Manages app on IzzyOnDroid (An F-Droid Repo)",
                                 githubUsername = "IzzySoft",
                                 avatarUrl = "https://github.com/IzzySoft.png",
                                 context = context
@@ -491,7 +491,7 @@ fun AboutScreen(
 
                             CommunityMember(
                                 name = "Christian",
-                                role = "Collaborator & Booming Lead Dev",
+                                role = "Collaborator & Project Booming's Lead Dev",
                                 githubUsername = "mardous",
                                 avatarUrl = "https://github.com/mardous.png",
                                 context = context

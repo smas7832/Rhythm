@@ -3,6 +3,7 @@ package chromahub.rhythm.app.ui.screens.onboarding
 enum class OnboardingStep {
     WELCOME,
     PERMISSIONS,
+    BACKUP_RESTORE, // New step for backup and restore setup
     AUDIO_PLAYBACK, // New step for audio and playback settings
     THEMING,
     LIBRARY_SETUP, // New step for library organization preferences

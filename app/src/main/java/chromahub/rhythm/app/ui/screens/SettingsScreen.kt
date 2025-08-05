@@ -110,6 +110,7 @@ import android.content.Intent
 import android.net.Uri
 import java.util.Locale
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -2458,6 +2459,7 @@ fun BackupRestoreBottomSheet(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
+    val musicViewModel: MusicViewModel = viewModel()
     
     // Collect states
     val autoBackupEnabled by appSettings.autoBackupEnabled.collectAsState()
@@ -2490,6 +2492,8 @@ fun BackupRestoreBottomSheet(
                         
                         if (!backupJson.isNullOrEmpty()) {
                             if (appSettings.restoreFromBackup(backupJson)) {
+                                // Reload playlists from restored settings
+                                musicViewModel.reloadPlaylistsFromSettings()
                                 showRestoreSuccess = true
                             } else {
                                 errorMessage = "Invalid backup format or corrupted data"
@@ -2511,6 +2515,52 @@ fun BackupRestoreBottomSheet(
         } else {
             isRestoringFromFile = false
             isRestoringBackup = false
+        }
+    }
+
+    // Backup location selector launcher
+    val backupLocationLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            result.data?.data?.let { uri ->
+                scope.launch {
+                    try {
+                                isCreatingBackup = true
+                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                                
+                                // Ensure current playlists are saved before backup
+                                musicViewModel.ensurePlaylistsSaved()
+                                
+                                val backupJson = appSettings.createBackup()                        // Get the filename from the URI or create a default one
+                        val fileName = "rhythm_backup_${SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())}.json"
+                        
+                        // Write to the selected location
+                        context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+                            outputStream.write(backupJson.toByteArray())
+                            outputStream.flush()
+                        }
+                        
+                        appSettings.setLastBackupTimestamp(System.currentTimeMillis())
+                        appSettings.setBackupLocation(uri.toString())
+                        
+                        showBackupSuccess = true
+                        
+                        // Also copy to clipboard for easy sharing
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        val clip = ClipData.newPlainText("Rhythm Backup", backupJson)
+                        clipboard.setPrimaryClip(clip)
+                        
+                    } catch (e: Exception) {
+                        errorMessage = "Failed to create backup: ${e.message}"
+                        showError = true
+                    } finally {
+                        isCreatingBackup = false
+                    }
+                }
+            }
+        } else {
+            isCreatingBackup = false
         }
     }
 
@@ -2757,6 +2807,7 @@ fun BackupRestoreBottomSheet(
 
                 // Create Backup Button
                 item {
+                    // Create Backup to Custom Location Button
                     Card(
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(
@@ -2766,47 +2817,20 @@ fun BackupRestoreBottomSheet(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable(enabled = !isCreatingBackup && !isRestoringBackup) {
-                                scope.launch {
-                                    try {
-                                        isCreatingBackup = true
-                                        HapticUtils.performHapticFeedback(context, haptics, androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
-                                        
-                                        val backupJson = appSettings.createBackup()
-                                        
-                                        // Save backup to Downloads folder
-                                        val fileName = "rhythm_backup_${SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())}.json"
-                                        
-                                        // Use Storage Access Framework for Android 10+
-                                        val downloadsDir = context.getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS)
-                                        if (downloadsDir != null) {
-                                            val backupFile = java.io.File(downloadsDir, fileName)
-                                            backupFile.writeText(backupJson)
-                                            
-                                            appSettings.setLastBackupTimestamp(System.currentTimeMillis())
-                                            appSettings.setBackupLocation(backupFile.absolutePath)
-                                            
-                                            showBackupSuccess = true
-                                            
-                                            // Also copy to clipboard for easy sharing
-                                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                            val clip = ClipData.newPlainText("Rhythm Backup", backupJson)
-                                            clipboard.setPrimaryClip(clip)
-                                        } else {
-                                            errorMessage = "Unable to access storage for backup"
-                                            showError = true
-                                        }
-                                    } catch (e: Exception) {
-                                        errorMessage = "Failed to create backup: ${e.message}"
-                                        showError = true
-                                    } finally {
-                                        isCreatingBackup = false
-                                    }
+                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                
+                                val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                                    addCategory(Intent.CATEGORY_OPENABLE)
+                                    type = "application/json"
+                                    val fileName = "rhythm_backup_${SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())}.json"
+                                    putExtra(Intent.EXTRA_TITLE, fileName)
                                 }
+                                backupLocationLauncher.launch(intent)
                             }
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(16.dp)
+                            modifier = Modifier.padding(20.dp)
                         ) {
                             if (isCreatingBackup) {
                                 CircularProgressIndicator(
@@ -2816,7 +2840,7 @@ fun BackupRestoreBottomSheet(
                                 )
                             } else {
                                 Icon(
-                                    imageVector = Icons.Filled.CloudUpload,
+                                    imageVector = Icons.Filled.Backup,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(24.dp)
@@ -2827,25 +2851,23 @@ fun BackupRestoreBottomSheet(
                             
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = if (isCreatingBackup) "Creating Backup..." else "Create Backup",
-                                    style = MaterialTheme.typography.bodyLarge,
+                                    text = if (isCreatingBackup) "Creating backup..." else "Create Backup",
+                                    style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.SemiBold
                                 )
                                 Text(
-                                    text = "Save your data to file and clipboard",
+                                    text = "Choose where to save your backup file",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                             
-                            if (!isCreatingBackup && !isRestoringBackup) {
-                                Icon(
-                                    imageVector = Icons.Filled.ArrowForward,
-                                    contentDescription = "Create",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
+                            Icon(
+                                imageVector = Icons.Filled.ChevronRight,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp)
+                            )
                         }
                     }
                 }
@@ -2878,6 +2900,8 @@ fun BackupRestoreBottomSheet(
                                                 val backupJson = clip.getItemAt(0).text.toString()
                                                 
                                                 if (appSettings.restoreFromBackup(backupJson)) {
+                                                    // Reload playlists from restored settings
+                                                    musicViewModel.reloadPlaylistsFromSettings()
                                                     showRestoreSuccess = true
                                                 } else {
                                                     errorMessage = "Invalid backup format or corrupted data"
@@ -2993,18 +3017,15 @@ fun BackupRestoreBottomSheet(
                     }
                 }
                 
-                // Compact Help Information Card
+                // Information Card
                 item {
                     Card(
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer
-                        ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(
-                            modifier = Modifier.padding(12.dp)
+                            modifier = Modifier.padding(20.dp)
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -3014,41 +3035,32 @@ fun BackupRestoreBottomSheet(
                                     imageVector = Icons.Filled.Info,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(16.dp)
+                                    modifier = Modifier.size(20.dp)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "Quick Info",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    text = "What's included in backup",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold
                                 )
                             }
                             
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
                             
-                            Column(
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
+                            listOf(
+                                "All app settings and preferences",
+                                "Your playlists and favorite songs",  
+                                "Blacklisted songs and folders",
+                                "Theme and audio preferences",
+                                "Restore requires app restart to take full effect"
+                            ).forEach { info ->
                                 CompactInfoItem(
-                                    icon = Icons.Filled.Save,
-                                    text = "Includes settings, playlists, and preferences"
+                                    icon = Icons.Filled.FiberManualRecord,
+                                    text = info
                                 )
-                                
-                                CompactInfoItem(
-                                    icon = Icons.Filled.Folder,
-                                    text = "Saved to Downloads and copied to clipboard"
-                                )
-                                
-                                CompactInfoItem(
-                                    icon = Icons.Filled.CloudUpload,
-                                    text = "Restore from clipboard or file picker"
-                                )
-                                
-                                CompactInfoItem(
-                                    icon = Icons.Filled.RestartAlt,
-                                    text = "Restore requires app restart"
-                                )
+                                if (info != "Restore requires app restart to take full effect") {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                }
                             }
                         }
                     }
@@ -3059,7 +3071,10 @@ fun BackupRestoreBottomSheet(
                     Spacer(modifier = Modifier.height(16.dp))
                     
                     FilledTonalButton(
-                        onClick = onDismiss,
+                        onClick = {
+                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                            onDismiss()
+                        },
                         colors = ButtonDefaults.filledTonalButtonColors(
                             containerColor = MaterialTheme.colorScheme.secondaryContainer,
                             contentColor = MaterialTheme.colorScheme.onSecondaryContainer
@@ -3085,7 +3100,7 @@ fun BackupRestoreBottomSheet(
         }
     }
 
-    // Success/Error Dialogs remain the same
+    // Success/Error Dialogs
     if (showBackupSuccess) {
         AlertDialog(
             onDismissRequest = { showBackupSuccess = false },
@@ -3097,12 +3112,23 @@ fun BackupRestoreBottomSheet(
                 )
             },
             title = { Text("Backup Created Successfully") },
-            text = { Text("Your backup has been saved to Downloads folder and copied to clipboard. You can now share or save this backup safely.") },
+            text = { 
+                Text("Your complete Rhythm backup has been created including:\n\n" +
+                     "• All app settings and preferences\n" +
+                     "• Your playlists and favorite songs\n" +
+                     "• Blacklisted songs and folders\n" +
+                     "• Theme and audio preferences\n\n" +
+                     "The backup has been saved and copied to your clipboard for easy sharing.")
+            },
             confirmButton = {
-                TextButton(onClick = { showBackupSuccess = false }) {
+                Button(onClick = { 
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                    showBackupSuccess = false 
+                }) {
                     Text("OK")
                 }
-            }
+            },
+            shape = RoundedCornerShape(24.dp)
         )
     }
 
@@ -3116,13 +3142,33 @@ fun BackupRestoreBottomSheet(
                     tint = MaterialTheme.colorScheme.primary
                 )
             },
-            title = { Text("Restore Completed") },
-            text = { Text("Your settings have been restored successfully. Please restart the app for all changes to take effect.") },
+            title = { Text("Restore Completed Successfully") },
+            text = { 
+                Text("Your Rhythm data has been restored successfully including:\n\n" +
+                     "• All app settings and preferences\n" +
+                     "• Your playlists and favorite songs\n" +
+                     "• Blacklisted songs and folders\n" +
+                     "• Theme and audio preferences\n\n" +
+                     "Please restart the app for all changes to take full effect.")
+            },
             confirmButton = {
-                TextButton(onClick = { showRestoreSuccess = false }) {
+                Button(onClick = { 
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                    showRestoreSuccess = false
+                    
+                    // Restart the app
+                    val packageManager = context.packageManager
+                    val intent = packageManager.getLaunchIntentForPackage(context.packageName)
+                    val componentName = intent?.component
+                    val mainIntent = Intent.makeRestartActivityTask(componentName)
+                    context.startActivity(mainIntent)
+                    (context as? Activity)?.finish()
+                    Runtime.getRuntime().exit(0)
+                }) {
                     Text("OK")
                 }
-            }
+            },
+            shape = RoundedCornerShape(24.dp)
         )
     }
 
@@ -3139,10 +3185,14 @@ fun BackupRestoreBottomSheet(
             title = { Text("Error") },
             text = { Text(errorMessage) },
             confirmButton = {
-                TextButton(onClick = { showError = false }) {
+                Button(onClick = { 
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                    showError = false 
+                }) {
                     Text("OK")
                 }
-            }
+            },
+            shape = RoundedCornerShape(24.dp)
         )
     }
 }
@@ -3499,7 +3549,7 @@ fun CacheManagementBottomSheet(
                         modifier = Modifier.padding(16.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Filled.ExitToApp,
+                            imageVector = Icons.AutoMirrored.Filled.ExitToApp,
                             contentDescription = null,
                             tint = if (clearCacheOnExit) MaterialTheme.colorScheme.primary 
                                   else MaterialTheme.colorScheme.onSurfaceVariant
@@ -3545,6 +3595,7 @@ fun CacheManagementBottomSheet(
                 Button(
                     onClick = {
                         if (!isClearingCache) {
+                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                             isClearingCache = true
                             scope.launch {
                                 try {
@@ -3574,6 +3625,7 @@ fun CacheManagementBottomSheet(
                                     )
                                     
                                     showClearCacheSuccess = true
+                                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                                     delay(3000)
                                     showClearCacheSuccess = false
                                 } catch (e: Exception) {

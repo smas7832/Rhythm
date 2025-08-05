@@ -903,7 +903,39 @@ class AppSettings private constructor(context: Context) {
         backupData["preferences_types"] = preferencesTypes
         backupData["timestamp"] = System.currentTimeMillis()
         backupData["app_version"] = "1.0.0" // You might want to get this dynamically
-        backupData["backup_version"] = 1
+        backupData["backup_version"] = 2 // Increment version to handle playlist data properly
+        
+        // Explicitly include playlist and favorite songs data even if already in preferences
+        // This ensures they are properly backed up and restored
+        try {
+            val playlistsJson = prefs.getString(KEY_PLAYLISTS, null)
+            val favoriteSongsJson = prefs.getString(KEY_FAVORITE_SONGS, null)
+            
+            if (playlistsJson != null) {
+                backupData["playlists_data"] = playlistsJson
+                Log.d("AppSettings", "Including playlists data in backup: ${playlistsJson.length} characters")
+            }
+            
+            if (favoriteSongsJson != null) {
+                backupData["favorite_songs_data"] = favoriteSongsJson
+                Log.d("AppSettings", "Including favorite songs data in backup: ${favoriteSongsJson.length} characters")
+            }
+            
+            // Also include blacklisted songs and folders
+            val blacklistedSongsJson = prefs.getString(KEY_BLACKLISTED_SONGS, null)
+            val blacklistedFoldersJson = prefs.getString(KEY_BLACKLISTED_FOLDERS, null)
+            
+            if (blacklistedSongsJson != null) {
+                backupData["blacklisted_songs_data"] = blacklistedSongsJson
+            }
+            
+            if (blacklistedFoldersJson != null) {
+                backupData["blacklisted_folders_data"] = blacklistedFoldersJson
+            }
+            
+        } catch (e: Exception) {
+            Log.e("AppSettings", "Error including playlist data in backup", e)
+        }
         
         return Gson().toJson(backupData)
     }
@@ -913,9 +945,13 @@ class AppSettings private constructor(context: Context) {
      */
     fun restoreFromBackup(backupJson: String): Boolean {
         return try {
+            Log.d("AppSettings", "Attempting to restore from backup...")
             val backupData = Gson().fromJson(backupJson, Map::class.java) as Map<String, Any?>
             val preferences = backupData["preferences"] as? Map<String, Any?> ?: return false
             val preferencesTypes = backupData["preferences_types"] as? Map<String, String> ?: emptyMap()
+            val backupVersion = (backupData["backup_version"] as? Double)?.toInt() ?: 1
+            
+            Log.d("AppSettings", "Backup version: $backupVersion")
             
             // Clear existing preferences (optional - you might want to merge instead)
             val editor = prefs.edit()
@@ -949,11 +985,46 @@ class AppSettings private constructor(context: Context) {
                 }
             }
             
+            // Handle backup version 2 and above - explicit playlist data restoration
+            if (backupVersion >= 2) {
+                Log.d("AppSettings", "Restoring playlist data from backup version $backupVersion")
+                
+                // Restore playlists data explicitly
+                val playlistsData = backupData["playlists_data"] as? String
+                if (playlistsData != null) {
+                    editor.putString(KEY_PLAYLISTS, playlistsData)
+                    Log.d("AppSettings", "Restored playlists data: ${playlistsData.length} characters")
+                }
+                
+                // Restore favorite songs data explicitly
+                val favoriteSongsData = backupData["favorite_songs_data"] as? String
+                if (favoriteSongsData != null) {
+                    editor.putString(KEY_FAVORITE_SONGS, favoriteSongsData)
+                    Log.d("AppSettings", "Restored favorite songs data: ${favoriteSongsData.length} characters")
+                }
+                
+                // Restore blacklisted songs and folders
+                val blacklistedSongsData = backupData["blacklisted_songs_data"] as? String
+                if (blacklistedSongsData != null) {
+                    editor.putString(KEY_BLACKLISTED_SONGS, blacklistedSongsData)
+                    Log.d("AppSettings", "Restored blacklisted songs data")
+                }
+                
+                val blacklistedFoldersData = backupData["blacklisted_folders_data"] as? String
+                if (blacklistedFoldersData != null) {
+                    editor.putString(KEY_BLACKLISTED_FOLDERS, blacklistedFoldersData)
+                    Log.d("AppSettings", "Restored blacklisted folders data")
+                }
+            } else {
+                Log.d("AppSettings", "Backup version $backupVersion - using preferences-based restoration")
+            }
+            
             editor.apply()
             
             // Refresh all StateFlows to reflect the restored data
             refreshAllStateFlows()
             
+            Log.d("AppSettings", "Backup restoration completed successfully")
             true
         } catch (e: Exception) {
             Log.e("AppSettings", "Failed to restore backup", e)

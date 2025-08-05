@@ -239,6 +239,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _isInitialized = MutableStateFlow(false)
     val isInitialized: StateFlow<Boolean> = _isInitialized.asStateFlow()
 
+    // Media scan loader state for refresh operations
+    private val _isMediaScanning = MutableStateFlow(false)
+    val isMediaScanning: StateFlow<Boolean> = _isMediaScanning.asStateFlow()
+
     // Queue operation state
     private val _queueOperationError = MutableStateFlow<String?>(null)
     val queueOperationError: StateFlow<String?> = _queueOperationError.asStateFlow()
@@ -321,6 +325,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     fun refreshLibrary() {
         viewModelScope.launch {
             Log.d(TAG, "Starting library refresh...")
+            _isMediaScanning.value = true // Show media scan loader
             _isInitialized.value = false // Indicate that data is being refreshed
 
             try {
@@ -348,6 +353,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 // Optionally, set an error state or show a message to the user
             } finally {
                 _isInitialized.value = true // Mark as initialized again
+                _isMediaScanning.value = false // Hide media scan loader
             }
         }
     }
@@ -373,6 +379,35 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
         savePlaylists()
         Log.d(TAG, "Playlists refreshed.")
+    }
+    
+    /**
+     * Reloads playlists and favorite songs from settings after a backup restore
+     */
+    fun reloadPlaylistsFromSettings() {
+        viewModelScope.launch {
+            try {
+                Log.d(TAG, "Reloading playlists from settings after restore...")
+                loadSavedPlaylists()
+                Log.d(TAG, "Playlists successfully reloaded from settings")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error reloading playlists from settings", e)
+            }
+        }
+    }
+    
+    /**
+     * Ensures current playlists and favorite songs are saved to persistent storage
+     * Useful before creating a backup to ensure all data is included
+     */
+    fun ensurePlaylistsSaved() {
+        try {
+            savePlaylists()
+            saveFavoriteSongs()
+            Log.d(TAG, "Playlists and favorites explicitly saved to storage")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error ensuring playlists are saved", e)
+        }
     }
     
     private fun loadSavedPlaylists() {

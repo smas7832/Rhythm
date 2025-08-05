@@ -168,7 +168,10 @@ fun BlacklistManagementBottomSheet(
 
             // Close button
             FilledTonalButton(
-                onClick = onDismiss,
+                onClick = {
+                    HapticUtils.performHapticFeedback(context, haptic, androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+                    onDismiss()
+                },
                 colors = ButtonDefaults.filledTonalButtonColors(
                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer
