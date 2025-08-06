@@ -1,157 +1,179 @@
 <div align="center">
-  <h1>🎵 Rhythm - Material 3 Music Player</h1>
-  
-  [![GitHub release (latest by date)](https://img.shields.io/github/v/release/cromaguy/Rhythm?style=for-the-badge&logo=github&color=9c27b0)](https://github.com/cromaguy/Rhythm/releases/latest)
-  [![IzzyOnDroid](https://img.shields.io/endpoint?url=https://apt.izzysoft.de/fdroid/api/v1/shield/chromahub.rhythm.app&style=for-the-badge&logo=android&label=IzzySoft&color=3f51b5)](https://apt.izzysoft.de/fdroid/index/apk/chromahub.rhythm.app)
-  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge&logo=open-source-initiative&logoColor=white)](LICENSE)
-  [![API](https://img.shields.io/badge/API-26%2B-brightgreen.svg?style=for-the-badge&logo=android)](https://android-arsenal.com/api?level=26)
-  [![Kotlin](https://img.shields.io/badge/Kotlin-100%25-purple.svg?style=for-the-badge&logo=kotlin)](https://kotlinlang.org/)
-  
-  <img src="assets/Banner.png" alt="Rhythm Logo" width="600"/>
-  
-  ### A next-generation Android music player showcasing Material 3 design, modern architecture, and cutting-edge features
 
-  ---
+# 🎵 Rhythm - Advanced Material 3 Music Player
 
-## 📊 Project Stats
+[![Platform](https://img.shields.io/badge/Platform-Android-3DDC84.svg?style=for-the-badge&logo=android)](https://android.com)
+[![API Level](https://img.shields.io/badge/API-26%2B-brightgreen.svg?style=for-the-badge&logo=android)](https://android-arsenal.com/api?level=26)
+[![Kotlin](https://img.shields.io/badge/Kotlin-100%25-7F52FF.svg?style=for-the-badge&logo=kotlin)](https://kotlinlang.org/)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge&logo=open-source-initiative)](LICENSE)
+[![GitHub Release](https://img.shields.io/github/v/release/cromaguy/Rhythm?style=for-the-badge&logo=github&color=9c27b0)](https://github.com/cromaguy/Rhythm/releases/latest)
+[![F-Droid](https://img.shields.io/endpoint?url=https://apt.izzysoft.de/fdroid/api/v1/shield/chromahub.rhythm.app&style=for-the-badge&logo=f-droid&label=IzzyOnDroid&color=3f51b5)](https://apt.izzysoft.de/fdroid/index/apk/chromahub.rhythm.app)
 
-![GitHub stars](https://img.shields.io/github/stars/cromaguy/Rhythm?style=social)
-![GitHub forks](https://img.shields.io/github/forks/cromaguy/Rhythm?style=social)
-![GitHub issues](https://img.shields.io/github/issues/cromaguy/Rhythm)
-![GitHub pull requests](https://img.shields.io/github/issues-pr/cromaguy/Rhythm)
-![GitHub code size](https://img.shields.io/github/languages/code-size/cromaguy/Rhythm)
-![GitHub commit activity](https://img.shields.io/github/commit-activity/m/cromaguy/Rhythm)
+<img src="assets/Banner.png" alt="Rhythm Banner" width="800"/>
 
----
+### 🌟 A revolutionary Android music player built with cutting-edge Material 3 design, powered by modern architecture and enriched with intelligent features
 
-## 🔗 Quick Links
-
-- 🏠 **Repository**: [GitHub](https://github.com/cromaguy/Rhythm)
-- 📱 **Latest Release**: [Download](https://github.com/cromaguy/Rhythm/releases/latest)
-- 🐛 **Bug Reports**: [Issues](https://github.com/cromaguy/Rhythm/issues)
-- 💬 **Discussions**: [TG Community](https://t.me/RhythmSupport)
-- 🛡️ **Security**: [Security Policy](https://github.com/cromaguy/Rhythm/security/policy)
-- 📋 **Project Board**: [Development Progress](https://github.com/cromaguy/Rhythm/projects)
+<p align="center">
+  <a href="#-features">✨ Features</a> •
+  <a href="#-screenshots">📱 Screenshots</a> •
+  <a href="#-technology-stack">🛠 Tech Stack</a> •
+  <a href="#-download--installation">📥 Download</a> •
+  <a href="#-configuration">⚙️ Configuration</a> •
+  <a href="#-contributing">🤝 Contributing</a> •
+  <a href="#-credits">🏆 Credits</a>
+</p>
 
 ---
-  
-  <p align="center">
-    <a href="#-features">Features</a> •
-    <a href="#-screenshots">Screenshots</a> •
-    <a href="#-download">Download</a> •
-    <a href="#-technology-stack">Tech Stack</a> •
-    <a href="#-building">Building</a> •
-    <a href="#-contributing">Contributing</a> •
-    <a href="#-credits">Credits</a>
-  </p>
+
+## 📊 Project Statistics
+
+![GitHub Stars](https://img.shields.io/github/stars/cromaguy/Rhythm?style=social)
+![GitHub Forks](https://img.shields.io/github/forks/cromaguy/Rhythm?style=social)
+![GitHub Issues](https://img.shields.io/github/issues/cromaguy/Rhythm?logo=github)
+![GitHub Pull Requests](https://img.shields.io/github/issues-pr/cromaguy/Rhythm?logo=github)
+![Code Size](https://img.shields.io/github/languages/code-size/cromaguy/Rhythm?logo=github)
+![Commit Activity](https://img.shields.io/github/commit-activity/m/cromaguy/Rhythm?logo=github)
+
 </div>
 
 ---
 
 ## ✨ Features
 
-### 🎨 **Modern Design & User Experience**
-- **Material 3 Design**: Latest Material You design with dynamic theming and wallpaper-based colors
-- **Adaptive UI**: Responsive layouts that adapt to different screen sizes and orientations
-- **Physics-based Animations**: Smooth, natural animations with spring physics throughout the interface
-- **Dynamic Colors**: Wallpaper-based color extraction (Android 12+) with fallback themes
-- **Dark/Light Themes**: Automatic system theme following or manual theme selection
+### 🎨 **Material 3 Design Excellence**
+- 🌈 **Dynamic Colors (Monet)**: Wallpaper-based color extraction for personalized theming (Android 12+)
+- 🌓 **Adaptive Theming**: Seamlessly follows system dark/light theme or manual selection
+- 🎯 **Physics-Based Animations**: Smooth spring animations throughout the interface
+- 📱 **Responsive Design**: Optimized layouts for different screen sizes and orientations
+- ✨ **Modern UI Components**: Latest Material 3 components with consistent design language
 
-### 🎵 **Advanced Audio Playback**
-- **High-Quality Audio**: Support for lossless formats (FLAC, ALAC) and high-bitrate files
-- **Gapless Playback**: Seamless transitions between tracks using ExoPlayer's advanced buffering
-- **Audio Focus Management**: Proper handling of phone calls, notifications, and other audio interruptions
-- **Background Playback**: Continuous music playback with memory-efficient foreground service
-- **System/App Volume Control**: Choose between controlling system media volume or app-specific volume
-- **Equalizer Integration**: System equalizer support for audio customization
+### 🎵 **Professional Audio Engine**
+- 🎧 **ExoPlayer Integration**: Industry-standard media playback with Media3 framework
+- 🔄 **Gapless Playback**: Seamless transitions between tracks with advanced buffering
+- 🎚️ **Audio Focus Management**: Intelligent handling of calls, notifications, and audio interruptions
+- 🔊 **Volume Control Options**: System media volume or app-specific volume control
+- ⚖️ **Audio Enhancement**: Built-in equalizer support and audio normalization
+- 🎼 **High-Quality Audio**: Support for lossless formats (FLAC, ALAC) and high-bitrate files
 
-### 📚 **Comprehensive Library Management**
-- **Smart Scanning**: Fast, efficient music library indexing with metadata extraction from ID3 tags
-- **Multiple Views**: Grid and list views for albums, songs, and playlists with customizable layouts
-- **Advanced Sorting**: Sort by title, artist, album, date, duration, genre, and more
-- **Smart Search**: Real-time search across songs, albums, artists, and playlists with fuzzy matching
-- **Playlist Management**: Create, edit, reorder, and delete custom playlists with drag-and-drop support
+### 📚 **Intelligent Library Management**
+- ⚡ **Fast Indexing**: Advanced music library scanning with metadata extraction from ID3 tags
+- 📊 **Multiple View Modes**: Grid and list views for songs, albums, artists, and playlists
+- 🔍 **Smart Search**: Real-time search with fuzzy matching across all library content
+- 📝 **Advanced Sorting**: Sort by title, artist, album, date, duration, genre, and more
+- 🎼 **Playlist Management**: Create, edit, reorder, and delete custom playlists with drag-and-drop
+- 📊 **Library Statistics**: Track listening habits, play counts, and favorite genres
 
-### 🎤 **Lyrics & Metadata**
-- **Synchronized Lyrics**: Time-synced lyrics display with real-time highlighting and smooth scrolling
-- **Online Lyrics Integration**: Automatic lyrics fetching from LRCLib and other sources
-- **Offline/Online Modes**: Choose between cached lyrics or always-online fetching
-- **Rich Metadata**: Display detailed song information including bitrate, format, file size, and encoding
-- **Album Artwork**: High-quality artwork display with multiple fallback sources (Spotify, Last.fm, MusicBrainz, YouTube Music)
+### 🎤 **Synchronized Lyrics & Rich Metadata**
+- 🎵 **Time-Synced Lyrics**: Real-time highlighting with smooth scrolling
+- 🌐 **LRCLib Integration**: Automatic lyrics fetching from the community-driven service
+- 💿 **Rich Song Information**: Bitrate, format, file size, encoding details, and more
+- 🖼️ **High-Quality Artwork**: Multi-source artwork fetching with intelligent fallbacks
+- 📱 **Offline/Online Modes**: Choose between cached or always-online lyrics
 
-### 🔄 **Smart Features**
-- **Advanced Queue Management**: Queue with history, upcoming tracks, and manual reordering
-- **Multiple Shuffle Modes**: True shuffle, album shuffle, and artist shuffle algorithms
-- **Repeat Modes**: Track repeat, playlist repeat, and no repeat with visual indicators
-- **Recently Played**: Track listening history with timestamps and play counts
-- **Auto-Resume**: Restore playback state, position, and queue after app restart
+### 🔄 **Smart Playback Features**
+- 🎲 **Advanced Shuffle**: Multiple shuffle algorithms (true random, album-aware, artist-aware)
+- 🔁 **Repeat Modes**: Track repeat, playlist repeat, and queue repeat with visual indicators
+- ⏮️ **Queue Management**: Advanced queue with history, upcoming tracks, and manual reordering
+- 📈 **Recently Played**: Comprehensive listening history with timestamps
+- 💾 **Auto-Resume**: Restore playback state, position, and queue after app restart
+- 🎯 **Contextual Playback**: Intelligent queue creation based on user context
 
-### 🌐 **Online Integration**
-- **Automatic Updates**: GitHub-based update checking with stable/beta channels and in-app installation
-- **API Integration**: Support for Spotify RapidAPI, Last.fm, MusicBrainz, YouTube Music, and other services
-- **Enhanced Metadata**: Online artwork and artist information fetching with intelligent caching
-- **Community Features**: Integrated bug reporting and feature requests via GitHub Issues
+### 🌐 **Online Integration & Services**
+
+#### **API Integrations**
+- 🎵 **LRCLib**: Free, community-driven synchronized lyrics service
+- 🎤 **Spotify RapidAPI**: Enhanced artist images and metadata (configurable)
+- 🎶 **YouTube Music**: Fallback for artist images, album art, and track thumbnails
+- 🎼 **MusicBrainz**: Open music database for accurate metadata
+- 🏷️ **Cover Art Archive**: Community-driven album artwork database
+- 📊 **GitHub API**: Automatic app updates and release management
+
+#### **Smart Features**
+- 🔄 **Auto-Updates**: GitHub-based update checking with stable/beta channels
+- 🏗️ **In-App Installation**: Seamless update installation without leaving the app
+- 🎯 **Intelligent Caching**: Memory-efficient artwork and metadata caching
+- 📡 **Network Awareness**: Offline/online mode switching based on connectivity
+
+### 📱 **Device Integration**
+- 🔊 **Audio Output Switching**: Easy switching between speakers, headphones, and Bluetooth devices
+- 🎧 **Bluetooth Support**: Full Bluetooth audio device integration
+- 📲 **Media Controls**: Lock screen and notification controls
+- 🎮 **Hardware Keys**: Volume key navigation and media key support
+- 🔄 **Auto-Connect**: Automatic connection to preferred audio devices
 
 ---
-
 
 ## 📱 Screenshots
 
 <table>
   <tr>
     <td align="center">
-      <img src="assets/ScreenShots/Home.png" alt="Home Screen" width="200"><br>
-      <b>🏠 Home Screen</b>
+      <img src="assets/ScreenShots/Home.png" alt="Home Screen" width="200"/><br/>
+      <b>🏠 Enhanced Home Screen</b>
     </td>
     <td align="center">
-      <img src="assets/ScreenShots/Home2.png" alt="Home Alternative" width="200"><br>
-      <b>🎵 Alternative Layout</b>
+      <img src="assets/ScreenShots/Home2.png" alt="Home Alternative" width="200"/><br/>
+      <b>🎵 Smart Recommendations</b>
     </td>
     <td align="center">
-      <img src="assets/ScreenShots/Artist.png" alt="Artist View" width="200"><br>
-      <b>🎤 Artist View</b>
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="assets/ScreenShots/Player.png" alt="Now Playing" width="200"><br>
-      <b>▶️ Now Playing</b>
-    </td>
-    <td align="center">
-      <img src="assets/ScreenShots/Player_Lyrics.png" alt="Lyrics View" width="200"><br>
-      <b>📝 Lyrics View</b>
-    </td>
-    <td align="center">
-      <img src="assets/ScreenShots/Playlist.png" alt="Playlist View" width="200"><br>
-      <b>🎼 Playlist View</b>
+      <img src="assets/ScreenShots/Home3.png" alt="Home Variant" width="200"/><br/>
+      <b>📊 Personalized Content</b>
     </td>
   </tr>
   <tr>
     <td align="center">
-      <img src="assets/ScreenShots/Library_Songs.png" alt="Songs Library" width="200"><br>
-      <b>🎧 Songs Library</b>
+      <img src="assets/ScreenShots/Player.png" alt="Now Playing" width="200"/><br/>
+      <b>▶️ Beautiful Player Interface</b>
     </td>
     <td align="center">
-      <img src="assets/ScreenShots/Library_Albums.png" alt="Albums View" width="200"><br>
-      <b>💿 Albums View</b>
+      <img src="assets/ScreenShots/Player_Lyrics.png" alt="Lyrics View" width="200"/><br/>
+      <b>📝 Synchronized Lyrics</b>
     </td>
     <td align="center">
-      <img src="assets/ScreenShots/Updater.png" alt="Updater" width="200"><br>
-      <b>🔄 Auto Updater</b>
+      <img src="assets/ScreenShots/Queue.png" alt="Queue Management" width="200"/><br/>
+      <b>⏭️ Advanced Queue System</b>
     </td>
   </tr>
   <tr>
     <td align="center">
-      <img src="assets/ScreenShots/Search.png" alt="Search" width="200"><br>
+      <img src="assets/ScreenShots/Library_Songs.png" alt="Songs Library" width="200"/><br/>
+      <b>🎧 Comprehensive Library</b>
+    </td>
+    <td align="center">
+      <img src="assets/ScreenShots/Library_Albums.png" alt="Albums View" width="200"/><br/>
+      <b>💿 Album Collections</b>
+    </td>
+    <td align="center">
+      <img src="assets/ScreenShots/Library_Playlists.png" alt="Playlists" width="200"/><br/>
+      <b>� Playlist Management</b>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="assets/ScreenShots/Search.png" alt="Search Interface" width="200"/><br/>
       <b>🔍 Smart Search</b>
     </td>
     <td align="center">
-      <img src="assets/ScreenShots/Queue.png" alt="Queue Management" width="200"><br>
-      <b>⏭️ Queue Management</b>
+      <img src="assets/ScreenShots/Settings.png" alt="Settings" width="200"/><br/>
+      <b>⚙️ Comprehensive Settings</b>
     </td>
     <td align="center">
-      <img src="assets/ScreenShots/Settings.png" alt="Settings" width="200"><br>
-      <b>⚙️ Settings</b>
+      <img src="assets/ScreenShots/Updater.png" alt="Auto Updater" width="200"/><br/>
+      <b>🔄 Seamless Updates</b>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="assets/ScreenShots/Artist.png" alt="Artist View" width="200"/><br/>
+      <b>🎤 Artist Profiles</b>
+    </td>
+    <td align="center">
+      <img src="assets/ScreenShots/DeviceOutput.png" alt="Device Output" width="200"/><br/>
+      <b>🔊 Audio Output Control</b>
+    </td>
+    <td align="center">
+      <img src="assets/ScreenShots/About.png" alt="About Screen" width="200"/><br/>
+      <b>ℹ️ App Information</b>
     </td>
   </tr>
 </table>
@@ -251,57 +273,32 @@ Get the latest version from our [GitHub Releases](https://github.com/cromaguy/Rh
 
 ---
 
-### Project Structure
-```
-app/
-├── src/
-│   ├── main/
-│   │   ├── java/chromahub/rhythm/app/
-│   │   │   ├── data/              # Data models and repositories
-│   │   │   ├── network/           # Network services and API clients
-│   │   │   ├── service/           # Background media playback service
-│   │   │   ├── ui/                # All UI components
-│   │   │   │   ├── components/    # Reusable UI components
-│   │   │   │   ├── screens/       # App screens
-│   │   │   │   └── theme/         # Theming and styling
-│   │   │   ├── util/              # Utility classes
-│   │   │   ├── viewmodel/         # ViewModels
-│   │   │   └── MainActivity.kt    # App entry point
-│   │   ├── res/                   # Resources (layouts, strings, etc.)
-│   │   └── AndroidManifest.xml    # App manifest
-│   ├── test/                      # Unit tests
-│   └── androidTest/               # Instrumentation tests
-├── build.gradle.kts               # App-level build configuration
-└── proguard-rules.pro            # ProGuard rules for release builds
-```
-
----
 
 ## 🤝 Contributing
 
-We welcome contributions from the community! Here's how you can help make Rhythm even better:
+We welcome contributions from the community! Here's how you can help make RhythmM3 even better:
 
-### 🐛 **Bug Reports**
+### **🐛 Bug Reports**
 - Use the [Issue Tracker](https://github.com/cromaguy/Rhythm/issues) to report bugs
 - Include detailed steps to reproduce the issue
-- Provide device information and Android version
+- Provide device information and Android version  
 - Attach logs or screenshots if applicable
 
-### 💡 **Feature Requests**
+### **💡 Feature Requests**
 - Check existing issues to avoid duplicates
 - Clearly describe the proposed feature and its benefits
 - Consider implementation complexity and user impact
 
-### 🔧 **Code Contributions**
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes following our coding standards
-4. Test thoroughly on different devices
-5. Commit with clear, descriptive messages
-6. Push to your branch (`git push origin feature/amazing-feature`)
-7. Open a Pull Request with detailed description
+### **🔧 Code Contributions**
+1. **Fork** the repository
+2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
+3. **Make** your changes following our coding standards
+4. **Test** thoroughly on different devices and Android versions
+5. **Commit** with clear, descriptive messages
+6. **Push** to your branch (`git push origin feature/amazing-feature`)  
+7. **Open** a Pull Request with detailed description
 
-### 📋 **Development Guidelines**
+### **📋 Development Guidelines**
 - Follow [Kotlin coding conventions](https://kotlinlang.org/docs/coding-conventions.html)
 - Use Jetpack Compose best practices
 - Ensure Material 3 design consistency
@@ -313,62 +310,55 @@ We welcome contributions from the community! Here's how you can help make Rhythm
 
 ## 🏆 Credits & Acknowledgments
 
-### 👨‍💻 **Development Team**
+### **👨‍💻 Development Team**
 - **[Anjishnu Nandi](https://github.com/cromaguy)** - Lead Developer & Project Architect
   - Core development and UI/UX design
-  - Architecture planning and implementation
+  - Architecture planning and implementation  
   - Material 3 design system integration
 
-### 🌟 **Special Thanks**
-- **Google Material Design Team** - For Material 3 design principles and components
-- **Android Open Source Project** - For providing the foundation of Android development
-- **Jetpack Compose Team** - For the modern declarative UI toolkit
-- **Open Source Community** - For inspiration, libraries, and continuous support
+### **🌟 Special Thanks**
+- **Google Material Design Team** - Material 3 design principles and components
+- **Android Open Source Project** - Foundation of Android development
+- **Jetpack Compose Team** - Modern declarative UI toolkit
+- **Open Source Community** - Inspiration, libraries, and continuous support
 
-### 📚 **Core Libraries & Dependencies**
-- **[Jetpack Compose](https://developer.android.com/jetpack/compose)** - Modern UI toolkit for native Android
+### **📚 Core Libraries & Dependencies**
+- **[Jetpack Compose](https://developer.android.com/jetpack/compose)** - Modern UI toolkit
 - **[Material 3](https://m3.material.io/)** - Design system and components
-- **[ExoPlayer](https://exoplayer.dev/)** - Professional-grade media playback
-- **[Coil](https://coil-kt.github.io/coil/)** - Image loading optimized for Android and Compose
+- **[ExoPlayer/Media3](https://exoplayer.dev/)** - Professional media playback
+- **[Coil](https://coil-kt.github.io/coil/)** - Image loading for Compose
 - **[Kotlin Coroutines](https://kotlinlang.org/docs/coroutines-overview.html)** - Asynchronous programming
 
-### 🎵 **Audio & Metadata Services**
+### **🎵 Audio & Metadata Services**
 - **[LRCLib](https://lrclib.net/)** - Free, community-driven lyrics service
 - **[MusicBrainz](https://musicbrainz.org/)** - Open music encyclopedia
-- **[Last.fm](https://www.last.fm/)** - Music discovery and artist information
-- **[Cover Art Archive](https://coverartarchive.org/)** - Community-driven album artwork database
-- **[YouTube Music](https://music.youtube.com/)** - Fallback source for artist images, album art, and track thumbnails
-- **[Spotify Web API](https://developer.spotify.com/documentation/web-api)** - Enhanced metadata and artwork
+- **[Cover Art Archive](https://coverartarchive.org/)** - Album artwork database
+- **[YouTube Music](https://music.youtube.com/)** - Fallback artwork source
+- **[Spotify Web API](https://developer.spotify.com/)** - Enhanced metadata
 
 ---
 
 ## 🔐 Permissions
 
-The app requires the following permissions for optimal functionality:
-
 ### **📁 Storage Access**
 - `READ_MEDIA_AUDIO` (Android 13+) - Access music files
-- `READ_MEDIA_IMAGES` (Android 13+) - Access album artwork
-- `READ_EXTERNAL_STORAGE` (Android 12 and below) - Legacy storage access
-- `WRITE_EXTERNAL_STORAGE` (Android 10 and below) - Legacy storage write access
+- `READ_MEDIA_IMAGES` (Android 13+) - Access album artwork  
+- `READ_EXTERNAL_STORAGE` (Legacy) - Storage access for older Android
+- `WRITE_EXTERNAL_STORAGE` (Legacy) - Storage write for Android 10-
 
 ### **🎵 Media Playback**
 - `FOREGROUND_SERVICE` - Background music playback
-- `FOREGROUND_SERVICE_MEDIA_PLAYBACK` - Media-specific foreground service
+- `FOREGROUND_SERVICE_MEDIA_PLAYBACK` - Media-specific service
 - `WAKE_LOCK` - Prevent device sleep during playback
 
 ### **🌐 Network Features**
 - `INTERNET` - Online features (lyrics, updates, artwork)
 - `ACCESS_NETWORK_STATE` - Network connectivity checks
 
-### **🔄 Updates & Installation**
+### **🔄 Updates & Bluetooth**
 - `REQUEST_INSTALL_PACKAGES` - In-app update installation
-
-### **📡 Bluetooth Integration**
-- `BLUETOOTH` - Bluetooth device detection
-- `BLUETOOTH_ADMIN` - Bluetooth connection management
-- `BLUETOOTH_CONNECT` (Android 12+) - Connect to Bluetooth devices
-- `BLUETOOTH_SCAN` (Android 12+) - Scan for Bluetooth devices
+- `BLUETOOTH` & `BLUETOOTH_ADMIN` - Bluetooth device integration
+- `BLUETOOTH_CONNECT` & `BLUETOOTH_SCAN` (Android 12+) - Modern Bluetooth
 
 ---
 
@@ -400,17 +390,20 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+---
 
 <div align="center">
-  <h3>🎵 Experience music like never before with Rhythm! 🎵</h3>
-  
-  **[⬇️ Download Now](https://github.com/cromaguy/Rhythm/releases/latest)** | **[⭐ Star on GitHub](https://github.com/cromaguy/Rhythm)** | **[🐛 Report Issues](https://github.com/cromaguy/Rhythm/issues)**
-  
-  <br>
-  
-  <sub>Made with ❤️ by <a href="https://github.com/cromaguy">Anjishnu Nandi</a> and the <strong>Team ChromaHub</strong></sub>
-  
-  <br><br>
-  
-  <img src="https://img.shields.io/badge/Built%20with-❤️%20%26%20Kotlin-purple?style=for-the-badge" alt="Built with Love and Kotlin">
+
+# 🎵 Experience Music Like Never Before! 🎵
+
+**[⬇️ Download Latest APK](https://github.com/cromaguy/Rhythm/releases/latest)** • **[⭐ Star on GitHub](https://github.com/cromaguy/Rhythm)** • **[🐛 Report Issues](https://github.com/cromaguy/Rhythm/issues)**
+
+<br>
+
+<img src="https://img.shields.io/badge/Built%20with-❤️%20%26%20Kotlin-purple?style=for-the-badge" alt="Built with Love and Kotlin">
+
+<br>
+
+<sub>Made with ❤️ by <a href="https://github.com/cromaguy">Anjishnu Nandi</a> and <strong>Team ChromaHub</strong></sub>
+
 </div>

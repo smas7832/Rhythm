@@ -128,7 +128,7 @@ fun PermissionHandler(
         if (hasStoragePermissions) {
             permissionScreenState = PermissionScreenState.PermissionsGranted
             if (!onboardingCompleted) {
-                currentOnboardingStep = OnboardingStep.AUDIO_PLAYBACK // Move to audio/playback step
+                currentOnboardingStep = OnboardingStep.BACKUP_RESTORE // Move to backup/restore step first
             } else {
                 currentOnboardingStep = OnboardingStep.COMPLETE
                 // Show media scan loader only if onboarding was completed but initial media scan hasn't happened yet
@@ -309,6 +309,17 @@ fun PermissionHandler(
                             // and then false after service init.
                         }
                         OnboardingStep.COMPLETE -> { /* Should not happen */ }
+                    }
+                },
+                onPrevStep = {
+                    when (currentOnboardingStep) {
+                        OnboardingStep.PERMISSIONS -> currentOnboardingStep = OnboardingStep.WELCOME
+                        OnboardingStep.BACKUP_RESTORE -> currentOnboardingStep = OnboardingStep.PERMISSIONS
+                        OnboardingStep.AUDIO_PLAYBACK -> currentOnboardingStep = OnboardingStep.BACKUP_RESTORE
+                        OnboardingStep.THEMING -> currentOnboardingStep = OnboardingStep.AUDIO_PLAYBACK
+                        OnboardingStep.LIBRARY_SETUP -> currentOnboardingStep = OnboardingStep.THEMING
+                        OnboardingStep.UPDATER -> currentOnboardingStep = OnboardingStep.LIBRARY_SETUP
+                        else -> { /* Should not happen for WELCOME or COMPLETE */ }
                     }
                 },
                 onRequestAgain = {

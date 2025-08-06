@@ -344,16 +344,36 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 // Refresh all playlists to remove songs that no longer exist on the device
                 refreshPlaylists()
 
-                // Re-fetch artwork from internet for newly added/updated items
-                fetchArtworkFromInternet()
+                // Re-fetch artwork from internet for newly added/updated items (but don't block completion)
+                launch { 
+                    try {
+                        fetchArtworkFromInternet()
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Artwork fetching failed but continuing with library refresh", e)
+                    }
+                }
 
                 Log.d(TAG, "Library refresh complete. Loaded ${_songs.value.size} songs, ${_albums.value.size} albums, ${_artists.value.size} artists")
             } catch (e: Exception) {
                 Log.e(TAG, "Error during library refresh", e)
-                // Optionally, set an error state or show a message to the user
+                // Ensure we still have some data even if refresh fails
+                if (_songs.value.isEmpty()) {
+                    try {
+                        _songs.value = repository.loadSongs()
+                        _albums.value = repository.loadAlbums()
+                        _artists.value = repository.loadArtists()
+                    } catch (fallbackError: Exception) {
+                        Log.e(TAG, "Fallback loading also failed", fallbackError)
+                    }
+                }
             } finally {
                 _isInitialized.value = true // Mark as initialized again
                 _isMediaScanning.value = false // Hide media scan loader
+                
+                // Ensure MediaScanLoader doesn't get stuck by dispatching a completion event
+                // This is a safety measure for cases where the StateFlow updates might not trigger UI properly
+                delay(1000) // Give UI time to process the state changes
+                Log.d(TAG, "Media scanning state cleared - final state: ${_songs.value.size} songs, ${_albums.value.size} albums, ${_artists.value.size} artists")
             }
         }
     }
