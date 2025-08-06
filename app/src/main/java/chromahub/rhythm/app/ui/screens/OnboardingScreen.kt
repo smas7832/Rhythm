@@ -109,6 +109,7 @@ import java.util.Locale
 fun OnboardingScreen(
     currentStep: OnboardingStep,
     onNextStep: () -> Unit,
+    onPrevStep: () -> Unit,
     onRequestAgain: () -> Unit,
     permissionScreenState: PermissionScreenState,
     isParentLoading: Boolean,
@@ -117,6 +118,7 @@ fun OnboardingScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val haptic = LocalHapticFeedback.current
     
     // Get current step index for progress
     val stepIndex = when (currentStep) {
@@ -138,14 +140,50 @@ fun OnboardingScreen(
             .padding(24.dp),
         contentAlignment = Alignment.Center
     ) {
+        // Back button - Top left with better positioning
+        if (currentStep != OnboardingStep.WELCOME) {
+            FilledTonalButton(
+                onClick = {
+                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                    onPrevStep()
+                },
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(top = 18.dp),
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ),
+                shape = RoundedCornerShape(20.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.padding(horizontal = 0.dp)
+                ) {
+                    Icon(
+                        imageVector = RhythmIcons.Back,
+                        contentDescription = "Back",
+                        modifier = Modifier.size(25.dp)
+                    )
+                    // Spacer(modifier = Modifier.width(3.dp))
+                    // Text(
+                    //     text = "Back",
+                    //     style = MaterialTheme.typography.labelLarge,
+                    //     fontWeight = FontWeight.Medium
+                    // )
+                }
+            }
+        }
+        
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
             modifier = Modifier.fillMaxSize()
         ) {
-            // Enhanced header with progress
+            // Enhanced header with progress (only show for non-welcome steps)
             AnimatedVisibility(
-                visible = true,
+                visible = currentStep != OnboardingStep.WELCOME,
                 enter = fadeIn() + slideInVertically(initialOffsetY = { -it / 2 })
             ) {
                 Column(
@@ -156,7 +194,7 @@ fun OnboardingScreen(
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center,
-                        modifier = Modifier.padding(bottom = 24.dp)
+                        modifier = Modifier.padding(bottom = 5.dp)
                     ) {
                         Image(
                             painter = painterResource(id = R.drawable.rhythm_splash_logo),
@@ -173,93 +211,99 @@ fun OnboardingScreen(
                     }
                     
                     // Progress indicator
-                    OnboardingProgressIndicator(
-                        currentStep = stepIndex,
-                        totalSteps = totalSteps
-                    )
+                    // OnboardingProgressIndicator(
+                    //     currentStep = stepIndex,
+                    //     totalSteps = totalSteps
+                    // )
                 }
             }
             
-            // Enhanced main card with better animations
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                shape = MaterialTheme.shapes.extraLarge,
-                modifier = Modifier
-                    .fillMaxWidth() // Changed to fillMaxWidth
-                    .padding(horizontal = 0.dp) // Added horizontal padding
-                    .animateContentSize(
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessLow
-                        )
-                    )
-            ) {
-                Column(
+            // Content - Welcome step without card, others with card
+            if (currentStep == OnboardingStep.WELCOME) {
+                // Welcome screen without card
+                EnhancedWelcomeContent(onNextStep = onNextStep)
+            } else {
+                // Other steps with card
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    shape = MaterialTheme.shapes.extraLarge,
                     modifier = Modifier
-                        .padding(28.dp)
-                        .verticalScroll(rememberScrollState()), // Make content scrollable
-                    horizontalAlignment = Alignment.CenterHorizontally
+                        .fillMaxWidth()
+                        .padding(horizontal = 0.dp)
+                        .animateContentSize(
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessLow
+                            )
+                        )
                 ) {
-                    // Enhanced step transition with slide animations
-                    Crossfade(
-                        targetState = currentStep,
-                        animationSpec = tween(
-                            easing = androidx.compose.animation.core.EaseInOutCubic
-                        ),
-                        label = "onboardingStepTransition"
-                    ) { step ->
-                        when (step) {
-                            OnboardingStep.WELCOME -> {
-                                EnhancedWelcomeContent(onNextStep = onNextStep)
-                            }
-                            OnboardingStep.PERMISSIONS -> {
-                                EnhancedPermissionContent(
-                                    permissionScreenState = permissionScreenState,
-                                    onGrantAccess = {
-                                        onNextStep() // Trigger permission request
-                                    },
-                                    onOpenSettings = {
-                                        val intent = android.content.Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                                        intent.data = android.net.Uri.fromParts("package", context.packageName, null)
-                                        context.startActivity(intent)
-                                        onRequestAgain() // Set loading state
-                                    },
-                                    isButtonLoading = isParentLoading
-                                )
-                            }
-                            OnboardingStep.BACKUP_RESTORE -> {
-                                EnhancedBackupRestoreContent(
-                                    onNextStep = onNextStep,
-                                    appSettings = appSettings
-                                )
-                            }
-                            OnboardingStep.AUDIO_PLAYBACK -> {
-                                EnhancedAudioPlaybackContent(
-                                    onNextStep = onNextStep,
-                                    appSettings = appSettings
-                                )
-                            }
-                            OnboardingStep.THEMING -> {
-                                EnhancedThemingContent(
-                                    onNextStep = onNextStep,
-                                    themeViewModel = themeViewModel
-                                )
-                            }
-                            OnboardingStep.LIBRARY_SETUP -> {
-                                EnhancedLibrarySetupContent(
-                                    onNextStep = onNextStep,
-                                    appSettings = appSettings
-                                )
-                            }
-                            OnboardingStep.UPDATER -> {
-                                EnhancedUpdaterContent(
-                                    onNextStep = onNextStep,
-                                    appSettings = appSettings
-                                )
-                            }
-                            OnboardingStep.COMPLETE -> {
-                                // This should not be visible as we transition to the main app
-                                Box {}
+                    Column(
+                        modifier = Modifier
+                            .padding(28.dp)
+                            .verticalScroll(rememberScrollState()),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        // Enhanced step transition with slide animations
+                        Crossfade(
+                            targetState = currentStep,
+                            animationSpec = tween(
+                                easing = androidx.compose.animation.core.EaseInOutCubic
+                            ),
+                            label = "onboardingStepTransition"
+                        ) { step ->
+                            when (step) {
+                                OnboardingStep.PERMISSIONS -> {
+                                    EnhancedPermissionContent(
+                                        permissionScreenState = permissionScreenState,
+                                        onGrantAccess = {
+                                            onNextStep() // Trigger permission request
+                                        },
+                                        onOpenSettings = {
+                                            val intent = android.content.Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                                            intent.data = android.net.Uri.fromParts("package", context.packageName, null)
+                                            context.startActivity(intent)
+                                            onRequestAgain() // Set loading state
+                                        },
+                                        isButtonLoading = isParentLoading
+                                    )
+                                }
+                                OnboardingStep.BACKUP_RESTORE -> {
+                                    EnhancedBackupRestoreContent(
+                                        onNextStep = onNextStep,
+                                        appSettings = appSettings
+                                    )
+                                }
+                                OnboardingStep.AUDIO_PLAYBACK -> {
+                                    EnhancedAudioPlaybackContent(
+                                        onNextStep = onNextStep,
+                                        appSettings = appSettings
+                                    )
+                                }
+                                OnboardingStep.THEMING -> {
+                                    EnhancedThemingContent(
+                                        onNextStep = onNextStep,
+                                        themeViewModel = themeViewModel
+                                    )
+                                }
+                                OnboardingStep.LIBRARY_SETUP -> {
+                                    EnhancedLibrarySetupContent(
+                                        onNextStep = onNextStep,
+                                        appSettings = appSettings
+                                    )
+                                }
+                                OnboardingStep.UPDATER -> {
+                                    EnhancedUpdaterContent(
+                                        onNextStep = onNextStep,
+                                        appSettings = appSettings
+                                    )
+                                }
+                                OnboardingStep.COMPLETE -> {
+                                    // This should not be visible as we transition to the main app
+                                    Box {}
+                                }
+                                else -> {
+                                    Box {}
+                                }
                             }
                         }
                     }
@@ -272,134 +316,130 @@ fun OnboardingScreen(
 @Composable
 fun EnhancedWelcomeContent(onNextStep: () -> Unit) {
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+    
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 32.dp)
     ) {
-        // Enhanced icon with animation
+        // App logo with enhanced animation
         AnimatedVisibility(
             visible = true,
             enter = scaleIn(
                 animationSpec = spring(
                     dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessLow
+                    stiffness = Spring.StiffnessMediumLow
                 )
-            ) + fadeIn()
+            ) + fadeIn(
+                animationSpec = tween(1000)
+            )
         ) {
             Box(
-                modifier = Modifier
-                    .size(80.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)),
-                contentAlignment = Alignment.Center
+//                modifier = Modifier
+//                    .size(140.dp)
+//                     .clip(CircleShape)
+//                     .background(
+//                         MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f)
+//                     ),
+//                contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Filled.WavingHand,
-                    contentDescription = "Welcome",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(40.dp)
+                Image(
+                    painter = painterResource(id = R.drawable.rhythm_splash_logo),
+                    contentDescription = "Rhythm Logo",
+                    modifier = Modifier.size(180.dp)
                 )
             }
         }
         
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(40.dp))
         
-        Text(
-            text = "Welcome to Rhythm!",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(bottom = 12.dp)
-        )
-        
-        Text(
-            text = "Rhythm is a powerful music player designed to enhance your listening experience. Let's get you set up with a few simple steps.",
-            style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 32.dp)
-        )
-        
-        // Feature highlights
+        // App name with gradient effect
         Column(
-            modifier = Modifier.padding(bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            FeatureHighlight(
-                icon = Icons.Filled.MusicNote,
-                text = "Manage and play your entire local music collection."
+            Text(
+                text = "Rhythm",
+                style = MaterialTheme.typography.displayLarge.copy(
+                    fontSize = 48.sp
+                ),
+                fontWeight = FontWeight.ExtraBold,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onBackground
             )
-            FeatureHighlight(
-                icon = RhythmIcons.Devices.Bluetooth,
-                text = "Connect seamlessly to Bluetooth speakers and other audio devices."
-            )
-            FeatureHighlight(
-                icon = Icons.Filled.Palette,
-                text = "Personalize your app's appearance with various themes and dynamic colors."
+            
+            // Subtitle with modern styling
+            Text(
+                text = "Your Music, Your Way",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Medium,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
             )
         }
         
-        val haptic = LocalHapticFeedback.current
-        FilledTonalButton(
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        // Minimal description with better typography
+        Text(
+            text = "Discover, organize, and enjoy your personal music collection with a beautifully crafted player designed for music lovers.",
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            lineHeight = 24.sp,
+            modifier = Modifier.padding(horizontal = 8.dp)
+        )
+        
+        Spacer(modifier = Modifier.height(56.dp))
+        
+        // Enhanced Get Started button with modern design
+        Button(
             onClick = {
                 HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                 onNextStep()
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp),
-            colors = ButtonDefaults.filledTonalButtonColors(
+                .height(64.dp),
+            colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
+            ),
+            shape = RoundedCornerShape(20.dp),
+            elevation = ButtonDefaults.buttonElevation(
+                defaultElevation = 2.dp,
+                pressedElevation = 8.dp
             )
         ) {
             Row(
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Get Started", style = MaterialTheme.typography.labelLarge)
-                Spacer(modifier = Modifier.width(8.dp))
                 Icon(
-                    imageVector = RhythmIcons.Forward,
+                    imageVector = RhythmIcons.Play,
                     contentDescription = null,
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                Text(
+                    text = "Get Started",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
                 )
             }
         }
-    }
-}
-
-@Composable
-fun FeatureHighlight(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    text: String
-) {
-    val context = LocalContext.current
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Box(
-            modifier = Modifier
-                .size(32.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(16.dp)
-            )
-        }
-        Spacer(modifier = Modifier.width(16.dp))
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        // Version info or subtle additional info
         Text(
-            text = text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            text = "Music player • Designed for Android",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+            textAlign = TextAlign.Center
         )
     }
 }
@@ -715,9 +755,7 @@ fun EnhancedBackupRestoreContent(
     var showBackupTip by remember { mutableStateOf(false) }
     
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState()),
+        modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         // Header with icon and title
@@ -874,26 +912,32 @@ fun EnhancedBackupRestoreContent(
             }
         }
         
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        // Continue button
-        Button(
+        val haptic = LocalHapticFeedback.current
+        FilledTonalButton(
             onClick = {
-                HapticUtils.performHapticFeedback(context, hapticFeedback, HapticFeedbackType.TextHandleMove)
+                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                 onNextStep()
             },
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary
-            ),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Text(
-                text = "Continue",
-                modifier = Modifier.padding(vertical = 8.dp),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
             )
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Next", style = MaterialTheme.typography.labelLarge)
+                Spacer(modifier = Modifier.width(8.dp))
+                Icon(
+                    imageVector = RhythmIcons.Forward,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
         }
     }
 }
