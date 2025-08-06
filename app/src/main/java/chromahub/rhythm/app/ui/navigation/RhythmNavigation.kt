@@ -88,6 +88,7 @@ import chromahub.rhythm.app.ui.screens.PlaylistDetailScreen
 import chromahub.rhythm.app.ui.screens.SearchScreen
 import chromahub.rhythm.app.ui.screens.SettingsScreen
 import chromahub.rhythm.app.ui.screens.AboutScreen // Added import for AboutScreen
+import chromahub.rhythm.app.ui.screens.MediaScanLoader // Add MediaScanLoader import
 import chromahub.rhythm.app.util.HapticUtils
 import chromahub.rhythm.app.viewmodel.MusicViewModel
 import chromahub.rhythm.app.viewmodel.ThemeViewModel
@@ -220,6 +221,7 @@ fun RhythmNavigation(
     val isLoadingLyrics by viewModel.isLoadingLyrics.collectAsState()
     val recentlyPlayed by viewModel.recentlyPlayed.collectAsState()
     val currentDevice by viewModel.currentDevice.collectAsState()
+    val isMediaScanning by viewModel.isMediaScanning.collectAsState() // Add media scanning state
 
     // Theme state
     val useSystemTheme by themeViewModel.useSystemTheme.collectAsState()
@@ -1788,6 +1790,20 @@ fun RhythmNavigation(
                     )
                 }
             }
+        }
+        
+        // Media scan loader overlay for refresh operations
+        AnimatedVisibility(
+            visible = isMediaScanning,
+            enter = fadeIn(animationSpec = tween(800, easing = androidx.compose.animation.core.EaseOutCubic)),
+            exit = fadeOut(animationSpec = tween(800, easing = androidx.compose.animation.core.EaseInCubic))
+        ) {
+            MediaScanLoader(
+                musicViewModel = viewModel,
+                onScanComplete = {
+                    // Media scan loader will hide automatically when isMediaScanning becomes false
+                }
+            )
         }
     }
 }
