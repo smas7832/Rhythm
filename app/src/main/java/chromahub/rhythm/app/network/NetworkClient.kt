@@ -100,6 +100,13 @@ object NetworkClient {
     }
     
     private fun spotifyHeadersInterceptor() = Interceptor { chain ->
+        // Check if Spotify API is enabled
+        val isEnabled = appSettings?.spotifyApiEnabled?.value ?: true
+        if (!isEnabled) {
+            // Return an error response if API is disabled
+            throw IOException("Spotify API is disabled")
+        }
+        
         // Get the current API key from AppSettings, fallback to default if not set
         val currentApiKey = appSettings?.spotifyApiKey?.value
         val apiKey = if (currentApiKey.isNullOrBlank()) SPOTIFY_API_KEY else currentApiKey
@@ -207,4 +214,12 @@ object NetworkClient {
     
     fun getSpotifyApiKey(): String = SPOTIFY_API_KEY
     fun getLastFmApiKey(): String = LASTFM_API_KEY
+    
+    // Helper methods to check if APIs are enabled
+    fun isSpotifyApiEnabled(): Boolean = appSettings?.spotifyApiEnabled?.value ?: true
+    fun isLrcLibApiEnabled(): Boolean = appSettings?.lrclibApiEnabled?.value ?: true
+    fun isMusicBrainzApiEnabled(): Boolean = appSettings?.musicBrainzApiEnabled?.value ?: true
+    fun isCoverArtApiEnabled(): Boolean = appSettings?.coverArtApiEnabled?.value ?: true
+    fun isLastFmApiEnabled(): Boolean = appSettings?.lastFmApiEnabled?.value ?: true
+    fun isYTMusicApiEnabled(): Boolean = appSettings?.ytMusicApiEnabled?.value ?: true
 }
