@@ -139,7 +139,7 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
             whatsNew = emptyList(),
             knownIssues = emptyList(),
             downloadUrl = "",
-            isPreRelease = false,
+            isPreRelease = true,
             buildNumber = 455
         )
     )

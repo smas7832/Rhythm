@@ -388,8 +388,8 @@ class MusicRepository(private val context: Context) {
                         continue
                     }
 
-                    // Only try online fetch if network is available
-                    if (isNetworkAvailable()) {
+                    // Only try online fetch if network is available and Spotify API is enabled
+                    if (isNetworkAvailable() && NetworkClient.isSpotifyApiEnabled()) {
                         Log.d(TAG, "Searching for artist on Spotify: ${artist.name}")
                         try {
                             val searchResponse = spotifyApiService.searchArtists(artist.name)
@@ -430,9 +430,10 @@ class MusicRepository(private val context: Context) {
                     }
 
                     // -------- YouTube Music fallback (right after Spotify fails) --------
-                    try {
-                        Log.d(TAG, "Trying YTMusic for artist: ${artist.name}")
-                        
+                    if (NetworkClient.isYTMusicApiEnabled()) {
+                        try {
+                            Log.d(TAG, "Trying YTMusic for artist: ${artist.name}")
+                            
                         // Create search request for artist
                         val searchRequest = YTMusicSearchRequest(
                             context = YTMusicContext(YTMusicClient()),
@@ -473,19 +474,21 @@ class MusicRepository(private val context: Context) {
                                 }
                             }
                         }
-                    } catch (e: Exception) {
-                        Log.w(TAG, "YTMusic fallback failed for ${artist.name}: ${e.message}")
+                        } catch (e: Exception) {
+                            Log.w(TAG, "YTMusic fallback failed for ${artist.name}: ${e.message}")
+                        }
                     }
 
                     // ----- Fallback using MusicBrainz + CoverArtArchive -----
-                    try {
-                        Log.d(TAG, "Searching MusicBrainz for artist: ${artist.name}")
-                        val mbResponse =
-                            musicBrainzApiService.searchArtists("artist:\"${artist.name}\"")
-                        val mbid = mbResponse.artists.firstOrNull()?.id
-                        if (mbid != null) {
-                            Log.d(
-                                TAG,
+                    if (NetworkClient.isMusicBrainzApiEnabled() && NetworkClient.isCoverArtApiEnabled()) {
+                        try {
+                            Log.d(TAG, "Searching MusicBrainz for artist: ${artist.name}")
+                            val mbResponse =
+                                musicBrainzApiService.searchArtists("artist:\"${artist.name}\"")
+                            val mbid = mbResponse.artists.firstOrNull()?.id
+                            if (mbid != null) {
+                                Log.d(
+                                    TAG,
                                 "Found MBID $mbid for ${artist.name}, querying Cover Art Archive"
                             )
                             val caaResponse = coverArtArchiveService.getArtistImages(mbid)
@@ -498,22 +501,24 @@ class MusicRepository(private val context: Context) {
                                 continue
                             }
                         }
-                    } catch (e: Exception) {
-                        Log.w(
-                            TAG,
-                            "MusicBrainz/CoverArt fallback failed for ${artist.name}: ${e.message}"
-                        )
+                        } catch (e: Exception) {
+                            Log.w(
+                                TAG,
+                                "MusicBrainz/CoverArt fallback failed for ${artist.name}: ${e.message}"
+                            )
+                        }
                     }
 
                     // -------- Final fallback using Last.fm (moved to end) --------
-                    try {
-                        if (false && lastFmApiKey.isNotBlank()) { // Last.fm temporarily disabled
-                            Log.d(TAG, "Trying Last.fm (final fallback) for artist: ${artist.name}")
-                            val lfResponse = lastFmApiService?.getArtistInfo(
-                                artist = artist.name,
-                                apiKey = lastFmApiKey
-                            )
-                            val sizeOrder = listOf("small", "medium", "large", "extralarge", "mega")
+                    if (NetworkClient.isLastFmApiEnabled()) {
+                        try {
+                            if (false && lastFmApiKey.isNotBlank()) { // Last.fm temporarily disabled
+                                Log.d(TAG, "Trying Last.fm (final fallback) for artist: ${artist.name}")
+                                val lfResponse = lastFmApiService?.getArtistInfo(
+                                    artist = artist.name,
+                                    apiKey = lastFmApiKey
+                                )
+                                val sizeOrder = listOf("small", "medium", "large", "extralarge", "mega")
                             var imageUrl = lfResponse?.artist?.image
                                 ?.filter {
                                     it.url.isNotBlank() && !it.url.contains("2a96cbd8b46e442fc41c2b86b821562f") && !it.url.contains(
@@ -549,8 +554,9 @@ class MusicRepository(private val context: Context) {
                                 continue
                             }
                         }
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Last.fm final fallback failed for ${artist.name}: ${e.message}")
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Last.fm final fallback failed for ${artist.name}: ${e.message}")
+                        }
                     }
 
                     // If we get here, generate a placeholder image
@@ -614,9 +620,10 @@ class MusicRepository(private val context: Context) {
             var syncedLyrics: String? = null
 
             // ---- LRCLib (Enhanced search with multiple strategies) ----
-            try {
-                // Strategy 1: Search by track name and artist name
-                var results =
+            if (NetworkClient.isLrcLibApiEnabled()) {
+                try {
+                    // Strategy 1: Search by track name and artist name
+                    var results =
                     lrclibApiService.searchLyrics(trackName = cleanTitle, artistName = cleanArtist)
 
                 // If no results, try fallback strategies
@@ -667,40 +674,45 @@ class MusicRepository(private val context: Context) {
                         return@withContext lyricsData
                     }
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "LRCLib lyrics fetch failed: ${e.message}", e)
+                } catch (e: Exception) {
+                    Log.e(TAG, "LRCLib lyrics fetch failed: ${e.message}", e)
+                }
             }
 
             // ---- Spotify RapidAPI (Plain lyrics) ----
-            try {
-                val searchQuery = "$cleanTitle $cleanArtist"
-                val searchResp = spotifyApiService.searchTracks(searchQuery)
-                val track = searchResp.tracks.items.firstOrNull()
-                track?.let {
-                    val lyricsResp = spotifyApiService.getTrackLyrics(it.data.id)
-                    if (lyricsResp.lyrics.lines.isNotEmpty()) {
-                        plainLyrics = lyricsResp.lyrics.lines.joinToString("\n") { ln -> ln.words }
+            if (NetworkClient.isSpotifyApiEnabled()) {
+                try {
+                    val searchQuery = "$cleanTitle $cleanArtist"
+                    val searchResp = spotifyApiService.searchTracks(searchQuery)
+                    val track = searchResp.tracks.items.firstOrNull()
+                    track?.let {
+                        val lyricsResp = spotifyApiService.getTrackLyrics(it.data.id)
+                        if (lyricsResp.lyrics.lines.isNotEmpty()) {
+                            plainLyrics = lyricsResp.lyrics.lines.joinToString("\n") { ln -> ln.words }
                         val lyricsData = LyricsData(plainLyrics, null)
                         lyricsCache[cacheKey] = lyricsData
                         saveLocalLyrics(artist, title, lyricsData)
                         return@withContext lyricsData
                     }
                 }
-            } catch (e: Exception) {
-                Log.w(TAG, "Spotify RapidAPI lyrics fetch failed: ${e.message}")
+                } catch (e: Exception) {
+                    Log.w(TAG, "Spotify RapidAPI lyrics fetch failed: ${e.message}")
+                }
             }
 
             // ---- MusicBrainz lyrics link (Plain lyrics) ----
-            try {
-                fetchPlainLyricsFromMusicBrainz(cleanArtist, cleanTitle)?.let {
-                    plainLyrics = it
+            if (NetworkClient.isMusicBrainzApiEnabled()) {
+                try {
+                    fetchPlainLyricsFromMusicBrainz(cleanArtist, cleanTitle)?.let {
+                        plainLyrics = it
                     val lyricsData = LyricsData(plainLyrics, null)
                     lyricsCache[cacheKey] = lyricsData
                     saveLocalLyrics(artist, title, lyricsData)
                     return@withContext lyricsData
                 }
-            } catch (e: Exception) {
-                Log.w(TAG, "MusicBrainz lyrics fallback failed: ${e.message}")
+                } catch (e: Exception) {
+                    Log.w(TAG, "MusicBrainz lyrics fallback failed: ${e.message}")
+                }
             }
 
             return@withContext LyricsData("No lyrics found for this song", null)
@@ -751,6 +763,10 @@ class MusicRepository(private val context: Context) {
     private suspend fun fetchPlainLyricsFromMusicBrainz(artist: String, title: String): String? =
         withContext(Dispatchers.IO) {
             try {
+                if (!NetworkClient.isMusicBrainzApiEnabled()) {
+                    return@withContext null
+                }
+                
                 val query = "recording:\"$title\" AND artist:\"$artist\""
                 val searchResp = musicBrainzApiService.searchRecordings(query)
                 val recording = searchResp.recordings.firstOrNull() ?: return@withContext null
@@ -844,14 +860,15 @@ class MusicRepository(private val context: Context) {
 
                 Log.d(TAG, "Searching for album: ${album.title} by ${album.artist}")
 
-                // Search for the album on Spotify
-                val searchResponse =
-                    spotifyApiService.searchTracks("${album.title} ${album.artist}")
-                val track = searchResponse.tracks.items.firstOrNull()
+                // Search for the album on Spotify (only if enabled)
+                if (NetworkClient.isSpotifyApiEnabled()) {
+                    val searchResponse =
+                        spotifyApiService.searchTracks("${album.title} ${album.artist}")
+                    val track = searchResponse.tracks.items.firstOrNull()
 
-                if (track != null && track.data.album.coverArt != null) {
-                    val coverArt = track.data.album.coverArt
-                    if (coverArt.sources.isNotEmpty()) {
+                    if (track != null && track.data.album.coverArt != null) {
+                        val coverArt = track.data.album.coverArt
+                        if (coverArt.sources.isNotEmpty()) {
                         // Find the largest available image
                         val largeImage = coverArt.sources.maxByOrNull { it.width ?: 0 }
 
@@ -871,15 +888,17 @@ class MusicRepository(private val context: Context) {
                         }
                     }
                 }
+                }
 
                 // -------- YTMusic fallback (only when local album art is absent) --------
                 // Check if we should use YTMusic fallback for albums
-                var foundAlbumArt = false
-                try {
-                    Log.d(TAG, "Trying YTMusic for album: ${album.title} by ${album.artist}")
-                    
-                    // Create search request for album
-                    val searchQuery = "${album.title} ${album.artist}"
+                if (NetworkClient.isYTMusicApiEnabled()) {
+                    var foundAlbumArt = false
+                    try {
+                        Log.d(TAG, "Trying YTMusic for album: ${album.title} by ${album.artist}")
+                        
+                        // Create search request for album
+                        val searchQuery = "${album.title} ${album.artist}"
                     val searchRequest = YTMusicSearchRequest(
                         context = YTMusicContext(YTMusicClient()),
                         query = searchQuery,
@@ -917,12 +936,21 @@ class MusicRepository(private val context: Context) {
                             }
                         }
                     }
-                } catch (e: Exception) {
-                    Log.w(TAG, "YTMusic fallback failed for album ${album.title}: ${e.message}")
-                }
+                    } catch (e: Exception) {
+                        Log.w(TAG, "YTMusic fallback failed for album ${album.title}: ${e.message}")
+                    }
 
-                // If YTMusic didn't find anything, use placeholder
-                if (!foundAlbumArt) {
+                    // If YTMusic didn't find anything, use placeholder
+                    if (!foundAlbumArt) {
+                        Log.d(
+                            TAG,
+                            "No valid image found for album: ${album.title}, using generated placeholder"
+                        )
+                        albumImageCache[cacheKey] = placeholderUri
+                        updatedAlbums.add(album.copy(artworkUri = placeholderUri))
+                    }
+                } else {
+                    // YTMusic is disabled, use placeholder
                     Log.d(
                         TAG,
                         "No valid image found for album: ${album.title}, using generated placeholder"
@@ -992,6 +1020,12 @@ class MusicRepository(private val context: Context) {
                     song.artist.equals("Unknown", ignoreCase = true) ||
                     song.title.equals("Unknown", ignoreCase = true)
                 ) {
+                    updatedSongs.add(song)
+                    continue
+                }
+
+                if (!NetworkClient.isYTMusicApiEnabled()) {
+                    Log.d(TAG, "YTMusic API is disabled, skipping track artwork for: ${song.title}")
                     updatedSongs.add(song)
                     continue
                 }

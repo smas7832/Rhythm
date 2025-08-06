@@ -66,8 +66,9 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
+import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
@@ -187,6 +188,22 @@ fun SettingsScreen(
 
     val haptics = LocalHapticFeedback.current
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
+
+    // Handle back button when bottom sheets are open to prevent navigation issues
+    BackHandler(
+        enabled = showApiBottomSheet || showCrashLogHistoryBottomSheet || 
+                 showBlacklistManagementBottomSheet || showBackupRestoreBottomSheet || 
+                 showCacheManagementBottomSheet || showCrossfadeDurationDialog
+    ) {
+        when {
+            showApiBottomSheet -> showApiBottomSheet = false
+            showCrashLogHistoryBottomSheet -> showCrashLogHistoryBottomSheet = false
+            showBlacklistManagementBottomSheet -> showBlacklistManagementBottomSheet = false
+            showBackupRestoreBottomSheet -> showBackupRestoreBottomSheet = false
+            showCacheManagementBottomSheet -> showCacheManagementBottomSheet = false
+            showCrossfadeDurationDialog -> showCrossfadeDurationDialog = false
+        }
+    }
 
     if (showApiBottomSheet) {
         ApiManagementBottomSheet(
@@ -627,7 +644,10 @@ fun SettingsScreen(
                         MaterialTheme.colorScheme.onTertiaryContainer 
                     else 
                         MaterialTheme.colorScheme.onSurfaceVariant,
-                    onClick = { showBackupRestoreBottomSheet = true }
+                    onClick = { 
+                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                        showBackupRestoreBottomSheet = true 
+                    }
                 )
 
                 SettingsDivider()
@@ -644,6 +664,7 @@ fun SettingsScreen(
                     description = "Configure external API keys and services",
                     icon = Icons.Filled.Api,
                     onClick = {
+                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                         showApiBottomSheet = true
                     }
                 )
@@ -1588,7 +1609,9 @@ fun AboutDialog(
 
 /**
  * Simple network check for the RapidAPI key. Uses java.net.HttpURLConnection to avoid
- * Retrofit dependency here. Performs a small search query and returns true if HTTP 200.
+ * Retrofit dependency here. Performs a small search query and returns the HTTP response code.
+ * A successful response (200) or rate limit (429) indicates a valid key.
+ * Authentication errors (401, 403) indicate an invalid key.
  */
 suspend fun verifySpotifyKey(key: String): Int? {
     if (key.isBlank()) return null
@@ -1619,6 +1642,12 @@ fun ApiManagementBottomSheet(
     
     // API states
     val spotifyKey by appSettings.spotifyApiKey.collectAsState()
+    val spotifyApiEnabled by appSettings.spotifyApiEnabled.collectAsState()
+    val lrclibApiEnabled by appSettings.lrclibApiEnabled.collectAsState()
+    val musicBrainzApiEnabled by appSettings.musicBrainzApiEnabled.collectAsState()
+    val coverArtApiEnabled by appSettings.coverArtApiEnabled.collectAsState()
+    val lastFmApiEnabled by appSettings.lastFmApiEnabled.collectAsState()
+    val ytMusicApiEnabled by appSettings.ytMusicApiEnabled.collectAsState()
     var showSpotifyDialog by remember { mutableStateOf(false) }
     var apiKeyInput by remember { mutableStateOf(spotifyKey ?: "") }
     var isChecking by remember { mutableStateOf(false) }
@@ -1626,7 +1655,10 @@ fun ApiManagementBottomSheet(
     var errorCode: Int? by remember { mutableStateOf(null) }
 
     ModalBottomSheet(
-        onDismissRequest = onDismiss,
+        onDismissRequest = {
+            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+            onDismiss()
+        },
         sheetState = bottomSheetState,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -1660,7 +1692,7 @@ fun ApiManagementBottomSheet(
             Spacer(modifier = Modifier.height(8.dp))
             
             Text(
-                text = "Configure external API services for enhanced features",
+                text = "Control which external API services are active to enhance your music experience. Toggle services on/off to manage data usage and functionality.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -1674,11 +1706,14 @@ fun ApiManagementBottomSheet(
                 // Spotify RapidAPI
                 item {
                     ApiServiceCard(
-                        title = "Spotify RapidAPI",
+                        title = "RapidAPI",
                         description = "Enhanced artist images, album artwork, and lyrics",
                         status = if (spotifyKey.isNullOrBlank()) "Not configured" else "Active",
                         isConfigured = !spotifyKey.isNullOrBlank(),
+                        isEnabled = spotifyApiEnabled,
                         icon = Icons.Default.Public,
+                        showToggle = true,
+                        onToggle = { enabled -> appSettings.setSpotifyApiEnabled(enabled) },
                         onClick = {
                             apiKeyInput = spotifyKey ?: ""
                             showSpotifyDialog = true
@@ -1691,10 +1726,13 @@ fun ApiManagementBottomSheet(
                     ApiServiceCard(
                         title = "LRCLib",
                         description = "Free lyrics service - no configuration needed",
-                        status = "Always active",
+                        status = "Always available",
                         isConfigured = true,
+                        isEnabled = lrclibApiEnabled,
                         icon = RhythmIcons.Queue,
-                        onClick = { /* No action needed */ }
+                        showToggle = true,
+                        onToggle = { enabled -> appSettings.setLrcLibApiEnabled(enabled) },
+                        onClick = { /* No configuration needed */ }
                     )
                 }
 
@@ -1713,12 +1751,15 @@ fun ApiManagementBottomSheet(
                 // CoverArt Archive
                 item {
                     ApiServiceCard(
-                        title = "CoverArt Archive",
+                        title = "CoverArt",
                         description = "Album artwork from the community",
-                        status = "Always active",
+                        status = "Always available",
                         isConfigured = true,
+                        isEnabled = coverArtApiEnabled,
                         icon = RhythmIcons.Song,
-                        onClick = { /* No action needed */ }
+                        showToggle = true,
+                        onToggle = { enabled -> appSettings.setCoverArtApiEnabled(enabled) },
+                        onClick = { /* No configuration needed */ }
                     )
                 }
 
@@ -1739,22 +1780,27 @@ fun ApiManagementBottomSheet(
                     ApiServiceCard(
                         title = "YouTube Music",
                         description = "Fallback for artist images (after Spotify), album art (when local art absent), and track images",
-                        status = "Always active",
+                        status = "Always available",
                         isConfigured = true,
+                        isEnabled = ytMusicApiEnabled,
                         icon = RhythmIcons.Album,
-                        onClick = { /* No action needed */ }
+                        showToggle = true,
+                        onToggle = { enabled -> appSettings.setYTMusicApiEnabled(enabled) },
+                        onClick = { /* No configuration needed */ }
                     )
                 }
 
                 // GitHub (for updates)
                 item {
                     ApiServiceCard(
-                        title = "GitHub API",
+                        title = "GitHub",
                         description = "App updates and release information",
-                        status = "Always active",
+                        status = "Always available",
                         isConfigured = true,
+                        isEnabled = true, // Always enabled for updates
                         icon = RhythmIcons.Download,
-                        onClick = { /* No action needed */ }
+                        showToggle = false, // Can't disable update checks
+                        onClick = { /* No configuration needed */ }
                     )
                 }
             }
@@ -1763,7 +1809,10 @@ fun ApiManagementBottomSheet(
 
             // Close button
             Button(
-                onClick = onDismiss,
+                onClick = {
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                    onDismiss()
+                },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary
                 ),
@@ -1836,11 +1885,14 @@ fun ApiManagementBottomSheet(
                         }
                         checkResult == false -> {
                             val msg = when (errorCode) {
-                                429 -> "Monthly limit exceeded for this key. Using default key."
-                                500 -> "RapidAPI server error. Please try again later."
-                                else -> "Key invalid. We'll keep using the default key."
+                                401 -> "Invalid API key. Please check your key and try again."
+                                403 -> "API key forbidden. Please verify permissions or get a new key."
+                                429 -> "Rate limit exceeded, but key is valid! Key has been saved."
+                                500 -> "Server error. Your key appears valid and has been saved."
+                                null -> "Network error. Please check your connection and try again."
+                                else -> "API returned code $errorCode. Please try again or contact support."
                             }
-                            Text(msg, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Medium)
+                            Text(msg, color = if (errorCode == 429 || errorCode == 500) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error, fontWeight = FontWeight.Medium)
                         }
                     }
                 }
@@ -1850,25 +1902,56 @@ fun ApiManagementBottomSheet(
                     onClick = {
                         if (isChecking) return@Button
                         HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                        
+                        // If already checked and valid, just close
+                        if (checkResult == true && (errorCode == 429 || errorCode == 500 || errorCode == 200)) {
+                            showSpotifyDialog = false
+                            return@Button
+                        }
+                        
+                        // Otherwise verify the key
                         isChecking = true
                         checkResult = null
                         scope.launch {
                             val code = verifySpotifyKey(apiKeyInput.trim())
-                            val ok = code == HttpURLConnection.HTTP_OK
-                            checkResult = ok
-                            errorCode = if (ok) null else code
-                            if (ok) {
-                                appSettings.setSpotifyApiKey(apiKeyInput.trim())
-                                showSpotifyDialog = false
-                            } else {
-                                appSettings.setSpotifyApiKey(null) // fallback
+                            errorCode = code
+                            
+                            // Consider key valid if:
+                            // - HTTP 200 (success)
+                            // - HTTP 429 (rate limited, but key is valid)
+                            // - HTTP 500 (server error, but key might be valid)
+                            // Invalid key usually returns 401 or 403
+                            val isValidKey = when (code) {
+                                200, 429, 500 -> true // Valid key
+                                401, 403 -> false // Invalid key  
+                                null -> false // Network/connection error
+                                else -> true // Other codes may indicate valid key with different issues
                             }
+                            
+                            checkResult = isValidKey
+                            
+                            if (isValidKey) {
+                                appSettings.setSpotifyApiKey(apiKeyInput.trim())
+                                // Only close dialog if not rate limited or server error - user should see the message
+                                if (code == 200) {
+                                    showSpotifyDialog = false
+                                }
+                            }
+                            // Don't remove the key if validation fails due to network issues
+                            
                             isChecking = false
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer)
                 ) {
-                    Text(if (isChecking) "Verifying…" else "Save")
+                    Text(
+                        when {
+                            isChecking -> "Verifying…"
+                            checkResult == true && (errorCode == 429 || errorCode == 500) -> "OK"
+                            checkResult == true && errorCode == 200 -> "Save"
+                            else -> "Save"
+                        }
+                    )
                 }
             },
             dismissButton = {
@@ -1911,8 +1994,14 @@ fun ApiServiceCard(
     status: String,
     isConfigured: Boolean,
     icon: ImageVector,
+    isEnabled: Boolean = true,
+    showToggle: Boolean = false,
+    onToggle: ((Boolean) -> Unit)? = null,
     onClick: () -> Unit
 ) {
+    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    
     Card(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
@@ -1936,20 +2025,22 @@ fun ApiServiceCard(
                     .size(48.dp)
                     .clip(CircleShape)
                     .background(
-                        if (isConfigured)
-                            MaterialTheme.colorScheme.primaryContainer
-                        else
-                            MaterialTheme.colorScheme.surfaceVariant
+                        when {
+                            !isEnabled -> MaterialTheme.colorScheme.surfaceVariant
+                            isConfigured -> MaterialTheme.colorScheme.primaryContainer
+                            else -> MaterialTheme.colorScheme.errorContainer
+                        }
                     ),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = if (isConfigured)
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    else
-                        MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = when {
+                        !isEnabled -> MaterialTheme.colorScheme.onSurfaceVariant
+                        isConfigured -> MaterialTheme.colorScheme.onPrimaryContainer
+                        else -> MaterialTheme.colorScheme.onErrorContainer
+                    },
                     modifier = Modifier.size(24.dp)
                 )
             }
@@ -1965,23 +2056,25 @@ fun ApiServiceCard(
                         text = title,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = if (isEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Surface(
-                        color = if (isConfigured)
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-                        else
-                            MaterialTheme.colorScheme.surfaceVariant,
+                        color = when {
+                            !isEnabled -> MaterialTheme.colorScheme.surfaceVariant
+                            isConfigured -> MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                            else -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+                        },
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Text(
-                            text = status,
+                            text = if (!isEnabled) "Disabled" else status,
                             style = MaterialTheme.typography.labelSmall,
-                            color = if (isConfigured)
-                                MaterialTheme.colorScheme.primary
-                            else
-                                MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = when {
+                                !isEnabled -> MaterialTheme.colorScheme.onSurfaceVariant
+                                isConfigured -> MaterialTheme.colorScheme.primary
+                                else -> MaterialTheme.colorScheme.onErrorContainer
+                            },
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
                     }
@@ -1990,18 +2083,33 @@ fun ApiServiceCard(
                 Text(
                     text = description,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = if (isEnabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                 )
             }
 
-            // Arrow icon (only for configurable services)
-            if (title == "Spotify RapidAPI") {
-                Icon(
-                    imageVector = RhythmIcons.Forward,
-                    contentDescription = "Configure",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp)
+            // Toggle or Arrow icon
+            if (showToggle && onToggle != null) {
+                Switch(
+                    checked = isEnabled,
+                    onCheckedChange = { enabled ->
+                        HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
+                        onToggle(enabled)
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.primary,
+                        checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+                    )
                 )
+            } else {
+                // Arrow icon (only for configurable services)
+                if (title == "Spotify RapidAPI") {
+                    Icon(
+                        imageVector = RhythmIcons.Forward,
+                        contentDescription = "Configure",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
         }
     }
@@ -2565,7 +2673,10 @@ fun BackupRestoreBottomSheet(
     }
 
     ModalBottomSheet(
-        onDismissRequest = onDismiss,
+        onDismissRequest = {
+            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+            onDismiss()
+        },
         sheetState = bottomSheetState,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -2601,7 +2712,7 @@ fun BackupRestoreBottomSheet(
             Spacer(modifier = Modifier.height(8.dp))
             
             Text(
-                text = "Keep your settings, playlists, and preferences safe with automatic or manual backups",
+                text = "Safeguard your personalized settings, playlists, and preferences. Create backups manually or enable automatic weekly backups for peace of mind.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

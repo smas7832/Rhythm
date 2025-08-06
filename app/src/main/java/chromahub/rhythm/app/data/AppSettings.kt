@@ -90,6 +90,14 @@ class AppSettings private constructor(context: Context) {
         
         // Spotify Integration
         private const val KEY_SPOTIFY_API_KEY = "spotify_api_key"
+        private const val KEY_SPOTIFY_API_ENABLED = "spotify_api_enabled"
+        
+        // Other API Enable/Disable Keys
+        private const val KEY_LRCLIB_API_ENABLED = "lrclib_api_enabled"
+        private const val KEY_MUSICBRAINZ_API_ENABLED = "musicbrainz_api_enabled"
+        private const val KEY_COVERART_API_ENABLED = "coverart_api_enabled"
+        private const val KEY_LASTFM_API_ENABLED = "lastfm_api_enabled"
+        private const val KEY_YTMUSIC_API_ENABLED = "ytmusic_api_enabled"
         
         // Enhanced User Preferences
         private const val KEY_FAVORITE_GENRES = "favorite_genres"
@@ -282,6 +290,25 @@ class AppSettings private constructor(context: Context) {
     // Spotify RapidAPI Key
     private val _spotifyApiKey = MutableStateFlow<String?>(prefs.getString(KEY_SPOTIFY_API_KEY, null))
     val spotifyApiKey: StateFlow<String?> = _spotifyApiKey.asStateFlow()
+    
+    // API Enable/Disable States
+    private val _spotifyApiEnabled = MutableStateFlow(prefs.getBoolean(KEY_SPOTIFY_API_ENABLED, true))
+    val spotifyApiEnabled: StateFlow<Boolean> = _spotifyApiEnabled.asStateFlow()
+    
+    private val _lrclibApiEnabled = MutableStateFlow(prefs.getBoolean(KEY_LRCLIB_API_ENABLED, true))
+    val lrclibApiEnabled: StateFlow<Boolean> = _lrclibApiEnabled.asStateFlow()
+    
+    private val _musicBrainzApiEnabled = MutableStateFlow(prefs.getBoolean(KEY_MUSICBRAINZ_API_ENABLED, true))
+    val musicBrainzApiEnabled: StateFlow<Boolean> = _musicBrainzApiEnabled.asStateFlow()
+    
+    private val _coverArtApiEnabled = MutableStateFlow(prefs.getBoolean(KEY_COVERART_API_ENABLED, true))
+    val coverArtApiEnabled: StateFlow<Boolean> = _coverArtApiEnabled.asStateFlow()
+    
+    private val _lastFmApiEnabled = MutableStateFlow(prefs.getBoolean(KEY_LASTFM_API_ENABLED, true))
+    val lastFmApiEnabled: StateFlow<Boolean> = _lastFmApiEnabled.asStateFlow()
+    
+    private val _ytMusicApiEnabled = MutableStateFlow(prefs.getBoolean(KEY_YTMUSIC_API_ENABLED, true))
+    val ytMusicApiEnabled: StateFlow<Boolean> = _ytMusicApiEnabled.asStateFlow()
 
     // Enhanced User Preferences
     private val _favoriteGenres = MutableStateFlow<Map<String, Int>>(
@@ -623,6 +650,37 @@ class AppSettings private constructor(context: Context) {
             prefs.edit().putString(KEY_SPOTIFY_API_KEY, key).apply()
             _spotifyApiKey.value = key
         }
+    }
+    
+    // API Enable/Disable Methods
+    fun setSpotifyApiEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_SPOTIFY_API_ENABLED, enabled).apply()
+        _spotifyApiEnabled.value = enabled
+    }
+    
+    fun setLrcLibApiEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_LRCLIB_API_ENABLED, enabled).apply()
+        _lrclibApiEnabled.value = enabled
+    }
+    
+    fun setMusicBrainzApiEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_MUSICBRAINZ_API_ENABLED, enabled).apply()
+        _musicBrainzApiEnabled.value = enabled
+    }
+    
+    fun setCoverArtApiEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_COVERART_API_ENABLED, enabled).apply()
+        _coverArtApiEnabled.value = enabled
+    }
+    
+    fun setLastFmApiEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_LASTFM_API_ENABLED, enabled).apply()
+        _lastFmApiEnabled.value = enabled
+    }
+    
+    fun setYTMusicApiEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_YTMUSIC_API_ENABLED, enabled).apply()
+        _ytMusicApiEnabled.value = enabled
     }
 
     // Enhanced User Preferences Methods
@@ -1157,6 +1215,14 @@ class AppSettings private constructor(context: Context) {
         
         // API Keys
         _spotifyApiKey.value = prefs.getString(KEY_SPOTIFY_API_KEY, null)
+        
+        // API Enable/Disable States
+        _spotifyApiEnabled.value = prefs.getBoolean(KEY_SPOTIFY_API_ENABLED, true)
+        _lrclibApiEnabled.value = prefs.getBoolean(KEY_LRCLIB_API_ENABLED, true)
+        _musicBrainzApiEnabled.value = prefs.getBoolean(KEY_MUSICBRAINZ_API_ENABLED, true)
+        _coverArtApiEnabled.value = prefs.getBoolean(KEY_COVERART_API_ENABLED, true)
+        _lastFmApiEnabled.value = prefs.getBoolean(KEY_LASTFM_API_ENABLED, true)
+        _ytMusicApiEnabled.value = prefs.getBoolean(KEY_YTMUSIC_API_ENABLED, true)
         
         // App Updates
         _autoCheckForUpdates.value = prefs.getBoolean(KEY_AUTO_CHECK_FOR_UPDATES, true)
