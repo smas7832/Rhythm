@@ -67,6 +67,7 @@ import chromahub.rhythm.app.ui.components.M3FourColorCircularLoader
 import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.viewmodel.MusicViewModel
 import kotlinx.coroutines.delay
+import android.util.Log
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -126,13 +127,13 @@ fun MediaScanLoader(
         label = "progressAnimation"
     )
     
-    // Monitor media scanning progress
+    // Enhanced monitoring with better completion logic
     LaunchedEffect(songs.size, albums.size, artists.size) {
         songsFound = songs.size
         albumsFound = albums.size
         artistsFound = artists.size
         
-        // Update progress based on content found
+        // Enhanced progress logic with better completion detection
         when {
             songs.isEmpty() && albums.isEmpty() && artists.isEmpty() -> {
                 scanProgress = 0.1f
@@ -146,9 +147,10 @@ fun MediaScanLoader(
                 scanProgress = 0.7f
                 currentStep = "Building album library..."
             }
-            artists.isNotEmpty() -> {
+            // Complete when we have artists OR when we have substantial content without artists
+            artists.isNotEmpty() || (songs.size >= 10 && albums.size >= 3) -> {
                 scanProgress = 0.9f
-                currentStep = "Finalizing artist collection..."
+                currentStep = if (artists.isNotEmpty()) "Finalizing artist collection..." else "Finalizing media library..."
                 
                 // Wait a bit more to ensure everything is properly loaded
                 delay(1500)
@@ -161,6 +163,50 @@ fun MediaScanLoader(
                 delay(500)
                 onScanComplete()
             }
+            // Handle case where we have some content but not enough for the above condition
+            songs.isNotEmpty() || albums.isNotEmpty() -> {
+                scanProgress = 0.8f
+                currentStep = "Processing media files..."
+                
+                // Give additional time for processing, then complete
+                delay(3000)
+                if (!isComplete) {
+                    scanProgress = 1.0f
+                    currentStep = "Media scan complete!"
+                    delay(1000)
+                    isComplete = true
+                    delay(500)
+                    onScanComplete()
+                }
+            }
+        }
+    }
+    
+    // Timeout protection - complete scan after maximum wait time
+    LaunchedEffect(Unit) {
+        delay(90000) // 1.5 minutes maximum wait time (reduced from 2 minutes)
+        if (!isComplete) {
+            Log.w("MediaScanLoader", "Media scan timeout reached. Completing with current state: songs=${songs.size}, albums=${albums.size}, artists=${artists.size}")
+            scanProgress = 1.0f
+            currentStep = if (songs.isEmpty() && albums.isEmpty() && artists.isEmpty()) {
+                "No media files found - continuing..."
+            } else {
+                "Media scan complete!"
+            }
+            delay(1000)
+            isComplete = true
+            delay(500)
+            onScanComplete()
+        }
+    }
+    
+    // Emergency fallback timeout for extreme edge cases
+    LaunchedEffect(Unit) {
+        delay(180000) // 3 minutes absolute maximum
+        if (!isComplete) {
+            Log.e("MediaScanLoader", "Emergency timeout triggered - forcing completion")
+            isComplete = true
+            onScanComplete()
         }
     }
     
