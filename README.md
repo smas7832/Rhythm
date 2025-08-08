@@ -82,10 +82,8 @@
 
 #### **API Integrations**
 - 🎵 **LRCLib**: Free, community-driven synchronized lyrics service
-- 🎤 **Spotify RapidAPI**: Enhanced artist images and metadata (configurable)
+- 🎤 **Deezer API**: Free artist images and album artwork (no configuration needed)
 - 🎶 **YouTube Music**: Fallback for artist images, album art, and track thumbnails
-- 🎼 **MusicBrainz**: Open music database for accurate metadata
-- 🏷️ **Cover Art Archive**: Community-driven album artwork database
 - 📊 **GitHub API**: Automatic app updates and release management
 
 #### **Smart Features**
@@ -203,9 +201,7 @@
 ### 🌐 **Integrations**
 - **GitHub API**: Automatic app updates and release management
 - **LRCLib**: Free lyrics service integration with synchronized display
-- **Spotify RapidAPI**: Enhanced artist images and metadata (optional)
-- **MusicBrainz**: Open music database for accurate metadata
-- **Last.fm**: Artist information and high-quality images
+- **Deezer API**: Free artist images and album artwork (no configuration needed)
 - **YouTube Music**: Fallback for artist images, album art, and track images
 
 ### 📊 **Data Management**
@@ -267,10 +263,6 @@ Get the latest version from our [GitHub Releases](https://github.com/cromaguy/Rh
 - **Auto Check**: Automatic update checking from GitHub releases
 - **Update Channel**: Choose between stable and beta release channels
 
-### 🔑 **API Configuration (Optional)**
-- **Spotify RapidAPI**: Enhanced artwork and metadata with personal API key
-- **Custom Keys**: Configure your own API keys for extended features
-
 ---
 
 
@@ -331,10 +323,8 @@ We welcome contributions from the community! Here's how you can help make Rhythm
 
 ### **🎵 Audio & Metadata Services**
 - **[LRCLib](https://lrclib.net/)** - Free, community-driven lyrics service
-- **[MusicBrainz](https://musicbrainz.org/)** - Open music encyclopedia
-- **[Cover Art Archive](https://coverartarchive.org/)** - Album artwork database
+- **[Deezer API](https://developers.deezer.com/)** - Free artist images and album artwork
 - **[YouTube Music](https://music.youtube.com/)** - Fallback artwork source
-- **[Spotify Web API](https://developer.spotify.com/)** - Enhanced metadata
 
 ---
 

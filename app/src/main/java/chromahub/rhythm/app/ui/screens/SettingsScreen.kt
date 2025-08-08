@@ -173,7 +173,6 @@ fun SettingsScreen(
     val maxCacheSize by appSettings.maxCacheSize.collectAsState()
     val clearCacheOnExit by appSettings.clearCacheOnExit.collectAsState()
     
-    val spotifyKey by appSettings.spotifyApiKey.collectAsState()
     val scope = rememberCoroutineScope()
     var showApiBottomSheet by remember { mutableStateOf(false) }
     var showCrossfadeDurationDialog by remember { mutableStateOf(false) }
@@ -1607,28 +1606,6 @@ fun AboutDialog(
     )
 }
 
-/**
- * Simple network check for the RapidAPI key. Uses java.net.HttpURLConnection to avoid
- * Retrofit dependency here. Performs a small search query and returns the HTTP response code.
- * A successful response (200) or rate limit (429) indicates a valid key.
- * Authentication errors (401, 403) indicate an invalid key.
- */
-suspend fun verifySpotifyKey(key: String): Int? {
-    if (key.isBlank()) return null
-    return withContext(Dispatchers.IO) {
-        runCatching {
-            val url = URL("https://spotify23.p.rapidapi.com/artist_images/?id=6eUKZXaKkcviH0Ku9w2n3V")
-            val conn = url.openConnection() as HttpURLConnection
-            conn.requestMethod = "GET"
-            conn.setRequestProperty("X-RapidAPI-Key", key)
-            conn.setRequestProperty("X-RapidAPI-Host", "spotify23.p.rapidapi.com")
-            conn.connectTimeout = 5000
-            conn.readTimeout = 5000
-            conn.responseCode
-        }.getOrNull()
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ApiManagementBottomSheet(
@@ -1641,18 +1618,9 @@ fun ApiManagementBottomSheet(
     val haptics = LocalHapticFeedback.current
     
     // API states
-    val spotifyKey by appSettings.spotifyApiKey.collectAsState()
-    val spotifyApiEnabled by appSettings.spotifyApiEnabled.collectAsState()
+    val deezerApiEnabled by appSettings.deezerApiEnabled.collectAsState()
     val lrclibApiEnabled by appSettings.lrclibApiEnabled.collectAsState()
-    val musicBrainzApiEnabled by appSettings.musicBrainzApiEnabled.collectAsState()
-    val coverArtApiEnabled by appSettings.coverArtApiEnabled.collectAsState()
-    val lastFmApiEnabled by appSettings.lastFmApiEnabled.collectAsState()
     val ytMusicApiEnabled by appSettings.ytMusicApiEnabled.collectAsState()
-    var showSpotifyDialog by remember { mutableStateOf(false) }
-    var apiKeyInput by remember { mutableStateOf(spotifyKey ?: "") }
-    var isChecking by remember { mutableStateOf(false) }
-    var checkResult: Boolean? by remember { mutableStateOf(null) }
-    var errorCode: Int? by remember { mutableStateOf(null) }
 
     ModalBottomSheet(
         onDismissRequest = {
@@ -1703,21 +1671,18 @@ fun ApiManagementBottomSheet(
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Spotify RapidAPI
+                // Deezer API
                 item {
                     ApiServiceCard(
-                        title = "RapidAPI",
-                        description = "Enhanced artist images, album artwork, and lyrics",
-                        status = if (spotifyKey.isNullOrBlank()) "Not configured" else "Active",
-                        isConfigured = !spotifyKey.isNullOrBlank(),
-                        isEnabled = spotifyApiEnabled,
+                        title = "Deezer API",
+                        description = "Free artist images and album artwork - no configuration needed",
+                        status = "Always available",
+                        isConfigured = true,
+                        isEnabled = deezerApiEnabled,
                         icon = Icons.Default.Public,
                         showToggle = true,
-                        onToggle = { enabled -> appSettings.setSpotifyApiEnabled(enabled) },
-                        onClick = {
-                            apiKeyInput = spotifyKey ?: ""
-                            showSpotifyDialog = true
-                        }
+                        onToggle = { enabled -> appSettings.setDeezerApiEnabled(enabled) },
+                        onClick = { /* No configuration needed */ }
                     )
                 }
 
@@ -1736,50 +1701,11 @@ fun ApiManagementBottomSheet(
                     )
                 }
 
-                // MusicBrainz
-//                item {
-//                    ApiServiceCard(
-//                        title = "MusicBrainz",
-//                        description = "Music metadata and artist information",
-//                        status = "Always active",
-//                        isConfigured = true,
-//                        icon = RhythmIcons.Album,
-//                        onClick = { /* No action needed */ }
-//                    )
-//                }
-
-                // CoverArt Archive
-                item {
-                    ApiServiceCard(
-                        title = "CoverArt",
-                        description = "Album artwork from the community",
-                        status = "Always available",
-                        isConfigured = true,
-                        isEnabled = coverArtApiEnabled,
-                        icon = RhythmIcons.Song,
-                        showToggle = true,
-                        onToggle = { enabled -> appSettings.setCoverArtApiEnabled(enabled) },
-                        onClick = { /* No configuration needed */ }
-                    )
-                }
-
-                // Last.fm
-//                item {
-//                    ApiServiceCard(
-//                        title = "Last.fm",
-//                        description = "Artist images and music information",
-//                        status = "Always active",
-//                        isConfigured = true,
-//                        icon = RhythmIcons.Artist,
-//                        onClick = { /* No action needed */ }
-//                    )
-//                }
-
                 // YouTube Music
                 item {
                     ApiServiceCard(
                         title = "YouTube Music",
-                        description = "Fallback for artist images (after Spotify), album art (when local art absent), and track images",
+                        description = "Fallback for artist images and album artwork",
                         status = "Always available",
                         isConfigured = true,
                         isEnabled = ytMusicApiEnabled,
@@ -1823,167 +1749,6 @@ fun ApiManagementBottomSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
         }
-    }
-
-    // Spotify API Key Dialog
-    if (showSpotifyDialog) {
-        AlertDialog(
-            onDismissRequest = { if(!isChecking) showSpotifyDialog = false },
-            title = {
-                Text(
-                    text = "Spotify RapidAPI Key",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-            },
-            text = {
-                Column {
-                    Text(
-                        "Obtain a free RapidAPI key for the Spotify23 API (\u2192 Open the \u201cPlayground\u201d and copy your Personal key).",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    val linkColor = MaterialTheme.colorScheme.primary
-                    val annotatedLink = buildAnnotatedString {
-                        append("More info")
-                        addStyle(SpanStyle(color = linkColor, fontWeight = FontWeight.Medium), 0, length)
-                        addLink(LinkAnnotation.Url("https://rapidapi.com/Glavier/api/spotify23/playground"), 0, length)
-                    }
-                    Text(
-                        text = annotatedLink, 
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.clickable {
-                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://rapidapi.com/Glavier/api/spotify23/playground"))
-                            context.startActivity(intent)
-                        }
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = apiKeyInput,
-                        onValueChange = {
-                            apiKeyInput = it
-                            checkResult = null // reset result when editing
-                        },
-                        singleLine = true,
-                        placeholder = { Text("Enter API key") },
-                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    when {
-                        isChecking -> {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                CircularProgressIndicator(modifier = Modifier.size(20.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Verifying key…")
-                            }
-                        }
-                        checkResult == true -> {
-                            Text("Key valid!", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
-                        }
-                        checkResult == false -> {
-                            val msg = when (errorCode) {
-                                401 -> "Invalid API key. Please check your key and try again."
-                                403 -> "API key forbidden. Please verify permissions or get a new key."
-                                429 -> "Rate limit exceeded, but key is valid! Key has been saved."
-                                500 -> "Server error. Your key appears valid and has been saved."
-                                null -> "Network error. Please check your connection and try again."
-                                else -> "API returned code $errorCode. Please try again or contact support."
-                            }
-                            Text(msg, color = if (errorCode == 429 || errorCode == 500) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error, fontWeight = FontWeight.Medium)
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (isChecking) return@Button
-                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
-                        
-                        // If already checked and valid, just close
-                        if (checkResult == true && (errorCode == 429 || errorCode == 500 || errorCode == 200)) {
-                            showSpotifyDialog = false
-                            return@Button
-                        }
-                        
-                        // Otherwise verify the key
-                        isChecking = true
-                        checkResult = null
-                        scope.launch {
-                            val code = verifySpotifyKey(apiKeyInput.trim())
-                            errorCode = code
-                            
-                            // Consider key valid if:
-                            // - HTTP 200 (success)
-                            // - HTTP 429 (rate limited, but key is valid)
-                            // - HTTP 500 (server error, but key might be valid)
-                            // Invalid key usually returns 401 or 403
-                            val isValidKey = when (code) {
-                                200, 429, 500 -> true // Valid key
-                                401, 403 -> false // Invalid key  
-                                null -> false // Network/connection error
-                                else -> true // Other codes may indicate valid key with different issues
-                            }
-                            
-                            checkResult = isValidKey
-                            
-                            if (isValidKey) {
-                                appSettings.setSpotifyApiKey(apiKeyInput.trim())
-                                // Only close dialog if not rate limited or server error - user should see the message
-                                if (code == 200) {
-                                    showSpotifyDialog = false
-                                }
-                            }
-                            // Don't remove the key if validation fails due to network issues
-                            
-                            isChecking = false
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer)
-                ) {
-                    Text(
-                        when {
-                            isChecking -> "Verifying…"
-                            checkResult == true && (errorCode == 429 || errorCode == 500) -> "OK"
-                            checkResult == true && errorCode == 200 -> "Save"
-                            else -> "Save"
-                        }
-                    )
-                }
-            },
-            dismissButton = {
-                Row {
-                    TextButton(onClick = { 
-                        if(!isChecking) {
-                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
-                            showSpotifyDialog = false 
-                        }
-                    }) {
-                        Text("Cancel")
-                    }
-                    if (!spotifyKey.isNullOrBlank()) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Button(
-                            onClick = {
-                                if (isChecking) return@Button
-                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
-                                scope.launch {
-                                    appSettings.setSpotifyApiKey(null)
-                                    showSpotifyDialog = false
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
-                        ) {
-                            Text("Remove")
-                        }
-                    }
-                }
-            },
-            shape = RoundedCornerShape(20.dp)
-        )
     }
 }
 

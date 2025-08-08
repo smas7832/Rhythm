@@ -88,15 +88,9 @@ class AppSettings private constructor(context: Context) {
         private const val KEY_RECENTLY_PLAYED = "recently_played"
         private const val KEY_LAST_PLAYED_TIMESTAMP = "last_played_timestamp"
         
-        // Spotify Integration
-        private const val KEY_SPOTIFY_API_KEY = "spotify_api_key"
-        private const val KEY_SPOTIFY_API_ENABLED = "spotify_api_enabled"
-        
-        // Other API Enable/Disable Keys
+        // API Integration
+        private const val KEY_DEEZER_API_ENABLED = "deezer_api_enabled"
         private const val KEY_LRCLIB_API_ENABLED = "lrclib_api_enabled"
-        private const val KEY_MUSICBRAINZ_API_ENABLED = "musicbrainz_api_enabled"
-        private const val KEY_COVERART_API_ENABLED = "coverart_api_enabled"
-        private const val KEY_LASTFM_API_ENABLED = "lastfm_api_enabled"
         private const val KEY_YTMUSIC_API_ENABLED = "ytmusic_api_enabled"
         
         // Enhanced User Preferences
@@ -287,25 +281,12 @@ class AppSettings private constructor(context: Context) {
     private val _lastPlayedTimestamp = MutableStateFlow(safeLong(KEY_LAST_PLAYED_TIMESTAMP, 0L))
     val lastPlayedTimestamp: StateFlow<Long> = _lastPlayedTimestamp.asStateFlow()
     
-    // Spotify RapidAPI Key
-    private val _spotifyApiKey = MutableStateFlow<String?>(prefs.getString(KEY_SPOTIFY_API_KEY, null))
-    val spotifyApiKey: StateFlow<String?> = _spotifyApiKey.asStateFlow()
-    
     // API Enable/Disable States
-    private val _spotifyApiEnabled = MutableStateFlow(prefs.getBoolean(KEY_SPOTIFY_API_ENABLED, true))
-    val spotifyApiEnabled: StateFlow<Boolean> = _spotifyApiEnabled.asStateFlow()
+    private val _deezerApiEnabled = MutableStateFlow(prefs.getBoolean(KEY_DEEZER_API_ENABLED, true))
+    val deezerApiEnabled: StateFlow<Boolean> = _deezerApiEnabled.asStateFlow()
     
     private val _lrclibApiEnabled = MutableStateFlow(prefs.getBoolean(KEY_LRCLIB_API_ENABLED, true))
     val lrclibApiEnabled: StateFlow<Boolean> = _lrclibApiEnabled.asStateFlow()
-    
-    private val _musicBrainzApiEnabled = MutableStateFlow(prefs.getBoolean(KEY_MUSICBRAINZ_API_ENABLED, true))
-    val musicBrainzApiEnabled: StateFlow<Boolean> = _musicBrainzApiEnabled.asStateFlow()
-    
-    private val _coverArtApiEnabled = MutableStateFlow(prefs.getBoolean(KEY_COVERART_API_ENABLED, true))
-    val coverArtApiEnabled: StateFlow<Boolean> = _coverArtApiEnabled.asStateFlow()
-    
-    private val _lastFmApiEnabled = MutableStateFlow(prefs.getBoolean(KEY_LASTFM_API_ENABLED, true))
-    val lastFmApiEnabled: StateFlow<Boolean> = _lastFmApiEnabled.asStateFlow()
     
     private val _ytMusicApiEnabled = MutableStateFlow(prefs.getBoolean(KEY_YTMUSIC_API_ENABLED, true))
     val ytMusicApiEnabled: StateFlow<Boolean> = _ytMusicApiEnabled.asStateFlow()
@@ -641,41 +622,16 @@ class AppSettings private constructor(context: Context) {
         _lastPlayedTimestamp.value = timestamp
     }
     
-    // Spotify API Key Methods
-    fun setSpotifyApiKey(key: String?) {
-        if (key.isNullOrBlank()) {
-            prefs.edit().remove(KEY_SPOTIFY_API_KEY).apply()
-            _spotifyApiKey.value = null
-        } else {
-            prefs.edit().putString(KEY_SPOTIFY_API_KEY, key).apply()
-            _spotifyApiKey.value = key
-        }
-    }
     
     // API Enable/Disable Methods
-    fun setSpotifyApiEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_SPOTIFY_API_ENABLED, enabled).apply()
-        _spotifyApiEnabled.value = enabled
+    fun setDeezerApiEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_DEEZER_API_ENABLED, enabled).apply()
+        _deezerApiEnabled.value = enabled
     }
     
     fun setLrcLibApiEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_LRCLIB_API_ENABLED, enabled).apply()
         _lrclibApiEnabled.value = enabled
-    }
-    
-    fun setMusicBrainzApiEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_MUSICBRAINZ_API_ENABLED, enabled).apply()
-        _musicBrainzApiEnabled.value = enabled
-    }
-    
-    fun setCoverArtApiEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_COVERART_API_ENABLED, enabled).apply()
-        _coverArtApiEnabled.value = enabled
-    }
-    
-    fun setLastFmApiEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_LASTFM_API_ENABLED, enabled).apply()
-        _lastFmApiEnabled.value = enabled
     }
     
     fun setYTMusicApiEnabled(enabled: Boolean) {
@@ -1213,15 +1169,9 @@ class AppSettings private constructor(context: Context) {
         
         _lastPlayedTimestamp.value = safeLong(KEY_LAST_PLAYED_TIMESTAMP, 0L)
         
-        // API Keys
-        _spotifyApiKey.value = prefs.getString(KEY_SPOTIFY_API_KEY, null)
-        
         // API Enable/Disable States
-        _spotifyApiEnabled.value = prefs.getBoolean(KEY_SPOTIFY_API_ENABLED, true)
+        _deezerApiEnabled.value = prefs.getBoolean(KEY_DEEZER_API_ENABLED, true)
         _lrclibApiEnabled.value = prefs.getBoolean(KEY_LRCLIB_API_ENABLED, true)
-        _musicBrainzApiEnabled.value = prefs.getBoolean(KEY_MUSICBRAINZ_API_ENABLED, true)
-        _coverArtApiEnabled.value = prefs.getBoolean(KEY_COVERART_API_ENABLED, true)
-        _lastFmApiEnabled.value = prefs.getBoolean(KEY_LASTFM_API_ENABLED, true)
         _ytMusicApiEnabled.value = prefs.getBoolean(KEY_YTMUSIC_API_ENABLED, true)
         
         // App Updates

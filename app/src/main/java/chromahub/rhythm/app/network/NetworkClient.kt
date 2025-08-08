@@ -14,22 +14,14 @@ import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import kotlin.math.pow
 import chromahub.rhythm.app.network.LRCLibApiService
-import chromahub.rhythm.app.network.MusicBrainzApiService
-import chromahub.rhythm.app.network.SpotifyApiService
-import chromahub.rhythm.app.network.CoverArtArchiveService
-import chromahub.rhythm.app.network.LastFmApiService
+import chromahub.rhythm.app.network.DeezerApiService
 import chromahub.rhythm.app.network.YTMusicApiService
 
 object NetworkClient {
     private const val TAG = "NetworkClient"
     
-    private const val SPOTIFY_API_KEY = "acd7746756msh38770eb0ec2ea68p15c583jsn5ac26c448f24"
-    private const val SPOTIFY_BASE_URL = "https://spotify23.p.rapidapi.com/"
     private const val LRCLIB_BASE_URL = "https://lrclib.net/"
-    private const val MUSICBRAINZ_BASE_URL = "https://musicbrainz.org/"
-    private const val COVERART_BASE_URL = "https://coverartarchive.org/"
-    private const val LASTFM_API_KEY = "ba62d1b3203307dcbfc78a5cb2be4888"
-    private const val LASTFM_BASE_URL = "https://ws.audioscrobbler.com/"
+    private const val DEEZER_BASE_URL = "https://api.deezer.com/"
     private const val YTMUSIC_BASE_URL = "https://music.youtube.com/"
     
     // Connection timeouts
@@ -91,7 +83,7 @@ object NetworkClient {
         throw exception ?: IOException("Request failed after $MAX_RETRIES retries")
     }
     
-    private fun musicBrainzHeadersInterceptor() = Interceptor { chain ->
+    private fun deezerHeadersInterceptor() = Interceptor { chain ->
         val request = chain.request().newBuilder()
             .header("User-Agent", "RhythmApp/1.0 (contact@chromahub.dev)")
             .header("Accept", "application/json")
@@ -99,27 +91,8 @@ object NetworkClient {
         chain.proceed(request)
     }
     
-    private fun spotifyHeadersInterceptor() = Interceptor { chain ->
-        // Check if Spotify API is enabled
-        val isEnabled = appSettings?.spotifyApiEnabled?.value ?: true
-        if (!isEnabled) {
-            // Return an error response if API is disabled
-            throw IOException("Spotify API is disabled")
-        }
-        
-        // Get the current API key from AppSettings, fallback to default if not set
-        val currentApiKey = appSettings?.spotifyApiKey?.value
-        val apiKey = if (currentApiKey.isNullOrBlank()) SPOTIFY_API_KEY else currentApiKey
-        
-        val request = chain.request().newBuilder()
-            .header("X-RapidAPI-Key", apiKey)
-            .header("X-RapidAPI-Host", "spotify23.p.rapidapi.com")
-            .build()
-        chain.proceed(request)
-    }
-    
-    private val spotifyHttpClient = OkHttpClient.Builder()
-        .addInterceptor(spotifyHeadersInterceptor())
+    private val deezerHttpClient = OkHttpClient.Builder()
+        .addInterceptor(deezerHeadersInterceptor())
         .addInterceptor(loggingInterceptor)
         .addInterceptor(retryInterceptor)
         .connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)
@@ -128,9 +101,9 @@ object NetworkClient {
         .connectionPool(connectionPool)
         .build()
     
-    private val spotifyRetrofit = Retrofit.Builder()
-        .baseUrl(SPOTIFY_BASE_URL)
-        .client(spotifyHttpClient)
+    private val deezerRetrofit = Retrofit.Builder()
+        .baseUrl(DEEZER_BASE_URL)
+        .client(deezerHttpClient)
         .addConverterFactory(GsonConverterFactory.create())
         .build()
     
@@ -148,38 +121,8 @@ object NetworkClient {
         .addConverterFactory(GsonConverterFactory.create())
         .build()
     
-    private val musicBrainzHttpClient = OkHttpClient.Builder()
-        .addInterceptor(musicBrainzHeadersInterceptor())
-        .addInterceptor(loggingInterceptor)
-        .connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)
-        .readTimeout(READ_TIMEOUT, TimeUnit.SECONDS)
-        .writeTimeout(WRITE_TIMEOUT, TimeUnit.SECONDS)
-        .connectionPool(connectionPool)
-        .build()
-
-    private val musicBrainzRetrofit = Retrofit.Builder()
-        .baseUrl(MUSICBRAINZ_BASE_URL)
-        .client(musicBrainzHttpClient)
-        .addConverterFactory(GsonConverterFactory.create())
-        .build()
-    
-    private val coverArtHttpClient = OkHttpClient.Builder()
-        .addInterceptor(musicBrainzHeadersInterceptor()) // same UA rules
-        .addInterceptor(loggingInterceptor)
-        .connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)
-        .readTimeout(READ_TIMEOUT, TimeUnit.SECONDS)
-        .writeTimeout(WRITE_TIMEOUT, TimeUnit.SECONDS)
-        .connectionPool(connectionPool)
-        .build()
-    
-    private val coverArtRetrofit = Retrofit.Builder()
-        .baseUrl(COVERART_BASE_URL)
-        .client(coverArtHttpClient)
-        .addConverterFactory(GsonConverterFactory.create())
-        .build()
-    
     private val ytmusicHttpClient = OkHttpClient.Builder()
-        .addInterceptor(musicBrainzHeadersInterceptor()) // same UA rules as MusicBrainz
+        .addInterceptor(deezerHeadersInterceptor()) // same UA rules as Deezer
         .addInterceptor(loggingInterceptor)
         .addInterceptor(retryInterceptor)
         .connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)
@@ -194,32 +137,18 @@ object NetworkClient {
         .addConverterFactory(GsonConverterFactory.create())
         .build()
     
-    val spotifyApiService: SpotifyApiService = spotifyRetrofit.create(SpotifyApiService::class.java)
+    val deezerApiService: DeezerApiService = deezerRetrofit.create(DeezerApiService::class.java)
     val lrclibApiService: LRCLibApiService = lrclibRetrofit.create(LRCLibApiService::class.java)
-    val musicBrainzApiService: MusicBrainzApiService = musicBrainzRetrofit.create(MusicBrainzApiService::class.java)
-    val coverArtArchiveService: CoverArtArchiveService = coverArtRetrofit.create(CoverArtArchiveService::class.java)
     val ytmusicApiService: YTMusicApiService = ytmusicRetrofit.create(YTMusicApiService::class.java)
-    private val lastFmRetrofit = Retrofit.Builder()
-        .baseUrl(LASTFM_BASE_URL)
-        .client(loggingInterceptor.let { OkHttpClient.Builder().addInterceptor(it).build() })
-        .addConverterFactory(GsonConverterFactory.create())
-        .build()
-    val lastFmApiService: LastFmApiService = lastFmRetrofit.create(LastFmApiService::class.java)
     
     // Generic OkHttp client for one-off requests (e.g., Wikidata JSON). Reuses header interceptor.
     val genericHttpClient: OkHttpClient = OkHttpClient.Builder()
-        .addInterceptor(musicBrainzHeadersInterceptor())
+        .addInterceptor(deezerHeadersInterceptor())
         .addInterceptor(loggingInterceptor)
         .build()
     
-    fun getSpotifyApiKey(): String = SPOTIFY_API_KEY
-    fun getLastFmApiKey(): String = LASTFM_API_KEY
-    
     // Helper methods to check if APIs are enabled
-    fun isSpotifyApiEnabled(): Boolean = appSettings?.spotifyApiEnabled?.value ?: true
+    fun isDeezerApiEnabled(): Boolean = appSettings?.deezerApiEnabled?.value ?: true
     fun isLrcLibApiEnabled(): Boolean = appSettings?.lrclibApiEnabled?.value ?: true
-    fun isMusicBrainzApiEnabled(): Boolean = appSettings?.musicBrainzApiEnabled?.value ?: true
-    fun isCoverArtApiEnabled(): Boolean = appSettings?.coverArtApiEnabled?.value ?: true
-    fun isLastFmApiEnabled(): Boolean = appSettings?.lastFmApiEnabled?.value ?: true
     fun isYTMusicApiEnabled(): Boolean = appSettings?.ytMusicApiEnabled?.value ?: true
 }
