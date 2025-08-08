@@ -7,6 +7,9 @@ import android.os.Build
 import android.provider.MediaStore
 import android.util.Log
 import chromahub.rhythm.app.network.NetworkClient
+import chromahub.rhythm.app.network.DeezerApiService
+import chromahub.rhythm.app.network.DeezerArtist
+import chromahub.rhythm.app.network.DeezerAlbum
 import chromahub.rhythm.app.network.YTMusicApiService
 import chromahub.rhythm.app.network.YTMusicSearchRequest
 import chromahub.rhythm.app.network.YTMusicContext
@@ -382,12 +385,46 @@ class MusicRepository(private val context: Context) {
                     // Only try online fetch if network is available and Deezer API is enabled
                     if (isNetworkAvailable() && NetworkClient.isDeezerApiEnabled()) {
                         Log.d(TAG, "Searching for artist on Deezer: ${artist.name}")
+                        
+                        // Add delay to avoid rate limiting
+                        delay(300)
+                        
                         try {
-                            val searchResponse = deezerApiService.searchArtists(artist.name)
-                            val deezerArtist = searchResponse.data.firstOrNull()
+                            var deezerArtist: DeezerArtist? = null
+                            
+                            // First attempt: exact artist name with fuzzy matching
+                            var searchResponse = deezerApiService.searchArtists(artist.name)
+                            deezerArtist = findBestMatch(searchResponse.data, artist.name)
+                            
+                            // Second attempt: try with cleaned artist name if first failed
+                            if (deezerArtist == null && artist.name.isNotBlank()) {
+                                val cleanedName = artist.name
+                                    .replace(Regex("\\s*\\([^)]*\\)\\s*"), "") // Remove text in parentheses
+                                    .replace(Regex("\\s*&\\s*.*"), "") // Remove everything after &
+                                    .replace(Regex("\\s*,\\s*.*"), "") // Remove everything after comma
+                                    .replace(Regex("\\s*feat\\.?\\s*.*", RegexOption.IGNORE_CASE), "") // Remove feat.
+                                    .replace(Regex("\\s*ft\\.?\\s*.*", RegexOption.IGNORE_CASE), "") // Remove ft.
+                                    .trim()
+                                
+                                if (cleanedName.isNotEmpty() && cleanedName != artist.name) {
+                                    Log.d(TAG, "Retrying Deezer search with cleaned name: $cleanedName")
+                                    searchResponse = deezerApiService.searchArtists(cleanedName)
+                                    deezerArtist = findBestMatch(searchResponse.data, artist.name)
+                                }
+                            }
+                            
+                            // Third attempt: try with first word only for multi-word artists
+                            if (deezerArtist == null && artist.name.contains(" ")) {
+                                val firstWord = artist.name.split(" ").first().trim()
+                                if (firstWord.isNotEmpty() && firstWord.length > 2) {
+                                    Log.d(TAG, "Retrying Deezer search with first word: $firstWord")
+                                    searchResponse = deezerApiService.searchArtists(firstWord)
+                                    deezerArtist = findBestMatch(searchResponse.data, artist.name)
+                                }
+                            }
 
                             if (deezerArtist != null) {
-                                Log.d(TAG, "Found Deezer artist: ${deezerArtist.name}")
+                                Log.d(TAG, "Found Deezer artist: ${deezerArtist.name} for ${artist.name}")
                                 
                                 // Choose the highest quality image available
                                 val imageUrl = when {
@@ -698,27 +735,43 @@ class MusicRepository(private val context: Context) {
 
                 // Search for the album on Deezer (only if enabled)
                 if (NetworkClient.isDeezerApiEnabled()) {
-                    val searchQuery = "${album.title} ${album.artist}"
-                    val searchResponse = deezerApiService.searchArtists(searchQuery)
-                    val deezerArtist = searchResponse.data.firstOrNull()
+                    // Add delay to avoid rate limiting
+                    delay(300)
+                    
+                    try {
+                        // First try searching for the album by title and artist
+                        val searchQuery = "${album.title} ${album.artist}"
+                        var albumSearchResponse = deezerApiService.searchAlbums(searchQuery)
+                        var deezerAlbum = findBestAlbumMatch(albumSearchResponse.data, album.title, album.artist)
 
-                    if (deezerArtist != null) {
-                        // Choose the highest quality image available for album artwork
-                        val imageUrl = when {
-                            !deezerArtist.pictureXl.isNullOrEmpty() -> deezerArtist.pictureXl
-                            !deezerArtist.pictureBig.isNullOrEmpty() -> deezerArtist.pictureBig
-                            !deezerArtist.pictureMedium.isNullOrEmpty() -> deezerArtist.pictureMedium
-                            !deezerArtist.picture.isNullOrEmpty() -> deezerArtist.picture
-                            else -> null
+                        // If no match, try with just the album title
+                        if (deezerAlbum == null && album.title.isNotBlank()) {
+                            albumSearchResponse = deezerApiService.searchAlbums(album.title)
+                            deezerAlbum = findBestAlbumMatch(albumSearchResponse.data, album.title, album.artist)
                         }
 
-                        if (!imageUrl.isNullOrEmpty() && imageUrl.startsWith("http")) {
-                            val imageUri = Uri.parse(imageUrl)
-                            albumImageCache[cacheKey] = imageUri
-                            updatedAlbums.add(album.copy(artworkUri = imageUri))
-                            Log.d(TAG, "Found Deezer artwork for album: ${album.title}, URL: $imageUrl")
-                            continue
+                        if (deezerAlbum != null) {
+                            // Choose the highest quality image available for album artwork
+                            val imageUrl = when {
+                                !deezerAlbum.coverXl.isNullOrEmpty() -> deezerAlbum.coverXl
+                                !deezerAlbum.coverBig.isNullOrEmpty() -> deezerAlbum.coverBig
+                                !deezerAlbum.coverMedium.isNullOrEmpty() -> deezerAlbum.coverMedium
+                                !deezerAlbum.cover.isNullOrEmpty() -> deezerAlbum.cover
+                                else -> null
+                            }
+
+                            if (!imageUrl.isNullOrEmpty() && imageUrl.startsWith("http")) {
+                                val imageUri = Uri.parse(imageUrl)
+                                albumImageCache[cacheKey] = imageUri
+                                updatedAlbums.add(album.copy(artworkUri = imageUri))
+                                Log.d(TAG, "Found Deezer album artwork for: ${album.title}, URL: $imageUrl")
+                                continue
+                            }
+                        } else {
+                            Log.d(TAG, "No Deezer album found for: ${album.title} by ${album.artist}")
                         }
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Deezer album search failed for ${album.title}: ${e.message}")
                     }
                 }
 
@@ -1159,5 +1212,88 @@ class MusicRepository(private val context: Context) {
             "albumImageCache" to albumImageCache.size,
             "lyricsCache" to lyricsCache.size
         )
+    }
+    
+    /**
+     * Finds the best matching Deezer artist from search results using fuzzy matching
+     */
+    private fun findBestMatch(artists: List<DeezerArtist>, originalName: String): DeezerArtist? {
+        if (artists.isEmpty()) return null
+        
+        val lowerOriginal = originalName.lowercase().trim()
+        
+        // First, try exact match (case insensitive)
+        artists.find { it.name.lowercase().trim() == lowerOriginal }?.let { return it }
+        
+        // Second, try starts with match
+        artists.find { it.name.lowercase().trim().startsWith(lowerOriginal) }?.let { return it }
+        
+        // Third, try contains match
+        artists.find { it.name.lowercase().contains(lowerOriginal) }?.let { return it }
+        
+        // Fourth, try reversed contains (original contains artist name)
+        artists.find { lowerOriginal.contains(it.name.lowercase().trim()) }?.let { return it }
+        
+        // Fifth, try word-by-word matching
+        val originalWords = lowerOriginal.split(Regex("\\s+")).filter { it.isNotEmpty() }
+        if (originalWords.isNotEmpty()) {
+            artists.find { artist ->
+                val artistWords = artist.name.lowercase().split(Regex("\\s+"))
+                originalWords.any { originalWord ->
+                    artistWords.any { artistWord ->
+                        originalWord == artistWord || 
+                        originalWord.startsWith(artistWord) || 
+                        artistWord.startsWith(originalWord)
+                    }
+                }
+            }?.let { return it }
+        }
+        
+        // Finally, return the first result with the most fans (most popular)
+        return artists.maxByOrNull { it.nbFan }
+    }
+    
+    /**
+     * Finds the best matching Deezer album from search results using fuzzy matching
+     */
+    private fun findBestAlbumMatch(albums: List<DeezerAlbum>, originalTitle: String, originalArtist: String): DeezerAlbum? {
+        if (albums.isEmpty()) return null
+        
+        val lowerTitle = originalTitle.lowercase().trim()
+        val lowerArtist = originalArtist.lowercase().trim()
+        
+        // First, try exact match (case insensitive) for both title and artist
+        albums.find { album ->
+            album.title.lowercase().trim() == lowerTitle && 
+            (album.artist?.name?.lowercase()?.trim() == lowerArtist || lowerArtist.contains(album.artist?.name?.lowercase()?.trim() ?: ""))
+        }?.let { return it }
+        
+        // Second, try exact title match with fuzzy artist match
+        albums.find { album ->
+            album.title.lowercase().trim() == lowerTitle
+        }?.let { return it }
+        
+        // Third, try contains match for title
+        albums.find { album ->
+            album.title.lowercase().contains(lowerTitle) || lowerTitle.contains(album.title.lowercase())
+        }?.let { return it }
+        
+        // Fourth, try word-by-word matching for title
+        val titleWords = lowerTitle.split(Regex("\\s+")).filter { it.isNotEmpty() }
+        if (titleWords.isNotEmpty()) {
+            albums.find { album ->
+                val albumWords = album.title.lowercase().split(Regex("\\s+"))
+                titleWords.any { titleWord ->
+                    albumWords.any { albumWord ->
+                        titleWord == albumWord || 
+                        titleWord.startsWith(albumWord) || 
+                        albumWord.startsWith(titleWord)
+                    }
+                }
+            }?.let { return it }
+        }
+        
+        // Finally, return the first result with the most tracks (most complete album)
+        return albums.maxByOrNull { it.nbTracks }
     }
 }

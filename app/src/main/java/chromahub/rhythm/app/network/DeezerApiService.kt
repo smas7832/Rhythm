@@ -13,14 +13,26 @@ interface DeezerApiService {
     @GET("search/artist")
     suspend fun searchArtists(
         @Query("q") query: String,
-        @Query("limit") limit: Int = 1
+        @Query("limit") limit: Int = 5
     ): DeezerSearchResponse
+
+    @GET("search/album")
+    suspend fun searchAlbums(
+        @Query("q") query: String,
+        @Query("limit") limit: Int = 5
+    ): DeezerAlbumSearchResponse
 }
 
 // ---------- DTOs ----------
 
 data class DeezerSearchResponse(
     val data: List<DeezerArtist> = emptyList(),
+    val total: Int = 0,
+    val next: String? = null
+)
+
+data class DeezerAlbumSearchResponse(
+    val data: List<DeezerAlbum> = emptyList(),
     val total: Int = 0,
     val next: String? = null
 )
@@ -40,4 +52,30 @@ data class DeezerArtist(
     val radio: Boolean = false,
     val tracklist: String? = null,
     val type: String = "artist"
+)
+
+data class DeezerAlbum(
+    val id: Long,
+    val title: String,
+    val link: String? = null,
+    val cover: String? = null,
+    @SerializedName("cover_small") val coverSmall: String? = null,
+    @SerializedName("cover_medium") val coverMedium: String? = null,
+    @SerializedName("cover_big") val coverBig: String? = null,
+    @SerializedName("cover_xl") val coverXl: String? = null,
+    @SerializedName("nb_tracks") val nbTracks: Int = 0,
+    @SerializedName("release_date") val releaseDate: String? = null,
+    val artist: DeezerAlbumArtist? = null,
+    val type: String = "album"
+)
+
+data class DeezerAlbumArtist(
+    val id: Long,
+    val name: String,
+    val link: String? = null,
+    val picture: String? = null,
+    @SerializedName("picture_small") val pictureSmall: String? = null,
+    @SerializedName("picture_medium") val pictureMedium: String? = null,
+    @SerializedName("picture_big") val pictureBig: String? = null,
+    @SerializedName("picture_xl") val pictureXl: String? = null
 )
