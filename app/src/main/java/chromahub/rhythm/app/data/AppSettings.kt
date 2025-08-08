@@ -90,8 +90,12 @@ class AppSettings private constructor(context: Context) {
         
         // API Integration
         private const val KEY_DEEZER_API_ENABLED = "deezer_api_enabled"
+        private const val KEY_CANVAS_API_ENABLED = "canvas_api_enabled"
         private const val KEY_LRCLIB_API_ENABLED = "lrclib_api_enabled"
         private const val KEY_YTMUSIC_API_ENABLED = "ytmusic_api_enabled"
+        private const val KEY_SPOTIFY_API_ENABLED = "spotify_api_enabled"
+        private const val KEY_SPOTIFY_CLIENT_ID = "spotify_client_id"
+        private const val KEY_SPOTIFY_CLIENT_SECRET = "spotify_client_secret"
         
         // Enhanced User Preferences
         private const val KEY_FAVORITE_GENRES = "favorite_genres"
@@ -285,11 +289,23 @@ class AppSettings private constructor(context: Context) {
     private val _deezerApiEnabled = MutableStateFlow(prefs.getBoolean(KEY_DEEZER_API_ENABLED, true))
     val deezerApiEnabled: StateFlow<Boolean> = _deezerApiEnabled.asStateFlow()
     
+    private val _canvasApiEnabled = MutableStateFlow(prefs.getBoolean(KEY_CANVAS_API_ENABLED, true))
+    val canvasApiEnabled: StateFlow<Boolean> = _canvasApiEnabled.asStateFlow()
+    
     private val _lrclibApiEnabled = MutableStateFlow(prefs.getBoolean(KEY_LRCLIB_API_ENABLED, true))
     val lrclibApiEnabled: StateFlow<Boolean> = _lrclibApiEnabled.asStateFlow()
     
     private val _ytMusicApiEnabled = MutableStateFlow(prefs.getBoolean(KEY_YTMUSIC_API_ENABLED, true))
     val ytMusicApiEnabled: StateFlow<Boolean> = _ytMusicApiEnabled.asStateFlow()
+    
+    private val _spotifyApiEnabled = MutableStateFlow(prefs.getBoolean(KEY_SPOTIFY_API_ENABLED, false))
+    val spotifyApiEnabled: StateFlow<Boolean> = _spotifyApiEnabled.asStateFlow()
+    
+    private val _spotifyClientId = MutableStateFlow(prefs.getString(KEY_SPOTIFY_CLIENT_ID, "") ?: "")
+    val spotifyClientId: StateFlow<String> = _spotifyClientId.asStateFlow()
+    
+    private val _spotifyClientSecret = MutableStateFlow(prefs.getString(KEY_SPOTIFY_CLIENT_SECRET, "") ?: "")
+    val spotifyClientSecret: StateFlow<String> = _spotifyClientSecret.asStateFlow()
 
     // Enhanced User Preferences
     private val _favoriteGenres = MutableStateFlow<Map<String, Int>>(
@@ -629,6 +645,11 @@ class AppSettings private constructor(context: Context) {
         _deezerApiEnabled.value = enabled
     }
     
+    fun setCanvasApiEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_CANVAS_API_ENABLED, enabled).apply()
+        _canvasApiEnabled.value = enabled
+    }
+    
     fun setLrcLibApiEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_LRCLIB_API_ENABLED, enabled).apply()
         _lrclibApiEnabled.value = enabled
@@ -637,6 +658,21 @@ class AppSettings private constructor(context: Context) {
     fun setYTMusicApiEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_YTMUSIC_API_ENABLED, enabled).apply()
         _ytMusicApiEnabled.value = enabled
+    }
+    
+    fun setSpotifyApiEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_SPOTIFY_API_ENABLED, enabled).apply()
+        _spotifyApiEnabled.value = enabled
+    }
+    
+    fun setSpotifyClientId(clientId: String) {
+        prefs.edit().putString(KEY_SPOTIFY_CLIENT_ID, clientId).apply()
+        _spotifyClientId.value = clientId
+    }
+    
+    fun setSpotifyClientSecret(clientSecret: String) {
+        prefs.edit().putString(KEY_SPOTIFY_CLIENT_SECRET, clientSecret).apply()
+        _spotifyClientSecret.value = clientSecret
     }
 
     // Enhanced User Preferences Methods
@@ -1171,8 +1207,12 @@ class AppSettings private constructor(context: Context) {
         
         // API Enable/Disable States
         _deezerApiEnabled.value = prefs.getBoolean(KEY_DEEZER_API_ENABLED, true)
+        _canvasApiEnabled.value = prefs.getBoolean(KEY_CANVAS_API_ENABLED, true)
         _lrclibApiEnabled.value = prefs.getBoolean(KEY_LRCLIB_API_ENABLED, true)
         _ytMusicApiEnabled.value = prefs.getBoolean(KEY_YTMUSIC_API_ENABLED, true)
+        _spotifyApiEnabled.value = prefs.getBoolean(KEY_SPOTIFY_API_ENABLED, false)
+        _spotifyClientId.value = prefs.getString(KEY_SPOTIFY_CLIENT_ID, "") ?: ""
+        _spotifyClientSecret.value = prefs.getString(KEY_SPOTIFY_CLIENT_SECRET, "") ?: ""
         
         // App Updates
         _autoCheckForUpdates.value = prefs.getBoolean(KEY_AUTO_CHECK_FOR_UPDATES, true)

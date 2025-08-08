@@ -15,6 +15,8 @@ import java.net.UnknownHostException
 import kotlin.math.pow
 import chromahub.rhythm.app.network.LRCLibApiService
 import chromahub.rhythm.app.network.DeezerApiService
+import chromahub.rhythm.app.network.SpotifyCanvasApiService
+import chromahub.rhythm.app.network.SpotifySearchApiService
 import chromahub.rhythm.app.network.YTMusicApiService
 
 object NetworkClient {
@@ -22,7 +24,9 @@ object NetworkClient {
     
     private const val LRCLIB_BASE_URL = "https://lrclib.net/"
     private const val DEEZER_BASE_URL = "https://api.deezer.com/"
+    private const val CANVAS_BASE_URL = "https://api.paxsenix.biz.id/api/"
     private const val YTMUSIC_BASE_URL = "https://music.youtube.com/"
+    private const val SPOTIFY_API_BASE_URL = "https://api.spotify.com/v1/"
     
     // Connection timeouts
     private const val CONNECT_TIMEOUT = 30L
@@ -107,6 +111,22 @@ object NetworkClient {
         .addConverterFactory(GsonConverterFactory.create())
         .build()
     
+    private val canvasHttpClient = OkHttpClient.Builder()
+        .addInterceptor(deezerHeadersInterceptor())
+        .addInterceptor(loggingInterceptor)
+        .addInterceptor(retryInterceptor)
+        .connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)
+        .readTimeout(READ_TIMEOUT, TimeUnit.SECONDS)
+        .writeTimeout(WRITE_TIMEOUT, TimeUnit.SECONDS)
+        .connectionPool(connectionPool)
+        .build()
+    
+    private val canvasRetrofit = Retrofit.Builder()
+        .baseUrl(CANVAS_BASE_URL)
+        .client(canvasHttpClient)
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+    
     private val lrclibHttpClient = OkHttpClient.Builder()
         .addInterceptor(loggingInterceptor)
         .connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)
@@ -137,9 +157,26 @@ object NetworkClient {
         .addConverterFactory(GsonConverterFactory.create())
         .build()
     
+    private val spotifyHttpClient = OkHttpClient.Builder()
+        .addInterceptor(loggingInterceptor)
+        .addInterceptor(retryInterceptor)
+        .connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)
+        .readTimeout(READ_TIMEOUT, TimeUnit.SECONDS)
+        .writeTimeout(WRITE_TIMEOUT, TimeUnit.SECONDS)
+        .connectionPool(connectionPool)
+        .build()
+    
+    private val spotifyRetrofit = Retrofit.Builder()
+        .baseUrl(SPOTIFY_API_BASE_URL)
+        .client(spotifyHttpClient)
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+    
     val deezerApiService: DeezerApiService = deezerRetrofit.create(DeezerApiService::class.java)
+    val canvasApiService: SpotifyCanvasApiService = canvasRetrofit.create(SpotifyCanvasApiService::class.java)
     val lrclibApiService: LRCLibApiService = lrclibRetrofit.create(LRCLibApiService::class.java)
     val ytmusicApiService: YTMusicApiService = ytmusicRetrofit.create(YTMusicApiService::class.java)
+    val spotifySearchApiService: SpotifySearchApiService = spotifyRetrofit.create(SpotifySearchApiService::class.java)
     
     // Generic OkHttp client for one-off requests (e.g., Wikidata JSON). Reuses header interceptor.
     val genericHttpClient: OkHttpClient = OkHttpClient.Builder()
@@ -149,6 +186,12 @@ object NetworkClient {
     
     // Helper methods to check if APIs are enabled
     fun isDeezerApiEnabled(): Boolean = appSettings?.deezerApiEnabled?.value ?: true
+    fun isCanvasApiEnabled(): Boolean = appSettings?.canvasApiEnabled?.value ?: true
     fun isLrcLibApiEnabled(): Boolean = appSettings?.lrclibApiEnabled?.value ?: true
     fun isYTMusicApiEnabled(): Boolean = appSettings?.ytMusicApiEnabled?.value ?: true
+    fun isSpotifyApiEnabled(): Boolean = appSettings?.spotifyApiEnabled?.value ?: false
+    
+    // Get Spotify API credentials
+    fun getSpotifyClientId(): String = appSettings?.spotifyClientId?.value ?: ""
+    fun getSpotifyClientSecret(): String = appSettings?.spotifyClientSecret?.value ?: ""
 }

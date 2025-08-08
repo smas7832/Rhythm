@@ -69,7 +69,7 @@ import chromahub.rhythm.app.data.Artist
 import chromahub.rhythm.app.data.Song
 import chromahub.rhythm.app.data.ArtistViewType
 import chromahub.rhythm.app.ui.components.M3PlaceholderType
-import chromahub.rhythm.app.ui.components.M3CircularWaveProgressIndicator // Added import
+import chromahub.rhythm.app.ui.components.M3ExpressiveCircularIndicator // Added import
 import chromahub.rhythm.app.util.ImageUtils
 import chromahub.rhythm.app.util.ArtistCollaborationUtils
 import chromahub.rhythm.app.util.HapticUtils
@@ -295,11 +295,7 @@ fun AllArtistsScreen(
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            M3CircularWaveProgressIndicator(
-                                progress = 1f, // Indeterminate progress
-                                colors = listOf(MaterialTheme.colorScheme.primary),
-                                trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                                strokeWidth = 4f,
+                            M3ExpressiveCircularIndicator(
                                 modifier = Modifier.size(48.dp)
                             )
                             Spacer(modifier = Modifier.height(16.dp))

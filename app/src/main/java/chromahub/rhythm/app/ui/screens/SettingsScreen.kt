@@ -1619,8 +1619,15 @@ fun ApiManagementBottomSheet(
     
     // API states
     val deezerApiEnabled by appSettings.deezerApiEnabled.collectAsState()
+    val canvasApiEnabled by appSettings.canvasApiEnabled.collectAsState()
     val lrclibApiEnabled by appSettings.lrclibApiEnabled.collectAsState()
     val ytMusicApiEnabled by appSettings.ytMusicApiEnabled.collectAsState()
+    val spotifyApiEnabled by appSettings.spotifyApiEnabled.collectAsState()
+    val spotifyClientId by appSettings.spotifyClientId.collectAsState()
+    val spotifyClientSecret by appSettings.spotifyClientSecret.collectAsState()
+    
+    // Spotify API dialog state
+    var showSpotifyConfigDialog by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
         onDismissRequest = {
@@ -1686,6 +1693,21 @@ fun ApiManagementBottomSheet(
                     )
                 }
 
+                // Spotify Canvas API
+                // item {
+                //     ApiServiceCard(
+                //         title = "Spotify Canvas",
+                //         description = "Visual videos that play behind songs - no configuration needed",
+                //         status = "Always available",
+                //         isConfigured = true,
+                //         isEnabled = canvasApiEnabled,
+                //         icon = RhythmIcons.Song,
+                //         showToggle = true,
+                //         onToggle = { enabled -> appSettings.setCanvasApiEnabled(enabled) },
+                //         onClick = { /* No configuration needed */ }
+                //     )
+                // }
+
                 // LRCLib
                 item {
                     ApiServiceCard(
@@ -1713,6 +1735,21 @@ fun ApiManagementBottomSheet(
                         showToggle = true,
                         onToggle = { enabled -> appSettings.setYTMusicApiEnabled(enabled) },
                         onClick = { /* No configuration needed */ }
+                    )
+                }
+
+                // Spotify API
+                item {
+                    ApiServiceCard(
+                        title = "Spotify Canvas",
+                        description = "Official Spotify integration for track search and Canvas videos",
+                        status = if (spotifyClientId.isNotEmpty() && spotifyClientSecret.isNotEmpty()) "Configured" else "Needs configuration",
+                        isConfigured = spotifyClientId.isNotEmpty() && spotifyClientSecret.isNotEmpty(),
+                        isEnabled = spotifyApiEnabled,
+                        icon = RhythmIcons.Song,
+                        showToggle = true,
+                        onToggle = { enabled -> appSettings.setSpotifyApiEnabled(enabled) },
+                        onClick = { showSpotifyConfigDialog = true }
                     )
                 }
 
@@ -1749,6 +1786,25 @@ fun ApiManagementBottomSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
         }
+    }
+    
+    // Spotify API Configuration Dialog
+    if (showSpotifyConfigDialog) {
+        SpotifyApiConfigDialog(
+            currentClientId = spotifyClientId,
+            currentClientSecret = spotifyClientSecret,
+            onDismiss = { showSpotifyConfigDialog = false },
+            onSave = { clientId, clientSecret ->
+                appSettings.setSpotifyClientId(clientId)
+                appSettings.setSpotifyClientSecret(clientSecret)
+                // Auto-enable API if credentials are provided
+                if (clientId.isNotEmpty() && clientSecret.isNotEmpty()) {
+                    appSettings.setSpotifyApiEnabled(true)
+                }
+                showSpotifyConfigDialog = false
+            },
+            appSettings = appSettings
+        )
     }
 }
 
@@ -3634,4 +3690,166 @@ fun CacheManagementBottomSheet(
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SpotifyApiConfigDialog(
+    currentClientId: String,
+    currentClientSecret: String,
+    onDismiss: () -> Unit,
+    onSave: (clientId: String, clientSecret: String) -> Unit,
+    appSettings: chromahub.rhythm.app.data.AppSettings
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    
+    var clientId by remember { mutableStateOf(currentClientId) }
+    var clientSecret by remember { mutableStateOf(currentClientSecret) }
+    var isTestingConnection by remember { mutableStateOf(false) }
+    var testResult by remember { mutableStateOf<Pair<Boolean, String>?>(null) }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Spotify API Configuration",
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = "Enter your Spotify API credentials to enable track search and Canvas videos. You can get these credentials from the Spotify Developer Dashboard.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                OutlinedTextField(
+                    value = clientId,
+                    onValueChange = { 
+                        clientId = it
+                        testResult = null 
+                    },
+                    label = { Text("Client ID") },
+                    placeholder = { Text("e.g. 1a2b3c4d5e6f7g8h9i0j") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                
+                OutlinedTextField(
+                    value = clientSecret,
+                    onValueChange = { 
+                        clientSecret = it
+                        testResult = null 
+                    },
+                    label = { Text("Client Secret") },
+                    placeholder = { Text("e.g. 9z8y7x6w5v4u3t2s1r0q") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                
+                // Test connection button
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                isTestingConnection = true
+                                try {
+                                    // Temporarily set the credentials for testing
+                                    appSettings.setSpotifyClientId(clientId)
+                                    appSettings.setSpotifyClientSecret(clientSecret)
+                                    
+                                    val canvasRepository = chromahub.rhythm.app.data.CanvasRepository(context, appSettings)
+                                    testResult = canvasRepository.testSpotifyApiConfiguration()
+                                } catch (e: Exception) {
+                                    testResult = Pair(false, "Error: ${e.message}")
+                                } finally {
+                                    isTestingConnection = false
+                                }
+                            }
+                        },
+                        enabled = !isTestingConnection && clientId.isNotBlank() && clientSecret.isNotBlank(),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        if (isTestingConnection) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        Text(if (isTestingConnection) "Testing..." else "Test Connection")
+                    }
+                }
+                
+                // Test result display
+                testResult?.let { (success, message) ->
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (success) 
+                                MaterialTheme.colorScheme.primaryContainer 
+                            else 
+                                MaterialTheme.colorScheme.errorContainer
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = if (success) Icons.Default.CheckCircle else Icons.Default.Error,
+                                contentDescription = null,
+                                tint = if (success) 
+                                    MaterialTheme.colorScheme.onPrimaryContainer 
+                                else 
+                                    MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = message,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (success) 
+                                    MaterialTheme.colorScheme.onPrimaryContainer 
+                                else 
+                                    MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
+                }
+                
+                // Help text
+                Text(
+                    text = "To get your Spotify API credentials:\n• Go to developer.spotify.com\n• Create a new app\n• Copy the Client ID and Client Secret",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onSave(clientId, clientSecret)
+                },
+                enabled = clientId.isNotBlank() && clientSecret.isNotBlank()
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }

@@ -210,7 +210,7 @@ fun NewHomeScreen(
                 // Fallback to most recent albums if no current year albums are available
                 albums.sortedByDescending { it.year }.take(4)
             }
-            .take(4)
+            // .take(4)
     }
 
     // Filter recently added albums (last month, sorted by date modified)
@@ -224,7 +224,7 @@ fun NewHomeScreen(
         val oneMonthAgo = Calendar.getInstance().apply { add(Calendar.MONTH, -1) }.timeInMillis
         songs.filter { it.dateAdded >= oneMonthAgo }
             .sortedByDescending { it.dateAdded }
-            .take(5) // Take top 5 recently added songs
+            // .take(5) // Take top 5 recently added songs
     }
 
     // Show artist bottom sheet when an artist is selected

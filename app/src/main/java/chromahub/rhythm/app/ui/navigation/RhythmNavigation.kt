@@ -1272,7 +1272,8 @@ fun RhythmNavigation(
                                     viewModel.removeFromQueue(song)
                                 }
                             }
-                        }
+                        },
+                        appSettings = appSettings
                     )
                 }
 
