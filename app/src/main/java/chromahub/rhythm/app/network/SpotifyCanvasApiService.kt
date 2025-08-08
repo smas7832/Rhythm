@@ -10,7 +10,7 @@ import retrofit2.http.Query
  */
 interface SpotifyCanvasApiService {
     @GET("canvas")
-    suspend fun getCanvas(@Query("trackId") trackId: String): SpotifyCanvasResponse
+    suspend fun getCanvas(@Query("id") trackId: String): SpotifyCanvasResponse
 }
 
 // ---------- DTOs ----------

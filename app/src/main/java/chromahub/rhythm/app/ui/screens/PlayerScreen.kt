@@ -257,7 +257,12 @@ fun PlayerScreen(
     var canvasData by remember { mutableStateOf<CanvasData?>(null) }
     var isLoadingCanvas by remember { mutableStateOf(false) }
     var showCanvas by remember { mutableStateOf(false) }
-    val canvasRepository = remember { CanvasRepository(context, appSettings) }
+    val canvasRepository = remember { 
+        CanvasRepository(context, appSettings).apply {
+            // Clear expired cache entries on initialization
+            clearExpiredCache()
+        }
+    }
 
     // Reset lyrics view when lyrics are disabled
     LaunchedEffect(showLyrics) {
@@ -283,17 +288,30 @@ fun PlayerScreen(
             isLoadingCanvas = true
             try {
                 Log.d("PlayerScreen", "Loading canvas for: ${song.artist} - ${song.title}")
-                val canvas = canvasRepository.fetchCanvasForSong(song.artist, song.title)
-                canvasData = canvas
-                showCanvas = canvas != null
                 
-                if (canvas != null) {
-                    Log.d("PlayerScreen", "Canvas loaded successfully: ${canvas.videoUrl}")
+                // First check if we have it cached
+                val cachedCanvas = canvasRepository.getCachedCanvas(song.artist, song.title)
+                if (cachedCanvas != null) {
+                    Log.d("PlayerScreen", "Using cached canvas: ${cachedCanvas.videoUrl}")
+                    canvasData = cachedCanvas
+                    showCanvas = true
+                    isLoadingCanvas = false
                 } else {
-                    Log.d("PlayerScreen", "No canvas available for: ${song.artist} - ${song.title}")
+                    // Fetch from API if not cached
+                    val canvas = canvasRepository.fetchCanvasForSong(song.artist, song.title)
+                    canvasData = canvas
+                    showCanvas = canvas != null
+                    
+                    if (canvas != null) {
+                        Log.d("PlayerScreen", "Canvas loaded successfully: ${canvas.videoUrl}")
+                    } else {
+                        Log.d("PlayerScreen", "No canvas available for: ${song.artist} - ${song.title}")
+                    }
                 }
             } catch (e: Exception) {
                 Log.e("PlayerScreen", "Failed to load canvas: ${e.message}")
+                canvasData = null
+                showCanvas = false
             } finally {
                 isLoadingCanvas = false
             }
@@ -893,13 +911,47 @@ fun PlayerScreen(
                                 )
                             ) {
                                 canvasData?.let { canvas ->
-                                    CanvasPlayer(
-                                        videoUrl = canvas.videoUrl,
-                                        isPlaying = isPlaying,
-                                        cornerRadius = if (isCompactHeight) 20.dp else 28.dp,
-                                        modifier = Modifier.fillMaxSize()
-                                    )
-                                }
+                                    Box(modifier = Modifier.fillMaxSize()) {
+                                        CanvasPlayer(
+                                            videoUrl = canvas.videoUrl,
+                                            isPlaying = isPlaying,
+                                            cornerRadius = if (isCompactHeight) 20.dp else 28.dp,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                        
+                                        // Bottom gradient overlay for canvas (like album art)
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .background(
+                                                    Brush.verticalGradient(
+                                                        colors = listOf(
+                                                            Color.Transparent,
+                                                            MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                                                            MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                                                            MaterialTheme.colorScheme.surface.copy(alpha = 1.0f)
+                                                        )
+                                                    )
+                                                )
+                                        )
+                                        
+                                        // Horizontal gradient for more depth on canvas
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .background(
+                                                    Brush.horizontalGradient(
+                                                        colors = listOf(
+                                                            MaterialTheme.colorScheme.surface.copy(alpha = 0.2f),
+                                                            Color.Transparent,
+                                                            Color.Transparent,
+                                                            MaterialTheme.colorScheme.surface.copy(alpha = 0.2f)
+                                                        )
+                                                    )
+                                                )
+                                            )
+                                        }
+                                    }
                             }
                         } else {
                             // Show Album Image with smooth animation (default behavior)

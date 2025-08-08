@@ -6,12 +6,17 @@ import android.util.Log
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,7 +35,7 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 
 /**
- * A composable that displays a looping video player for Spotify Canvas videos
+ * A composable that displays a looping video player for Spotify Canvas videos with enhanced performance
  */
 @Composable
 fun CanvasVideoPlayer(
@@ -44,11 +49,18 @@ fun CanvasVideoPlayer(
     val context = LocalContext.current
     var exoPlayer: ExoPlayer? by remember { mutableStateOf(null) }
     var isVideoLoaded by remember(videoUrl) { mutableStateOf(false) }
-
-    // Initialize ExoPlayer
-    LaunchedEffect(videoUrl) {
-        Log.d("CanvasVideoPlayer", "Initializing video player for: $videoUrl")
+    var hasError by remember(videoUrl) { mutableStateOf(false) }
+    var retryCount by remember(videoUrl) { mutableStateOf(0) }
+    
+    // Initialize ExoPlayer with enhanced error handling
+    LaunchedEffect(videoUrl, retryCount) {
+        Log.d("CanvasVideoPlayer", "Initializing video player for: $videoUrl (retry: $retryCount)")
         isVideoLoaded = false
+        hasError = false
+        
+        // Release previous player if exists
+        exoPlayer?.release()
+        exoPlayer = null
         
         try {
             val player = ExoPlayer.Builder(context)
@@ -66,17 +78,35 @@ fun CanvasVideoPlayer(
                                 Player.STATE_READY -> {
                                     Log.d("CanvasVideoPlayer", "Video ready")
                                     isVideoLoaded = true
+                                    hasError = false
                                     onVideoReady?.invoke()
                                 }
                                 Player.STATE_ENDED -> {
-                                    Log.d("CanvasVideoPlayer", "Video ended")
+                                    Log.d("CanvasVideoPlayer", "Video ended - will loop")
+                                }
+                                Player.STATE_BUFFERING -> {
+                                    Log.d("CanvasVideoPlayer", "Video buffering...")
+                                }
+                                Player.STATE_IDLE -> {
+                                    Log.d("CanvasVideoPlayer", "Video player idle")
                                 }
                             }
                         }
                         
                         override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                             Log.e("CanvasVideoPlayer", "Video playback error: ${error.message}")
-                            onVideoError?.invoke()
+                            hasError = true
+                            isVideoLoaded = false
+                            
+                            // Retry logic for network errors
+                            if (retryCount < 2 && (error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED ||
+                                    error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT)) {
+                                retryCount++
+                                Log.d("CanvasVideoPlayer", "Retrying video load (attempt $retryCount)")
+                                // Retry will be triggered by the LaunchedEffect dependency on retryCount
+                            } else {
+                                onVideoError?.invoke()
+                            }
                         }
                     })
                 }
@@ -84,18 +114,33 @@ fun CanvasVideoPlayer(
             exoPlayer = player
         } catch (e: Exception) {
             Log.e("CanvasVideoPlayer", "Failed to initialize video player: ${e.message}")
+            hasError = true
             onVideoError?.invoke()
         }
     }
 
-    // Control playback based on isPlaying state
-    LaunchedEffect(isPlaying, exoPlayer) {
+    // Control playback based on isPlaying state with improved synchronization
+    LaunchedEffect(isPlaying, exoPlayer, isVideoLoaded) {
         exoPlayer?.let { player ->
             if (isPlaying && isVideoLoaded) {
-                player.play()
+                Log.d("CanvasVideoPlayer", "Starting video playback")
+                if (!player.isPlaying) {
+                    player.play()
+                }
             } else {
-                player.pause()
+                Log.d("CanvasVideoPlayer", "Pausing video playback")
+                if (player.isPlaying) {
+                    player.pause()
+                }
             }
+        }
+    }
+    
+    // Auto-start video when loaded and music is playing
+    LaunchedEffect(isVideoLoaded, isPlaying) {
+        if (isVideoLoaded && isPlaying) {
+            Log.d("CanvasVideoPlayer", "Auto-starting canvas video")
+            exoPlayer?.play()
         }
     }
 
@@ -111,8 +156,32 @@ fun CanvasVideoPlayer(
         modifier = modifier,
         contentAlignment = Alignment.Center
     ) {
-        // Loading state with animated indicator
-        if (!isVideoLoaded && exoPlayer != null) {
+        // Error state
+        if (hasError && retryCount >= 2) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(cornerRadius))
+                    .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.1f))
+                    .alpha(
+                        animateFloatAsState(
+                            targetValue = if (hasError) 1f else 0f,
+                            animationSpec = tween(400),
+                            label = "error_alpha"
+                        ).value
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Canvas unavailable",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
+                )
+            }
+        }
+        
+        // Loading state with animated indicator (show during loading or retry)
+        if ((!isVideoLoaded && !hasError) || (hasError && retryCount < 2)) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -120,34 +189,48 @@ fun CanvasVideoPlayer(
                     .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.1f))
                     .alpha(
                         animateFloatAsState(
-                            targetValue = if (isVideoLoaded) 0f else 1f,
+                            targetValue = if (isVideoLoaded && !hasError) 0f else 1f,
                             animationSpec = tween(600),
                             label = "loading_alpha"
                         ).value
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .scale(
-                            animateFloatAsState(
-                                targetValue = if (isVideoLoaded) 0f else 1f,
-                                animationSpec = spring(
-                                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                                    stiffness = Spring.StiffnessMedium
-                                ),
-                                label = "loading_scale"
-                            ).value
-                        ),
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
-                    strokeWidth = 2.dp
-                )
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .scale(
+                                animateFloatAsState(
+                                    targetValue = if (isVideoLoaded && !hasError) 0f else 1f,
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                        stiffness = Spring.StiffnessMedium
+                                    ),
+                                    label = "loading_scale"
+                                ).value
+                            ),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                        strokeWidth = 2.dp
+                    )
+                    
+                    if (retryCount > 0) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Retrying...",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
+                    }
+                }
             }
         }
         
         // Video player with smooth entrance animation
-        if (isVideoLoaded && exoPlayer != null) {
+        if (isVideoLoaded && exoPlayer != null && !hasError) {
             AndroidView(
                 factory = { context ->
                     PlayerView(context).apply {
@@ -163,7 +246,7 @@ fun CanvasVideoPlayer(
                     .background(Color.Transparent)
                     .alpha(
                         animateFloatAsState(
-                            targetValue = if (isVideoLoaded) 1f else 0f,
+                            targetValue = if (isVideoLoaded && !hasError) 1f else 0f,
                             animationSpec = tween(
                                 durationMillis = 800,
                                 delayMillis = 200,
@@ -174,7 +257,7 @@ fun CanvasVideoPlayer(
                     )
                     .scale(
                         animateFloatAsState(
-                            targetValue = if (isVideoLoaded) 1f else 0.92f,
+                            targetValue = if (isVideoLoaded && !hasError) 1f else 0.92f,
                             animationSpec = spring(
                                 dampingRatio = Spring.DampingRatioMediumBouncy,
                                 stiffness = Spring.StiffnessMediumLow
