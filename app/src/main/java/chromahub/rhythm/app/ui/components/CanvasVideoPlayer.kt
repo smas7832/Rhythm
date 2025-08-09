@@ -6,11 +6,13 @@ import android.util.Log
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,7 +25,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -122,24 +126,20 @@ fun CanvasVideoPlayer(
     // Control playback based on isPlaying state with improved synchronization
     LaunchedEffect(isPlaying, exoPlayer, isVideoLoaded) {
         exoPlayer?.let { player ->
-            if (isPlaying && isVideoLoaded) {
-                Log.d("CanvasVideoPlayer", "Starting video playback")
+            // Always keep video playing when loaded, regardless of audio state
+            if (isVideoLoaded) {
+                Log.d("CanvasVideoPlayer", "Keeping video playing (canvas independent of audio)")
                 if (!player.isPlaying) {
                     player.play()
-                }
-            } else {
-                Log.d("CanvasVideoPlayer", "Pausing video playback")
-                if (player.isPlaying) {
-                    player.pause()
                 }
             }
         }
     }
     
-    // Auto-start video when loaded and music is playing
-    LaunchedEffect(isVideoLoaded, isPlaying) {
-        if (isVideoLoaded && isPlaying) {
-            Log.d("CanvasVideoPlayer", "Auto-starting canvas video")
+    // Auto-start video when loaded
+    LaunchedEffect(isVideoLoaded) {
+        if (isVideoLoaded) {
+            Log.d("CanvasVideoPlayer", "Auto-starting canvas video (independent mode)")
             exoPlayer?.play()
         }
     }
@@ -180,7 +180,7 @@ fun CanvasVideoPlayer(
             }
         }
         
-        // Loading state with animated indicator (show during loading or retry)
+        // Loading state with lyrics-view-style overlay (show during loading or retry)
         if ((!isVideoLoaded && !hasError) || (hasError && retryCount < 2)) {
             Box(
                 modifier = Modifier
@@ -196,35 +196,56 @@ fun CanvasVideoPlayer(
                     ),
                 contentAlignment = Alignment.Center
             ) {
+                // Gradient overlays like lyrics view
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.0f),
+                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.3f),
+                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
+                                )
+                            )
+                        )
+                )
+                
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.horizontalGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.4f),
+                                    Color.Transparent,
+                                    Color.Transparent,
+                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.4f)
+                                )
+                            )
+                        )
+                )
+                
+                // Centered loading content like lyrics view
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 32.dp)
                 ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .scale(
-                                animateFloatAsState(
-                                    targetValue = if (isVideoLoaded && !hasError) 0f else 1f,
-                                    animationSpec = spring(
-                                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                                        stiffness = Spring.StiffnessMedium
-                                    ),
-                                    label = "loading_scale"
-                                ).value
-                            ),
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
-                        strokeWidth = 2.dp
+                    chromahub.rhythm.app.ui.components.M3CircularLoader(
+                        modifier = Modifier.size(56.dp),
+                        fourColor = true,
+                        isExpressive = true
                     )
-                    
-                    if (retryCount > 0) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Retrying...",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                        )
-                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = if (retryCount > 0) "Retrying canvas..." else "Loading canvas...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                        textAlign = TextAlign.Center
+                    )
                 }
             }
         }
@@ -235,9 +256,13 @@ fun CanvasVideoPlayer(
                 factory = { context ->
                     PlayerView(context).apply {
                         player = exoPlayer
-                        useController = false
+                        useController = false // Disable all player controls
+                        hideController()      // Explicitly hide controller
+                        controllerShowTimeoutMs = 0 // Never show controller
+                        controllerHideOnTouch = true
                         resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
                         setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                        setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER) // Hide buffering indicator
                     }
                 },
                 modifier = Modifier

@@ -38,6 +38,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -253,14 +254,15 @@ fun PlayerScreen(
     var isLyricsContentVisible by remember { mutableStateOf(false) }
     var isSongInfoVisible by remember { mutableStateOf(true) }
 
-    // Canvas video state
+    // Canvas video state with improved caching
     var canvasData by remember { mutableStateOf<CanvasData?>(null) }
     var isLoadingCanvas by remember { mutableStateOf(false) }
     var showCanvas by remember { mutableStateOf(false) }
     val canvasRepository = remember { 
         CanvasRepository(context, appSettings).apply {
-            // Clear expired cache entries on initialization
+            // Clear expired cache entries on initialization and optimize memory
             clearExpiredCache()
+            optimizeCache() // New method for better cache management
         }
     }
 
@@ -306,6 +308,14 @@ fun PlayerScreen(
                         Log.d("PlayerScreen", "Canvas loaded successfully: ${canvas.videoUrl}")
                     } else {
                         Log.d("PlayerScreen", "No canvas available for: ${song.artist} - ${song.title}")
+                    }
+                }
+                
+                // Preload canvas for upcoming queue items for better performance
+                if (queue.isNotEmpty() && queuePosition < queue.size) {
+                    val upcomingSongs = queue.drop(queuePosition).take(3).map { it.artist to it.title }
+                    if (upcomingSongs.isNotEmpty()) {
+                        canvasRepository.preloadCanvasForQueue(upcomingSongs)
                     }
                 }
             } catch (e: Exception) {
@@ -872,7 +882,7 @@ fun PlayerScreen(
                     // Album artwork with optimized padding and improved click handling
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth(1.2f) // Enlarged album art to touch screen edges
+                            .fillMaxWidth(1.0f) // Enlarged album art to touch screen edges
                             .aspectRatio(1f)
                             .clip(RoundedCornerShape(if (isCompactHeight) 20.dp else 28.dp))
                             .graphicsLayer {
@@ -912,14 +922,12 @@ fun PlayerScreen(
                             ) {
                                 canvasData?.let { canvas ->
                                     Box(modifier = Modifier.fillMaxSize()) {
-                                        CanvasPlayer(
-                                            videoUrl = canvas.videoUrl,
-                                            isPlaying = isPlaying,
-                                            cornerRadius = if (isCompactHeight) 20.dp else 28.dp,
-                                            modifier = Modifier.fillMaxSize()
-                                        )
-                                        
-                                        // Bottom gradient overlay for canvas (like album art)
+                    CanvasPlayer(
+                        videoUrl = canvas.videoUrl,
+                        isPlaying = true, // Always keep canvas playing regardless of audio state
+                        cornerRadius = if (isCompactHeight) 20.dp else 28.dp,
+                        modifier = Modifier.fillMaxSize()
+                    )                                        // Bottom gradient overlay for canvas (like album art)
                                         Box(
                                             modifier = Modifier
                                                 .fillMaxSize()
@@ -952,6 +960,91 @@ fun PlayerScreen(
                                             )
                                         }
                                     }
+                            }
+                        } else if (isLoadingCanvas && song != null) {
+                            // Show loading state while canvas is being fetched with album art background
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(RoundedCornerShape(if (isCompactHeight) 20.dp else 28.dp))
+                            ) {
+                                // Show album art in background while loading canvas
+                                if (song.artworkUri != null) {
+                                    val imageRequest = remember(song.artworkUri, song.title) {
+                                        ImageRequest.Builder(context)
+                                            .apply(
+                                                ImageUtils.buildImageRequest(
+                                                    song.artworkUri,
+                                                    song.title,
+                                                    context.cacheDir,
+                                                    M3PlaceholderType.TRACK
+                                                )
+                                            )
+                                            .build()
+                                    }
+                                    AsyncImage(
+                                        model = imageRequest,
+                                        contentDescription = "Album artwork for ${song.title}",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
+                                
+                                // Enhanced gradient overlay (same as album art view)
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(
+                                            Brush.verticalGradient(
+                                                colors = listOf(
+                                                    Color.Transparent,
+                                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                                                    MaterialTheme.colorScheme.surface.copy(alpha = 1.0f)
+                                                )
+                                            )
+                                        )
+                                )
+                                
+                                // Horizontal gradient for more depth
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(
+                                            Brush.horizontalGradient(
+                                                colors = listOf(
+                                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.2f),
+                                                    Color.Transparent,
+                                                    Color.Transparent,
+                                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.2f)
+                                                )
+                                            )
+                                        )
+                                )
+                                
+                                // Larger loading indicator in top-right corner
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize(),
+                                    contentAlignment = Alignment.TopEnd
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .padding(16.dp)
+                                            .size(40.dp)
+                                            .clip(CircleShape)
+                                            .background(
+                                                MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        M3CircularLoader(
+                                            modifier = Modifier.size(28.dp),
+                                            fourColor = true,
+                                            isExpressive = true
+                                        )
+                                    }
+                                }
                             }
                         } else {
                             // Show Album Image with smooth animation (default behavior)
@@ -1213,13 +1306,24 @@ fun PlayerScreen(
                                     ) {
                                         when {
                                             isLoadingLyrics -> {
-                                                Box(
-                                                    modifier = Modifier.fillMaxSize(),
-                                                    contentAlignment = Alignment.Center
+                                                // Show loader in the lyrics view area instead of center
+                                                Column(
+                                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(vertical = 32.dp)
                                                 ) {
                                                     M3CircularLoader(
-                                                        modifier = Modifier.size(48.dp),
-                                                        fourColor = true
+                                                        modifier = Modifier.size(56.dp),
+                                                        fourColor = true,
+                                                        isExpressive = true
+                                                    )
+                                                    Spacer(modifier = Modifier.height(16.dp))
+                                                    Text(
+                                                        text = "Loading lyrics...",
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                                        textAlign = TextAlign.Center
                                                     )
                                                 }
                                             }

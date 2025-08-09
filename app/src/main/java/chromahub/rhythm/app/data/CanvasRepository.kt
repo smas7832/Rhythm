@@ -234,6 +234,38 @@ class CanvasRepository(private val context: Context, private val appSettings: Ap
     }
     
     /**
+     * Optimize cache by implementing LRU strategy and memory management
+     */
+    fun optimizeCache() {
+        try {
+            val maxCacheSize = 100 // Maximum number of cached entries
+            val currentSize = canvasCache.size + trackIdCache.size
+            
+            if (currentSize > maxCacheSize) {
+                Log.d(TAG, "Cache size ($currentSize) exceeds maximum ($maxCacheSize), optimizing...")
+                
+                // Remove oldest entries (simple LRU implementation)
+                val entriesToRemove = currentSize - maxCacheSize + 10 // Remove extra for buffer
+                
+                // Clear some canvas cache entries (keep successful lookups, remove nulls first)
+                val nullEntries = canvasCache.filter { it.value == null }.keys.take(entriesToRemove / 2)
+                nullEntries.forEach { canvasCache.remove(it) }
+                
+                // Clear some track ID cache entries
+                val trackIdNullEntries = trackIdCache.filter { it.value == null }.keys.take(entriesToRemove / 2)
+                trackIdNullEntries.forEach { trackIdCache.remove(it) }
+                
+                // Save optimized cache
+                savePersistentCache()
+                
+                Log.d(TAG, "Cache optimized: removed $entriesToRemove entries, new size: ${canvasCache.size + trackIdCache.size}")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to optimize cache: ${e.message}")
+        }
+    }
+    
+    /**
      * Get cache statistics for debugging
      */
     fun getCacheStats(): String {
