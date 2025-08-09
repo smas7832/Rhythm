@@ -34,6 +34,10 @@ import androidx.core.content.ContextCompat
 import chromahub.rhythm.app.data.AppSettings
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.collectLatest
+import android.content.Context
+import android.content.SharedPreferences
+import com.google.gson.Gson
+import kotlinx.coroutines.GlobalScope
 
 /**
  * App version data model
@@ -119,12 +123,16 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
     // Last update check timestamp
     private var lastUpdateCheck = 0L
     
+    // AppSettings instance
+    private val appSettings = AppSettings.getInstance(application.applicationContext)
+    
+    // SharedPreferences for download state persistence
+    private val downloadPrefs: SharedPreferences = application.getSharedPreferences("app_updater_downloads", Context.MODE_PRIVATE)
+    private val gson = Gson()
+    
     // Active download state
     private var activeDownload: DownloadState? = null
     private var activeCall: Call? = null
-
-    // AppSettings instance
-    private val appSettings = AppSettings.getInstance(application.applicationContext)
 
     // Update channel (stable or beta)
     private val _updateChannel = MutableStateFlow("stable")
@@ -178,6 +186,9 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
     val downloadState: StateFlow<DownloadState?> = _downloadState.asStateFlow()
 
     init {
+        // Load any persisted download state
+        loadDownloadState()
+        
         viewModelScope.launch {
             appSettings.updateChannel.collectLatest { channel ->
                 _updateChannel.value = channel
@@ -188,6 +199,79 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
         
         // Start periodic update checks
         startPeriodicUpdateChecks()
+    }
+    
+    /**
+     * Load download state from SharedPreferences
+     */
+    private fun loadDownloadState() {
+        try {
+            val downloadStateJson = downloadPrefs.getString("active_download", null)
+            val downloadProgress = downloadPrefs.getFloat("download_progress", 0f)
+            val isDownloading = downloadPrefs.getBoolean("is_downloading", false)
+            val downloadedFilePath = downloadPrefs.getString("downloaded_file", null)
+            
+            if (downloadStateJson != null) {
+                activeDownload = gson.fromJson(downloadStateJson, DownloadState::class.java)
+                _downloadState.value = activeDownload
+                Log.d(TAG, "Loaded download state: ${activeDownload?.fileName}")
+            }
+            
+            if (downloadProgress > 0f) {
+                _downloadProgress.value = downloadProgress
+                Log.d(TAG, "Loaded download progress: $downloadProgress%")
+            }
+            
+            if (downloadedFilePath != null) {
+                val file = File(downloadedFilePath)
+                if (file.exists()) {
+                    _downloadedFile.value = file
+                    _downloadProgress.value = 100f
+                    Log.d(TAG, "Found completed download: ${file.absolutePath}")
+                }
+            }
+            
+            // Don't restore isDownloading state - always start fresh to avoid stuck downloads
+            _isDownloading.value = false
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load download state", e)
+            clearDownloadState()
+        }
+    }
+    
+    /**
+     * Save download state to SharedPreferences
+     */
+    private fun saveDownloadState() {
+        try {
+            val editor = downloadPrefs.edit()
+            
+            if (activeDownload != null) {
+                editor.putString("active_download", gson.toJson(activeDownload))
+            } else {
+                editor.remove("active_download")
+            }
+            
+            editor.putFloat("download_progress", _downloadProgress.value)
+            editor.putBoolean("is_downloading", _isDownloading.value)
+            
+            _downloadedFile.value?.let { file ->
+                editor.putString("downloaded_file", file.absolutePath)
+            } ?: editor.remove("downloaded_file")
+            
+            editor.apply()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to save download state", e)
+        }
+    }
+    
+    /**
+     * Clear persisted download state
+     */
+    private fun clearDownloadState() {
+        downloadPrefs.edit().clear().apply()
+        activeDownload = null
+        _downloadState.value = null
     }
     
     /**
@@ -569,12 +653,22 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
         }
         
         _downloadProgress.value = 0f
-        _downloadedFile.value = null // Clear any previous download
-        activeDownload = null
-        _isDownloading.value = true
         _error.value = null
         
-        viewModelScope.launch(Dispatchers.IO) {
+        // Don't clear downloaded file immediately to prevent corruption on retry
+        val existingFile = _downloadedFile.value
+        val shouldResumeDownload = activeDownload != null && activeDownload?.url == downloadUrl
+        
+        if (!shouldResumeDownload) {
+            // Starting fresh download - clear previous state
+            _downloadedFile.value = null
+            activeDownload = null
+        }
+        
+        _isDownloading.value = true
+        
+        // Use GlobalScope to prevent cancellation when ViewModel is cleared
+        GlobalScope.launch(Dispatchers.IO) {
             try {
                 // Use app-specific external storage instead of public Downloads
                 val context = getApplication<Application>()
@@ -725,6 +819,11 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
                                         _downloadProgress.value = progress.coerceIn(0f, 100f)
                                         activeDownload = activeDownload?.copy(downloadedBytes = totalBytesRead)
                                         _downloadState.value = activeDownload
+                                        
+                                        // Save state periodically (every 5% progress)
+                                        if (progress % 5f < 1f) {
+                                            saveDownloadState()
+                                        }
                                     }
                                 }
                             }
@@ -733,6 +832,20 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
                             outputStream.flush()
                             outputStream.close()
                             inputStream.close()
+                            
+                            // Verify file integrity
+                            val fileSize = file.length()
+                            val expectedSize = if (totalLength > 0) totalLength else contentLength
+                            
+                            if (expectedSize > 0 && fileSize != expectedSize) {
+                                viewModelScope.launch {
+                                    _isDownloading.value = false
+                                    _error.value = "Download corrupted: file size mismatch (expected: $expectedSize, actual: $fileSize)"
+                                    Log.e(TAG, "Download corrupted: file size mismatch")
+                                    // Don't clear download state to allow retry
+                                }
+                                return
+                            }
                             
                             // Download complete
                             viewModelScope.launch {
@@ -743,7 +856,8 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
                                     activeDownload = null
                                     activeCall = null
                                     _downloadState.value = null
-                                    Log.d(TAG, "Download complete: ${file.absolutePath}")
+                                    saveDownloadState() // Save final state
+                                    Log.d(TAG, "Download complete: ${file.absolutePath} (${fileSize} bytes)")
                                 }
                             }
                         } catch (e: Exception) {
@@ -825,20 +939,56 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
         Log.d(TAG, "Cancelling download")
         activeCall?.cancel()
         activeCall = null
-        activeDownload = null
         _isDownloading.value = false
-        _downloadProgress.value = 0f
-        _downloadState.value = null
         _error.value = null
+        
+        // Save current state before cancelling to allow resume
+        saveDownloadState()
     }
     
     /**
      * Reset all download states - useful for retry scenarios
      */
     fun resetDownloadState() {
-        cancelDownload()
+        Log.d(TAG, "Resetting download state")
+        activeCall?.cancel()
+        activeCall = null
+        activeDownload = null
+        _isDownloading.value = false
+        _downloadProgress.value = 0f
+        _downloadState.value = null
         _downloadedFile.value = null
         _error.value = null
+        
+        // Clear persisted state
+        clearDownloadState()
+    }
+    
+    /**
+     * Resume a previously paused/interrupted download
+     */
+    fun resumeDownload() {
+        if (activeDownload == null) {
+            _error.value = "No download to resume"
+            return
+        }
+        
+        if (_isDownloading.value) {
+            Log.d(TAG, "Download already in progress")
+            return
+        }
+        
+        val downloadState = activeDownload!!
+        Log.d(TAG, "Resuming download: ${downloadState.fileName} from ${downloadState.downloadedBytes} bytes")
+        
+        downloadApkInApp(downloadState.url, downloadState.fileName)
+    }
+    
+    /**
+     * Check if there's a download that can be resumed
+     */
+    fun canResumeDownload(): Boolean {
+        return activeDownload != null && !_isDownloading.value && _downloadedFile.value == null
     }
 
     /**

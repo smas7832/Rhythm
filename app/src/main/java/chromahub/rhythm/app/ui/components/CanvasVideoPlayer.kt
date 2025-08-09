@@ -37,10 +37,12 @@ import androidx.media3.common.Player
 import androidx.media3.common.PlaybackException
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import androidx.media3.common.util.UnstableApi
 
 /**
  * A composable that displays a looping video player for Spotify Canvas videos with enhanced performance
  */
+@androidx.annotation.OptIn(UnstableApi::class)
 @Composable
 fun CanvasVideoPlayer(
     videoUrl: String,
@@ -298,6 +300,7 @@ fun CanvasVideoPlayer(
 /**
  * Simplified canvas player that handles common use cases with enhanced animations
  */
+@androidx.annotation.OptIn(UnstableApi::class)
 @Composable
 fun CanvasPlayer(
     videoUrl: String?,
