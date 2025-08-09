@@ -38,6 +38,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.google.gson.Gson
 import kotlinx.coroutines.GlobalScope
+import chromahub.rhythm.app.BuildConfig
 
 /**
  * App version data model
@@ -141,14 +142,14 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
     // Current app version info
     private val _currentVersion = MutableStateFlow(
         AppVersion(
-            versionName = "2.6.167.471 Stable",
-            versionCode = 26167471, // Updated to reflect major*10M + minor*100K + patch*1K + buildNumber
-            releaseDate = "2025-08-09",
+            versionName = BuildConfig.VERSION_NAME,
+            versionCode = BuildConfig.VERSION_CODE,
+            releaseDate = "2025-08-09", // This could be generated from build time if needed
             whatsNew = emptyList(),
             knownIssues = emptyList(),
             downloadUrl = "",
-            isPreRelease = false,
-            buildNumber = 471
+            isPreRelease = BuildConfig.DEBUG, // Use debug flag to indicate pre-release
+            buildNumber = BuildConfig.VERSION_CODE % 1000 // Extract build number from version code
         )
     )
     val currentVersion: StateFlow<AppVersion> = _currentVersion.asStateFlow()

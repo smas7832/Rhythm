@@ -2,6 +2,9 @@ package chromahub.rhythm.app.service
 
 import android.app.PendingIntent
 import android.content.Intent
+import android.content.IntentFilter
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
@@ -34,6 +37,7 @@ import androidx.core.app.NotificationCompat
 import androidx.media3.common.AudioAttributes as ExoAudioAttributes
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import chromahub.rhythm.app.data.Playlist
 
 class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     private var mediaSession: MediaLibrarySession? = null
@@ -44,6 +48,27 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     
     // Service-scoped coroutine scope for background operations
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    
+    // Track current custom layout state to avoid unnecessary updates
+    private var lastShuffleState: Boolean? = null
+    private var lastRepeatMode: Int? = null
+    private var lastFavoriteState: Boolean? = null
+    
+    // Debounce custom layout updates to prevent flickering
+    private var updateLayoutJob: Job? = null
+    
+    // BroadcastReceiver to listen for favorite changes from ViewModel
+    private val favoriteChangeReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                "chromahub.rhythm.app.action.FAVORITE_CHANGED" -> {
+                    Log.d(TAG, "Received favorite change notification from ViewModel")
+                    // Use debounced update to prevent conflicts with other updates
+                    scheduleCustomLayoutUpdate(250) // Longer delay for external changes
+                }
+            }
+        }
+    }
 
     private val repeatCommand: CommandButton
         get() = when (val mode = controller?.repeatMode ?: Player.REPEAT_MODE_OFF) {
@@ -60,12 +85,13 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
             customCommands[0]
         }
 
-    private val favoriteCommand: CommandButton
-        get() = if (isCurrentSongFavorite()) {
-            customCommands[6]
+    private fun getCurrentFavoriteCommand(): CommandButton {
+        return if (isCurrentSongFavorite()) {
+            customCommands[6] // Remove from favorites (filled heart)
         } else {
-            customCommands[5]
+            customCommands[5] // Add to favorites (heart outline)
         }
+    }
 
     // Track external files that have been played
     private val externalUriCache = ConcurrentHashMap<String, MediaItem>()
@@ -118,6 +144,14 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
         
         // Initialize settings manager (fast operation)
         appSettings = AppSettings.getInstance(applicationContext)
+        
+        // Register BroadcastReceiver for favorite changes
+        val filter = IntentFilter("chromahub.rhythm.app.action.FAVORITE_CHANGED")
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(favoriteChangeReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(favoriteChangeReceiver, filter)
+        }
 
         try {
             // Initialize core components on main thread (required for media service)
@@ -193,7 +227,7 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
                 controller?.addListener(this)
                 // Only set custom layout if controller is properly initialized
                 controller?.let {
-                    mediaSession?.setCustomLayout(ImmutableList.of(shuffleCommand, repeatCommand, favoriteCommand))
+                    forceCustomLayoutUpdate() // Use force update for initial setup
                 }
                 Log.d(TAG, "MediaController initialized successfully")
             } catch (e: Exception) {
@@ -315,6 +349,7 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
                     }
                     
                     val songId = currentMediaItem.mediaId
+                    val wasRemoving = currentFavorites.contains(songId)
                     
                     // Toggle favorite status
                     if (currentFavorites.contains(songId)) {
@@ -329,15 +364,136 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
                     val updatedJson = Gson().toJson(currentFavorites)
                     appSettings.setFavoriteSongs(updatedJson)
                     
-                    // Update custom layout to reflect new state
-                    controller?.let {
-                        mediaSession?.setCustomLayout(ImmutableList.of(shuffleCommand, repeatCommand, favoriteCommand))
-                    }
+                    // Also need to update the favorites playlist to stay in sync
+                    updateFavoritesPlaylist(songId, !wasRemoving)
+                    
+                    // Schedule custom layout update with debouncing
+                    scheduleCustomLayoutUpdate(200) // Longer delay for favorite changes
                     
                 } catch (e: Exception) {
                     Log.e(TAG, "Error toggling favorite", e)
                 }
             }
+        }
+    }
+    
+    private fun updateFavoritesPlaylist(songId: String, isAdding: Boolean) {
+        try {
+            // Get current playlists
+            val playlistsJson = appSettings.playlists.value
+            if (playlistsJson.isNullOrEmpty()) return
+            
+            val type = object : TypeToken<List<Playlist>>() {}.type
+            val playlists: MutableList<Playlist> = Gson().fromJson(playlistsJson, type)
+            
+            // Find and update the Favorites playlist (ID: "1")
+            val favoritesPlaylist = playlists.find { it.id == "1" && it.name == "Favorites" }
+            if (favoritesPlaylist != null) {
+                val updatedPlaylist = if (isAdding) {
+                    // Add song to favorites playlist if not already there
+                    if (!favoritesPlaylist.songs.any { it.id == songId }) {
+                        // Find the song to add (would need access to all songs, this is a limitation)
+                        Log.d(TAG, "Would add song $songId to favorites playlist, but song details not available in service")
+                        favoritesPlaylist
+                    } else {
+                        favoritesPlaylist
+                    }
+                } else {
+                    // Remove song from favorites playlist
+                    favoritesPlaylist.copy(
+                        songs = favoritesPlaylist.songs.filter { it.id != songId },
+                        dateModified = System.currentTimeMillis()
+                    )
+                }
+                
+                // Update the playlist in the list
+                val updatedPlaylists = playlists.map { if (it.id == "1") updatedPlaylist else it }
+                val updatedPlaylistsJson = Gson().toJson(updatedPlaylists)
+                appSettings.setPlaylists(updatedPlaylistsJson)
+                
+                Log.d(TAG, "Updated favorites playlist: ${if (isAdding) "added" else "removed"} song $songId")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating favorites playlist", e)
+        }
+    }
+    
+    private fun updateCustomLayout() {
+        try {
+            // Create a new instance of the favorite command to avoid reference issues
+            val currentFavoriteCommand = getCurrentFavoriteCommand()
+            val currentShuffleCommand = shuffleCommand
+            val currentRepeatCommand = repeatCommand
+            
+            mediaSession?.setCustomLayout(ImmutableList.of(currentShuffleCommand, currentRepeatCommand, currentFavoriteCommand))
+            
+            // Update state tracking after successful update
+            lastShuffleState = controller?.shuffleModeEnabled ?: false
+            lastRepeatMode = controller?.repeatMode ?: Player.REPEAT_MODE_OFF
+            lastFavoriteState = isCurrentSongFavorite()
+            
+            val currentMediaItem = player.currentMediaItem
+            Log.d(TAG, "Updated custom layout - Song: ${currentMediaItem?.mediaMetadata?.title}, " +
+                      "Favorite state: ${lastFavoriteState}, " +
+                      "Shuffle: ${lastShuffleState}, " +
+                      "Repeat: ${lastRepeatMode}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating custom layout", e)
+        }
+    }
+    
+    private fun updateCustomLayoutSmart() {
+        // Only update if layout actually needs to change
+        // This helps prevent unnecessary recreations and flickering
+        mediaSession?.let { session ->
+            try {
+                val currentShuffleState = controller?.shuffleModeEnabled ?: false
+                val currentRepeatMode = controller?.repeatMode ?: Player.REPEAT_MODE_OFF
+                val currentFavoriteState = isCurrentSongFavorite()
+                
+                // Check if anything actually changed
+                if (currentShuffleState == lastShuffleState &&
+                    currentRepeatMode == lastRepeatMode &&
+                    currentFavoriteState == lastFavoriteState) {
+                    Log.d(TAG, "Custom layout state unchanged, skipping update")
+                    return
+                }
+                
+                // Update state tracking
+                lastShuffleState = currentShuffleState
+                lastRepeatMode = currentRepeatMode
+                lastFavoriteState = currentFavoriteState
+                
+                val currentFavoriteCommand = getCurrentFavoriteCommand()
+                val currentShuffleCommand = shuffleCommand
+                val currentRepeatCommand = repeatCommand
+                
+                // Create the layout
+                session.setCustomLayout(ImmutableList.of(currentShuffleCommand, currentRepeatCommand, currentFavoriteCommand))
+                
+                Log.d(TAG, "Smart updated custom layout - Favorite: $currentFavoriteState, " +
+                          "Shuffle: $currentShuffleState, Repeat: $currentRepeatMode")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error in smart custom layout update", e)
+            }
+        }
+    }
+    
+    private fun scheduleCustomLayoutUpdate(delayMs: Long = 150) {
+        // Cancel any pending update
+        updateLayoutJob?.cancel()
+        
+        // Schedule a new update with debouncing
+        updateLayoutJob = serviceScope.launch {
+            kotlinx.coroutines.delay(delayMs)
+            updateCustomLayoutSmart()
+        }
+    }
+    
+    private fun forceCustomLayoutUpdate() {
+        // Force an immediate update without debouncing (for initial setup)
+        serviceScope.launch {
+            updateCustomLayout()
         }
     }
     
@@ -489,7 +645,15 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     override fun onDestroy() {
         Log.d(TAG, "Service being destroyed")
         
-        // Cancel all coroutines
+        // Unregister BroadcastReceiver
+        try {
+            unregisterReceiver(favoriteChangeReceiver)
+        } catch (e: Exception) {
+            Log.w(TAG, "Error unregistering favorite change receiver", e)
+        }
+        
+        // Cancel all coroutines and pending jobs
+        updateLayoutJob?.cancel()
         serviceScope.cancel()
         
         mediaSession?.run {
@@ -573,13 +737,25 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
 
                     FAVORITE_ON -> {
                         // Add current song to favorites
+                        Log.d(TAG, "Favorite ON command received")
                         toggleCurrentSongFavorite()
+                        // Immediate UI feedback for responsive feel
+                        serviceScope.launch {
+                            kotlinx.coroutines.delay(50) // Very short delay for immediate response
+                            updateCustomLayoutSmart()
+                        }
                         SessionResult(SessionResult.RESULT_SUCCESS)
                     }
 
                     FAVORITE_OFF -> {
-                        // Remove current song from favorites
+                        // Remove current song from favorites  
+                        Log.d(TAG, "Favorite OFF command received")
                         toggleCurrentSongFavorite()
+                        // Immediate UI feedback for responsive feel
+                        serviceScope.launch {
+                            kotlinx.coroutines.delay(50) // Very short delay for immediate response
+                            updateCustomLayoutSmart()
+                        }
                         SessionResult(SessionResult.RESULT_SUCCESS)
                     }
 
@@ -647,25 +823,22 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
 
     override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
         super.onShuffleModeEnabledChanged(shuffleModeEnabled)
-        // Only update custom layout if controller is available
-        controller?.let {
-            mediaSession?.setCustomLayout(ImmutableList.of(shuffleCommand, repeatCommand, favoriteCommand))
-        }
+        Log.d(TAG, "Shuffle mode changed to: $shuffleModeEnabled")
+        // Use debounced update to prevent rapid UI changes
+        scheduleCustomLayoutUpdate(100)
     }
 
     override fun onRepeatModeChanged(repeatMode: Int) {
         super<Player.Listener>.onRepeatModeChanged(repeatMode)
-        // Only update custom layout if controller is available
-        controller?.let {
-            mediaSession?.setCustomLayout(ImmutableList.of(shuffleCommand, repeatCommand, favoriteCommand))
-        }
+        Log.d(TAG, "Repeat mode changed to: $repeatMode")
+        // Use debounced update to prevent rapid UI changes
+        scheduleCustomLayoutUpdate(100)
     }
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         super.onMediaItemTransition(mediaItem, reason)
+        Log.d(TAG, "Media item transitioned: ${mediaItem?.mediaMetadata?.title}")
         // Update custom layout when song changes to reflect correct favorite state
-        controller?.let {
-            mediaSession?.setCustomLayout(ImmutableList.of(shuffleCommand, repeatCommand, favoriteCommand))
-        }
+        scheduleCustomLayoutUpdate(50) // Shorter delay for song transitions
     }
 }

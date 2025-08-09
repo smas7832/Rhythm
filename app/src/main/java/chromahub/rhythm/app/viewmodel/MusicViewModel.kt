@@ -1497,7 +1497,16 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             
             _favoriteSongs.value = currentFavorites
             saveFavoriteSongs()
+            
+            // Notify MediaPlaybackService about favorite state change
+            notifyMediaServiceFavoriteChange()
         }
+    }
+    
+    private fun notifyMediaServiceFavoriteChange() {
+        // Send broadcast to notify MediaPlaybackService about favorite state change
+        val intent = Intent("chromahub.rhythm.app.action.FAVORITE_CHANGED")
+        getApplication<Application>().sendBroadcast(intent)
     }
 
     fun clearCurrentSong() {
