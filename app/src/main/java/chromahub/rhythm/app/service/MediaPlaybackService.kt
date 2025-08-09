@@ -145,7 +145,7 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Rhythm Music")
             .setContentText("Initializing music service...")
-            .setSmallIcon(android.R.drawable.ic_media_play)
+            .setSmallIcon(chromahub.rhythm.app.R.drawable.ic_notification)
             .setOngoing(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .build()
@@ -408,6 +408,12 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = mediaSession
+    
+    @OptIn(UnstableApi::class)
+    override fun onUpdateNotification(session: MediaSession, startInForegroundRequired: Boolean) {
+        // Let Media3 handle notification updates but ensure our icon is used
+        super.onUpdateNotification(session, startInForegroundRequired)
+    }
 
     private inner class MediaSessionCallback : MediaLibrarySession.Callback {
         @OptIn(UnstableApi::class)

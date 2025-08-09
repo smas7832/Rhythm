@@ -83,6 +83,18 @@
             <meta-data
                 android:name="androidx.media3.session.MediaNotification.smallIcon"
                 android:resource="@drawable/ic_notification" />
+            <meta-data
+                android:name="androidx.media3.ui.NotificationUtil.smallIcon"
+                android:resource="@drawable/ic_notification" />
+            <meta-data
+                android:name="androidx.media3.session.DefaultMediaNotificationProvider.smallIcon"
+                android:resource="@drawable/ic_notification" />
+            <meta-data
+                android:name="androidx.media3.ui.notification.small_icon"
+                android:resource="@drawable/ic_notification" />
+            <meta-data
+                android:name="androidx.media3.session.notification.small_icon"
+                android:resource="@drawable/ic_notification" />
         </service>
         
         <activity

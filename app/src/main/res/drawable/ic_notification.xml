@@ -1,37 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="24dp"
-    android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
+    android:width="216dp"
+    android:height="216dp"
+    android:viewportWidth="216"
+    android:viewportHeight="216">
     
-    <!-- Simplified headphone design for notification -->
-    <!-- Headphone Arc -->
+    <!-- Headphone Arc (Top) - Updated positioning to match foreground -->
     <path
-        android:pathData="M7,10C7,6.5 9.5,4 12,4C14.5,4 17,6.5 17,10"
+        android:pathData="M68,108C68,76 84,52 108,52C132,52 148,76 148,108"
         android:strokeColor="#FFFFFF"
-        android:strokeWidth="1.5"
+        android:strokeWidth="9"
         android:strokeLineCap="round"
         android:fillColor="#00000000" />
     
-    <!-- Left Ear Cup -->
+    <!-- Left Headphone Ear Cup - Updated positioning -->
     <path
-        android:pathData="M6,9C5,9 4.5,9.5 4.5,10.5L4.5,13.5C4.5,14.5 5,15 6,15C7,15 7.5,14.5 7.5,13.5L7.5,10.5C7.5,9.5 7,9 6,9Z"
+        android:pathData="M60,96C52,96 48,102 48,110L48,126C48,134 52,140 60,140C68,140 72,134 72,126L72,110C72,102 68,96 60,96Z"
         android:fillColor="#FFFFFF" />
     
-    <!-- Right Ear Cup -->
+    <!-- Right Headphone Ear Cup - Updated positioning -->
     <path
-        android:pathData="M18,9C17,9 16.5,9.5 16.5,10.5L16.5,13.5C16.5,14.5 17,15 18,15C19,15 19.5,14.5 19.5,13.5L19.5,10.5C19.5,9.5 19,9 18,9Z"
+        android:pathData="M156,96C148,96 144,102 144,110L144,126C144,134 148,140 156,140C164,140 168,134 168,126L168,110C168,102 164,96 156,96Z"
         android:fillColor="#FFFFFF" />
     
-    <!-- Central Play Button Circle -->
+    <!-- Central Play Button Circle with Play Triangle - Updated positioning -->
     <path
-        android:pathData="M12,12m-4,0a4,4 0,1 1,8 0a4,4 0,1 1,-8 0"
-        android:fillColor="#FFFFFF" />
-    
-    <!-- Play Triangle - Centered between ear cups -->
-    <path
-        android:pathData="M10.5,10C10.5,9.5 10.8,9.2 11.2,9.4L14.8,11.4C15.2,11.6 15.2,12.4 14.8,12.6L11.2,14.6C10.8,14.8 10.5,14.5 10.5,14Z"
-        android:fillColor="#7C4DFF" />
+        android:pathData="M108,120m-32,0a32,32 0,1 1,64 0a32,32 0,1 1,-64 0
+                         M96,104C96,101 98,99 101,101L130,117C133,119 133,121 130,123L101,139C98,141 96,139 96,136Z"
+        android:fillColor="#FFFFFF"
+        android:fillType="evenOdd" />
 
 </vector>

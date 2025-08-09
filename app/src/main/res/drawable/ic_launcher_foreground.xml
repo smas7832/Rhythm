@@ -22,7 +22,7 @@
         android:strokeLineCap="round"
         android:fillColor="#00000000" /> -->
     
-    <!-- Left Headphone Ear Cup - Optimized for all shapes -->
+    <!-- Left Headphone Ear Cup - Enhanced with gradient like splash -->
     <path
         android:pathData="M30,48C26,48 24,51 24,55L24,63C24,67 26,70 30,70C34,70 36,67 36,63L36,55C36,51 34,48 30,48Z">
         <aapt:attr name="android:fillColor">
@@ -33,11 +33,12 @@
                 android:endX="36"
                 android:endY="70"
                 android:startColor="#FFFFFF"
-                android:endColor="#FFFFFF" />
+                android:centerColor="#F8F8F8"
+                android:endColor="#F0F0F0" />
         </aapt:attr>
     </path>
     
-    <!-- Right Headphone Ear Cup - Optimized for all shapes -->
+    <!-- Right Headphone Ear Cup - Enhanced with gradient like splash -->
     <path
         android:pathData="M78,48C74,48 72,51 72,55L72,63C72,67 74,70 78,70C82,70 84,67 84,63L84,55C84,51 82,48 78,48Z">
         <aapt:attr name="android:fillColor">
@@ -48,7 +49,8 @@
                 android:endX="84"
                 android:endY="70"
                 android:startColor="#FFFFFF"
-                android:endColor="#FFFFFF" />
+                android:centerColor="#F8F8F8"
+                android:endColor="#F0F0F0" />
         </aapt:attr>
     </path>
     
@@ -64,7 +66,7 @@
         android:fillColor="#7C4DFF"
         android:fillAlpha="0.7" />
     
-    <!-- Central Play Button Circle - Optimized size for all shapes -->
+    <!-- Central Play Button Circle - Enhanced with multi-stop gradient like splash -->
     <path
         android:pathData="M54,60m-16,0a16,16 0,1 1,32 0a16,16 0,1 1,-32 0">
         <aapt:attr name="android:fillColor">
@@ -73,16 +75,17 @@
                 android:centerX="54"
                 android:centerY="60"
                 android:gradientRadius="16"
-                android:startColor="#ffffffff"
-                android:endColor="#FFFFFF" />
+                android:startColor="#FFFFFF"
+                android:centerColor="#F8F8F8"
+                android:endColor="#F0F0F0" />
         </aapt:attr>
     </path>
     
-    <!-- Play Button Shadow -->
+    <!-- Play Button Shadow for depth -->
     <!-- <path
-        android:pathData="M54,55.5m-16,0a16,16 0,1 1,32 0a16,16 0,1 1,-32 0"
+        android:pathData="M54,62m-16,0a16,16 0,1 1,32 0a16,16 0,1 1,-32 0"
         android:fillColor="#000000"
-        android:fillAlpha="0.1" /> -->
+        android:fillAlpha="0.08" /> -->
     
     <!-- Play Triangle - Perfectly centered and sized -->
     <path
