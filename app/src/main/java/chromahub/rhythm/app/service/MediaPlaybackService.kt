@@ -32,6 +32,8 @@ import android.app.NotificationManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.media3.common.AudioAttributes as ExoAudioAttributes
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 
 class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     private var mediaSession: MediaLibrarySession? = null
@@ -56,6 +58,13 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
             customCommands[1]
         } else {
             customCommands[0]
+        }
+
+    private val favoriteCommand: CommandButton
+        get() = if (isCurrentSongFavorite()) {
+            customCommands[6]
+        } else {
+            customCommands[5]
         }
 
     // Track external files that have been played
@@ -93,6 +102,8 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
         const val REPEAT_MODE_OFF = "repeat_off"
         const val SHUFFLE_MODE_ON = "shuffle_on"
         const val SHUFFLE_MODE_OFF = "shuffle_off"
+        const val FAVORITE_ON = "favorite_on"
+        const val FAVORITE_OFF = "favorite_off"
     }
 
     override fun onCreate() {
@@ -182,7 +193,7 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
                 controller?.addListener(this)
                 // Only set custom layout if controller is properly initialized
                 controller?.let {
-                    mediaSession?.setCustomLayout(ImmutableList.of(shuffleCommand, repeatCommand))
+                    mediaSession?.setCustomLayout(ImmutableList.of(shuffleCommand, repeatCommand, favoriteCommand))
                 }
                 Log.d(TAG, "MediaController initialized successfully")
             } catch (e: Exception) {
@@ -222,6 +233,21 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
                 .setSessionCommand(
                     SessionCommand(REPEAT_MODE_OFF, Bundle.EMPTY)
                 )
+                .build(),
+            // Favorite commands
+            CommandButton.Builder()
+                .setDisplayName("Add to favorites")
+                .setIconResId(chromahub.rhythm.app.R.drawable.ic_favorite_border)
+                .setSessionCommand(
+                    SessionCommand(FAVORITE_ON, Bundle.EMPTY)
+                )
+                .build(),
+            CommandButton.Builder()
+                .setDisplayName("Remove from favorites")
+                .setIconResId(chromahub.rhythm.app.R.drawable.ic_favorite_filled)
+                .setSessionCommand(
+                    SessionCommand(FAVORITE_OFF, Bundle.EMPTY)
+                )
                 .build()
         )
     }
@@ -245,6 +271,74 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
         )
             .setSessionActivity(pendingIntent)
             .build()
+    }
+    
+    private fun isCurrentSongFavorite(): Boolean {
+        val currentMediaItem = player.currentMediaItem
+        return if (currentMediaItem != null) {
+            // Get favorite songs from settings
+            val favoriteSongsJson = appSettings.favoriteSongs.value
+            if (favoriteSongsJson != null && favoriteSongsJson.isNotEmpty()) {
+                try {
+                    val type = object : TypeToken<Set<String>>() {}.type
+                    val favoriteSongs: Set<String> = Gson().fromJson(favoriteSongsJson, type)
+                    favoriteSongs.contains(currentMediaItem.mediaId)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing favorite songs", e)
+                    false
+                }
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    }
+    
+    private fun toggleCurrentSongFavorite() {
+        val currentMediaItem = player.currentMediaItem
+        if (currentMediaItem != null) {
+            serviceScope.launch {
+                try {
+                    // Get current favorites
+                    val favoriteSongsJson = appSettings.favoriteSongs.value
+                    val currentFavorites = if (favoriteSongsJson != null && favoriteSongsJson.isNotEmpty()) {
+                        try {
+                            val type = object : TypeToken<Set<String>>() {}.type
+                            Gson().fromJson<Set<String>>(favoriteSongsJson, type).toMutableSet()
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error parsing favorite songs", e)
+                            mutableSetOf<String>()
+                        }
+                    } else {
+                        mutableSetOf<String>()
+                    }
+                    
+                    val songId = currentMediaItem.mediaId
+                    
+                    // Toggle favorite status
+                    if (currentFavorites.contains(songId)) {
+                        currentFavorites.remove(songId)
+                        Log.d(TAG, "Removed song from favorites via notification: $songId")
+                    } else {
+                        currentFavorites.add(songId)
+                        Log.d(TAG, "Added song to favorites via notification: $songId")
+                    }
+                    
+                    // Save updated favorites
+                    val updatedJson = Gson().toJson(currentFavorites)
+                    appSettings.setFavoriteSongs(updatedJson)
+                    
+                    // Update custom layout to reflect new state
+                    controller?.let {
+                        mediaSession?.setCustomLayout(ImmutableList.of(shuffleCommand, repeatCommand, favoriteCommand))
+                    }
+                    
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error toggling favorite", e)
+                }
+            }
+        }
     }
     
     private fun applyPlayerSettings() {
@@ -477,6 +571,18 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
                         SessionResult(SessionResult.RESULT_SUCCESS)
                     }
 
+                    FAVORITE_ON -> {
+                        // Add current song to favorites
+                        toggleCurrentSongFavorite()
+                        SessionResult(SessionResult.RESULT_SUCCESS)
+                    }
+
+                    FAVORITE_OFF -> {
+                        // Remove current song from favorites
+                        toggleCurrentSongFavorite()
+                        SessionResult(SessionResult.RESULT_SUCCESS)
+                    }
+
                     else -> {
                         SessionResult(SessionError.ERROR_NOT_SUPPORTED)
                     }
@@ -543,7 +649,7 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
         super.onShuffleModeEnabledChanged(shuffleModeEnabled)
         // Only update custom layout if controller is available
         controller?.let {
-            mediaSession?.setCustomLayout(ImmutableList.of(shuffleCommand, repeatCommand))
+            mediaSession?.setCustomLayout(ImmutableList.of(shuffleCommand, repeatCommand, favoriteCommand))
         }
     }
 
@@ -551,7 +657,15 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
         super<Player.Listener>.onRepeatModeChanged(repeatMode)
         // Only update custom layout if controller is available
         controller?.let {
-            mediaSession?.setCustomLayout(ImmutableList.of(shuffleCommand, repeatCommand))
+            mediaSession?.setCustomLayout(ImmutableList.of(shuffleCommand, repeatCommand, favoriteCommand))
+        }
+    }
+
+    override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+        super.onMediaItemTransition(mediaItem, reason)
+        // Update custom layout when song changes to reflect correct favorite state
+        controller?.let {
+            mediaSession?.setCustomLayout(ImmutableList.of(shuffleCommand, repeatCommand, favoriteCommand))
         }
     }
 }
