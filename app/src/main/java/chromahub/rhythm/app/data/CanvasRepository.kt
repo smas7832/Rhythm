@@ -277,6 +277,44 @@ class CanvasRepository(private val context: Context, private val appSettings: Ap
     }
     
     /**
+     * Get canvas cache size in bytes (estimated)
+     */
+    fun getCanvasCacheSize(): Long {
+        try {
+            var totalSize = 0L
+            
+            // Estimate size of canvas cache data
+            canvasCache.forEach { (key, value) ->
+                totalSize += key.length * 2 // String size estimation (2 bytes per char)
+                value?.let { canvas ->
+                    totalSize += canvas.videoUrl.length * 2
+                    totalSize += (canvas.trackId?.length ?: 0) * 2
+                    totalSize += (canvas.artistName?.length ?: 0) * 2
+                    totalSize += (canvas.artistImageUrl?.length ?: 0) * 2
+                    totalSize += 64 // Additional object overhead
+                }
+            }
+            
+            // Estimate size of track ID cache
+            trackIdCache.forEach { (key, value) ->
+                totalSize += key.length * 2
+                totalSize += (value?.length ?: 0) * 2
+            }
+            
+            // Add SharedPreferences storage estimation
+            val canvasCacheJson = prefs.getString("canvas_cache", null)
+            val trackIdCacheJson = prefs.getString("track_id_cache", null)
+            totalSize += (canvasCacheJson?.length ?: 0) * 2
+            totalSize += (trackIdCacheJson?.length ?: 0) * 2
+            
+            return totalSize
+        } catch (e: Exception) {
+            Log.w(TAG, "Error calculating canvas cache size: ${e.message}")
+            return 0L
+        }
+    }
+    
+    /**
      * Preload canvas for upcoming songs in queue for smoother experience
      */
     suspend fun preloadCanvasForQueue(songs: List<Pair<String, String>>) = withContext(Dispatchers.IO) {

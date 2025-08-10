@@ -111,13 +111,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.painterResource
 import chromahub.rhythm.app.data.PlaybackLocation
 import chromahub.rhythm.app.data.Playlist
 import chromahub.rhythm.app.data.Song
 import chromahub.rhythm.app.ui.components.WaveSlider
 import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.ui.theme.PlayerButtonColor
-import chromahub.rhythm.app.ui.components.M3PlaceholderType
+// import chromahub.rhythm.app.ui.components.M3PlaceholderType
 import chromahub.rhythm.app.util.ImageUtils
 import chromahub.rhythm.app.util.HapticUtils
 import coil.compose.AsyncImage
@@ -256,8 +257,6 @@ fun PlayerScreen(
 
     // Canvas video state with improved caching and retry capability
     var canvasData by remember { mutableStateOf<CanvasData?>(null) }
-    var isLoadingCanvas by remember { mutableStateOf(false) }
-    var showCanvas by remember { mutableStateOf(false) }
     var canvasRetryCount by remember { mutableStateOf(0) }
     val canvasRepository = remember { 
         CanvasRepository(context, appSettings).apply {
@@ -271,14 +270,12 @@ fun PlayerScreen(
     val retryCanvasLoading = {
         if (song != null && canvasRetryCount < 2) { // Allow up to 2 retries
             canvasRetryCount++
-            isLoadingCanvas = true
             
             kotlinx.coroutines.GlobalScope.launch {
                 try {
                     Log.d("PlayerScreen", "Retrying canvas load for: ${song.artist} - ${song.title} (attempt $canvasRetryCount)")
                     val canvas = canvasRepository.retryCanvasForSong(song.artist, song.title)
                     canvasData = canvas
-                    showCanvas = canvas != null
                     
                     if (canvas != null) {
                         Log.d("PlayerScreen", "Canvas retry successful: ${canvas.videoUrl}")
@@ -288,9 +285,6 @@ fun PlayerScreen(
                 } catch (e: Exception) {
                     Log.e("PlayerScreen", "Canvas retry failed: ${e.message}")
                     canvasData = null
-                    showCanvas = false
-                } finally {
-                    isLoadingCanvas = false
                 }
             }
         }
@@ -313,12 +307,10 @@ fun PlayerScreen(
             isSongInfoVisible = true
             
             // Reset canvas state
-            showCanvas = false
             canvasData = null
             canvasRetryCount = 0 // Reset retry count for new song
             
             // Try to load canvas for the new song
-            isLoadingCanvas = true
             try {
                 Log.d("PlayerScreen", "Loading canvas for: ${song.artist} - ${song.title}")
                 
@@ -327,14 +319,11 @@ fun PlayerScreen(
                 if (cachedCanvas != null) {
                     Log.d("PlayerScreen", "Using cached canvas: ${cachedCanvas.videoUrl}")
                     canvasData = cachedCanvas
-                    showCanvas = true
-                    isLoadingCanvas = false
                 } else {
                     Log.d("PlayerScreen", "No cached canvas found, fetching from API...")
                     // Fetch from API if not cached
                     val canvas = canvasRepository.fetchCanvasForSong(song.artist, song.title)
                     canvasData = canvas
-                    showCanvas = canvas != null
                     
                     if (canvas != null) {
                         Log.d("PlayerScreen", "Canvas loaded successfully: ${canvas.videoUrl}")
@@ -353,9 +342,6 @@ fun PlayerScreen(
             } catch (e: Exception) {
                 Log.e("PlayerScreen", "Failed to load canvas: ${e.message}")
                 canvasData = null
-                showCanvas = false
-            } finally {
-                isLoadingCanvas = false
             }
         }
     }
@@ -938,322 +924,121 @@ fun PlayerScreen(
                             },
                         contentAlignment = Alignment.TopCenter // Align content to the center
                     ) {
-                        // Canvas Video (when available) or Album Image
-                        if (showCanvas && canvasData != null) {
-                            // Show Canvas video with smooth animation
-                            androidx.compose.animation.AnimatedVisibility(
-                                visible = showCanvas,
-                                enter = fadeIn(animationSpec = tween(600)) + scaleIn(
-                                    initialScale = 0.95f,
-                                    animationSpec = tween(600)
-                                ),
-                                exit = fadeOut(animationSpec = tween(400)) + scaleOut(
-                                    targetScale = 0.95f,
-                                    animationSpec = tween(400)
-                                )
-                            ) {
-                                canvasData?.let { canvas ->
+                        // Always render CanvasPlayer if song is not null, let CanvasPlayer manage its states
+                        if (song != null) {
+                            CanvasPlayer(
+                                videoUrl = canvasData?.videoUrl,
+                                isPlaying = true, // Always keep canvas playing
+                                cornerRadius = if (isCompactHeight) 20.dp else 28.dp,
+                                modifier = Modifier.fillMaxSize(),
+                                albumArtUrl = song.artworkUri,
+                                albumName = song.title,
+                                onCanvasLoaded = {
+                                    Log.d("PlayerScreen", "Canvas loaded and album art transition completed")
+                                },
+                                onCanvasFailed = {
+                                    Log.d("PlayerScreen", "Canvas failed, falling back to album art")
+                                },
+                                onRetryRequested = retryCanvasLoading,
+                                fallbackContent = {
+                                    // Custom fallback content with enhanced styling
                                     Box(modifier = Modifier.fillMaxSize()) {
-                                        CanvasPlayer(
-                                            videoUrl = canvas.videoUrl,
-                                            isPlaying = true, // Always keep canvas playing regardless of audio state
-                                            cornerRadius = if (isCompactHeight) 20.dp else 28.dp,
-                                            modifier = Modifier.fillMaxSize(),
-                                            onCanvasLoaded = {
-                                                // Canvas loaded successfully
-                                            },
-                                            onCanvasFailed = {
-                                                // Canvas failed, fallback will be shown automatically
-                                            },
-                                            onRetryRequested = retryCanvasLoading,
-                                            fallbackContent = {
-                                                // Fallback to album art with same styling
-                                                Box(modifier = Modifier.fillMaxSize()) {
-                                                    // Album art content
-                                                    if (song?.artworkUri != null) {
-                                                        val imageRequest = remember(song.artworkUri, song.title) {
-                                                            ImageRequest.Builder(context)
-                                                                .apply(
-                                                                    ImageUtils.buildImageRequest(
-                                                                        song.artworkUri,
-                                                                        song.title,
-                                                                        context.cacheDir,
-                                                                        M3PlaceholderType.TRACK
-                                                                    )
-                                                                )
-                                                                .build()
-                                                        }
-                                                        AsyncImage(
-                                                            model = imageRequest,
-                                                            contentDescription = "Album artwork for ${song.title}",
-                                                            contentScale = ContentScale.Crop,
-                                                            modifier = Modifier
-                                                                .fillMaxSize()
-                                                                .clip(RoundedCornerShape(if (isCompactHeight) 20.dp else 28.dp))
-                                                        )
-                                                    } else {
-                                                        // Fallback to a placeholder if artwork is null
-                                                        Box(
-                                                            modifier = Modifier
-                                                                .fillMaxSize()
-                                                                .clip(RoundedCornerShape(if (isCompactHeight) 20.dp else 28.dp)),
-                                                            contentAlignment = Alignment.Center
-                                                        ) {
-                                                            Icon(
-                                                                imageVector = RhythmIcons.MusicNote,
-                                                                contentDescription = "Album artwork for ${song?.title}",
-                                                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                                                                modifier = Modifier.size(96.dp)
-                                                            )
-                                                        }
-                                                    }
-                                                    
-                                                    // Enhanced gradient overlay (same as regular album art)
-                                                    // Box(
-                                                    //     modifier = Modifier
-                                                    //         .fillMaxSize()
-                                                    //         .background(
-                                                    //             Brush.verticalGradient(
-                                                    //                 colors = listOf(
-                                                    //                     Color.Transparent,
-                                                    //                     MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
-                                                    //                     MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
-                                                    //                     MaterialTheme.colorScheme.surface.copy(alpha = 1.0f)
-                                                    //                 )
-                                                    //             )
-                                                    //         )
-                                                    // )
-                                                    
-                                                    // Horizontal gradient for more depth
-                                                    // Box(
-                                                    //     modifier = Modifier
-                                                    //         .fillMaxSize()
-                                                    //         .background(
-                                                    //             Brush.horizontalGradient(
-                                                    //                 colors = listOf(
-                                                    //                     MaterialTheme.colorScheme.surface.copy(alpha = 0.2f),
-                                                    //                     Color.Transparent,
-                                                    //                     Color.Transparent,
-                                                    //                     MaterialTheme.colorScheme.surface.copy(alpha = 0.2f)
-                                                    //                 )
-                                                    //             )
-                                                    //         )
-                                                    // )
-                                                }
-                                            }
-                                        )
-                                        
-                                        // Canvas-specific gradient overlays (only when canvas is actually playing)
-                                        // These will not show in fallback mode since fallback handles its own gradients
-                                        // Bottom gradient overlay for canvas (like album art)
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .background(
-                                                    Brush.verticalGradient(
-                                                        colors = listOf(
-                                                            Color.Transparent,
-                                                            MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
-                                                            MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
-                                                            MaterialTheme.colorScheme.surface.copy(alpha = 1.0f)
-                                                        )
-                                                    )
-                                                )
-                                        )
-                                        
-                                        // Horizontal gradient for more depth on canvas
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .background(
-                                                    Brush.horizontalGradient(
-                                                        colors = listOf(
-                                                            MaterialTheme.colorScheme.surface.copy(alpha = 0.2f),
-                                                            Color.Transparent,
-                                                            Color.Transparent,
-                                                            MaterialTheme.colorScheme.surface.copy(alpha = 0.2f)
-                                                        )
-                                                    )
-                                                )
+                                        // Album art content with enhanced loading state
+                                        if (song.artworkUri != null) {
+                                            AsyncImage(
+                                                model = ImageRequest.Builder(context)
+                                                    .data(song.artworkUri)
+                                                    .placeholder(chromahub.rhythm.app.R.drawable.rhythm_logo)
+                                                    .error(chromahub.rhythm.app.R.drawable.rhythm_logo)
+                                                    .build(),
+                                                contentDescription = "Album artwork for ${song.title}",
+                                                contentScale = ContentScale.Crop,
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .clip(RoundedCornerShape(if (isCompactHeight) 20.dp else 28.dp))
                                             )
+                                        } else {
+                                            // Fallback to Rhythm logo if artwork is null
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .clip(RoundedCornerShape(if (isCompactHeight) 20.dp else 28.dp))
+                                                    .background(
+                                                        Brush.radialGradient(
+                                                            colors = listOf(
+                                                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                                                                MaterialTheme.colorScheme.surface
+                                                            ),
+                                                            radius = 400f
+                                                        )
+                                                    ),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    painter = painterResource(id = chromahub.rhythm.app.R.drawable.rhythm_logo),
+                                                    contentDescription = "Album artwork for ${song.title}",
+                                                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                                                    modifier = Modifier.size(120.dp)
+                                                )
+                                                
+                                                // Add gradient overlays for consistency
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxSize()
+                                                        .background(
+                                                            Brush.verticalGradient(
+                                                                colors = listOf(
+                                                                    Color.Transparent,
+                                                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                                                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                                                                    MaterialTheme.colorScheme.surface.copy(alpha = 1.0f)
+                                                                )
+                                                            )
+                                                        )
+                                                )
+                                                
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxSize()
+                                                        .background(
+                                                            Brush.horizontalGradient(
+                                                                colors = listOf(
+                                                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.2f),
+                                                                    Color.Transparent,
+                                                                    Color.Transparent,
+                                                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.2f)
+                                                                )
+                                                            )
+                                                        )
+                                                )
+                                            }
                                         }
                                     }
-                            }
-                        } else if (isLoadingCanvas && song != null) {
-                            // Show loading state while canvas is being fetched with album art background
+                                }
+                            )
+                        } else {
+                            // Default placeholder if no song with Rhythm logo
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .clip(RoundedCornerShape(if (isCompactHeight) 20.dp else 28.dp))
-                            ) {
-                                // Show album art in background while loading canvas
-                                if (song.artworkUri != null) {
-                                    val imageRequest = remember(song.artworkUri, song.title) {
-                                        ImageRequest.Builder(context)
-                                            .apply(
-                                                ImageUtils.buildImageRequest(
-                                                    song.artworkUri,
-                                                    song.title,
-                                                    context.cacheDir,
-                                                    M3PlaceholderType.TRACK
-                                                )
-                                            )
-                                            .build()
-                                    }
-                                    AsyncImage(
-                                        model = imageRequest,
-                                        contentDescription = "Album artwork for ${song.title}",
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier.fillMaxSize()
-                                    )
-                                }
-                                
-                                // Enhanced gradient overlay (same as album art view)
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .background(
-                                            Brush.verticalGradient(
-                                                colors = listOf(
-                                                    Color.Transparent,
-                                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
-                                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
-                                                    MaterialTheme.colorScheme.surface.copy(alpha = 1.0f)
-                                                )
-                                            )
-                                        )
-                                )
-                                
-                                // Horizontal gradient for more depth
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .background(
-                                            Brush.horizontalGradient(
-                                                colors = listOf(
-                                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.2f),
-                                                    Color.Transparent,
-                                                    Color.Transparent,
-                                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.2f)
-                                                )
-                                            )
-                                        )
-                                )
-                                
-                                // Larger loading indicator in top-right corner
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize(),
-                                    contentAlignment = Alignment.TopEnd
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .padding(16.dp)
-                                            .size(40.dp)
-                                            .clip(CircleShape)
-                                            .background(
-                                                MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+                                    .background(
+                                        Brush.radialGradient(
+                                            colors = listOf(
+                                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                                                MaterialTheme.colorScheme.surface
                                             ),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        M3CircularLoader(
-                                            modifier = Modifier.size(28.dp),
-                                            fourColor = true,
-                                            isExpressive = true
+                                            radius = 400f
                                         )
-                                    }
-                                }
-                            }
-                        } else {
-                            // Show Album Image with smooth animation (default behavior)
-                            androidx.compose.animation.AnimatedVisibility(
-                                visible = !showCanvas,
-                                enter = fadeIn(animationSpec = tween(600)) + scaleIn(
-                                    initialScale = 0.95f,
-                                    animationSpec = tween(600)
-                                ),
-                                exit = fadeOut(animationSpec = tween(400)) + scaleOut(
-                                    targetScale = 0.95f,
-                                    animationSpec = tween(400)
-                                )
+                                    ),
+                                contentAlignment = Alignment.Center
                             ) {
-                                if (song?.artworkUri != null) {
-                                    val imageRequest = remember(song.artworkUri, song.title) {
-                                        ImageRequest.Builder(context)
-                                            .apply(
-                                                ImageUtils.buildImageRequest(
-                                                    song.artworkUri,
-                                                    song.title,
-                                                    context.cacheDir,
-                                                    M3PlaceholderType.TRACK
-                                                )
-                                            )
-                                            .build()
-                                    }
-                                    AsyncImage(
-                                        model = imageRequest,
-                                    contentDescription = "Album artwork for ${song.title}",
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize()
+                                Icon(
+                                    painter = painterResource(id = chromahub.rhythm.app.R.drawable.rhythm_logo),
+                                    contentDescription = "No song playing",
+                                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                                    modifier = Modifier.size(120.dp)
                                 )
-                            } else {
-                                // Fallback to a placeholder if artwork is null
-                                Box(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = RhythmIcons.MusicNote,
-                                        contentDescription = "Album artwork for ${song?.title}",
-                                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                                        modifier = Modifier.size(96.dp)
-                                    )
-                                }
-                            }
-
-                            // Enhanced gradient overlay with multiple layers (only show when NOT displaying canvas)
-                            androidx.compose.animation.AnimatedVisibility(
-                                visible = !showCanvas,
-                                enter = fadeIn(animationSpec = tween(400)),
-                                exit = fadeOut(animationSpec = tween(600))
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .background(
-                                            Brush.verticalGradient(
-                                                colors = listOf(
-                                                    Color.Transparent,
-                                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.6f), // Further increased
-                                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.9f), // Further increased
-                                                    MaterialTheme.colorScheme.surface.copy(alpha = 1.0f)  // Fully opaque at bottom
-                                                )
-                                            )
-                                        )
-                                )
-                            }
-
-                            // Horizontal gradient for more depth (only show when NOT displaying canvas)
-                            androidx.compose.animation.AnimatedVisibility(
-                                visible = !showCanvas,
-                                enter = fadeIn(animationSpec = tween(400, delayMillis = 100)),
-                                exit = fadeOut(animationSpec = tween(500))
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .background(
-                                            Brush.horizontalGradient(
-                                                colors = listOf(
-                                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.2f), // Reduced from 0.4f
-                                                    Color.Transparent,
-                                                    Color.Transparent,
-                                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.2f) // Reduced from 0.4f
-                                                )
-                                            )
-                                        )
-                                    )
-                                }
                             }
                         }
 
@@ -1346,20 +1131,20 @@ fun PlayerScreen(
                             ) {
                                 Box(modifier = Modifier.fillMaxSize()) {
                                     // Deeper gradient overlay for lyrics
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .background(
-                                                Brush.verticalGradient(
-                                                    colors = listOf(
-                                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.0f), // Start more transparent
-                                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.3f), // Reduced from 0.5f
-                                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.7f), // Reduced from 0.9f
-                                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)  // Reduced from 1.0f
-                                                    )
-                                                )
-                                            )
-                                    )
+                                    // Box(
+                                    //     modifier = Modifier
+                                    //         .fillMaxSize()
+                                    //         .background(
+                                    //             Brush.verticalGradient(
+                                    //                 colors = listOf(
+                                    //                     MaterialTheme.colorScheme.surface.copy(alpha = 0.0f), // Start more transparent
+                                    //                     MaterialTheme.colorScheme.surface.copy(alpha = 0.3f), // Reduced from 0.5f
+                                    //                     MaterialTheme.colorScheme.surface.copy(alpha = 0.7f), // Reduced from 0.9f
+                                    //                     MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)  // Reduced from 1.0f
+                                    //                 )
+                                    //             )
+                                    //         )
+                                    // )
 
                                     // Horizontal gradient for more depth
                                     Box(
@@ -2065,5 +1850,3 @@ fun PlayerScreen(
         }
     }
 }
-
-

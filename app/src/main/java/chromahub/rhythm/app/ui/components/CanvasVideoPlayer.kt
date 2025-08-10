@@ -24,6 +24,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.Icon
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,6 +38,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.res.painterResource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
@@ -44,6 +47,7 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import androidx.media3.common.util.UnstableApi
 import kotlinx.coroutines.delay
+import chromahub.rhythm.app.ui.components.RhythmIcons
 
 /**
  * A composable that displays a looping video player for Spotify Canvas videos with enhanced performance
@@ -149,6 +153,10 @@ fun CanvasVideoPlayer(
         if (isVideoLoaded) {
             Log.d("CanvasVideoPlayer", "Auto-starting canvas video (independent mode)")
             exoPlayer?.play()
+        
+            // Delay to avoid UI flicker
+            delay(0)
+
         }
     }
 
@@ -184,6 +192,35 @@ fun CanvasVideoPlayer(
                     text = "Canvas unavailable",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
+                )
+                                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.0f),
+                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.3f),
+                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
+                                )
+                            )
+                        )
+                )
+                
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.horizontalGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.4f),
+                                    Color.Transparent,
+                                    Color.Transparent,
+                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.4f)
+                                )
+                            )
+                        )
                 )
             }
         }
@@ -236,30 +273,48 @@ fun CanvasVideoPlayer(
                 )
                 
                 // Centered loading content like lyrics view
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 32.dp)
-                ) {
-                    chromahub.rhythm.app.ui.components.M3CircularLoader(
-                        modifier = Modifier.size(56.dp),
-                        fourColor = true,
-                        isExpressive = true
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = if (retryCount > 0) "Retrying canvas..." else "Loading canvas...",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                        textAlign = TextAlign.Center
-                    )
-                }
+                // Column(
+                //     horizontalAlignment = Alignment.CenterHorizontally,
+                //     modifier = Modifier
+                //         .fillMaxWidth()
+                //         .padding(vertical = 32.dp)
+                // ) {
+                //     chromahub.rhythm.app.ui.components.M3CircularLoader(
+                //         modifier = Modifier.size(56.dp),
+                //         fourColor = true,
+                //         isExpressive = true
+                //     )
+                //     Spacer(modifier = Modifier.height(16.dp))
+                //     Text(
+                //         text = if (retryCount > 0) "Retrying canvas..." else "Loading canvas...",
+                //         style = MaterialTheme.typography.bodyMedium,
+                //         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                //         textAlign = TextAlign.Center
+                //     )
+                // }
             }
         }
         
         // Video player with smooth entrance animation
         if (isVideoLoaded && exoPlayer != null && !hasError) {
+            val videoAlpha by animateFloatAsState(
+                targetValue = if (isVideoLoaded && !hasError) 1f else 0f,
+                animationSpec = tween(
+                    durationMillis = 800,
+                    delayMillis = 200,
+                    easing = FastOutSlowInEasing
+                ),
+                label = "video_alpha"
+            )
+            val videoScale by animateFloatAsState(
+                targetValue = if (isVideoLoaded && !hasError) 1f else 0.92f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                ),
+                label = "video_scale"
+            )
+
             AndroidView(
                 factory = { context ->
                     PlayerView(context).apply {
@@ -277,26 +332,44 @@ fun CanvasVideoPlayer(
                     .fillMaxSize()
                     .clip(RoundedCornerShape(cornerRadius))
                     .background(Color.Transparent)
-                    .alpha(
-                        animateFloatAsState(
-                            targetValue = if (isVideoLoaded && !hasError) 1f else 0f,
-                            animationSpec = tween(
-                                durationMillis = 800,
-                                delayMillis = 200,
-                                easing = FastOutSlowInEasing
-                            ),
-                            label = "video_alpha"
-                        ).value
+                    .alpha(videoAlpha)
+                    .scale(videoScale)
+            )
+
+            // Add gradient overlays on top of the video player
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(cornerRadius))
+                    .alpha(videoAlpha)
+                    .scale(videoScale)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                                MaterialTheme.colorScheme.surface.copy(alpha = 1.0f)
+                            )
+                        )
                     )
-                    .scale(
-                        animateFloatAsState(
-                            targetValue = if (isVideoLoaded && !hasError) 1f else 0.92f,
-                            animationSpec = spring(
-                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                stiffness = Spring.StiffnessMediumLow
-                            ),
-                            label = "video_scale"
-                        ).value
+            )
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(cornerRadius))
+                    .alpha(videoAlpha)
+                    .scale(videoScale)
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.2f),
+                                Color.Transparent,
+                                Color.Transparent,
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.2f)
+                            )
+                        )
                     )
             )
         }
@@ -313,21 +386,35 @@ fun CanvasPlayer(
     isPlaying: Boolean,
     modifier: Modifier = Modifier,
     cornerRadius: androidx.compose.ui.unit.Dp = 28.dp,
+    albumArtUrl: Any? = null,
+    albumName: String? = null,
     onCanvasLoaded: (() -> Unit)? = null,
     onCanvasFailed: (() -> Unit)? = null,
     onRetryRequested: (() -> Unit)? = null,
     fallbackContent: (@Composable () -> Unit)? = null
 ) {
+    val context = LocalContext.current
     var isVisible by remember(videoUrl) { mutableStateOf(false) }
     var showFallback by remember(videoUrl) { mutableStateOf(false) }
     var isLoading by remember(videoUrl) { mutableStateOf(false) }
     var canRetry by remember(videoUrl) { mutableStateOf(false) }
+    var showAlbumArt by remember(videoUrl) { mutableStateOf(true) }
+    var isCanvasReady by remember(videoUrl) { mutableStateOf(false) }
+    // Handle album art to canvas transition with delayed loading state exit
+    LaunchedEffect(isCanvasReady) {
+        if (isCanvasReady) {
+            delay(2000) // Delay exit of loading state for 500ms after canvas is ready
+            showAlbumArt = false // Then hide album art for smooth transition
+        }
+    }
     
     LaunchedEffect(videoUrl) {
         isVisible = !videoUrl.isNullOrBlank()
         showFallback = false
         isLoading = !videoUrl.isNullOrBlank()
         canRetry = false
+        showAlbumArt = true
+        isCanvasReady = false
     }
     
     // Show fallback content when canvas fails and fallback is provided
@@ -354,21 +441,214 @@ fun CanvasPlayer(
             )
         ) {
             fallbackContent()
+            // Add gradient overlays to fallback content for consistency
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                                MaterialTheme.colorScheme.surface.copy(alpha = 1.0f)
+                            )
+                        )
+                    )
+            )
+            
+            // Horizontal gradient for more depth
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.2f),
+                                Color.Transparent,
+                                Color.Transparent,
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.2f)
+                            )
+                        )
+                    )
+            )
         }
         return
     }
     
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        // Canvas video player
+        // Album art background - always shown first, then transitions out when canvas loads
         AnimatedVisibility(
-            visible = isVisible,
+            visible = showAlbumArt && (albumArtUrl != null || fallbackContent != null),
             enter = fadeIn(
                 animationSpec = tween(
-                    durationMillis = 700,
+                    durationMillis = 400,
                     easing = FastOutSlowInEasing
                 )
             ) + scaleIn(
-                initialScale = 0.9f,
+                initialScale = 0.95f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium
+                )
+            ),
+            exit = fadeOut(
+                animationSpec = tween(
+                    durationMillis = 800,
+                    easing = FastOutLinearInEasing
+                )
+            ) + scaleOut(
+                targetScale = 1.05f,
+                animationSpec = tween(800)
+            )
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(cornerRadius))
+            ) {
+                if (albumArtUrl != null) {
+                    // Show album art with loading state and gradients
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        chromahub.rhythm.app.util.M3ImageUtils.AlbumArt(
+                            imageUrl = albumArtUrl,
+                            albumName = albumName,
+                            modifier = Modifier.fillMaxSize(),
+                            shape = RoundedCornerShape(cornerRadius)
+                        )
+                        
+                        // Add gradient overlays to album art for consistency with canvas
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.verticalGradient(
+                                        colors = listOf(
+                                            Color.Transparent,
+                                            MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                                            MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                                            MaterialTheme.colorScheme.surface.copy(alpha = 1.0f)
+                                        )
+                                    )
+                                )
+                        )
+                        
+                        // Horizontal gradient for more depth
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.horizontalGradient(
+                                        colors = listOf(
+                                            MaterialTheme.colorScheme.surface.copy(alpha = 0.2f),
+                                            Color.Transparent,
+                                            Color.Transparent,
+                                            MaterialTheme.colorScheme.surface.copy(alpha = 0.2f)
+                                        )
+                                    )
+                                )
+                        )
+                    }
+                } else if (fallbackContent != null) {
+                    fallbackContent()
+                } else {
+                    // Default placeholder with Rhythm logo
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.radialGradient(
+                                    colors = listOf(
+                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                                        MaterialTheme.colorScheme.surface
+                                    ),
+                                    radius = 400f
+                                ),
+                                RoundedCornerShape(cornerRadius)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(id = chromahub.rhythm.app.R.drawable.rhythm_logo),
+                            contentDescription = "Album artwork",
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                            modifier = Modifier.size(128.dp)
+                        )
+                    }
+                }
+
+                // Gradient overlay and loading indicator while canvas is being fetched
+                // Only show when loading and canvas is not ready yet
+                AnimatedVisibility(
+                    visible = isLoading && !videoUrl.isNullOrBlank() && !isCanvasReady,
+                    enter = fadeIn(animationSpec = tween(300)) + scaleIn(
+                        initialScale = 0.8f,
+                        animationSpec = tween(300)
+                    ),
+                    exit = fadeOut(animationSpec = tween(800)) + scaleOut(
+                        targetScale = 0.9f,
+                        animationSpec = tween(600)
+                    )
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        // Card background for loading indicator
+                        androidx.compose.material3.Card(
+                            modifier = Modifier
+                                .size(120.dp)
+                                .clip(RoundedCornerShape(24.dp)),
+                            colors = androidx.compose.material3.CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
+                            ),
+                            elevation = androidx.compose.material3.CardDefaults.cardElevation(
+                                defaultElevation = 8.dp
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                M3CircularLoader(
+                                    modifier = Modifier.size(36.dp),
+                                    fourColor = true,
+                                    isExpressive = true
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = "Preparing Canvas",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                    }
+                }
+                    //             isExpressive = true
+                    //         )
+                    //     }
+                    // }
+                }
+            }
+        }
+
+        // Canvas video player with smooth entrance animation  
+        // Show CanvasVideoPlayer as soon as URL is available, its internal state will manage loading/gradient
+        AnimatedVisibility(
+            visible = isVisible, // Show when videoUrl is not blank
+            enter = fadeIn(
+                animationSpec = tween(
+                    durationMillis = 800,
+                    delayMillis = 200,
+                    easing = FastOutSlowInEasing
+                )
+            ) + scaleIn(
+                initialScale = 0.92f,
                 animationSpec = spring(
                     dampingRatio = Spring.DampingRatioMediumBouncy,
                     stiffness = Spring.StiffnessMedium
@@ -382,7 +662,7 @@ fun CanvasPlayer(
             ) + scaleOut(
                 targetScale = 0.95f,
                 animationSpec = tween(400)
-            )
+                )
         ) {
             if (!videoUrl.isNullOrBlank()) {
                 CanvasVideoPlayer(
@@ -394,12 +674,14 @@ fun CanvasPlayer(
                         Log.d("CanvasPlayer", "Canvas video is ready and animated in")
                         isLoading = false
                         canRetry = false
+                        isCanvasReady = true // This will trigger album art to hide
                         onCanvasLoaded?.invoke()
                     },
                     onVideoError = {
                         Log.w("CanvasPlayer", "Canvas video failed to load")
                         isLoading = false
                         canRetry = true
+                        isCanvasReady = false
                         onCanvasFailed?.invoke()
                     }
                 )
@@ -409,55 +691,26 @@ fun CanvasPlayer(
         // Handle fallback logic after a delay if retry is possible
         LaunchedEffect(canRetry) {
             if (canRetry) {
-                delay(1000) // Give 1 second for potential retry
+                delay(2000) // Give 2 seconds for potential retry or user interaction
                 if (canRetry) { // Check again in case retry was initiated during delay
                     if (fallbackContent != null) {
                         Log.d("CanvasPlayer", "Switching to fallback content (album art)")
                         showFallback = true
                         isVisible = false
+                        showAlbumArt = false // Hide the background album art
                     } else {
-                        Log.d("CanvasPlayer", "No fallback provided, hiding canvas")
+                        Log.d("CanvasPlayer", "No fallback provided, keeping album art visible")
+                        // Keep showing album art as fallback
+                        showAlbumArt = true
                         isVisible = false
                     }
                 }
             }
         }
         
-        // Enhanced loading indicator with preloader styling
-        AnimatedVisibility(
-            visible = isLoading && !videoUrl.isNullOrBlank(),
-            enter = fadeIn(animationSpec = tween(300)),
-            exit = fadeOut(animationSpec = tween(400))
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(RoundedCornerShape(cornerRadius)),
-                contentAlignment = Alignment.TopEnd
-            ) {
-                // Loading indicator in top-right corner with styling from PlayerScreen
-                Box(
-                    modifier = Modifier
-                        .padding(16.dp)
-                        .size(40.dp)
-                        .clip(androidx.compose.foundation.shape.CircleShape)
-                        .background(
-                            MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    M3CircularLoader(
-                        modifier = Modifier.size(28.dp),
-                        fourColor = true,
-                        isExpressive = true
-                    )
-                }
-            }
-        }
-        
         // Retry button when canvas fails to load
         AnimatedVisibility(
-            visible = canRetry && !showFallback,
+            visible = canRetry && !showFallback && !showAlbumArt,
             enter = fadeIn(animationSpec = tween(400)) + scaleIn(
                 initialScale = 0.8f,
                 animationSpec = spring(
@@ -476,23 +729,35 @@ fun CanvasPlayer(
                     .clip(RoundedCornerShape(cornerRadius)),
                 contentAlignment = Alignment.Center
             ) {
-                androidx.compose.material3.FilledTonalButton(
-                    onClick = {
-                        canRetry = false
-                        isLoading = true
-                        onRetryRequested?.invoke()
-                    },
-                    modifier = Modifier.padding(16.dp)
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    androidx.compose.material3.Icon(
-                        imageVector = androidx.compose.material.icons.Icons.Default.Refresh,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
+                    androidx.compose.material3.FilledTonalButton(
+                        onClick = {
+                            canRetry = false
+                            isLoading = true
+                            showAlbumArt = true // Show album art during retry
+                            onRetryRequested?.invoke()
+                        },
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    ) {
+                        androidx.compose.material3.Icon(
+                            imageVector = androidx.compose.material.icons.Icons.Default.Refresh,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        androidx.compose.foundation.layout.Spacer(modifier = Modifier.width(8.dp))
+                        androidx.compose.material3.Text("Retry Canvas")
+                    }
+                    
+                    androidx.compose.material3.Text(
+                        text = "Canvas couldn't load",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                        textAlign = TextAlign.Center
                     )
-                    androidx.compose.foundation.layout.Spacer(modifier = Modifier.width(8.dp))
-                    androidx.compose.material3.Text("Retry Canvas")
                 }
             }
         }
     }
-}

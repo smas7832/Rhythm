@@ -1681,9 +1681,9 @@ fun ApiManagementBottomSheet(
                 // Deezer API
                 item {
                     ApiServiceCard(
-                        title = "Deezer API",
-                        description = "Free artist images and album artwork - no configuration needed",
-                        status = "Always available",
+                        title = "Deezer",
+                        description = "Free artist images and album artwork - no setup needed",
+                        status = "Ready",
                         isConfigured = true,
                         isEnabled = deezerApiEnabled,
                         icon = Icons.Default.Public,
@@ -1693,27 +1693,53 @@ fun ApiManagementBottomSheet(
                     )
                 }
 
-                // Spotify Canvas API
-                // item {
-                //     ApiServiceCard(
-                //         title = "Spotify Canvas",
-                //         description = "Visual videos that play behind songs - no configuration needed",
-                //         status = "Always available",
-                //         isConfigured = true,
-                //         isEnabled = canvasApiEnabled,
-                //         icon = RhythmIcons.Song,
-                //         showToggle = true,
-                //         onToggle = { enabled -> appSettings.setCanvasApiEnabled(enabled) },
-                //         onClick = { /* No configuration needed */ }
-                //     )
-                // }
+                // Combined Spotify Canvas API
+                item {
+                    ApiServiceCard(
+                        title = "Spotify Canvas",
+                        description = if (spotifyClientId.isNotEmpty() && spotifyClientSecret.isNotEmpty()) {
+                            "Official Spotify integration for Canvas videos (High Data Usage)"
+                        } else {
+                            "Canvas videos from free API (no setup needed) + official Spotify integration (requires setup)"
+                        },
+                        status = if (spotifyClientId.isNotEmpty() && spotifyClientSecret.isNotEmpty()) {
+                            "Active"
+                        } else {
+                            "Need Setup"
+                        },
+                        isConfigured = true, // Always configured since free API is available
+                        isEnabled = canvasApiEnabled && (spotifyApiEnabled || true), // Enable if either API is available
+                        icon = RhythmIcons.Song,
+                        showToggle = true,
+                        onToggle = { enabled -> 
+                            appSettings.setCanvasApiEnabled(enabled)
+                            // Auto-clear canvas cache when disabled
+                            if (!enabled) {
+                                scope.launch {
+                                    try {
+                                        val canvasRepository = chromahub.rhythm.app.data.CanvasRepository(context, appSettings)
+                                        canvasRepository.clearCache()
+                                        Log.d("ApiManagement", "Canvas cache cleared due to API being disabled")
+                                    } catch (e: Exception) {
+                                        Log.e("ApiManagement", "Error clearing canvas cache", e)
+                                    }
+                                }
+                            }
+                        },
+                        onClick = { 
+                            
+                                showSpotifyConfigDialog = true 
+                            
+                        }
+                    )
+                }
 
                 // LRCLib
                 item {
                     ApiServiceCard(
                         title = "LRCLib",
-                        description = "Free lyrics service - no configuration needed",
-                        status = "Always available",
+                        description = "Free synced lyrics service - no setup needed",
+                        status = "Ready",
                         isConfigured = true,
                         isEnabled = lrclibApiEnabled,
                         icon = RhythmIcons.Queue,
@@ -1728,7 +1754,7 @@ fun ApiManagementBottomSheet(
                     ApiServiceCard(
                         title = "YouTube Music",
                         description = "Fallback for artist images and album artwork",
-                        status = "Always available",
+                        status = "Ready",
                         isConfigured = true,
                         isEnabled = ytMusicApiEnabled,
                         icon = RhythmIcons.Album,
@@ -1738,27 +1764,12 @@ fun ApiManagementBottomSheet(
                     )
                 }
 
-                // Spotify API
-                item {
-                    ApiServiceCard(
-                        title = "Spotify Canvas",
-                        description = "Official Spotify integration for track search and Canvas videos",
-                        status = if (spotifyClientId.isNotEmpty() && spotifyClientSecret.isNotEmpty()) "Configured" else "Needs configuration",
-                        isConfigured = spotifyClientId.isNotEmpty() && spotifyClientSecret.isNotEmpty(),
-                        isEnabled = spotifyApiEnabled,
-                        icon = RhythmIcons.Song,
-                        showToggle = true,
-                        onToggle = { enabled -> appSettings.setSpotifyApiEnabled(enabled) },
-                        onClick = { showSpotifyConfigDialog = true }
-                    )
-                }
-
                 // GitHub (for updates)
                 item {
                     ApiServiceCard(
                         title = "GitHub",
                         description = "App updates and release information",
-                        status = "Always available",
+                        status = "Ready",
                         isConfigured = true,
                         isEnabled = true, // Always enabled for updates
                         icon = RhythmIcons.Download,
@@ -3202,23 +3213,21 @@ fun CacheManagementBottomSheet(
     var showClearCacheSuccess by remember { mutableStateOf(false) }
     var showCacheSizeDialog by remember { mutableStateOf(false) }
     var cacheDetails by remember { mutableStateOf<Map<String, Long>>(emptyMap()) }
+    
+    // Canvas repository for cache management
+    val canvasRepository = remember { 
+        chromahub.rhythm.app.data.CanvasRepository(context, appSettings)
+    }
 
     // Calculate cache size when the sheet opens
     LaunchedEffect(Unit) {
         isCalculatingSize = true
         try {
-            currentCacheSize = chromahub.rhythm.app.util.CacheManager.getCacheSize(context)
+            currentCacheSize = chromahub.rhythm.app.util.CacheManager.getCacheSize(context, canvasRepository)
             
-            // Get detailed cache breakdown
-            val internalCacheSize = chromahub.rhythm.app.util.CacheManager.getDirectorySize(context.cacheDir)
-            val externalCacheSize = context.externalCacheDir?.let { 
-                chromahub.rhythm.app.util.CacheManager.getDirectorySize(it) 
-            } ?: 0L
+            // Get detailed cache breakdown including canvas cache
+            cacheDetails = chromahub.rhythm.app.util.CacheManager.getDetailedCacheSize(context, canvasRepository)
             
-            cacheDetails = mapOf(
-                "Internal Cache" to internalCacheSize,
-                "External Cache" to externalCacheSize
-            )
         } catch (e: Exception) {
             Log.e("CacheManagement", "Error calculating cache size", e)
         } finally {
@@ -3531,30 +3540,17 @@ fun CacheManagementBottomSheet(
                             isClearingCache = true
                             scope.launch {
                                 try {
-                                    // Clear cache using CacheManager
-                                    chromahub.rhythm.app.util.CacheManager.clearAllCache(context)
+                                    // Clear cache using CacheManager with canvas repository
+                                    chromahub.rhythm.app.util.CacheManager.clearAllCache(context, null, canvasRepository)
                                     
                                     // Clear in-memory caches from MusicRepository
                                     musicViewModel.getMusicRepository().clearInMemoryCaches()
                                     
                                     // Recalculate cache size
-                                    currentCacheSize = chromahub.rhythm.app.util.CacheManager.getCacheSize(context)
+                                    currentCacheSize = chromahub.rhythm.app.util.CacheManager.getCacheSize(context, canvasRepository)
                                     
-                                    val internalCacheSize = context.cacheDir.let { cacheDir ->
-                                        if (cacheDir.exists()) {
-                                            cacheDir.walkTopDown().filter { it.isFile }.map { it.length() }.sum()
-                                        } else 0L
-                                    }
-                                    val externalCacheSize = context.externalCacheDir?.let { externalCache ->
-                                        if (externalCache.exists()) {
-                                            externalCache.walkTopDown().filter { it.isFile }.map { it.length() }.sum()
-                                        } else 0L
-                                    } ?: 0L
-                                    
-                                    cacheDetails = mapOf(
-                                        "Internal Cache" to internalCacheSize,
-                                        "External Cache" to externalCacheSize
-                                    )
+                                    // Get updated detailed cache breakdown
+                                    cacheDetails = chromahub.rhythm.app.util.CacheManager.getDetailedCacheSize(context, canvasRepository)
                                     
                                     showClearCacheSuccess = true
                                     HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
