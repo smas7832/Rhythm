@@ -254,15 +254,45 @@ fun PlayerScreen(
     var isLyricsContentVisible by remember { mutableStateOf(false) }
     var isSongInfoVisible by remember { mutableStateOf(true) }
 
-    // Canvas video state with improved caching
+    // Canvas video state with improved caching and retry capability
     var canvasData by remember { mutableStateOf<CanvasData?>(null) }
     var isLoadingCanvas by remember { mutableStateOf(false) }
     var showCanvas by remember { mutableStateOf(false) }
+    var canvasRetryCount by remember { mutableStateOf(0) }
     val canvasRepository = remember { 
         CanvasRepository(context, appSettings).apply {
             // Clear expired cache entries on initialization and optimize memory
             clearExpiredCache()
             optimizeCache() // New method for better cache management
+        }
+    }
+
+    // Canvas retry function
+    val retryCanvasLoading = {
+        if (song != null && canvasRetryCount < 2) { // Allow up to 2 retries
+            canvasRetryCount++
+            isLoadingCanvas = true
+            
+            kotlinx.coroutines.GlobalScope.launch {
+                try {
+                    Log.d("PlayerScreen", "Retrying canvas load for: ${song.artist} - ${song.title} (attempt $canvasRetryCount)")
+                    val canvas = canvasRepository.retryCanvasForSong(song.artist, song.title)
+                    canvasData = canvas
+                    showCanvas = canvas != null
+                    
+                    if (canvas != null) {
+                        Log.d("PlayerScreen", "Canvas retry successful: ${canvas.videoUrl}")
+                    } else {
+                        Log.d("PlayerScreen", "Canvas retry failed - no canvas found")
+                    }
+                } catch (e: Exception) {
+                    Log.e("PlayerScreen", "Canvas retry failed: ${e.message}")
+                    canvasData = null
+                    showCanvas = false
+                } finally {
+                    isLoadingCanvas = false
+                }
+            }
         }
     }
 
@@ -285,13 +315,14 @@ fun PlayerScreen(
             // Reset canvas state
             showCanvas = false
             canvasData = null
+            canvasRetryCount = 0 // Reset retry count for new song
             
             // Try to load canvas for the new song
             isLoadingCanvas = true
             try {
                 Log.d("PlayerScreen", "Loading canvas for: ${song.artist} - ${song.title}")
                 
-                // First check if we have it cached
+                // Enhanced cache check with better logging
                 val cachedCanvas = canvasRepository.getCachedCanvas(song.artist, song.title)
                 if (cachedCanvas != null) {
                     Log.d("PlayerScreen", "Using cached canvas: ${cachedCanvas.videoUrl}")
@@ -299,6 +330,7 @@ fun PlayerScreen(
                     showCanvas = true
                     isLoadingCanvas = false
                 } else {
+                    Log.d("PlayerScreen", "No cached canvas found, fetching from API...")
                     // Fetch from API if not cached
                     val canvas = canvasRepository.fetchCanvasForSong(song.artist, song.title)
                     canvasData = canvas
@@ -313,7 +345,7 @@ fun PlayerScreen(
                 
                 // Preload canvas for upcoming queue items for better performance
                 if (queue.isNotEmpty() && queuePosition < queue.size) {
-                    val upcomingSongs = queue.drop(queuePosition).take(3).map { it.artist to it.title }
+                    val upcomingSongs = queue.drop(queuePosition + 1).take(3).map { it.artist to it.title }
                     if (upcomingSongs.isNotEmpty()) {
                         canvasRepository.preloadCanvasForQueue(upcomingSongs)
                     }
@@ -922,12 +954,98 @@ fun PlayerScreen(
                             ) {
                                 canvasData?.let { canvas ->
                                     Box(modifier = Modifier.fillMaxSize()) {
-                    CanvasPlayer(
-                        videoUrl = canvas.videoUrl,
-                        isPlaying = true, // Always keep canvas playing regardless of audio state
-                        cornerRadius = if (isCompactHeight) 20.dp else 28.dp,
-                        modifier = Modifier.fillMaxSize()
-                    )                                        // Bottom gradient overlay for canvas (like album art)
+                                        CanvasPlayer(
+                                            videoUrl = canvas.videoUrl,
+                                            isPlaying = true, // Always keep canvas playing regardless of audio state
+                                            cornerRadius = if (isCompactHeight) 20.dp else 28.dp,
+                                            modifier = Modifier.fillMaxSize(),
+                                            onCanvasLoaded = {
+                                                // Canvas loaded successfully
+                                            },
+                                            onCanvasFailed = {
+                                                // Canvas failed, fallback will be shown automatically
+                                            },
+                                            onRetryRequested = retryCanvasLoading,
+                                            fallbackContent = {
+                                                // Fallback to album art with same styling
+                                                Box(modifier = Modifier.fillMaxSize()) {
+                                                    // Album art content
+                                                    if (song?.artworkUri != null) {
+                                                        val imageRequest = remember(song.artworkUri, song.title) {
+                                                            ImageRequest.Builder(context)
+                                                                .apply(
+                                                                    ImageUtils.buildImageRequest(
+                                                                        song.artworkUri,
+                                                                        song.title,
+                                                                        context.cacheDir,
+                                                                        M3PlaceholderType.TRACK
+                                                                    )
+                                                                )
+                                                                .build()
+                                                        }
+                                                        AsyncImage(
+                                                            model = imageRequest,
+                                                            contentDescription = "Album artwork for ${song.title}",
+                                                            contentScale = ContentScale.Crop,
+                                                            modifier = Modifier
+                                                                .fillMaxSize()
+                                                                .clip(RoundedCornerShape(if (isCompactHeight) 20.dp else 28.dp))
+                                                        )
+                                                    } else {
+                                                        // Fallback to a placeholder if artwork is null
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .fillMaxSize()
+                                                                .clip(RoundedCornerShape(if (isCompactHeight) 20.dp else 28.dp)),
+                                                            contentAlignment = Alignment.Center
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = RhythmIcons.MusicNote,
+                                                                contentDescription = "Album artwork for ${song?.title}",
+                                                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                                                                modifier = Modifier.size(96.dp)
+                                                            )
+                                                        }
+                                                    }
+                                                    
+                                                    // Enhanced gradient overlay (same as regular album art)
+                                                    // Box(
+                                                    //     modifier = Modifier
+                                                    //         .fillMaxSize()
+                                                    //         .background(
+                                                    //             Brush.verticalGradient(
+                                                    //                 colors = listOf(
+                                                    //                     Color.Transparent,
+                                                    //                     MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                                                    //                     MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                                                    //                     MaterialTheme.colorScheme.surface.copy(alpha = 1.0f)
+                                                    //                 )
+                                                    //             )
+                                                    //         )
+                                                    // )
+                                                    
+                                                    // Horizontal gradient for more depth
+                                                    // Box(
+                                                    //     modifier = Modifier
+                                                    //         .fillMaxSize()
+                                                    //         .background(
+                                                    //             Brush.horizontalGradient(
+                                                    //                 colors = listOf(
+                                                    //                     MaterialTheme.colorScheme.surface.copy(alpha = 0.2f),
+                                                    //                     Color.Transparent,
+                                                    //                     Color.Transparent,
+                                                    //                     MaterialTheme.colorScheme.surface.copy(alpha = 0.2f)
+                                                    //                 )
+                                                    //             )
+                                                    //         )
+                                                    // )
+                                                }
+                                            }
+                                        )
+                                        
+                                        // Canvas-specific gradient overlays (only when canvas is actually playing)
+                                        // These will not show in fallback mode since fallback handles its own gradients
+                                        // Bottom gradient overlay for canvas (like album art)
                                         Box(
                                             modifier = Modifier
                                                 .fillMaxSize()

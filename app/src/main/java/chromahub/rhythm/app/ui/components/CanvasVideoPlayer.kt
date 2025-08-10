@@ -15,10 +15,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.Icon
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,6 +43,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import androidx.media3.common.util.UnstableApi
+import kotlinx.coroutines.delay
 
 /**
  * A composable that displays a looping video player for Spotify Canvas videos with enhanced performance
@@ -182,7 +188,7 @@ fun CanvasVideoPlayer(
             }
         }
         
-        // Loading state with lyrics-view-style overlay (show during loading or retry)
+        // Loading state with lyrics-view-style overlay (show during loading or retry, but not when falling back)
         if ((!isVideoLoaded && !hasError) || (hasError && retryCount < 2)) {
             Box(
                 modifier = Modifier
@@ -298,7 +304,7 @@ fun CanvasVideoPlayer(
 }
 
 /**
- * Simplified canvas player that handles common use cases with enhanced animations
+ * Simplified canvas player that handles common use cases with enhanced animations, preloader, and fallback support
  */
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
@@ -306,52 +312,187 @@ fun CanvasPlayer(
     videoUrl: String?,
     isPlaying: Boolean,
     modifier: Modifier = Modifier,
-    cornerRadius: androidx.compose.ui.unit.Dp = 28.dp
+    cornerRadius: androidx.compose.ui.unit.Dp = 28.dp,
+    onCanvasLoaded: (() -> Unit)? = null,
+    onCanvasFailed: (() -> Unit)? = null,
+    onRetryRequested: (() -> Unit)? = null,
+    fallbackContent: (@Composable () -> Unit)? = null
 ) {
     var isVisible by remember(videoUrl) { mutableStateOf(false) }
+    var showFallback by remember(videoUrl) { mutableStateOf(false) }
+    var isLoading by remember(videoUrl) { mutableStateOf(false) }
+    var canRetry by remember(videoUrl) { mutableStateOf(false) }
     
     LaunchedEffect(videoUrl) {
         isVisible = !videoUrl.isNullOrBlank()
+        showFallback = false
+        isLoading = !videoUrl.isNullOrBlank()
+        canRetry = false
     }
     
-    AnimatedVisibility(
-        visible = isVisible,
-        enter = fadeIn(
-            animationSpec = tween(
-                durationMillis = 700,
-                easing = FastOutSlowInEasing
+    // Show fallback content when canvas fails and fallback is provided
+    if (showFallback && fallbackContent != null) {
+        AnimatedVisibility(
+            visible = showFallback,
+            enter = fadeIn(
+                animationSpec = tween(
+                    durationMillis = 600,
+                    easing = FastOutSlowInEasing
+                )
+            ) + scaleIn(
+                initialScale = 0.95f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium
+                )
+            ),
+            exit = fadeOut(
+                animationSpec = tween(
+                    durationMillis = 400,
+                    easing = FastOutLinearInEasing
+                )
             )
-        ) + scaleIn(
-            initialScale = 0.9f,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessMedium
+        ) {
+            fallbackContent()
+        }
+        return
+    }
+    
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        // Canvas video player
+        AnimatedVisibility(
+            visible = isVisible,
+            enter = fadeIn(
+                animationSpec = tween(
+                    durationMillis = 700,
+                    easing = FastOutSlowInEasing
+                )
+            ) + scaleIn(
+                initialScale = 0.9f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium
+                )
+            ),
+            exit = fadeOut(
+                animationSpec = tween(
+                    durationMillis = 500,
+                    easing = FastOutLinearInEasing
+                )
+            ) + scaleOut(
+                targetScale = 0.95f,
+                animationSpec = tween(400)
             )
-        ),
-        exit = fadeOut(
-            animationSpec = tween(
-                durationMillis = 500,
-                easing = FastOutLinearInEasing
-            )
-        ) + scaleOut(
-            targetScale = 0.95f,
-            animationSpec = tween(400)
-        )
-    ) {
-        if (!videoUrl.isNullOrBlank()) {
-            CanvasVideoPlayer(
-                videoUrl = videoUrl,
-                isPlaying = isPlaying,
-                cornerRadius = cornerRadius,
-                modifier = modifier,
-                onVideoReady = {
-                    Log.d("CanvasPlayer", "Canvas video is ready and animated in")
-                },
-                onVideoError = {
-                    Log.w("CanvasPlayer", "Canvas video failed to load, will fade out")
-                    isVisible = false
+        ) {
+            if (!videoUrl.isNullOrBlank()) {
+                CanvasVideoPlayer(
+                    videoUrl = videoUrl,
+                    isPlaying = isPlaying,
+                    cornerRadius = cornerRadius,
+                    modifier = Modifier.fillMaxSize(),
+                    onVideoReady = {
+                        Log.d("CanvasPlayer", "Canvas video is ready and animated in")
+                        isLoading = false
+                        canRetry = false
+                        onCanvasLoaded?.invoke()
+                    },
+                    onVideoError = {
+                        Log.w("CanvasPlayer", "Canvas video failed to load")
+                        isLoading = false
+                        canRetry = true
+                        onCanvasFailed?.invoke()
+                    }
+                )
+            }
+        }
+
+        // Handle fallback logic after a delay if retry is possible
+        LaunchedEffect(canRetry) {
+            if (canRetry) {
+                delay(1000) // Give 1 second for potential retry
+                if (canRetry) { // Check again in case retry was initiated during delay
+                    if (fallbackContent != null) {
+                        Log.d("CanvasPlayer", "Switching to fallback content (album art)")
+                        showFallback = true
+                        isVisible = false
+                    } else {
+                        Log.d("CanvasPlayer", "No fallback provided, hiding canvas")
+                        isVisible = false
+                    }
                 }
+            }
+        }
+        
+        // Enhanced loading indicator with preloader styling
+        AnimatedVisibility(
+            visible = isLoading && !videoUrl.isNullOrBlank(),
+            enter = fadeIn(animationSpec = tween(300)),
+            exit = fadeOut(animationSpec = tween(400))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(cornerRadius)),
+                contentAlignment = Alignment.TopEnd
+            ) {
+                // Loading indicator in top-right corner with styling from PlayerScreen
+                Box(
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .size(40.dp)
+                        .clip(androidx.compose.foundation.shape.CircleShape)
+                        .background(
+                            MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    M3CircularLoader(
+                        modifier = Modifier.size(28.dp),
+                        fourColor = true,
+                        isExpressive = true
+                    )
+                }
+            }
+        }
+        
+        // Retry button when canvas fails to load
+        AnimatedVisibility(
+            visible = canRetry && !showFallback,
+            enter = fadeIn(animationSpec = tween(400)) + scaleIn(
+                initialScale = 0.8f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium
+                )
+            ),
+            exit = fadeOut(animationSpec = tween(300)) + scaleOut(
+                targetScale = 0.8f,
+                animationSpec = tween(300)
             )
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(cornerRadius)),
+                contentAlignment = Alignment.Center
+            ) {
+                androidx.compose.material3.FilledTonalButton(
+                    onClick = {
+                        canRetry = false
+                        isLoading = true
+                        onRetryRequested?.invoke()
+                    },
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    androidx.compose.material3.Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Default.Refresh,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    androidx.compose.foundation.layout.Spacer(modifier = Modifier.width(8.dp))
+                    androidx.compose.material3.Text("Retry Canvas")
+                }
+            }
         }
     }
 }

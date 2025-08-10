@@ -292,12 +292,37 @@ class CanvasRepository(private val context: Context, private val appSettings: Ap
     }
     
     /**
-     * Get cached canvas without making API calls
+     * Get cached canvas without making API calls - improved logic
      */
     fun getCachedCanvas(artist: String, title: String): CanvasData? {
         val trackIdKey = "$artist - $title"
-        val trackId = trackIdCache[trackIdKey] ?: return null
-        return canvasCache[trackId]
+        
+        // First check if we have a cached track ID
+        val trackId = trackIdCache[trackIdKey]
+        if (trackId != null) {
+            // We have a track ID, check for canvas data
+            val canvasData = canvasCache[trackId]
+            if (canvasData != null) {
+                Log.d(TAG, "Found cached canvas for $trackIdKey: ${canvasData.videoUrl}")
+                return canvasData
+            }
+        }
+        
+        // Alternative approach: check all canvas entries for matching artist/title
+        canvasCache.entries.forEach { (cachedTrackId, canvasData) ->
+            canvasData?.let { canvas ->
+                if (canvas.artistName?.equals(artist, ignoreCase = true) == true) {
+                    // Found a potential match, cache the trackId mapping for future use
+                    trackIdCache[trackIdKey] = cachedTrackId
+                    savePersistentCache()
+                    Log.d(TAG, "Found canvas via artist match for $trackIdKey: ${canvas.videoUrl}")
+                    return canvas
+                }
+            }
+        }
+        
+        Log.d(TAG, "No cached canvas found for $trackIdKey")
+        return null
     }
     
     /**
@@ -305,6 +330,38 @@ class CanvasRepository(private val context: Context, private val appSettings: Ap
      */
     fun hasCanvasInCache(artist: String, title: String): Boolean {
         return getCachedCanvas(artist, title) != null
+    }
+    
+    /**
+     * Invalidate cache for a specific song to force refresh
+     */
+    fun invalidateCanvasCache(artist: String, title: String) {
+        val trackIdKey = "$artist - $title"
+        val trackId = trackIdCache[trackIdKey]
+        if (trackId != null) {
+            canvasCache.remove(trackId)
+            Log.d(TAG, "Invalidated canvas cache for $trackIdKey")
+            savePersistentCache()
+        }
+    }
+    
+    /**
+     * Retry fetching canvas for a song (clears any cached null results first)
+     */
+    suspend fun retryCanvasForSong(artist: String, title: String): CanvasData? = withContext(Dispatchers.IO) {
+        Log.d(TAG, "Retrying canvas fetch for: $artist - $title")
+        
+        // Clear any cached null results to force a fresh API call
+        invalidateCanvasCache(artist, title)
+        
+        // Also clear any null track ID cache
+        val trackIdKey = "$artist - $title"
+        if (trackIdCache[trackIdKey] == null) {
+            trackIdCache.remove(trackIdKey)
+        }
+        
+        // Now fetch fresh from API
+        return@withContext fetchCanvasForSong(artist, title)
     }
     
     /**
