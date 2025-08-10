@@ -93,6 +93,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.toMutableStateList
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -1316,536 +1318,668 @@ fun PlayerScreen(
                     }
 
 
-                    Spacer(modifier = Modifier.height(if (isCompactHeight) 2.dp else 4.dp)) // Much reduced from contentSpacing
+                    // Spacer to push content up and allow bottom controls to be anchored
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                    // Optimized progress slider and time indicators - reduced padding with swipe responsiveness
-                    Column(
+                } // End of main content area that gets pushed up
+
+                // Bottom controls container - anchored to the bottom
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .graphicsLayer {
+                            // Subtle fade during swipe
+                            alpha = 1f - (miniPlayerProgress * 0.4f)
+                            translationY = miniPlayerProgress * 30f
+                        }
+                ) {
+                    // Progress bar and time indicators - combined into a single row with pill-shaped time indicators
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(
-                                horizontal = if (isCompactWidth) 12.dp else 16.dp, // Reduced padding
-                                vertical = 0.dp // Removed vertical padding
-                            )
-                            .graphicsLayer {
-                                // Fade out during swipe transition
-                                alpha = 1f - (miniPlayerProgress * 0.5f)
-                                translationY = miniPlayerProgress * 10f
-                            }
+                            .padding(horizontal = 20.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        // Progress slider
+                        // Current time pill
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                            modifier = Modifier.padding(horizontal = 2.dp, vertical = 1.dp)
+                        ) {
+                            Text(
+                                text = currentTimeFormatted,
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 12.sp
+                                ),
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+
+                        // Wave progress slider
                         WaveSlider(
                             value = progress,
                             onValueChange = onSeek,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 2.dp), // Reduced padding
+                            modifier = Modifier.weight(1f).padding(horizontal = 8.dp), // Give slider more space
                             waveColor = MaterialTheme.colorScheme.primary,
                             trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
                             isPlaying = isPlaying
                         )
-
-                        Spacer(modifier = Modifier.height(if (isCompactHeight) 1.dp else 2.dp)) // Reduced spacing
-
-                        // Time indicators with optimized styling and layout
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                        
+                        // Total time pill
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                            modifier = Modifier.padding(horizontal = 2.dp, vertical = 1.dp)
                         ) {
-                            // Current time with enhanced styling
-                            Surface(
-                                shape = RoundedCornerShape(if (isCompactHeight) 4.dp else 6.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                                modifier = Modifier.padding(1.dp) // Reduced padding
-                            ) {
-                                Text(
-                                    text = currentTimeFormatted,
-                                    style = MaterialTheme.typography.labelLarge.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        letterSpacing = 0.8.sp,
-                                        fontSize = if (isCompactHeight) 12.sp else 14.sp
-                                    ),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(
-                                        horizontal = if (isCompactHeight) 4.dp else 6.dp, // Reduced padding
-                                        vertical = 1.dp
-                                    )
-                                )
-                            }
-
-                            // Total time with enhanced styling
-                            Surface(
-                                shape = RoundedCornerShape(if (isCompactHeight) 4.dp else 6.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                                modifier = Modifier.padding(1.dp) // Reduced padding
-                            ) {
-                                Text(
-                                    text = totalTimeFormatted,
-                                    style = MaterialTheme.typography.labelLarge.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        letterSpacing = 0.8.sp,
-                                        fontSize = if (isCompactHeight) 12.sp else 14.sp
-                                    ),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(
-                                        horizontal = if (isCompactHeight) 4.dp else 6.dp, // Reduced padding
-                                        vertical = 1.dp
-                                    )
-                                )
-                            }
+                            Text(
+                                text = totalTimeFormatted,
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 12.sp
+                                ),
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(if (isCompactHeight) 4.dp else 6.dp)) // Reduced spacing before controls
+                    Spacer(modifier = Modifier.height(20.dp))
 
-                    // Player controls - optimized spacing and sizing with swipe responsiveness
+
+
+
+                    // Main player controls matching the reference image exactly
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(
-                                horizontal = if (isCompactWidth) 12.dp else 16.dp, // Reduced padding
-                                vertical = 0.dp // Removed vertical padding
-                            )
-                            .graphicsLayer {
-                                // Subtle fade and scale during swipe
-                                alpha = 1f - (miniPlayerProgress * 0.4f)
-                                scaleX = 1f - (miniPlayerProgress * 0.05f)
-                                scaleY = 1f - (miniPlayerProgress * 0.05f)
-                            },
+                            .padding(horizontal = 32.dp),
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Dynamic button sizes based on screen
-                        val smallButtonSize = if (isCompactHeight) 40.dp else 46.dp
-                        val mediumButtonSize = if (isCompactHeight) 64.dp else 72.dp
-                        val largeButtonSize = if (isCompactHeight) 72.dp else 80.dp
-                        val iconSizeSmall = if (isCompactHeight) 24.dp else 32.dp
-                        val iconSizeMedium = if (isCompactHeight) 28.dp else 36.dp
-                        val iconSizeLarge = if (isCompactHeight) 32.dp else 40.dp
-
-                        // Skip previous button
-                        FilledTonalIconButton(
+                        // Previous button - Circular like in reference image
+                        Surface(
                             onClick = {
                                 HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                                 onSkipPrevious()
                             },
-                            modifier = Modifier.size(smallButtonSize),
-                            shape = RoundedCornerShape(if (isCompactHeight) 20.dp else 28.dp),
-                            colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            modifier = Modifier.size(56.dp),
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            tonalElevation = 0.dp,
+                            shadowElevation = 0.dp
                         ) {
-                            Icon(
-                                imageVector = RhythmIcons.SkipPrevious,
-                                contentDescription = "Previous track",
-                                modifier = Modifier.size(iconSizeSmall)
-                            )
-                        }
-
-                        // Skip backward 10 seconds button
-                        FilledTonalIconButton(
-                            onClick = {
-                                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
-                                onSeek(
-                                    progress - (10000f / (song?.duration ?: 1))
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                Icon(
+                                    imageVector = RhythmIcons.SkipPrevious,
+                                    contentDescription = "Previous track",
+                                    modifier = Modifier.size(24.dp),
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
                                 )
-                            },
-                            modifier = Modifier.size(mediumButtonSize),
-                            shape = RoundedCornerShape(if (isCompactHeight) 20.dp else 28.dp),
-                            colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        ) {
-                            Icon(
-                                imageVector = RhythmIcons.Replay10,
-                                contentDescription = "Replay 10 seconds",
-                                modifier = Modifier.size(iconSizeMedium)
-                            )
+                            }
                         }
 
-                        // Play/pause button (larger)
-                        FilledIconButton(
+
+                        // Play/Pause button - Large Oval/Pill shaped exactly like in reference image
+                        Surface(
                             onClick = {
                                 HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                                 onPlayPause()
                             },
-                            modifier = Modifier.size(largeButtonSize),
-                            shape = if (isPlaying) RoundedCornerShape(if (isCompactHeight) 20.dp else 28.dp) else CircleShape,
-                            colors = IconButtonDefaults.filledIconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary
-                            )
+                            modifier = Modifier
+                                .width(140.dp)
+                                .height(60.dp),
+                            shape = RoundedCornerShape(30.dp), // Pill/oval shape
+                            color = MaterialTheme.colorScheme.primary,
+                            tonalElevation = 0.dp,
+                            shadowElevation = 0.dp
                         ) {
-                            Icon(
-                                imageVector = if (isPlaying) RhythmIcons.Pause else RhythmIcons.Play,
-                                contentDescription = if (isPlaying) "Pause" else "Play",
-                                modifier = Modifier.size(iconSizeLarge)
-                            )
-                        }
-
-                        // Skip forward 10 seconds button
-                        FilledTonalIconButton(
-                            onClick = {
-                                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
-                                onSeek(
-                                    progress + (10000f / (song?.duration ?: 1))
+                            Row(
+                                modifier = Modifier.fillMaxSize(),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = if (isPlaying) RhythmIcons.Pause else RhythmIcons.Play,
+                                    contentDescription = if (isPlaying) "Pause" else "Play",
+                                    modifier = Modifier.size(24.dp),
+                                    tint = MaterialTheme.colorScheme.onPrimary
                                 )
-                            },
-                            modifier = Modifier.size(mediumButtonSize),
-                            shape = RoundedCornerShape(if (isCompactHeight) 20.dp else 28.dp),
-                            colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        ) {
-                            Icon(
-                                imageVector = RhythmIcons.Forward10,
-                                contentDescription = "Forward 10 seconds",
-                                modifier = Modifier.size(iconSizeMedium)
-                            )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = if (isPlaying) "PAUSE" else "PLAY",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 1.2.sp
+                                    ),
+                                    color = MaterialTheme.colorScheme.onPrimary
+                                )
+                            }
                         }
 
-                        // Skip next button
-                        FilledTonalIconButton(
+
+                        // Next button - Circular like in reference image
+                        Surface(
                             onClick = {
                                 HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                                 onSkipNext()
                             },
-                            modifier = Modifier.size(smallButtonSize),
-                            shape = RoundedCornerShape(if (isCompactHeight) 20.dp else 28.dp),
-                            colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            modifier = Modifier.size(56.dp),
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            tonalElevation = 0.dp,
+                            shadowElevation = 0.dp
                         ) {
-                            Icon(
-                                imageVector = RhythmIcons.SkipNext,
-                                contentDescription = "Next track",
-                                modifier = Modifier.size(iconSizeSmall)
-                            )
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                Icon(
+                                    imageVector = RhythmIcons.SkipNext,
+                                    contentDescription = "Next track",
+                                    modifier = Modifier.size(24.dp),
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(if (isCompactHeight) 4.dp else 8.dp)) // Reduced spacing
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                    // Action buttons row - optimized layout with reduced spacing
-                    if (!isCompactHeight) {
-                        Row(
+                    // Secondary action buttons row - compact design
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 32.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Shuffle button
+                        val shuffleIsActive = isShuffleEnabled
+                        val shuffleButtonColor by animateColorAsState(
+                            targetValue = if (shuffleIsActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
+                            label = "shuffleButtonColor"
+                        )
+                        val shuffleContentColor by animateColorAsState(
+                            targetValue = if (shuffleIsActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            label = "shuffleContentColor"
+                        )
+                        val shuffleButtonWidth by animateDpAsState(
+                            targetValue = if (shuffleIsActive) 100.dp else 48.dp,
+                            label = "shuffleButtonWidth"
+                        )
+                        val shuffleButtonShape by animateDpAsState(
+                            targetValue = if (shuffleIsActive) 24.dp else 24.dp, // 24.dp for RoundedCornerShape(24.dp) and CircleShape for 48.dp size
+                            label = "shuffleButtonShape"
+                        )
+
+                        Surface(
+                            onClick = {
+                                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                                onToggleShuffle()
+                            },
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(
-                                    horizontal = if (isCompactWidth) 16.dp else 20.dp // Reduced padding
-                                ),
-                            horizontalArrangement = Arrangement.SpaceEvenly,
-                            verticalAlignment = Alignment.CenterVertically
+                                .width(shuffleButtonWidth)
+                                .height(48.dp),
+                            shape = RoundedCornerShape(shuffleButtonShape),
+                            color = shuffleButtonColor,
+                            tonalElevation = 0.dp,
+                            shadowElevation = 0.dp
                         ) {
-                            // Optimized button size for action buttons
-                            val actionButtonSize =
-                                if (isLargeHeight) 48.dp else 44.dp // Reduced sizes
-
-                            // Shuffle button with badge if enabled
-                            BadgedBox(
-                                badge = {
-                                    if (isShuffleEnabled) {
-                                        Badge(
-                                            containerColor = MaterialTheme.colorScheme.primary
+                            Row(
+                                modifier = Modifier.fillMaxSize(),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = RhythmIcons.Shuffle,
+                                    contentDescription = "Toggle shuffle",
+                                    modifier = Modifier.size(20.dp),
+                                    tint = shuffleContentColor
+                                )
+                                AnimatedVisibility(visible = shuffleIsActive) {
+                                    Row {
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "SHUFFLE",
+                                            style = MaterialTheme.typography.labelMedium.copy(
+                                                fontWeight = FontWeight.Bold,
+                                                letterSpacing = 0.8.sp
+                                            ),
+                                            color = shuffleContentColor
                                         )
                                     }
                                 }
-                            ) {
-                                IconButton(
-                                    onClick = {
-                                        HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
-                                        onToggleShuffle()
-                                    },
-                                    modifier = Modifier.size(actionButtonSize)
-                                ) {
-                                    Icon(
-                                        imageVector = RhythmIcons.Shuffle,
-                                        contentDescription = "Toggle shuffle",
-                                        tint = if (isShuffleEnabled)
-                                            MaterialTheme.colorScheme.primary
-                                        else
-                                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                                    )
-                                }
                             }
+                        }
 
-                            // Favorite button
-                            FilledTonalIconButton(
+                        // Lyrics toggle button (only show if lyrics are enabled)
+                        if (showLyrics) {
+                            val lyricsIsActive = showLyricsView
+                            val lyricsButtonColor by animateColorAsState(
+                                targetValue = if (lyricsIsActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
+                                label = "lyricsButtonColor"
+                            )
+                            val lyricsContentColor by animateColorAsState(
+                                targetValue = if (lyricsIsActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                label = "lyricsContentColor"
+                            )
+                            val lyricsButtonWidth by animateDpAsState(
+                                targetValue = if (lyricsIsActive) 100.dp else 48.dp,
+                                label = "lyricsButtonWidth"
+                            )
+                            val lyricsButtonShape by animateDpAsState(
+                                targetValue = if (lyricsIsActive) 24.dp else 24.dp,
+                                label = "lyricsButtonShape"
+                            )
+
+                            Surface(
                                 onClick = {
                                     HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
-                                    onToggleFavorite()
+                                    if (!isLyricsContentVisible && isSongInfoVisible) {
+                                        showLyricsView = !showLyricsView
+                                    } else if (isLyricsContentVisible && !isSongInfoVisible) {
+                                        showLyricsView = !showLyricsView
+                                    }
                                 },
-                                modifier = Modifier.size(actionButtonSize),
-                                colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                modifier = Modifier
+                                    .width(lyricsButtonWidth)
+                                    .height(48.dp),
+                                shape = RoundedCornerShape(lyricsButtonShape),
+                                color = lyricsButtonColor,
+                            tonalElevation = 0.dp,
+                            shadowElevation = 0.dp
                             ) {
-                                Icon(
-                                    imageVector = if (isFavorite) RhythmIcons.FavoriteFilled else RhythmIcons.Favorite,
-                                    contentDescription = "Toggle favorite",
-                                    tint = if (isFavorite)
-                                        MaterialTheme.colorScheme.error
-                                    else
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-
-                            // Lyrics toggle button (only show if lyrics are enabled)
-                            if (showLyrics) {
-                                FilledTonalIconButton(
-                                    onClick = {
-                                        HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
-                                        // Use same improved logic as album art click
-                                        if (!isLyricsContentVisible && isSongInfoVisible) {
-                                            // Only toggle if not currently transitioning
-                                            showLyricsView = !showLyricsView
-                                        } else if (isLyricsContentVisible && !isSongInfoVisible) {
-                                            // Allow toggling back from lyrics view
-                                            showLyricsView = !showLyricsView
-                                        }
-                                    },
-                                    modifier = Modifier.size(actionButtonSize),
-                                    colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
+                                Row(
+                                    modifier = Modifier.fillMaxSize(),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(
                                         imageVector = RhythmIcons.Player.Lyrics,
                                         contentDescription = "Toggle lyrics",
-                                        tint = if (showLyricsView)
-                                            MaterialTheme.colorScheme.primary
-                                        else
-                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        modifier = Modifier.size(20.dp),
+                                        tint = lyricsContentColor
                                     )
-                                }
-                            }
-
-                            FilledTonalIconButton(
-                                onClick = {
-                                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
-                                    onAddToPlaylist()
-                                },
-                                modifier = Modifier.size(actionButtonSize),
-                                colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            ) {
-                                Icon(
-                                    imageVector = RhythmIcons.AddToPlaylist,
-                                    contentDescription = "Add to playlist"
-                                )
-                            }
-
-                            // Repeat button with badge for mode
-                            BadgedBox(
-                                badge = {
-                                    if (repeatMode > 0) {
-                                        Badge(
-                                            containerColor = MaterialTheme.colorScheme.primary
-                                        ) {
-                                            if (repeatMode == 1) {
-                                                Text(
-                                                    "1",
-                                                    style = MaterialTheme.typography.labelSmall
-                                                )
-                                            }
+                                    AnimatedVisibility(visible = lyricsIsActive) {
+                                        Row {
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                text = "LYRICS",
+                                                style = MaterialTheme.typography.labelMedium.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                    letterSpacing = 0.8.sp
+                                                ),
+                                                color = lyricsContentColor
+                                            )
                                         }
                                     }
                                 }
+                            }
+                        }
+
+                        // Repeat button
+                        val repeatIsActive = repeatMode != 0
+                        val repeatButtonColor by animateColorAsState(
+                            targetValue = if (repeatIsActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
+                            label = "repeatButtonColor"
+                        )
+                        val repeatContentColor by animateColorAsState(
+                            targetValue = if (repeatIsActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            label = "repeatContentColor"
+                        )
+                        val repeatButtonWidth by animateDpAsState(
+                            targetValue = if (repeatIsActive) 100.dp else 48.dp,
+                            label = "repeatButtonWidth"
+                        )
+                        val repeatButtonShape by animateDpAsState(
+                            targetValue = if (repeatIsActive) 24.dp else 24.dp,
+                            label = "repeatButtonShape"
+                        )
+
+                        Surface(
+                            onClick = {
+                                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                                onToggleRepeat()
+                            },
+                            modifier = Modifier
+                                .width(repeatButtonWidth)
+                                .height(48.dp),
+                            shape = RoundedCornerShape(repeatButtonShape),
+                            color = repeatButtonColor,
+                            tonalElevation = 0.dp,
+                            shadowElevation = 0.dp
+                        ) {
+                            Row(
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxSize()
                             ) {
-                                IconButton(
-                                    onClick = {
-                                        HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
-                                        onToggleRepeat()
-                                    },
-                                    modifier = Modifier.size(actionButtonSize)
-                                ) {
-                                    val icon = when (repeatMode) {
-                                        1 -> RhythmIcons.RepeatOne
-                                        2 -> RhythmIcons.Repeat
-                                        else -> RhythmIcons.Repeat
-                                    }
+                                val icon = when (repeatMode) {
+                                    1 -> RhythmIcons.RepeatOne
+                                    2 -> RhythmIcons.Repeat
+                                    else -> RhythmIcons.Repeat
+                                }
 
-                                    val tint = when (repeatMode) {
-                                        0 -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                                        else -> MaterialTheme.colorScheme.primary
+                                Icon(
+                                    imageVector = icon,
+                                    contentDescription = "Toggle repeat mode",
+                                    modifier = Modifier.size(20.dp),
+                                    tint = repeatContentColor
+                                )
+                                AnimatedVisibility(visible = repeatIsActive) {
+                                    Row {
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "REPEAT",
+                                            style = MaterialTheme.typography.labelMedium.copy(
+                                                fontWeight = FontWeight.Bold,
+                                                letterSpacing = 0.8.sp
+                                            ),
+                                            color = repeatContentColor
+                                        )
                                     }
+                                }
+                            }
+                        }
+                    }
 
-                                    Icon(
-                                        imageVector = icon,
-                                        contentDescription = "Toggle repeat mode",
-                                        tint = tint
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Seek, Add to Playlist, Seek buttons
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 32.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Seek 10 seconds back button
+                        Surface(
+                            onClick = {
+                                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                                onSeek((currentTimeMs - 10000).coerceAtLeast(0L).toFloat() / totalTimeMs)
+                            },
+                            modifier = Modifier.size(48.dp),
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            tonalElevation = 0.dp,
+                            shadowElevation = 0.dp
+                        ) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                Icon(
+                                    imageVector = RhythmIcons.Replay10, // Assuming you have a SeekBack10 icon
+                                    contentDescription = "Seek 10 seconds back",
+                                    modifier = Modifier.size(20.dp),
+                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                )
+                            }
+                        }
+
+                        // Add to playlist button (icon only, no animation, no elevation)
+                        Surface(
+                            onClick = {
+                                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                                onAddToPlaylist()
+                            },
+                            modifier = Modifier.size(48.dp), // Fixed size
+                            shape = CircleShape, // Circular shape
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh, // Use a neutral color
+                            tonalElevation = 0.dp, // No elevation
+                            shadowElevation = 0.dp // No elevation
+                        ) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                Icon(
+                                    imageVector = RhythmIcons.AddToPlaylist,
+                                    contentDescription = "Add to playlist",
+                                    modifier = Modifier.size(20.dp),
+                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                )
+                            }
+                        }
+
+                        // Favorite button (animated expand like shuffle, red background, no elevation)
+                        val favoriteButtonColor by animateColorAsState(
+                            targetValue = if (isFavorite) Color.Red else MaterialTheme.colorScheme.surfaceContainerHigh, // Red background when favorited
+                            label = "favoriteButtonColor"
+                        )
+                        val favoriteContentColor by animateColorAsState(
+                            targetValue = if (isFavorite) Color.White else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), // White icon when favorited
+                            label = "favoriteContentColor"
+                        )
+                        val favoriteButtonWidth by animateDpAsState(
+                            targetValue = if (isFavorite) 100.dp else 48.dp, // Animate width like shuffle
+                            label = "favoriteButtonWidth"
+                        )
+                        val favoriteButtonShape by animateDpAsState(
+                            targetValue = if (isFavorite) 24.dp else 24.dp, // Animate shape like shuffle
+                            label = "favoriteButtonShape"
+                        )
+                        Surface(
+                            onClick = {
+                                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                                onToggleFavorite()
+                            },
+                            modifier = Modifier
+                                .width(favoriteButtonWidth) // Use animated width
+                                .height(48.dp), // Fixed height
+                            shape = RoundedCornerShape(favoriteButtonShape), // Use animated shape
+                            color = favoriteButtonColor,
+                            tonalElevation = 0.dp, // No elevation
+                            shadowElevation = 0.dp // No elevation
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxSize(),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = if (isFavorite) RhythmIcons.FavoriteFilled else RhythmIcons.Favorite,
+                                    contentDescription = "Toggle favorite",
+                                    modifier = Modifier.size(20.dp), // Smaller icon
+                                    tint = favoriteContentColor
+                                )
+                                AnimatedVisibility(visible = isFavorite) { // Add animated text
+                                    Row {
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "FAVORITE",
+                                            style = MaterialTheme.typography.labelMedium.copy(
+                                                fontWeight = FontWeight.Bold,
+                                                letterSpacing = 0.8.sp
+                                            ),
+                                            color = favoriteContentColor
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // Seek 10 seconds forward button
+                        Surface(
+                            onClick = {
+                                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                                onSeek((currentTimeMs + 10000).coerceAtMost(totalTimeMs.toLong()).toFloat() / totalTimeMs)
+                            },
+                            modifier = Modifier.size(48.dp),
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            tonalElevation = 0.dp,
+                            shadowElevation = 0.dp
+                        ) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                Icon(
+                                    imageVector = RhythmIcons.Forward10, // Assuming you have a SeekForward10 icon
+                                    contentDescription = "Seek 10 seconds forward",
+                                    modifier = Modifier.size(20.dp),
+                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                )
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Bottom buttons - optimized responsive design with reduced padding
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            horizontal = if (isCompactWidth) 8.dp else 12.dp,   // Reduced padding
+                            vertical = if (isCompactHeight) 8.dp else 12.dp    // Reduced padding
+                        ),
+                    horizontalArrangement = Arrangement.spacedBy(
+                        if (isCompactWidth) 6.dp else 8.dp // Reduced spacing
+                    )
+                ) {
+                    // Device Output button with rounded pill shape - optimized padding
+                    Surface(
+                        onClick = {
+                            HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                            showDeviceOutputSheet = true
+                        },
+                        shape = RoundedCornerShape(if (isCompactHeight) 20.dp else 24.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        tonalElevation = 0.dp,
+                        shadowElevation = 0.dp,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(
+                                    vertical = if (isCompactHeight) 8.dp else 10.dp,    // Reduced padding
+                                    horizontal = if (isCompactWidth) 8.dp else 12.dp    // Reduced padding
+                                ),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            // Choose icon based on device type
+                            val icon = when {
+                                location?.id?.startsWith("bt_") == true -> RhythmIcons.BluetoothFilled
+                                location?.id == "wired_headset" -> RhythmIcons.HeadphonesFilled
+                                location?.id == "speaker" -> RhythmIcons.SpeakerFilled
+                                else -> RhythmIcons.Location
+                            }
+
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(if (isCompactHeight) 20.dp else 24.dp)
+                            )
+
+                            if (!isCompactWidth) {
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        text = location?.name ?: "Device Output",
+                                        style = MaterialTheme.typography.labelLarge.copy(
+                                            fontSize = if (isCompactHeight) 12.sp else 14.sp
+                                        ),
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        textAlign = TextAlign.Center
+                                    )
+                                    val displayVolume =
+                                        if (useSystemVolume) systemVolume else volume
+                                    val volumeText = if (useSystemVolume) "System" else "App"
+                                    Text(
+                                        text = "${(displayVolume * 100).toInt()}% $volumeText",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontSize = if (isCompactHeight) 10.sp else 12.sp
+                                        ),
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(
+                                            alpha = 0.7f
+                                        ),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        textAlign = TextAlign.Center
                                     )
                                 }
                             }
                         }
                     }
 
-                } // Closing brace for the main content Column
-
-                // Bottom buttons - optimized responsive design with reduced padding
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(
-                                horizontal = if (isCompactWidth) 8.dp else 12.dp,   // Reduced padding
-                                vertical = if (isCompactHeight) 8.dp else 12.dp    // Reduced padding
-                            ),
-                        horizontalArrangement = Arrangement.spacedBy(
-                            if (isCompactWidth) 6.dp else 8.dp // Reduced spacing
-                        )
-                    ) {
-                        // Device Output button with rounded pill shape - optimized padding
-                        Card(
-                            onClick = {
-                                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
-                                showDeviceOutputSheet = true
-                            },
-                            shape = RoundedCornerShape(if (isCompactHeight) 20.dp else 24.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer
-                            ),
-                            elevation = CardDefaults.cardElevation(
-                                defaultElevation = 0.dp
-                            ),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(
-                                        vertical = if (isCompactHeight) 8.dp else 10.dp,    // Reduced padding
-                                        horizontal = if (isCompactWidth) 8.dp else 12.dp    // Reduced padding
-                                    ),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                // Choose icon based on device type
-                                val icon = when {
-                                    location?.id?.startsWith("bt_") == true -> RhythmIcons.BluetoothFilled
-                                    location?.id == "wired_headset" -> RhythmIcons.HeadphonesFilled
-                                    location?.id == "speaker" -> RhythmIcons.SpeakerFilled
-                                    else -> RhythmIcons.Location
-                                }
-
-                                Icon(
-                                    imageVector = icon,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.size(if (isCompactHeight) 20.dp else 24.dp)
-                                )
-
-                                if (!isCompactWidth) {
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text(
-                                            text = location?.name ?: "Device Output",
-                                            style = MaterialTheme.typography.labelLarge.copy(
-                                                fontSize = if (isCompactHeight) 12.sp else 14.sp
-                                            ),
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            textAlign = TextAlign.Center
-                                        )
-                                        val displayVolume =
-                                            if (useSystemVolume) systemVolume else volume
-                                        val volumeText = if (useSystemVolume) "System" else "App"
-                                        Text(
-                                            text = "${(displayVolume * 100).toInt()}% $volumeText",
-                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                fontSize = if (isCompactHeight) 10.sp else 12.sp
-                                            ),
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(
-                                                alpha = 0.7f
-                                            ),
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            textAlign = TextAlign.Center
-                                        )
-                                    }
-                                }
+                    // Queue button - optimized design with reduced padding
+                    Surface(
+                        onClick = {
+                            HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                            if (song != null) {
+                                showQueueSheet = true
+                            } else {
+                                onQueueClick()
                             }
-                        }
-
-                        // Queue button - optimized design with reduced padding
-                        Card(
-                            onClick = {
-                                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
-                                if (song != null) {
-                                    showQueueSheet = true
-                                } else {
-                                    onQueueClick()
-                                }
-                            },
-                            shape = RoundedCornerShape(if (isCompactHeight) 20.dp else 24.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer
-                            ),
-                            elevation = CardDefaults.cardElevation(
-                                defaultElevation = 0.dp
-                            ),
-                            modifier = Modifier.weight(1f)
+                        },
+                        shape = RoundedCornerShape(if (isCompactHeight) 20.dp else 24.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        tonalElevation = 0.dp,
+                        shadowElevation = 0.dp,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(
+                                    vertical = if (isCompactHeight) 8.dp else 10.dp,    // Reduced padding
+                                    horizontal = if (isCompactWidth) 8.dp else 12.dp    // Reduced padding
+                                ),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
                         ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(
-                                        vertical = if (isCompactHeight) 8.dp else 10.dp,    // Reduced padding
-                                        horizontal = if (isCompactWidth) 8.dp else 12.dp    // Reduced padding
-                                    ),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Icon(
-                                    imageVector = RhythmIcons.Queue,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.size(if (isCompactHeight) 20.dp else 24.dp)
-                                )
+                            Icon(
+                                imageVector = RhythmIcons.Queue,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(if (isCompactHeight) 20.dp else 24.dp)
+                            )
 
-                                if (!isCompactWidth) {
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text(
-                                            text = "Queue",
-                                            style = MaterialTheme.typography.labelLarge.copy(
-                                                fontSize = if (isCompactHeight) 12.sp else 14.sp
-                                            ),
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            textAlign = TextAlign.Center
-                                        )
-                                        Text(
-                                            text = "$queuePosition of $queueTotal",
-                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                fontSize = if (isCompactHeight) 10.sp else 12.sp
-                                            ),
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(
-                                                alpha = 0.7f
-                                            ),
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            textAlign = TextAlign.Center
-                                        )
-                                    }
+                            if (!isCompactWidth) {
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        text = "Queue",
+                                        style = MaterialTheme.typography.labelLarge.copy(
+                                            fontSize = if (isCompactHeight) 12.sp else 14.sp
+                                        ),
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        textAlign = TextAlign.Center
+                                    )
+                                    Text(
+                                        text = "$queuePosition of $queueTotal",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontSize = if (isCompactHeight) 10.sp else 12.sp
+                                        ),
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(
+                                            alpha = 0.7f
+                                        ),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        textAlign = TextAlign.Center
+                                    )
                                 }
                             }
                         }
                     }
                 }
+
             }
         }
     }
