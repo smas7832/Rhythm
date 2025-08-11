@@ -137,6 +137,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.asPaddingValues
 import chromahub.rhythm.app.ui.components.formatDuration
 import java.util.concurrent.TimeUnit // Import TimeUnit for duration formatting
+import chromahub.rhythm.app.ui.components.M3CircularLoader // Added for play/pause button loader
 import chromahub.rhythm.app.ui.screens.QueueBottomSheet
 import chromahub.rhythm.app.ui.screens.LibraryTab
 import chromahub.rhythm.app.ui.screens.AddToPlaylistBottomSheet
@@ -370,6 +371,22 @@ fun PlayerScreen(
     var showQueueSheet by remember { mutableStateOf(false) }
     var showDeviceOutputSheet by remember { mutableStateOf(false) }
     var showSongInfoSheet by remember { mutableStateOf(false) }
+
+    // State for showing loader in play/pause button
+    var showLoaderInPlayPauseButton by remember { mutableStateOf(false) }
+    var lastProgressUpdate by remember { mutableFloatStateOf(progress) }
+    var lastIsPlayingUpdate by remember { mutableStateOf(isPlaying) }
+
+    // LaunchedEffect to hide loader after seek/load completes
+    LaunchedEffect(progress, isPlaying) {
+        // Only react if the loader is currently active and there's a change in progress or play state
+        if (showLoaderInPlayPauseButton && (abs(progress - lastProgressUpdate) > 0.001f || isPlaying != lastIsPlayingUpdate)) {
+            delay(300) // Small delay to show the loader animation
+            showLoaderInPlayPauseButton = false
+            lastProgressUpdate = progress
+            lastIsPlayingUpdate = isPlaying
+        }
+    }
 
     // For swipe down gesture detection - enhanced for continuous sliding
     var targetOffsetY by remember { mutableStateOf(0f) }
@@ -1396,7 +1413,7 @@ fun PlayerScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 32.dp),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        horizontalArrangement = if (isPlaying) Arrangement.SpaceEvenly else Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), // Adjust spacing based on play state
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         // Previous button - Circular like in reference image
@@ -1405,7 +1422,7 @@ fun PlayerScreen(
                                 HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                                 onSkipPrevious()
                             },
-                            modifier = Modifier.size(56.dp),
+                            modifier = Modifier.size(48.dp),
                             shape = CircleShape,
                             color = MaterialTheme.colorScheme.primaryContainer,
                             tonalElevation = 0.dp,
@@ -1424,16 +1441,57 @@ fun PlayerScreen(
                             }
                         }
 
+                        // Seek 10 seconds back button
+                        AnimatedVisibility(
+                            visible = isPlaying, // Show when paused
+                            enter = fadeIn() + scaleIn(),
+                            exit = fadeOut() + scaleOut()
+                        ) {
+                            Surface(
+                                onClick = {
+                                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                                    showLoaderInPlayPauseButton = true // Set loader visible
+                                    onSeek((currentTimeMs - 10000).coerceAtLeast(0L).toFloat() / totalTimeMs)
+                                },
+                                modifier = Modifier.size(56.dp),
+                                shape = RoundedCornerShape(24.dp), // Squircle shape
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                tonalElevation = 0.dp,
+                                shadowElevation = 0.dp
+                            ) {
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+                                    Icon(
+                                        imageVector = RhythmIcons.Replay10,
+                                        contentDescription = "Seek 10 seconds back",
+                                        modifier = Modifier.size(24.dp),
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+                            }
+                        }
 
                         // Play/Pause button - Large Oval/Pill shaped exactly like in reference image
+                        val playPauseButtonWidth by animateDpAsState(
+                            targetValue = if (isPlaying) 60.dp else 140.dp, // Expand when inactive
+                            animationSpec = tween(delayMillis = if (isPlaying) 0 else 200), // Add delay when turning into pill
+                            label = "playPauseButtonWidth"
+                        )
+                        val playPauseButtonHeight by animateDpAsState(
+                            targetValue = if (isPlaying) 60.dp else 60.dp, // Keep height consistent
+                            label = "playPauseButtonHeight"
+                        )
+
                         Surface(
                             onClick = {
                                 HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                                 onPlayPause()
                             },
                             modifier = Modifier
-                                .width(140.dp)
-                                .height(60.dp),
+                                .width(playPauseButtonWidth)
+                                .height(playPauseButtonHeight),
                             shape = RoundedCornerShape(30.dp), // Pill/oval shape
                             color = MaterialTheme.colorScheme.primary,
                             tonalElevation = 0.dp,
@@ -1444,24 +1502,71 @@ fun PlayerScreen(
                                 horizontalArrangement = Arrangement.Center,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(
-                                    imageVector = if (isPlaying) RhythmIcons.Pause else RhythmIcons.Play,
-                                    contentDescription = if (isPlaying) "Pause" else "Play",
-                                    modifier = Modifier.size(24.dp),
-                                    tint = MaterialTheme.colorScheme.onPrimary
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = if (isPlaying) "PAUSE" else "PLAY",
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        letterSpacing = 1.2.sp
-                                    ),
-                                    color = MaterialTheme.colorScheme.onPrimary
-                                )
+                                if (showLoaderInPlayPauseButton) {
+                                    M3CircularLoader(
+                                        modifier = Modifier.size(24.dp), // Adjust size to fit
+                                        color = MaterialTheme.colorScheme.onPrimary,
+                                        isExpressive = true
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = if (isPlaying) RhythmIcons.Pause else RhythmIcons.Play,
+                                        contentDescription = if (isPlaying) "Pause" else "Play",
+                                        modifier = Modifier.size(24.dp),
+                                        tint = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                    AnimatedVisibility(
+                                        visible = !isPlaying && !showLoaderInPlayPauseButton, // Show text when inactive and no loader
+                                        enter = fadeIn(animationSpec = tween(delayMillis = 200)), // Add delay when turning into pill
+                                        exit = fadeOut(animationSpec = tween(delayMillis = 0)) // No delay when turning into circle
+                                    ) {
+                                        Row {
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = if (isPlaying) "PAUSE" else "PLAY",
+                                                style = MaterialTheme.typography.titleMedium.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                    letterSpacing = 1.2.sp
+                                                ),
+                                                color = MaterialTheme.colorScheme.onPrimary
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
 
+                        // Seek 10 seconds forward button
+                        AnimatedVisibility(
+                            visible = isPlaying, // Show when paused
+                            enter = fadeIn() + scaleIn(),
+                            exit = fadeOut() + scaleOut()
+                        ) {
+                            Surface(
+                                onClick = {
+                                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                                    showLoaderInPlayPauseButton = true // Set loader visible
+                                    onSeek((currentTimeMs + 10000).coerceAtMost(totalTimeMs.toLong()).toFloat() / totalTimeMs)
+                                },
+                                modifier = Modifier.size(56.dp),
+                                shape = RoundedCornerShape(24.dp), // Squircle shape
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                tonalElevation = 0.dp,
+                                shadowElevation = 0.dp
+                            ) {
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+                                    Icon(
+                                        imageVector = RhythmIcons.Forward10,
+                                        contentDescription = "Seek 10 seconds forward",
+                                        modifier = Modifier.size(24.dp),
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+                            }
+                        }
 
                         // Next button - Circular like in reference image
                         Surface(
@@ -1469,7 +1574,7 @@ fun PlayerScreen(
                                 HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                                 onSkipNext()
                             },
-                            modifier = Modifier.size(56.dp),
+                            modifier = Modifier.size(48.dp),
                             shape = CircleShape,
                             color = MaterialTheme.colorScheme.primaryContainer,
                             tonalElevation = 0.dp,
@@ -1489,7 +1594,7 @@ fun PlayerScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     // Secondary action buttons row - compact design
                     Row(
@@ -1510,7 +1615,7 @@ fun PlayerScreen(
                             label = "shuffleContentColor"
                         )
                         val shuffleButtonWidth by animateDpAsState(
-                            targetValue = if (shuffleIsActive) 100.dp else 48.dp,
+                            targetValue = if (shuffleIsActive) 48.dp else 100.dp, // Expand when inactive
                             label = "shuffleButtonWidth"
                         )
                         val shuffleButtonShape by animateDpAsState(
@@ -1542,7 +1647,7 @@ fun PlayerScreen(
                                     modifier = Modifier.size(20.dp),
                                     tint = shuffleContentColor
                                 )
-                                AnimatedVisibility(visible = shuffleIsActive) {
+                                AnimatedVisibility(visible = !shuffleIsActive) { // Show text when inactive
                                     Row {
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Text(
@@ -1570,7 +1675,7 @@ fun PlayerScreen(
                                 label = "lyricsContentColor"
                             )
                             val lyricsButtonWidth by animateDpAsState(
-                                targetValue = if (lyricsIsActive) 100.dp else 48.dp,
+                                targetValue = if (lyricsIsActive) 48.dp else 100.dp, // Expand when inactive
                                 label = "lyricsButtonWidth"
                             )
                             val lyricsButtonShape by animateDpAsState(
@@ -1606,7 +1711,7 @@ fun PlayerScreen(
                                         modifier = Modifier.size(20.dp),
                                         tint = lyricsContentColor
                                     )
-                                    AnimatedVisibility(visible = lyricsIsActive) {
+                                    AnimatedVisibility(visible = !lyricsIsActive) { // Show text when inactive
                                         Row {
                                             Spacer(modifier = Modifier.width(4.dp))
                                             Text(
@@ -1634,7 +1739,7 @@ fun PlayerScreen(
                             label = "repeatContentColor"
                         )
                         val repeatButtonWidth by animateDpAsState(
-                            targetValue = if (repeatIsActive) 100.dp else 48.dp,
+                            targetValue = if (repeatIsActive) 48.dp else 100.dp, // Expand when inactive
                             label = "repeatButtonWidth"
                         )
                         val repeatButtonShape by animateDpAsState(
@@ -1672,7 +1777,7 @@ fun PlayerScreen(
                                     modifier = Modifier.size(20.dp),
                                     tint = repeatContentColor
                                 )
-                                AnimatedVisibility(visible = repeatIsActive) {
+                                AnimatedVisibility(visible = !repeatIsActive) { // Show text when inactive
                                     Row {
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Text(
@@ -1691,7 +1796,7 @@ fun PlayerScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Seek, Add to Playlist, Seek buttons
+                    // Add to Playlist, Favorite buttons
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1699,31 +1804,6 @@ fun PlayerScreen(
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Seek 10 seconds back button
-                        Surface(
-                            onClick = {
-                                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
-                                onSeek((currentTimeMs - 10000).coerceAtLeast(0L).toFloat() / totalTimeMs)
-                            },
-                            modifier = Modifier.size(48.dp),
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            tonalElevation = 0.dp,
-                            shadowElevation = 0.dp
-                        ) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier.fillMaxSize()
-                            ) {
-                                Icon(
-                                    imageVector = RhythmIcons.Replay10, // Assuming you have a SeekBack10 icon
-                                    contentDescription = "Seek 10 seconds back",
-                                    modifier = Modifier.size(20.dp),
-                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                )
-                            }
-                        }
-
                         // Add to playlist button (icon only, no animation, no elevation)
                         Surface(
                             onClick = {
@@ -1734,7 +1814,7 @@ fun PlayerScreen(
                             shape = CircleShape, // Circular shape
                             color = MaterialTheme.colorScheme.surfaceContainerHigh, // Use a neutral color
                             tonalElevation = 0.dp, // No elevation
-                            shadowElevation = 0.dp // No elevation
+                            shadowElevation = 0.dp
                         ) {
                             Box(
                                 contentAlignment = Alignment.Center,
@@ -1759,7 +1839,7 @@ fun PlayerScreen(
                             label = "favoriteContentColor"
                         )
                         val favoriteButtonWidth by animateDpAsState(
-                            targetValue = if (isFavorite) 100.dp else 48.dp, // Animate width like shuffle
+                            targetValue = if (isFavorite) 48.dp else 100.dp, // Expand when inactive
                             label = "favoriteButtonWidth"
                         )
                         val favoriteButtonShape by animateDpAsState(
@@ -1790,7 +1870,7 @@ fun PlayerScreen(
                                     modifier = Modifier.size(20.dp), // Smaller icon
                                     tint = favoriteContentColor
                                 )
-                                AnimatedVisibility(visible = isFavorite) { // Add animated text
+                                AnimatedVisibility(visible = !isFavorite) { // Add animated text, show when inactive
                                     Row {
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Text(
@@ -1803,31 +1883,6 @@ fun PlayerScreen(
                                         )
                                     }
                                 }
-                            }
-                        }
-
-                        // Seek 10 seconds forward button
-                        Surface(
-                            onClick = {
-                                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
-                                onSeek((currentTimeMs + 10000).coerceAtMost(totalTimeMs.toLong()).toFloat() / totalTimeMs)
-                            },
-                            modifier = Modifier.size(48.dp),
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            tonalElevation = 0.dp,
-                            shadowElevation = 0.dp
-                        ) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier.fillMaxSize()
-                            ) {
-                                Icon(
-                                    imageVector = RhythmIcons.Forward10, // Assuming you have a SeekForward10 icon
-                                    contentDescription = "Seek 10 seconds forward",
-                                    modifier = Modifier.size(20.dp),
-                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                )
                             }
                         }
                     }
