@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
@@ -46,6 +47,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -53,6 +55,14 @@ import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.InputChip
+import androidx.compose.material3.SuggestionChip
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.material3.CircularProgressIndicator
@@ -143,9 +153,12 @@ import chromahub.rhythm.app.ui.screens.LibraryTab
 import chromahub.rhythm.app.ui.screens.AddToPlaylistBottomSheet
 import chromahub.rhythm.app.ui.screens.DeviceOutputBottomSheet
 import chromahub.rhythm.app.ui.screens.SongInfoBottomSheet
+import chromahub.rhythm.app.ui.screens.ArtistBottomSheet
 import chromahub.rhythm.app.ui.components.CanvasPlayer
 import chromahub.rhythm.app.data.CanvasRepository
 import chromahub.rhythm.app.data.CanvasData
+import chromahub.rhythm.app.data.Album
+import chromahub.rhythm.app.data.Artist
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -196,6 +209,19 @@ fun PlayerScreen(
     onCreatePlaylist: (String) -> Unit = { _ -> },
     onShowCreatePlaylistDialog: () -> Unit = {} ,
     onClearQueue: () -> Unit = {},
+    // New parameters for loader control and bottom sheets
+    isMediaLoading: Boolean = false,
+    isSeeking: Boolean = false,
+    onShowAlbumBottomSheet: () -> Unit = {},
+    onShowArtistBottomSheet: () -> Unit = {},
+    // Album and artist data for bottom sheets
+    songs: List<Song> = emptyList(),
+    albums: List<Album> = emptyList(),
+    artists: List<Artist> = emptyList(),
+    onPlayAlbumSongs: (List<Song>) -> Unit = {},
+    onShuffleAlbumSongs: (List<Song>) -> Unit = {},
+    onPlayArtistSongs: (List<Song>) -> Unit = {},
+    onShuffleArtistSongs: (List<Song>) -> Unit = {},
     appSettings: chromahub.rhythm.app.data.AppSettings
 ) {
     val context = LocalContext.current
@@ -368,24 +394,22 @@ fun PlayerScreen(
     val queueSheetState = rememberModalBottomSheetState()
     val addToPlaylistSheetState = rememberModalBottomSheetState()
     val deviceOutputSheetState = rememberModalBottomSheetState()
+    val albumBottomSheetState = rememberModalBottomSheetState()
+    val artistBottomSheetState = rememberModalBottomSheetState()
     var showQueueSheet by remember { mutableStateOf(false) }
     var showDeviceOutputSheet by remember { mutableStateOf(false) }
     var showSongInfoSheet by remember { mutableStateOf(false) }
+    var showAlbumSheet by remember { mutableStateOf(false) }
+    var showArtistSheet by remember { mutableStateOf(false) }
+    var selectedAlbum by remember { mutableStateOf<Album?>(null) }
+    var selectedArtist by remember { mutableStateOf<Artist?>(null) }
 
     // State for showing loader in play/pause button
     var showLoaderInPlayPauseButton by remember { mutableStateOf(false) }
-    var lastProgressUpdate by remember { mutableFloatStateOf(progress) }
-    var lastIsPlayingUpdate by remember { mutableStateOf(isPlaying) }
-
-    // LaunchedEffect to hide loader after seek/load completes
-    LaunchedEffect(progress, isPlaying) {
-        // Only react if the loader is currently active and there's a change in progress or play state
-        if (showLoaderInPlayPauseButton && (abs(progress - lastProgressUpdate) > 0.001f || isPlaying != lastIsPlayingUpdate)) {
-            delay(300) // Small delay to show the loader animation
-            showLoaderInPlayPauseButton = false
-            lastProgressUpdate = progress
-            lastIsPlayingUpdate = isPlaying
-        }
+    
+    // Show loader only when media is loading or seeking
+    LaunchedEffect(isMediaLoading, isSeeking) {
+        showLoaderInPlayPauseButton = isMediaLoading || isSeeking
     }
 
     // For swipe down gesture detection - enhanced for continuous sliding
@@ -598,6 +622,48 @@ fun PlayerScreen(
         )
     }
 
+    // Album Bottom Sheet
+    if (showAlbumSheet && selectedAlbum != null) {
+        AlbumBottomSheet(
+            album = selectedAlbum!!,
+            onDismiss = { 
+                showAlbumSheet = false
+                selectedAlbum = null
+            },
+            onSongClick = onSongClick,
+            onPlayAll = { songs -> onPlayAlbumSongs(songs) },
+            onShufflePlay = { songs -> onShuffleAlbumSongs(songs) },
+            onAddToQueue = { song -> /* TODO: Add queue functionality */ },
+            onAddSongToPlaylist = { song -> onAddSongToPlaylist(song, "") },
+            onPlayerClick = onBack,
+            sheetState = albumBottomSheetState,
+            haptics = haptic
+        )
+    }
+
+    // Artist Bottom Sheet
+    if (showArtistSheet && selectedArtist != null) {
+        ArtistBottomSheet(
+            artist = selectedArtist!!,
+            songs = songs,
+            albums = albums,
+            onDismiss = { 
+                showArtistSheet = false
+                selectedArtist = null
+            },
+            onSongClick = onSongClick,
+            onAlbumClick = { album -> 
+                selectedAlbum = album
+                showAlbumSheet = true
+            },
+            onPlayAll = { onPlayArtistSongs(songs.filter { it.artist == selectedArtist!!.name }) },
+            onShufflePlay = { onShuffleArtistSongs(songs.filter { it.artist == selectedArtist!!.name }) },
+            onAddToQueue = { song -> /* TODO: Add queue functionality */ },
+            onAddSongToPlaylist = { song -> onAddSongToPlaylist(song, "") },
+            sheetState = artistBottomSheetState
+        )
+    }
+
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -682,15 +748,15 @@ fun PlayerScreen(
                             )
                         ) {
                             Icon(
-                                imageVector = RhythmIcons.Back,
-                                contentDescription = "Back",
+                                imageVector = Icons.Filled.KeyboardArrowDown,
+                                contentDescription = "Minimize",
                                 tint = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                         }
                     }
                 },
                 actions = {
-                    // About button on the top right
+                    // Song info button
                     Box(modifier = Modifier.padding(end = 16.dp)) {
                         FilledTonalIconButton(
                             onClick = {
@@ -699,14 +765,14 @@ fun PlayerScreen(
                             },
                             modifier = Modifier.size(48.dp),
                             colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                             )
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.Info,
-                                contentDescription = "About song",
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                contentDescription = "Song info",
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer
                             )
                         }
                     }
@@ -1450,7 +1516,6 @@ fun PlayerScreen(
                             Surface(
                                 onClick = {
                                     HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
-                                    showLoaderInPlayPauseButton = true // Set loader visible
                                     onSeek((currentTimeMs - 10000).coerceAtLeast(0L).toFloat() / totalTimeMs)
                                 },
                                 modifier = Modifier.size(56.dp),
@@ -1545,7 +1610,6 @@ fun PlayerScreen(
                             Surface(
                                 onClick = {
                                     HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
-                                    showLoaderInPlayPauseButton = true // Set loader visible
                                     onSeek((currentTimeMs + 10000).coerceAtMost(totalTimeMs.toLong()).toFloat() / totalTimeMs)
                                 },
                                 modifier = Modifier.size(56.dp),
@@ -1796,94 +1860,154 @@ fun PlayerScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Add to Playlist, Favorite buttons
-                    Row(
+                    // Action chips for playlist, favorite, album, and artist
+                    LazyRow(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 32.dp),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.CenterVertically
+                            .padding(horizontal = 24.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp)
                     ) {
-                        // Add to playlist button (icon only, no animation, no elevation)
-                        Surface(
-                            onClick = {
-                                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
-                                onAddToPlaylist()
-                            },
-                            modifier = Modifier.size(48.dp), // Fixed size
-                            shape = CircleShape, // Circular shape
-                            color = MaterialTheme.colorScheme.surfaceContainerHigh, // Use a neutral color
-                            tonalElevation = 0.dp, // No elevation
-                            shadowElevation = 0.dp
-                        ) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier.fillMaxSize()
-                            ) {
-                                Icon(
-                                    imageVector = RhythmIcons.AddToPlaylist,
-                                    contentDescription = "Add to playlist",
-                                    modifier = Modifier.size(20.dp),
-                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                )
-                            }
+                        // Add to Playlist chip
+                        item {
+                            AssistChip(
+                                onClick = {
+                                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                                    onAddToPlaylist()
+                                },
+                                label = { 
+                                    Text(
+                                        "Add to",
+                                        style = MaterialTheme.typography.labelLarge
+                                    ) 
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = RhythmIcons.AddToPlaylist,
+                                        contentDescription = "Add to playlist",
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                },
+                                modifier = Modifier.height(32.dp), // Reduced height
+                                shape = RoundedCornerShape(16.dp), // Adjusted shape for smaller size
+                                colors = AssistChipDefaults.assistChipColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    leadingIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                ),
+                                border = null // Removed border
+                            )
                         }
-
-                        // Favorite button (animated expand like shuffle, red background, no elevation)
-                        val favoriteButtonColor by animateColorAsState(
-                            targetValue = if (isFavorite) Color.Red else MaterialTheme.colorScheme.surfaceContainerHigh, // Red background when favorited
-                            label = "favoriteButtonColor"
-                        )
-                        val favoriteContentColor by animateColorAsState(
-                            targetValue = if (isFavorite) Color.White else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), // White icon when favorited
-                            label = "favoriteContentColor"
-                        )
-                        val favoriteButtonWidth by animateDpAsState(
-                            targetValue = if (isFavorite) 48.dp else 100.dp, // Expand when inactive
-                            label = "favoriteButtonWidth"
-                        )
-                        val favoriteButtonShape by animateDpAsState(
-                            targetValue = if (isFavorite) 24.dp else 24.dp, // Animate shape like shuffle
-                            label = "favoriteButtonShape"
-                        )
-                        Surface(
-                            onClick = {
-                                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
-                                onToggleFavorite()
-                            },
-                            modifier = Modifier
-                                .width(favoriteButtonWidth) // Use animated width
-                                .height(48.dp), // Fixed height
-                            shape = RoundedCornerShape(favoriteButtonShape), // Use animated shape
-                            color = favoriteButtonColor,
-                            tonalElevation = 0.dp, // No elevation
-                            shadowElevation = 0.dp // No elevation
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxSize(),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = if (isFavorite) RhythmIcons.FavoriteFilled else RhythmIcons.Favorite,
-                                    contentDescription = "Toggle favorite",
-                                    modifier = Modifier.size(20.dp), // Smaller icon
-                                    tint = favoriteContentColor
-                                )
-                                AnimatedVisibility(visible = !isFavorite) { // Add animated text, show when inactive
-                                    Row {
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text(
-                                            text = "FAVORITE",
-                                            style = MaterialTheme.typography.labelMedium.copy(
-                                                fontWeight = FontWeight.Bold,
-                                                letterSpacing = 0.8.sp
-                                            ),
-                                            color = favoriteContentColor
-                                        )
+                        
+                        // Favorite chip
+                        item {
+                            FilterChip(
+                                selected = isFavorite,
+                                onClick = {
+                                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                                    onToggleFavorite()
+                                },
+                                label = { 
+                                    Text(
+                                        "Favorite",
+                                        style = MaterialTheme.typography.labelLarge
+                                    ) 
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = if (isFavorite) RhythmIcons.FavoriteFilled else RhythmIcons.Favorite,
+                                        contentDescription = "Toggle favorite",
+                                        modifier = Modifier.size(16.dp) // Reduced icon size
+                                    )
+                                },
+                                modifier = Modifier.height(32.dp), // Reduced height
+                                shape = RoundedCornerShape(16.dp), // Adjusted shape for smaller size
+                                colors = FilterChipDefaults.filterChipColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    iconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    selectedContainerColor = Color.Red.copy(alpha = 0.9f),
+                                    selectedLabelColor = Color.White,
+                                    selectedLeadingIconColor = Color.White
+                                ),
+                                border = null // Removed border
+                            )
+                        }
+                        
+                        // Album chip  
+                        item {
+                            AssistChip(
+                                onClick = {
+                                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                                    // Find the album for the current song and show bottom sheet
+                                    song?.let { currentSong ->
+                                        val albumForSong = albums.find { it.title == currentSong.album }
+                                        albumForSong?.let {
+                                            selectedAlbum = it
+                                            showAlbumSheet = true
+                                        }
                                     }
-                                }
-                            }
+                                },
+                                label = { 
+                                    Text(
+                                        "Album",
+                                        style = MaterialTheme.typography.labelLarge
+                                    ) 
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = RhythmIcons.Music.Album,
+                                        contentDescription = "Show album",
+                                        modifier = Modifier.size(16.dp) // Reduced icon size
+                                    )
+                                },
+                                modifier = Modifier.height(32.dp), // Reduced height
+                                shape = RoundedCornerShape(16.dp), // Adjusted shape for smaller size
+                                colors = AssistChipDefaults.assistChipColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    leadingIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                ),
+                                border = null // Removed border
+                            )
+                        }
+                        
+                        // Artist chip
+                        item {
+                            AssistChip(
+                                onClick = {
+                                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                                    // Find the artist for the current song and show bottom sheet
+                                    song?.let { currentSong ->
+                                        val artistForSong = artists.find { it.name == currentSong.artist }
+                                        artistForSong?.let {
+                                            selectedArtist = it
+                                            showArtistSheet = true
+                                        }
+                                    }
+                                },
+                                label = { 
+                                    Text(
+                                        "Artist",
+                                        style = MaterialTheme.typography.labelLarge
+                                    ) 
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = RhythmIcons.Music.Artist,
+                                        contentDescription = "Show artist",
+                                        modifier = Modifier.size(16.dp) // Reduced icon size
+                                    )
+                                },
+                                modifier = Modifier.height(32.dp), // Reduced height
+                                shape = RoundedCornerShape(16.dp), // Adjusted shape for smaller size
+                                colors = AssistChipDefaults.assistChipColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    leadingIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                ),
+                                border = null // Removed border
+                            )
                         }
                     }
                 }

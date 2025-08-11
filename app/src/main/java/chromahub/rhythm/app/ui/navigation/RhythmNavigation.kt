@@ -1273,6 +1273,23 @@ fun RhythmNavigation(
                                 }
                             }
                         },
+                        // New parameters for loader control and bottom sheets
+                        isMediaLoading = viewModel.isBuffering.collectAsState().value,
+                        isSeeking = viewModel.isSeeking.collectAsState().value,
+                        onShowAlbumBottomSheet = {
+                            // This is now handled internally by the PlayerScreen
+                        },
+                        onShowArtistBottomSheet = {
+                            // This is now handled internally by the PlayerScreen
+                        },
+                        // Pass album and artist data for bottom sheets
+                        songs = viewModel.songs.collectAsState().value,
+                        albums = viewModel.albums.collectAsState().value,
+                        artists = viewModel.artists.collectAsState().value,
+                        onPlayAlbumSongs = { songs -> viewModel.playSongs(songs) },
+                        onShuffleAlbumSongs = { songs -> viewModel.playShuffled(songs) },
+                        onPlayArtistSongs = { songs -> viewModel.playSongs(songs) },
+                        onShuffleArtistSongs = { songs -> viewModel.playShuffled(songs) },
                         appSettings = appSettings
                     )
                 }

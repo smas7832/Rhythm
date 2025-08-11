@@ -425,7 +425,7 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
             val currentShuffleCommand = shuffleCommand
             val currentRepeatCommand = repeatCommand
             
-            mediaSession?.setCustomLayout(ImmutableList.of(currentShuffleCommand, currentRepeatCommand, currentFavoriteCommand))
+            mediaSession?.setCustomLayout(ImmutableList.of(currentShuffleCommand, currentRepeatCommand))
             
             // Update state tracking after successful update
             lastShuffleState = controller?.shuffleModeEnabled ?: false
@@ -469,7 +469,7 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
                 val currentRepeatCommand = repeatCommand
                 
                 // Create the layout
-                session.setCustomLayout(ImmutableList.of(currentShuffleCommand, currentRepeatCommand, currentFavoriteCommand))
+                session.setCustomLayout(ImmutableList.of(currentShuffleCommand, currentRepeatCommand))
                 
                 Log.d(TAG, "Smart updated custom layout - Favorite: $currentFavoriteState, " +
                           "Shuffle: $currentShuffleState, Repeat: $currentRepeatMode")

@@ -175,6 +175,13 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _duration = MutableStateFlow(0L)
     val duration: StateFlow<Long> = _duration.asStateFlow()
 
+    // Media loading and seeking states
+    private val _isBuffering = MutableStateFlow(false)
+    val isBuffering: StateFlow<Boolean> = _isBuffering.asStateFlow()
+
+    private val _isSeeking = MutableStateFlow(false)
+    val isSeeking: StateFlow<Boolean> = _isSeeking.asStateFlow()
+
     // Volume control
     private val _volume = MutableStateFlow(0.7f)
     val volume: StateFlow<Float> = _volume.asStateFlow()
@@ -675,6 +682,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val playerListener = object : Player.Listener {
         override fun onPlaybackStateChanged(playbackState: Int) {
             Log.d(TAG, "Playback state changed: $playbackState")
+            
+            // Update buffering state
+            _isBuffering.value = playbackState == Player.STATE_BUFFERING
             
             // Update isPlaying based on both playbackState and controller.isPlaying
             mediaController?.let { controller ->
@@ -1393,16 +1403,30 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     fun seekTo(positionMs: Long) {
         Log.d(TAG, "Seek to position: $positionMs ms")
+        _isSeeking.value = true
         mediaController?.seekTo(positionMs)
         updateProgress() // Immediately update progress after seeking
+        
+        // Reset seeking state after a delay
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(500)
+            _isSeeking.value = false
+        }
     }
 
     fun seekTo(progress: Float) {
         mediaController?.let { controller ->
             val positionMs = (progress * controller.duration).toLong()
             Log.d(TAG, "Seek to progress: $progress (${positionMs}ms)")
+            _isSeeking.value = true
             controller.seekTo(positionMs)
             updateProgress() // Immediately update progress after seeking
+            
+            // Reset seeking state after a delay
+            viewModelScope.launch {
+                kotlinx.coroutines.delay(500)
+                _isSeeking.value = false
+            }
         }
     }
 
@@ -1410,8 +1434,15 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         mediaController?.let { controller ->
             val newPosition = (controller.currentPosition - 30_000).coerceAtLeast(0)
             Log.d(TAG, "Skip backward 30s to ${newPosition}ms")
+            _isSeeking.value = true
             controller.seekTo(newPosition)
             updateProgress() // Immediately update progress after seeking
+            
+            // Reset seeking state after a delay
+            viewModelScope.launch {
+                kotlinx.coroutines.delay(500)
+                _isSeeking.value = false
+            }
         }
     }
 
@@ -1419,8 +1450,15 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         mediaController?.let { controller ->
             val newPosition = (controller.currentPosition + 30_000).coerceAtMost(controller.duration)
             Log.d(TAG, "Skip forward 30s to ${newPosition}ms")
+            _isSeeking.value = true
             controller.seekTo(newPosition)
             updateProgress() // Immediately update progress after seeking
+            
+            // Reset seeking state after a delay
+            viewModelScope.launch {
+                kotlinx.coroutines.delay(500)
+                _isSeeking.value = false
+            }
         }
     }
 
@@ -2447,6 +2485,33 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     /**
      * Shuffles all available songs and plays them as a queue
      */
+    /**
+     * Plays a list of songs as a queue.
+     */
+    fun playSongs(songs: List<Song>) {
+        Log.d(TAG, "Playing list of songs: ${songs.size} songs")
+        playQueue(songs)
+    }
+
+    /**
+     * Shuffles a list of songs and plays them as a queue.
+     */
+    fun playShuffled(songs: List<Song>) {
+        Log.d(TAG, "Playing shuffled list of songs: ${songs.size} songs")
+        if (songs.isNotEmpty()) {
+            val shuffledSongs = songs.shuffled()
+            playQueue(shuffledSongs)
+
+            // Enable shuffle mode after starting playback
+            mediaController?.shuffleModeEnabled = true
+            _isShuffleEnabled.value = true
+
+            Log.d(TAG, "Started shuffled playback of ${songs.size} songs")
+        } else {
+            Log.e(TAG, "No songs provided to play shuffled")
+        }
+    }
+
     fun playShuffledSongs() {
         val allSongs = _songs.value
         if (allSongs.isEmpty()) return
