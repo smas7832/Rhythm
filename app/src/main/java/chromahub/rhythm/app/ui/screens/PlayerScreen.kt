@@ -1510,8 +1510,10 @@ fun PlayerScreen(
                         // Seek 10 seconds back button
                         AnimatedVisibility(
                             visible = isPlaying, // Show when paused
-                            enter = fadeIn() + scaleIn(),
-                            exit = fadeOut() + scaleOut()
+                            enter = fadeIn(animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)) +
+                                    scaleIn(animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)),
+                            exit = fadeOut(animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessHigh)) +
+                                   scaleOut(animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessHigh))
                         ) {
                             Surface(
                                 onClick = {
@@ -1541,11 +1543,20 @@ fun PlayerScreen(
                         // Play/Pause button - Large Oval/Pill shaped exactly like in reference image
                         val playPauseButtonWidth by animateDpAsState(
                             targetValue = if (isPlaying) 60.dp else 140.dp, // Expand when inactive
-                            animationSpec = tween(delayMillis = if (isPlaying) 0 else 200), // Add delay when turning into pill
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessLow,
+                                visibilityThreshold = null
+                            ),
                             label = "playPauseButtonWidth"
                         )
                         val playPauseButtonHeight by animateDpAsState(
                             targetValue = if (isPlaying) 60.dp else 60.dp, // Keep height consistent
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessLow,
+                                visibilityThreshold = null
+                            ),
                             label = "playPauseButtonHeight"
                         )
 
@@ -1582,8 +1593,10 @@ fun PlayerScreen(
                                     )
                                     AnimatedVisibility(
                                         visible = !isPlaying && !showLoaderInPlayPauseButton, // Show text when inactive and no loader
-                                        enter = fadeIn(animationSpec = tween(delayMillis = 200)), // Add delay when turning into pill
-                                        exit = fadeOut(animationSpec = tween(delayMillis = 0)) // No delay when turning into circle
+                                        enter = fadeIn(animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)) +
+                                                scaleIn(animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)),
+                                        exit = fadeOut(animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessHigh)) +
+                                               scaleOut(animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessHigh))
                                     ) {
                                         Row {
                                             Spacer(modifier = Modifier.width(8.dp))
@@ -1604,8 +1617,10 @@ fun PlayerScreen(
                         // Seek 10 seconds forward button
                         AnimatedVisibility(
                             visible = isPlaying, // Show when paused
-                            enter = fadeIn() + scaleIn(),
-                            exit = fadeOut() + scaleOut()
+                            enter = fadeIn(animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)) +
+                                    scaleIn(animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)),
+                            exit = fadeOut(animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessHigh)) +
+                                   scaleOut(animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessHigh))
                         ) {
                             Surface(
                                 onClick = {
