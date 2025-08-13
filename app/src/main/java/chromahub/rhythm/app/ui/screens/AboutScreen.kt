@@ -376,10 +376,18 @@ fun AboutScreen(
                         }
 
                         // Lead Developer
-                        CreditItem(
+//                        CreditItem(
+//                            name = "Anjishnu Nandi",
+//                            role = "",
+//                            description = "Core development, UI/UX design, architecture planning"
+//                        )
+
+                        CommunityMember(
                             name = "Anjishnu Nandi",
                             role = "Lead Developer & Project Architect",
-                            description = "Core development, UI/UX design, architecture planning"
+                            githubUsername = "cromaguy",
+                            avatarUrl = "https://github.com/cromaguy.png",
+                            context = context
                         )
 
                         Spacer(modifier = Modifier.height(16.dp))
@@ -461,7 +469,7 @@ fun AboutScreen(
                             )
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
-                                text = "Community Credits: Rhythm's Heart",
+                                text = "Community",
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -483,7 +491,7 @@ fun AboutScreen(
                                                         
                             CommunityMember(
                                 name = "Izzy",
-                                role = "Manages app on IzzyOnDroid (An F-Droid Repo)",
+                                role = "Manages updates on IzzyOnDroid",
                                 githubUsername = "IzzySoft",
                                 avatarUrl = "https://github.com/IzzySoft.png",
                                 context = context
@@ -491,9 +499,17 @@ fun AboutScreen(
 
                             CommunityMember(
                                 name = "Christian",
-                                role = "Collaborator & Project Booming's Lead Dev",
+                                role = "Collab & Project Booming's Lead Dev",
                                 githubUsername = "mardous",
                                 avatarUrl = "https://github.com/mardous.png",
+                                context = context
+                            )
+
+                            CommunityMember(
+                                name = "Alex",
+                                role = "Spotify Canvas API Integration",
+                                githubUsername = "Paxsenix0",
+                                avatarUrl = "https://github.com/Paxsenix0.png",
                                 context = context
                             )
                             
@@ -638,7 +654,7 @@ fun AboutScreen(
                                 modifier = Modifier.padding(vertical = 8.dp)
                             ) {
                                 Icon(
-                                    imageVector = RhythmIcons.LocationFilled,
+                                    imageVector = RhythmIcons.ArtistFilled,
                                     contentDescription = null,
                                     modifier = Modifier.size(20.dp)
                                 )
@@ -751,7 +767,7 @@ private fun CommunityMember(
             .padding(12.dp)
     ) {
         // Avatar with fallback
-        val fallbackPainter = rememberVectorPainter(RhythmIcons.Artist)
+        val fallbackPainter = rememberVectorPainter(RhythmIcons.ArtistFilled)
         
         AsyncImage(
             model = ImageRequest.Builder(context)
@@ -792,7 +808,7 @@ private fun CommunityMember(
         }
 
         Icon(
-            imageVector = RhythmIcons.LocationFilled,
+            imageVector = RhythmIcons.ArtistFilled,
             contentDescription = "View GitHub Profile",
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(20.dp)
