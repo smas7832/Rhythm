@@ -35,11 +35,9 @@ object ArtistCollaborationUtils {
     fun splitArtistString(artistString: String): List<String> {
         var result = artistString.trim()
         
-        // Remove content in parentheses that contains featuring info
-        result = result.replace(Regex("\\s*\\([^)]*(?:feat|ft|featuring)[^)]*\\)", RegexOption.IGNORE_CASE), "")
-        
-        // Remove content in brackets that contains featuring info
-        result = result.replace(Regex("\\s*\\[[^\\]]*(?:feat|ft|featuring)[^\\]]*\\]", RegexOption.IGNORE_CASE), "")
+        // Remove all content in parentheses and brackets, as it often contains metadata not part of the core artist name
+        result = result.replace(Regex("\\s*\\([^)]*\\)", RegexOption.IGNORE_CASE), "")
+        result = result.replace(Regex("\\s*\\[[^\\]]*\\]", RegexOption.IGNORE_CASE), "")
         
         // Replace all separators with a consistent delimiter
         COLLABORATION_SEPARATORS.forEach { separator ->

@@ -148,7 +148,7 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
             whatsNew = emptyList(),
             knownIssues = emptyList(),
             downloadUrl = "",
-            isPreRelease = BuildConfig.DEBUG, // Use debug flag to indicate pre-release
+            isPreRelease = BuildConfig. VERSION_NAME.contains("Beta", ignoreCase = true),
             buildNumber = BuildConfig.VERSION_CODE % 1000 // Extract build number from version code
         )
     )

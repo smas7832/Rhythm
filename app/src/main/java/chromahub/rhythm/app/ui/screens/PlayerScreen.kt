@@ -1490,7 +1490,7 @@ fun PlayerScreen(
                             },
                             modifier = Modifier.size(48.dp),
                             shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primaryContainer,
+                            color = MaterialTheme.colorScheme.surfaceVariant,
                             tonalElevation = 0.dp,
                             shadowElevation = 0.dp
                         ) {
@@ -1655,7 +1655,7 @@ fun PlayerScreen(
                             },
                             modifier = Modifier.size(48.dp),
                             shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primaryContainer,
+                            color = MaterialTheme.colorScheme.surfaceVariant,
                             tonalElevation = 0.dp,
                             shadowElevation = 0.dp
                         ) {

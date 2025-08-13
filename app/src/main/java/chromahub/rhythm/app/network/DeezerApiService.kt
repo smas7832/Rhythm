@@ -13,13 +13,13 @@ interface DeezerApiService {
     @GET("search/artist")
     suspend fun searchArtists(
         @Query("q") query: String,
-        @Query("limit") limit: Int = 5
+        @Query("limit") limit: Int = 25 // Increased limit to get more results
     ): DeezerSearchResponse
 
     @GET("search/album")
     suspend fun searchAlbums(
         @Query("q") query: String,
-        @Query("limit") limit: Int = 5
+        @Query("limit") limit: Int = 25 // Increased limit to get more results
     ): DeezerAlbumSearchResponse
 }
 
