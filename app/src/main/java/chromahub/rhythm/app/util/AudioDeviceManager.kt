@@ -500,8 +500,8 @@ class AudioDeviceManager(private val context: Context) {
                         Log.e(TAG, "Error toggling audio mode: ${e.message}", e)
                     }
                     
-                    // On Android 11+, explicitly set the wired headset as the communication device
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    // On Android 12+, explicitly set the wired headset as the communication device
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                         try {
                             val devices = audioManager.availableCommunicationDevices
                             val wiredDevice = devices.find { 
@@ -898,8 +898,8 @@ class AudioDeviceManager(private val context: Context) {
                 Log.d(TAG, "Could not use reflection to set Bluetooth A2DP: ${e.message}")
             }
             
-            // On Android 11+, we can use the communication device APIs
-            if (!routingSuccess && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // On Android 12+, we can use the communication device APIs
+            if (!routingSuccess && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 try {
                     // Try to set communication device to the specific Bluetooth device
                     val devices = audioManager.availableCommunicationDevices
