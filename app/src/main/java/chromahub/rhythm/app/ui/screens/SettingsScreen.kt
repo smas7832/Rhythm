@@ -1698,9 +1698,9 @@ fun ApiManagementBottomSheet(
                     ApiServiceCard(
                         title = "Spotify Canvas",
                         description = if (spotifyClientId.isNotEmpty() && spotifyClientSecret.isNotEmpty()) {
-                            "Official Spotify integration for Canvas videos (High Data Usage)"
+                            "Spotify integration for Canvas videos (High Data Usage)"
                         } else {
-                            "Canvas videos from free API (no setup needed) + official Spotify integration (requires setup)"
+                            "Canvas videos from Spotify (Please use your own key!)"
                         },
                         status = if (spotifyClientId.isNotEmpty() && spotifyClientSecret.isNotEmpty()) {
                             "Active"
@@ -3719,10 +3719,40 @@ fun SpotifyApiConfigDialog(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Text(
-                    text = "Enter your Spotify API credentials to enable track search and Canvas videos. You can get these credentials from the Spotify Developer Dashboard.",
+                    text = "Enter your Spotify API credentials to enable track search and Canvas videos.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+
+                // Check if using default keys and display a warning
+                val isUsingDefaultKeys = currentClientId.isEmpty() && currentClientSecret.isEmpty()
+                if (isUsingDefaultKeys) {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "You are currently using the app's default Spotify keys. For full functionality and to avoid rate limits, please input your own Client ID and Secret.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                        }
+                    }
+                    // Spacer(modifier = Modifier.height(2.dp))
+                }
                 
                 OutlinedTextField(
                     value = clientId,
@@ -3731,7 +3761,7 @@ fun SpotifyApiConfigDialog(
                         testResult = null 
                     },
                     label = { Text("Client ID") },
-                    placeholder = { Text("e.g. 1a2b3c4d5e6f7g8h9i0j") },
+                    placeholder = { Text("Your Spotify Client ID") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
@@ -3743,7 +3773,7 @@ fun SpotifyApiConfigDialog(
                         testResult = null 
                     },
                     label = { Text("Client Secret") },
-                    placeholder = { Text("e.g. 9z8y7x6w5v4u3t2s1r0q") },
+                    placeholder = { Text("Your Spotify Client Secret") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )

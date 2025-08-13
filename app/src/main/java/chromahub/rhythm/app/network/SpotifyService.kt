@@ -37,6 +37,11 @@ class SpotifyService(private val appSettings: AppSettings) {
     companion object {
         private const val TAG = "SpotifyService"
         private const val SPOTIFY_AUTH_BASE_URL = "https://accounts.spotify.com/"
+
+        // Default Spotify API credentials (for demonstration/initial setup)
+        // Users should be encouraged to use their own keys for full functionality
+        private const val DEFAULT_SPOTIFY_CLIENT_ID = "e3ad7591679b4f71b31b61d1d56e4b90" 
+        private const val DEFAULT_SPOTIFY_CLIENT_SECRET = "e30dcc4c833b49cab3f9f3fb679f873c" 
     }
     
     private var cachedAccessToken: String? = null
@@ -58,11 +63,18 @@ class SpotifyService(private val appSettings: AppSettings) {
                 return@withContext cachedAccessToken
             }
             
-            val clientId = appSettings.spotifyClientId.value
-            val clientSecret = appSettings.spotifyClientSecret.value
+            var clientId = appSettings.spotifyClientId.value
+            var clientSecret = appSettings.spotifyClientSecret.value
+            
+            // Use default keys if user hasn't configured their own
+            val usingDefaultKeys = clientId.isEmpty() || clientSecret.isEmpty()
+            if (usingDefaultKeys) {
+                clientId = DEFAULT_SPOTIFY_CLIENT_ID
+                clientSecret = DEFAULT_SPOTIFY_CLIENT_SECRET
+            }
             
             if (clientId.isEmpty() || clientSecret.isEmpty()) {
-                Log.w(TAG, "Spotify client ID or secret not configured")
+                Log.w(TAG, "Spotify client ID or secret not configured (even default values are missing).")
                 return@withContext null
             }
             
@@ -99,11 +111,23 @@ class SpotifyService(private val appSettings: AppSettings) {
      */
     suspend fun searchTrack(artist: String, title: String): SpotifyTrack? = withContext(Dispatchers.IO) {
         try {
-            if (appSettings.spotifyClientId.value.isEmpty() || appSettings.spotifyClientSecret.value.isEmpty()) {
-                Log.d(TAG, "Spotify API is not configured")
+            var currentClientId = appSettings.spotifyClientId.value
+            var currentClientSecret = appSettings.spotifyClientSecret.value
+
+            val usingDefaultKeys = currentClientId.isEmpty() || currentClientSecret.isEmpty()
+            if (usingDefaultKeys) {
+                currentClientId = DEFAULT_SPOTIFY_CLIENT_ID
+                currentClientSecret = DEFAULT_SPOTIFY_CLIENT_SECRET
+            }
+
+            // The API is not enabled by default, so we check the setting here.
+            // If the user has not provided their own keys, the default keys will be used,
+            // but the API will still be disabled unless explicitly enabled by the user.
+            // To fix the canvas issue, we bypass this check if default keys are in use.
+            if (!appSettings.spotifyApiEnabled.value && !usingDefaultKeys) {
+                Log.d(TAG, "Spotify API is disabled by user settings.")
                 return@withContext null
             }
-            
             val accessToken = getAccessToken()
             if (accessToken == null) {
                 Log.w(TAG, "Could not obtain Spotify access token")
@@ -188,11 +212,17 @@ class SpotifyService(private val appSettings: AppSettings) {
      */
     suspend fun testApiConfiguration(): Pair<Boolean, String> = withContext(Dispatchers.IO) {
         try {
-            val clientId = appSettings.spotifyClientId.value
-            val clientSecret = appSettings.spotifyClientSecret.value
+            // Use the same logic as getAccessToken to determine which client ID/secret to use
+            var clientId = appSettings.spotifyClientId.value
+            var clientSecret = appSettings.spotifyClientSecret.value
+
+            if (clientId.isEmpty() || clientSecret.isEmpty()) {
+                clientId = DEFAULT_SPOTIFY_CLIENT_ID
+                clientSecret = DEFAULT_SPOTIFY_CLIENT_SECRET
+            }
             
             if (clientId.isEmpty() || clientSecret.isEmpty()) {
-                return@withContext Pair(false, "Client ID and Secret are required")
+                return@withContext Pair(false, "Client ID and Secret are required (even default values are missing)")
             }
             
             val accessToken = getAccessToken()
