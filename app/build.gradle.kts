@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -19,6 +21,18 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    val signingProperties = getProperties("keystore.properties")
+    val releaseSigning = if (signingProperties != null) {
+        signingConfigs.create("release") {
+            keyAlias = signingProperties.property("key_alias")
+            keyPassword = signingProperties.property("key_password")
+            storePassword = signingProperties.property("store_password")
+            storeFile = rootProject.file(signingProperties.property("store_file"))
+        }
+    } else {
+        signingConfigs.getByName("debug")
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -27,13 +41,14 @@ android {
 //                getDefaultProguardFile("proguard-android-optimize.txt"),
 //                "proguard-rules.pro"
 //            )
-//            signingConfig = signingConfigs.getByName("debug") // Remove this in production
+            signingConfig = releaseSigning
         }
         debug {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
-            isMinifyEnabled = false
-            isDebuggable = true
+            //isMinifyEnabled = false
+            //isDebuggable = true
+            signingConfig = releaseSigning
         }
     }
     compileOptions {
@@ -134,3 +149,15 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 }
+
+fun getProperties(fileName: String): Properties? {
+    val file = rootProject.file(fileName)
+    return if (file.exists()) {
+        Properties().also { properties ->
+            file.inputStream().use { properties.load(it) }
+        }
+    } else null
+}
+
+fun Properties.property(key: String) =
+    this.getProperty(key) ?: "$key missing"
