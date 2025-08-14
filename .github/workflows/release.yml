@@ -1,0 +1,56 @@
+name: Build Release APK
+
+on:
+  push:
+    tags: [ 'v*' ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'zulu'
+          cache: gradle
+
+      - name: Setup Android-SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Create files for signing
+        env:
+          SIGNING_KEYSTORE: ${{ secrets.SIGNING_KEYSTORE }}
+          SIGNING_PROPERTIES: ${{ secrets.SIGNING_PROPERTIES }}
+        run: |
+          echo $SIGNING_KEYSTORE | base64 -di > ./rhythm_keystore.jks
+          echo $SIGNING_PROPERTIES | base64 -di > ./keystore.properties
+
+      - name: Make Gradle executable
+        run: chmod +x ./gradlew
+
+      - name: Build app
+        run: ./gradlew assembleRelease
+
+      - name: Set prerelease flag
+        id: prerelease
+        run: |
+          TAG="${{ github.ref_name }}"
+          if [[ "$TAG" == *alpha* || "$TAG" == *beta* || "$TAG" == *rc* ]]; then
+            echo "value=true" >> $GITHUB_OUTPUT
+          else
+            echo "value=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Github Release
+        uses: softprops/action-gh-release@v2
+        with:
+          prerelease: ${{ steps.prerelease.outputs.value }}
+          generate_release_notes: true
+          files: |
+            app/build/outputs/apk/release/Rhythm-*-release.apk
