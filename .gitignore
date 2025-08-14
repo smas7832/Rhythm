@@ -15,3 +15,8 @@
 local.properties
 .idea/deviceManager.xml
 *.log
+keystore.properties
+*.b64
+*.jks
+SIGNING_KEYSTORE.txt
+SIGNING_PROPERTIES.txt
