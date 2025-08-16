@@ -16,8 +16,8 @@ val SecondaryContainerLight = Color(0xFFE3E1F0) // Light gray-purple container
 val OnSecondaryContainerLight = Color(0xFF1A1A25) // Dark text on secondary container
 
 // Tertiary color palette - accent orange/amber for music controls
-val TertiaryLight = Color(0xFF7E5636) // Warm brown for accent
-val OnTertiaryLight = Color(0xFFFFFFFF) // White text on tertiary
+val TertiaryLight = Color(0xFFFFDDB6) // Warm brown for accent
+val OnTertiaryLight = Color(0xFF2C1600) // White text on tertiary
 val TertiaryContainerLight = Color(0xFFFFDDB6) // Light orange container
 val OnTertiaryContainerLight = Color(0xFF2C1600) // Dark text on tertiary container
 

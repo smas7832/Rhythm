@@ -105,6 +105,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -229,6 +230,7 @@ fun PlayerScreen(
     val density = LocalDensity.current
     val haptic = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
+    val isDarkTheme = isSystemInDarkTheme()
 
     // Get AppSettings for volume control setting
     val appSettingsInstance =
@@ -778,11 +780,12 @@ fun PlayerScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
+                    containerColor = BottomSheetDefaults.ContainerColor,
                     titleContentColor = MaterialTheme.colorScheme.onBackground
                 )
             )
         },
+        containerColor = BottomSheetDefaults.ContainerColor, // Set the background color here
         modifier = Modifier
             .graphicsLayer {
                 // Apply translation and enhanced effects based on swipe gesture
@@ -1052,7 +1055,7 @@ fun PlayerScreen(
                                                         Brush.radialGradient(
                                                             colors = listOf(
                                                                 MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
-                                                                MaterialTheme.colorScheme.surface
+                                                                BottomSheetDefaults.ContainerColor
                                                             ),
                                                             radius = 400f
                                                         )
@@ -1074,9 +1077,9 @@ fun PlayerScreen(
                                                             Brush.verticalGradient(
                                                                 colors = listOf(
                                                                     Color.Transparent,
-                                                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
-                                                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
-                                                                    MaterialTheme.colorScheme.surface.copy(alpha = 1.0f)
+                                                                    BottomSheetDefaults.ContainerColor.copy(alpha = 0.6f),
+                                                                    BottomSheetDefaults.ContainerColor.copy(alpha = 0.9f),
+                                                                    BottomSheetDefaults.ContainerColor.copy(alpha = 1.0f)
                                                                 )
                                                             )
                                                         )
@@ -1088,10 +1091,10 @@ fun PlayerScreen(
                                                         .background(
                                                             Brush.horizontalGradient(
                                                                 colors = listOf(
-                                                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.2f),
+                                                                    BottomSheetDefaults.ContainerColor.copy(alpha = 0.2f),
                                                                     Color.Transparent,
                                                                     Color.Transparent,
-                                                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.2f)
+                                                                    BottomSheetDefaults.ContainerColor.copy(alpha = 0.2f)
                                                                 )
                                                             )
                                                         )
@@ -1111,7 +1114,7 @@ fun PlayerScreen(
                                         Brush.radialGradient(
                                             colors = listOf(
                                                 MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
-                                                MaterialTheme.colorScheme.surface
+                                                BottomSheetDefaults.ContainerColor
                                             ),
                                             radius = 400f
                                         )
@@ -1238,10 +1241,10 @@ fun PlayerScreen(
                                             .background(
                                                 Brush.horizontalGradient(
                                                     colors = listOf(
-                                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.4f), // Reduced from 0.6f
+                                                        BottomSheetDefaults.ContainerColor.copy(alpha = 0.4f), // Reduced from 0.6f
                                                         Color.Transparent,
                                                         Color.Transparent,
-                                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.4f) // Reduced from 0.6f
+                                                        BottomSheetDefaults.ContainerColor.copy(alpha = 0.4f) // Reduced from 0.6f
                                                     )
                                                 )
                                             )
@@ -1254,9 +1257,9 @@ fun PlayerScreen(
                                             .background(
                                                 brush = Brush.verticalGradient(
                                                     colors = listOf(
-                                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.50f), // Reduced from 0.70f
-                                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.60f), // Reduced from 0.80f
-                                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.75f)  // Reduced from 0.85f
+                                                        BottomSheetDefaults.ContainerColor.copy(alpha = 0.50f), // Reduced from 0.70f
+                                                        BottomSheetDefaults.ContainerColor.copy(alpha = 0.60f), // Reduced from 0.80f
+                                                        BottomSheetDefaults.ContainerColor.copy(alpha = 0.75f)  // Reduced from 0.85f
                                                     )
                                                 ),
                                                 shape = RoundedCornerShape(if (isCompactHeight) 0.dp else 0.dp) // Keep rounded corners
@@ -1271,7 +1274,7 @@ fun PlayerScreen(
                                                 brush = Brush.radialGradient(
                                                     colors = listOf(
                                                         Color.Transparent,
-                                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.10f) // Reduced from 0.15f
+                                                        BottomSheetDefaults.ContainerColor.copy(alpha = 0.10f) // Reduced from 0.15f
                                                     ),
                                                     radius = 500f
                                                 ),
@@ -1490,7 +1493,7 @@ fun PlayerScreen(
                             },
                             modifier = Modifier.size(48.dp),
                             shape = CircleShape,
-                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            color = MaterialTheme.colorScheme.tertiary,
                             tonalElevation = 0.dp,
                             shadowElevation = 0.dp
                         ) {
@@ -1502,7 +1505,7 @@ fun PlayerScreen(
                                     imageVector = RhythmIcons.SkipPrevious,
                                     contentDescription = "Previous track",
                                     modifier = Modifier.size(24.dp),
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                    tint = MaterialTheme.colorScheme.onTertiary
                                 )
                             }
                         }
@@ -1650,24 +1653,24 @@ fun PlayerScreen(
                         // Next button - Circular like in reference image
                         Surface(
                             onClick = {
-                                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
+                                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                                 onSkipNext()
                             },
-                            modifier = Modifier.size(48.dp),
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            tonalElevation = 0.dp,
-                            shadowElevation = 0.dp
-                        ) {
-                            Box(
-                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.size(48.dp),
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.tertiary,
+                                tonalElevation = 0.dp,
+                                shadowElevation = 0.dp
+                            ) {
+                                Box(
+                                    contentAlignment = Alignment.Center,
                                 modifier = Modifier.fillMaxSize()
                             ) {
                                 Icon(
                                     imageVector = RhythmIcons.SkipNext,
                                     contentDescription = "Next track",
                                     modifier = Modifier.size(24.dp),
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                    tint = MaterialTheme.colorScheme.onTertiary
                                 )
                             }
                         }
@@ -1686,11 +1689,19 @@ fun PlayerScreen(
                         // Shuffle button
                         val shuffleIsActive = isShuffleEnabled
                         val shuffleButtonColor by animateColorAsState(
-                            targetValue = if (shuffleIsActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
+                            targetValue = if (shuffleIsActive) {
+                                if (isDarkTheme) MaterialTheme.colorScheme.inverseSurface else MaterialTheme.colorScheme.surfaceContainerLowest
+                            } else {
+                                MaterialTheme.colorScheme.surfaceContainerHigh
+                            },
                             label = "shuffleButtonColor"
                         )
                         val shuffleContentColor by animateColorAsState(
-                            targetValue = if (shuffleIsActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            targetValue = if (shuffleIsActive) {
+                                if (isDarkTheme) MaterialTheme.colorScheme.inverseOnSurface else MaterialTheme.colorScheme.onSurface
+                            } else {
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            },
                             label = "shuffleContentColor"
                         )
                         val shuffleButtonWidth by animateDpAsState(
@@ -1746,11 +1757,19 @@ fun PlayerScreen(
                         if (showLyrics) {
                             val lyricsIsActive = showLyricsView
                             val lyricsButtonColor by animateColorAsState(
-                                targetValue = if (lyricsIsActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
+                                targetValue = if (lyricsIsActive) {
+                                    if (isDarkTheme) MaterialTheme.colorScheme.inverseSurface else MaterialTheme.colorScheme.surfaceContainerLowest
+                                } else {
+                                    MaterialTheme.colorScheme.surfaceContainerHigh
+                                },
                                 label = "lyricsButtonColor"
                             )
                             val lyricsContentColor by animateColorAsState(
-                                targetValue = if (lyricsIsActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                targetValue = if (lyricsIsActive) {
+                                    if (isDarkTheme) MaterialTheme.colorScheme.inverseOnSurface else MaterialTheme.colorScheme.onSurface
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                },
                                 label = "lyricsContentColor"
                             )
                             val lyricsButtonWidth by animateDpAsState(
@@ -1810,11 +1829,19 @@ fun PlayerScreen(
                         // Repeat button
                         val repeatIsActive = repeatMode != 0
                         val repeatButtonColor by animateColorAsState(
-                            targetValue = if (repeatIsActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
+                            targetValue = if (repeatIsActive) {
+                                if (isDarkTheme) MaterialTheme.colorScheme.inverseSurface else MaterialTheme.colorScheme.surfaceContainerLowest
+                            } else {
+                                MaterialTheme.colorScheme.surfaceContainerHigh
+                            },
                             label = "repeatButtonColor"
                         )
                         val repeatContentColor by animateColorAsState(
-                            targetValue = if (repeatIsActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            targetValue = if (repeatIsActive) {
+                                if (isDarkTheme) MaterialTheme.colorScheme.inverseOnSurface else MaterialTheme.colorScheme.onSurface
+                            } else {
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            },
                             label = "repeatContentColor"
                         )
                         val repeatButtonWidth by animateDpAsState(

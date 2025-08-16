@@ -26,6 +26,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,11 +49,13 @@ import androidx.media3.ui.PlayerView
 import androidx.media3.common.util.UnstableApi
 import kotlinx.coroutines.delay
 import chromahub.rhythm.app.ui.components.RhythmIcons
+import androidx.compose.material3.ExperimentalMaterial3Api
 
 /**
  * A composable that displays a looping video player for Spotify Canvas videos with enhanced performance
  */
 @androidx.annotation.OptIn(UnstableApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CanvasVideoPlayer(
     videoUrl: String,
@@ -199,10 +202,10 @@ fun CanvasVideoPlayer(
                         .background(
                             Brush.verticalGradient(
                                 colors = listOf(
-                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.0f),
-                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.3f),
-                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
-                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
+                                    BottomSheetDefaults.ContainerColor.copy(alpha = 0.0f),
+                                    BottomSheetDefaults.ContainerColor.copy(alpha = 0.3f),
+                                    BottomSheetDefaults.ContainerColor.copy(alpha = 0.7f),
+                                    BottomSheetDefaults.ContainerColor.copy(alpha = 0.8f)
                                 )
                             )
                         )
@@ -214,10 +217,10 @@ fun CanvasVideoPlayer(
                         .background(
                             Brush.horizontalGradient(
                                 colors = listOf(
-                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.4f),
+                                    BottomSheetDefaults.ContainerColor.copy(alpha = 0.4f),
                                     Color.Transparent,
                                     Color.Transparent,
-                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.4f)
+                                    BottomSheetDefaults.ContainerColor.copy(alpha = 0.4f)
                                 )
                             )
                         )
@@ -231,7 +234,7 @@ fun CanvasVideoPlayer(
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(RoundedCornerShape(cornerRadius))
-                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.1f))
+                    .background(BottomSheetDefaults.ContainerColor.copy(alpha = 0.1f))
                     .alpha(
                         animateFloatAsState(
                             targetValue = if (isVideoLoaded && !hasError) 0f else 1f,
@@ -248,10 +251,10 @@ fun CanvasVideoPlayer(
                         .background(
                             Brush.verticalGradient(
                                 colors = listOf(
-                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.0f),
-                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.3f),
-                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
-                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
+                                    BottomSheetDefaults.ContainerColor.copy(alpha = 0.0f),
+                                    BottomSheetDefaults.ContainerColor.copy(alpha = 0.3f),
+                                    BottomSheetDefaults.ContainerColor.copy(alpha = 0.7f),
+                                    BottomSheetDefaults.ContainerColor.copy(alpha = 0.8f)
                                 )
                             )
                         )
@@ -263,10 +266,10 @@ fun CanvasVideoPlayer(
                         .background(
                             Brush.horizontalGradient(
                                 colors = listOf(
-                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.4f),
+                                    BottomSheetDefaults.ContainerColor.copy(alpha = 0.4f),
                                     Color.Transparent,
                                     Color.Transparent,
-                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.4f)
+                                    BottomSheetDefaults.ContainerColor.copy(alpha = 0.4f)
                                 )
                             )
                         )
@@ -347,9 +350,9 @@ fun CanvasVideoPlayer(
                         Brush.verticalGradient(
                             colors = listOf(
                                 Color.Transparent,
-                                MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
-                                MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
-                                MaterialTheme.colorScheme.surface.copy(alpha = 1.0f)
+                                BottomSheetDefaults.ContainerColor.copy(alpha = 0.6f),
+                                BottomSheetDefaults.ContainerColor.copy(alpha = 0.9f),
+                                BottomSheetDefaults.ContainerColor.copy(alpha = 1.0f)
                             )
                         )
                     )
@@ -364,10 +367,10 @@ fun CanvasVideoPlayer(
                     .background(
                         Brush.horizontalGradient(
                             colors = listOf(
-                                MaterialTheme.colorScheme.surface.copy(alpha = 0.2f),
+                                BottomSheetDefaults.ContainerColor.copy(alpha = 0.2f),
                                 Color.Transparent,
                                 Color.Transparent,
-                                MaterialTheme.colorScheme.surface.copy(alpha = 0.2f)
+                                BottomSheetDefaults.ContainerColor.copy(alpha = 0.2f)
                             )
                         )
                     )
@@ -380,6 +383,7 @@ fun CanvasVideoPlayer(
  * Simplified canvas player that handles common use cases with enhanced animations, preloader, and fallback support
  */
 @androidx.annotation.OptIn(UnstableApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CanvasPlayer(
     videoUrl: String?,
@@ -449,9 +453,9 @@ fun CanvasPlayer(
                         Brush.verticalGradient(
                             colors = listOf(
                                 Color.Transparent,
-                                MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
-                                MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
-                                MaterialTheme.colorScheme.surface.copy(alpha = 1.0f)
+                                BottomSheetDefaults.ContainerColor.copy(alpha = 0.6f),
+                                BottomSheetDefaults.ContainerColor.copy(alpha = 0.9f),
+                                BottomSheetDefaults.ContainerColor.copy(alpha = 1.0f)
                             )
                         )
                     )
@@ -464,10 +468,10 @@ fun CanvasPlayer(
                     .background(
                         Brush.horizontalGradient(
                             colors = listOf(
-                                MaterialTheme.colorScheme.surface.copy(alpha = 0.2f),
+                                BottomSheetDefaults.ContainerColor.copy(alpha = 0.2f),
                                 Color.Transparent,
                                 Color.Transparent,
-                                MaterialTheme.colorScheme.surface.copy(alpha = 0.2f)
+                                BottomSheetDefaults.ContainerColor.copy(alpha = 0.2f)
                             )
                         )
                     )
@@ -560,7 +564,7 @@ fun CanvasPlayer(
                                 Brush.radialGradient(
                                     colors = listOf(
                                         MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
-                                        MaterialTheme.colorScheme.surface
+                                        BottomSheetDefaults.ContainerColor
                                     ),
                                     radius = 400f
                                 ),
@@ -591,41 +595,39 @@ fun CanvasPlayer(
                     )
                 ) {
                     Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
+                        modifier = Modifier.fillMaxSize().padding(16.dp),
+                        contentAlignment = Alignment.TopEnd
                     ) {
                         // Card background for loading indicator
                         androidx.compose.material3.Card(
                             modifier = Modifier
-                                .size(120.dp)
-                                .clip(RoundedCornerShape(24.dp)),
+                                .size(45.dp)
+                                .clip(RoundedCornerShape(50.dp)),
                             colors = androidx.compose.material3.CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
+                                containerColor = BottomSheetDefaults.ContainerColor.copy(alpha = 0.95f)
                             ),
                             elevation = androidx.compose.material3.CardDefaults.cardElevation(
                                 defaultElevation = 8.dp
                             )
                         ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(16.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
                             ) {
                                 M3CircularLoader(
                                     modifier = Modifier.size(36.dp),
                                     fourColor = true,
                                     isExpressive = true
                                 )
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Text(
-                                    text = "Preparing Canvas",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
-                                    textAlign = TextAlign.Center
-                                )
                             }
+                                // Spacer(modifier = Modifier.height(12.dp))
+                                // Text(
+                                //     text = "Preparing Canvas",
+                                //     style = MaterialTheme.typography.labelMedium,
+                                //     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                                //     textAlign = TextAlign.Center
+                                // )
+                            
                         }
                     }
                 }
