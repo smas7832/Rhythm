@@ -1054,8 +1054,8 @@ fun PlayerScreen(
                                                     .background(
                                                         Brush.radialGradient(
                                                             colors = listOf(
-                                                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
-                                                                BottomSheetDefaults.ContainerColor
+                                                                BottomSheetDefaults.ContainerColor.copy(alpha = 0.3f),
+//                                                                BottomSheetDefaults.ContainerColor
                                                             ),
                                                             radius = 400f
                                                         )
@@ -1113,8 +1113,8 @@ fun PlayerScreen(
                                     .background(
                                         Brush.radialGradient(
                                             colors = listOf(
-                                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
-                                                BottomSheetDefaults.ContainerColor
+                                                BottomSheetDefaults.ContainerColor.copy(alpha = 0.3f),
+//                                                BottomSheetDefaults.ContainerColor
                                             ),
                                             radius = 400f
                                         )

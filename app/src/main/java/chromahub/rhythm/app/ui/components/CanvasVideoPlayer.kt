@@ -529,9 +529,9 @@ fun CanvasPlayer(
                                     Brush.verticalGradient(
                                         colors = listOf(
                                             Color.Transparent,
-                                            MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
-                                            MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
-                                            MaterialTheme.colorScheme.surface.copy(alpha = 1.0f)
+                                            BottomSheetDefaults.ContainerColor.copy(alpha = 0.6f),
+                                            BottomSheetDefaults.ContainerColor.copy(alpha = 0.9f),
+                                            BottomSheetDefaults.ContainerColor.copy(alpha = 1.0f)
                                         )
                                     )
                                 )
@@ -544,10 +544,10 @@ fun CanvasPlayer(
                                 .background(
                                     Brush.horizontalGradient(
                                         colors = listOf(
-                                            MaterialTheme.colorScheme.surface.copy(alpha = 0.2f),
+                                            BottomSheetDefaults.ContainerColor.copy(alpha = 0.2f),
                                             Color.Transparent,
                                             Color.Transparent,
-                                            MaterialTheme.colorScheme.surface.copy(alpha = 0.2f)
+                                            BottomSheetDefaults.ContainerColor.copy(alpha = 0.2f)
                                         )
                                     )
                                 )
@@ -563,7 +563,7 @@ fun CanvasPlayer(
                             .background(
                                 Brush.radialGradient(
                                     colors = listOf(
-                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                                        BottomSheetDefaults.ContainerColor.copy(alpha = 0.3f),
                                         BottomSheetDefaults.ContainerColor
                                     ),
                                     radius = 400f
