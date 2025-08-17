@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     id("kotlin-parcelize")
+//    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -15,8 +16,8 @@ android {
         applicationId = "chromahub.rhythm.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 26172494
-        versionName = "2.6.172.494"
+        versionCode = 26172497
+        versionName = "2.6.172.497"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -83,7 +84,7 @@ android {
 dependencies {
     // Core Android dependencies
     implementation(libs.androidx.core.ktx)
-    implementation("androidx.core:core:1.16.0") // Downgrade core dependency for compatibility
+    implementation("androidx.core:core:1.17.0") // Downgrade core dependency for compatibility
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
     
@@ -110,9 +111,10 @@ dependencies {
     implementation("androidx.palette:palette-ktx:1.0.0")
     
     // Physics-based animations
-    implementation("androidx.compose.animation:animation:1.8.3")
+    implementation("androidx.compose.animation:animation:1.9.0")
+    //noinspection GradleDependency
     implementation("androidx.compose.animation:animation-graphics:1.8.3")
-    implementation("androidx.compose.animation:animation-core:1.8.3")
+    implementation("androidx.compose.animation:animation-core:1.9.0")
     
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.9.3")
@@ -121,7 +123,7 @@ dependencies {
     implementation("com.google.accompanist:accompanist-permissions:0.37.3")
     
     // Fragment
-    implementation("androidx.fragment:fragment-ktx:1.8.8")
+    implementation("androidx.fragment:fragment-ktx:1.8.9")
     
     // MediaRouter
     implementation("androidx.mediarouter:mediarouter:1.8.1")
@@ -135,6 +137,8 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:5.1.0")
     implementation("com.squareup.okhttp3:logging-interceptor:5.1.0")
     implementation("com.google.code.gson:gson:2.13.1")
+//    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+//    implementation("com.jakewharton.retrofit:retrofit2-kotlinx-serialization-converter:1.0.0")
 
     // Coroutines for async operations
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
