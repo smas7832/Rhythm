@@ -1,5 +1,6 @@
 package chromahub.rhythm.app.ui.screens
 // Forcing re-compilation to resolve 'haptic' reference issue
+import kotlinx.coroutines.CoroutineScope
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -170,6 +171,9 @@ fun NewHomeScreen(
     val musicViewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
     val haptics = LocalHapticFeedback.current
     val context = LocalContext.current
+    
+    // Pass musicViewModel to EnhancedScrollableContent
+    val currentMusicViewModel = musicViewModel
     
     // State for artist bottom sheet
     var showArtistSheet by remember { mutableStateOf(false) }
@@ -448,7 +452,9 @@ fun NewHomeScreen(
             onAppUpdateClick = onAppUpdateClick,
             onNavigateToLibrary = onNavigateToLibrary,
             onNavigateToPlaylist = onNavigateToPlaylist,
-            updaterViewModel = updaterViewModel
+            updaterViewModel = updaterViewModel,
+            musicViewModel = currentMusicViewModel, // Pass the musicViewModel
+            coroutineScope = scope // Pass the coroutine scope
         )
     }
 }
@@ -477,11 +483,12 @@ private fun EnhancedScrollableContent(
     onAppUpdateClick: (Boolean) -> Unit = { onSettingsClick() },
     onNavigateToLibrary: () -> Unit = {},
     onNavigateToPlaylist: (String) -> Unit = {},
-    updaterViewModel: AppUpdaterViewModel = viewModel()
+    updaterViewModel: AppUpdaterViewModel = viewModel(),
+    musicViewModel: chromahub.rhythm.app.viewmodel.MusicViewModel, // Add musicViewModel parameter
+    coroutineScope: CoroutineScope // Add CoroutineScope parameter
 ) {
     val scrollState = rememberScrollState()
-    val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
-    val allSongs by viewModel.filteredSongs.collectAsState() // Use filtered songs to exclude blacklisted ones
+    val allSongs by musicViewModel.filteredSongs.collectAsState() // Use filtered songs to exclude blacklisted ones
     
     // Optimize artist computation with improved filtering for collaborations
     val availableArtists = remember(allSongs, topArtists) {
@@ -652,8 +659,9 @@ private fun EnhancedScrollableContent(
             }
             
             // Recommendations
-            val recommendedSongs = remember(viewModel) {
-                viewModel.getRecommendedSongs().take(4)
+            val recommendedSongs = remember(musicViewModel) {
+                // Use musicViewModel.songs.value as allSongs is not directly exposed
+                musicViewModel.songs.value.shuffled().take(4) // Fallback: take 4 random songs
             }
 
             // --- Enhanced Home Screen Sections ---
@@ -719,7 +727,32 @@ private fun EnhancedScrollableContent(
                 exit = slideOutVertically() + fadeOut()
             ) {
                 Column {
-                    SectionTitle(title = "New Releases", viewAllAction = onViewAllAlbums, modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp))
+                    SectionTitle(
+                        title = "New Releases",
+                        // viewAllAction = onViewAllAlbums, // Commented out as per request
+                        onPlayAll = {
+                            coroutineScope.launch { // Launch coroutine
+                                val allNewReleaseSongs = newReleases.flatMap { album ->
+                                    musicViewModel.getMusicRepository().getSongsForAlbum(album.id)
+                                }
+                                if (allNewReleaseSongs.isNotEmpty()) {
+                                    musicViewModel.playQueue(allNewReleaseSongs)
+                                }
+                            }
+                        },
+                        onShufflePlay = {
+                            coroutineScope.launch { // Launch coroutine
+                                val allNewReleaseSongs = newReleases.flatMap { album ->
+                                    musicViewModel.getMusicRepository().getSongsForAlbum(album.id)
+                                }
+                                if (allNewReleaseSongs.isNotEmpty()) {
+                                    musicViewModel.playShuffled(allNewReleaseSongs)
+                                }
+                            }
+                        },
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                        scope = coroutineScope // Pass the coroutine scope
+                    )
                     LazyRow(
                         contentPadding = PaddingValues(horizontal = 5.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -748,7 +781,22 @@ private fun EnhancedScrollableContent(
                 exit = slideOutVertically() + fadeOut()
             ) {
                 Column {
-                    SectionTitle(title = "Recently Added", viewAllAction = onViewAllSongs, modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp))
+                    SectionTitle(
+                        title = "Recently Added",
+                        // viewAllAction = onViewAllSongs, // Commented out as per request
+                        onPlayAll = {
+                            if (recentlyAddedSongs.isNotEmpty()) {
+                                musicViewModel.playQueue(recentlyAddedSongs)
+                            }
+                        },
+                        onShufflePlay = {
+                            if (recentlyAddedSongs.isNotEmpty()) {
+                                musicViewModel.playShuffled(recentlyAddedSongs)
+                            }
+                        },
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                        scope = coroutineScope // Pass the coroutine scope
+                    )
                     LazyRow(
                         contentPadding = PaddingValues(horizontal = 5.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1811,11 +1859,16 @@ private fun MoodPlaylistCard(
     }
 }
 
+
+
 @Composable
 private fun SectionTitle(
     title: String,
     modifier: Modifier = Modifier,
-    viewAllAction: (() -> Unit)? = null
+    viewAllAction: (() -> Unit)? = null,
+    onPlayAll: (() -> Unit)? = null,
+    onShufflePlay: (() -> Unit)? = null,
+    scope: CoroutineScope? = null
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
@@ -1833,23 +1886,107 @@ private fun SectionTitle(
             color = MaterialTheme.colorScheme.onBackground
         )
         
-        if (viewAllAction != null) {
-            FilledIconButton(
-                onClick = {
-                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
-                    viewAllAction()
-                },
-                colors = IconButtonDefaults.filledIconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                ),
-                modifier = Modifier.size(40.dp)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp), // Keep spacing for the overall row
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Grouped Play All and Shuffle Play buttons
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(0.dp), // No spacing between grouped buttons
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(20.dp)) // Clip the entire group
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh) // Common background for the group
             ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
-                    contentDescription = "View All",
-                    modifier = Modifier.size(20.dp)
-                )
+                if (onPlayAll != null) {
+                    Surface(
+                        onClick = {
+                            HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                            onPlayAll()
+                        },
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        shape = RoundedCornerShape(topStart = 20.dp, bottomStart = 20.dp, topEnd = 0.dp, bottomEnd = 0.dp),
+                        modifier = Modifier
+                            .height(40.dp)
+                            .weight(1f)
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            Icon(
+                                imageVector = RhythmIcons.Play,
+                                contentDescription = "Play All",
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Play",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+                }
+
+                if (onShufflePlay != null) {
+                    Surface(
+                        onClick = {
+                            HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                            onShufflePlay()
+                        },
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        shape = RoundedCornerShape(topStart = 0.dp, bottomStart = 0.dp, topEnd = 20.dp, bottomEnd = 20.dp),
+                        modifier = Modifier
+                            .height(40.dp)
+                            .weight(1f)
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            Icon(
+                                imageVector = RhythmIcons.Shuffle,
+                                contentDescription = "Shuffle Play",
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Shuffle",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+                    }
+                }
+            }
+            // Add a spacer between the grouped buttons and the "View All" button if it exists
+            if (onPlayAll != null || onShufflePlay != null) {
+                Spacer(modifier = Modifier.width(8.dp))
+            }
+
+            if (viewAllAction != null) {
+                FilledIconButton(
+                    onClick = {
+                        HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
+                        viewAllAction()
+                    },
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    ),
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                        contentDescription = "View All",
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
         }
     }
