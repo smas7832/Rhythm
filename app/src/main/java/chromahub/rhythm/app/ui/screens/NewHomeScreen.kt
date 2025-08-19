@@ -674,7 +674,9 @@ private fun EnhancedScrollableContent(
             ) {
                 RecentlyPlayedSection(
                     recentlyPlayed = recentlyPlayed.take(5),
-                    onSongClick = onSongClick
+                    onSongClick = onSongClick,
+                    musicViewModel = musicViewModel,
+                    coroutineScope = coroutineScope
                 )
             }
 
@@ -1887,33 +1889,24 @@ private fun SectionTitle(
         )
         
         Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp), // Keep spacing for the overall row
+            horizontalArrangement = Arrangement.spacedBy(0.dp), // Keep spacing for the overall row
             verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Grouped Play All and Shuffle Play buttons
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(0.dp), // No spacing between grouped buttons
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(20.dp)) // Clip the entire group
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh) // Common background for the group
             ) {
                 if (onPlayAll != null) {
+                    // Expanded Play button
                     Surface(
                         onClick = {
                             HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                             onPlayAll()
                         },
                         color = MaterialTheme.colorScheme.primaryContainer,
-                        shape = RoundedCornerShape(topStart = 20.dp, bottomStart = 20.dp, topEnd = 0.dp, bottomEnd = 0.dp),
-                        modifier = Modifier
-                            .height(40.dp)
-                            .weight(1f)
+                        shape = RoundedCornerShape(20.dp), // Fully rounded corners
+                        modifier = Modifier.height(40.dp)
                     ) {
                         Row(
                             horizontalArrangement = Arrangement.Center,
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxSize()
+                            modifier = Modifier.padding(horizontal = 16.dp) // Add horizontal padding for text
                         ) {
                             Icon(
                                 imageVector = RhythmIcons.Play,
@@ -1921,9 +1914,9 @@ private fun SectionTitle(
                                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 modifier = Modifier.size(20.dp)
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(8.dp)) // More space between icon and text
                             Text(
-                                text = "Play",
+                                text = "Play All", // Changed text to "Play All"
                                 style = MaterialTheme.typography.labelLarge,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
@@ -1932,60 +1925,59 @@ private fun SectionTitle(
                 }
 
                 if (onShufflePlay != null) {
-                    Surface(
+                    Spacer(modifier = Modifier.width(8.dp)) // Spacer between Play and Mix buttons
+                    // Compact Mix button (icon only)
+                    FilledIconButton(
                         onClick = {
                             HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                             onShufflePlay()
                         },
-                        color = MaterialTheme.colorScheme.secondaryContainer,
-                        shape = RoundedCornerShape(topStart = 0.dp, bottomStart = 0.dp, topEnd = 20.dp, bottomEnd = 20.dp),
-                        modifier = Modifier
-                            .height(40.dp)
-                            .weight(1f)
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        ),
+                        modifier = Modifier.size(40.dp) // Fixed size for compact button
                     ) {
-                        Row(
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            Icon(
-                                imageVector = RhythmIcons.Shuffle,
-                                contentDescription = "Shuffle Play",
-                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "Shuffle",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                        }
+                        Icon(
+                            imageVector = RhythmIcons.Shuffle,
+                            contentDescription = "Shuffle Play",
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
-            }
-            // Add a spacer between the grouped buttons and the "View All" button if it exists
-            if (onPlayAll != null || onShufflePlay != null) {
-                Spacer(modifier = Modifier.width(8.dp))
-            }
+                // Add a spacer between the buttons and the "View All" button if it exists
+                if ((onPlayAll != null || onShufflePlay != null) && viewAllAction != null) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
 
             if (viewAllAction != null) {
-                FilledIconButton(
+                Surface(
                     onClick = {
                         HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                         viewAllAction()
                     },
-                    colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    ),
-                    modifier = Modifier.size(40.dp)
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = RoundedCornerShape(20.dp), // Fully rounded corners
+                    modifier = Modifier.height(40.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
-                        contentDescription = "View All",
-                        modifier = Modifier.size(20.dp)
-                    )
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 16.dp) // Add horizontal padding for text
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                            contentDescription = "View All",
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp)) // More space between icon and text
+                        Text(
+                            text = "View All",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
                 }
             }
         }
@@ -2073,51 +2065,34 @@ private fun FeaturedContentSection(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun RecentlyPlayedSection(
+fun RecentlyPlayedSection(
     recentlyPlayed: List<Song>,
-    onSongClick: (Song) -> Unit
+    onSongClick: (Song) -> Unit,
+    musicViewModel: chromahub.rhythm.app.viewmodel.MusicViewModel, // Add musicViewModel parameter
+    coroutineScope: CoroutineScope // Add CoroutineScope parameter
 ) {
     Column(
         modifier = Modifier.fillMaxWidth()
     ) {
-        // Enhanced section header with gradient background
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    color = MaterialTheme.colorScheme.surface,
-                    shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
-                )
-                .padding(horizontal = 10.dp, vertical = 16.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "Recently Played",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "Pick up where you left off",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 2.dp)
-                    )
+        SectionTitle(
+            title = "Recently Played",
+            onPlayAll = {
+                coroutineScope.launch { // Launch coroutine
+                    if (recentlyPlayed.isNotEmpty()) {
+                        musicViewModel.playQueue(recentlyPlayed)
+                    }
                 }
-                
-                Icon(
-                    imageVector = RhythmIcons.MusicNote,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-        }
+            },
+            onShufflePlay = {
+                coroutineScope.launch { // Launch coroutine
+                    if (recentlyPlayed.isNotEmpty()) {
+                        musicViewModel.playShuffled(recentlyPlayed)
+                    }
+                }
+            },
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+            scope = coroutineScope // Pass the coroutine scope
+        )
         
         // Enhanced song cards
         LazyRow(
