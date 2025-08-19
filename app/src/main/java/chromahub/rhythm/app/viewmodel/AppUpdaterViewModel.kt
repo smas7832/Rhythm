@@ -144,7 +144,7 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
         AppVersion(
             versionName = BuildConfig.VERSION_NAME,
             versionCode = BuildConfig.VERSION_CODE,
-            releaseDate = "2025-08-11", // This could be generated from build time if needed
+            releaseDate = "2025-08-19", // This could be generated from build time if needed
             whatsNew = emptyList(),
             knownIssues = emptyList(),
             downloadUrl = "",
