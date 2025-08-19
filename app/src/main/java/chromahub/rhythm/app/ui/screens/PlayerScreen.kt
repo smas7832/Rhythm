@@ -1055,7 +1055,7 @@ fun PlayerScreen(
                                                         Brush.radialGradient(
                                                             colors = listOf(
                                                                 BottomSheetDefaults.ContainerColor.copy(alpha = 0.3f),
-//                                                                BottomSheetDefaults.ContainerColor
+                                                                BottomSheetDefaults.ContainerColor
                                                             ),
                                                             radius = 400f
                                                         )
@@ -1111,13 +1111,13 @@ fun PlayerScreen(
                                     .fillMaxSize()
                                     .clip(RoundedCornerShape(if (isCompactHeight) 20.dp else 28.dp))
                                     .background(
-                                        Brush.radialGradient(
-                                            colors = listOf(
-                                                BottomSheetDefaults.ContainerColor.copy(alpha = 0.3f),
-//                                                BottomSheetDefaults.ContainerColor
-                                            ),
-                                            radius = 400f
-                                        )
+                                                Brush.radialGradient(
+                                                    colors = listOf(
+                                                        BottomSheetDefaults.ContainerColor.copy(alpha = 0.3f),
+                                                        BottomSheetDefaults.ContainerColor
+                                                    ),
+                                                    radius = 400f
+                                                )
                                     ),
                                 contentAlignment = Alignment.Center
                             ) {
