@@ -11,6 +11,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
@@ -685,44 +687,73 @@ fun SongsTab(
             if (categories.size > 1) {
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(vertical = 8.dp), // Adjusted padding
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp), // Added horizontal padding
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     items(categories) { category ->
+                        val isSelected = selectedCategory == category
+
+                        val containerColor by animateColorAsState(
+                            targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerLow,
+                            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+                            label = "chipContainerColor"
+                        )
+                        val labelColor by animateColorAsState(
+                            targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+                            label = "chipLabelColor"
+                        )
+                        val borderColor by animateColorAsState(
+                            targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.6f),
+                            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+                            label = "chipBorderColor"
+                        )
+                        val borderWidth by animateDpAsState(
+                            targetValue = if (isSelected) 2.dp else 1.dp,
+                            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+                            label = "chipBorderWidth"
+                        )
+                        val scale by animateFloatAsState(
+                            targetValue = if (isSelected) 1.05f else 1f,
+                            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+                            label = "chipScale"
+                        )
+
                         FilterChip(
                             onClick = {
-                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                                 selectedCategory = category
                             },
                             label = {
                                 Text(
                                     text = category,
                                     style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = if (selectedCategory == category) FontWeight.SemiBold else FontWeight.Normal
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
                                 )
                             },
-                            selected = selectedCategory == category,
+                            selected = isSelected,
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                                labelColor = MaterialTheme.colorScheme.onSurface
+                                selectedContainerColor = containerColor,
+                                selectedLabelColor = labelColor,
+                                containerColor = containerColor,
+                                labelColor = labelColor
                             ),
                             border = FilterChipDefaults.filterChipBorder(
                                 enabled = true,
-                                selected = selectedCategory == category,
-                                borderColor = if (selectedCategory == category)
-                                    MaterialTheme.colorScheme.primary
-                                else
-                                    MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                                selectedBorderColor = MaterialTheme.colorScheme.primary,
-                                borderWidth = if (selectedCategory == category) 0.dp else 0.dp
-                            )
+                                selected = isSelected,
+                                borderColor = borderColor,
+                                selectedBorderColor = borderColor,
+                                borderWidth = borderWidth
+                            ),
+                            shape = RoundedCornerShape(50.dp), // More rounded corners
+                            modifier = Modifier.graphicsLayer {
+                                scaleX = scale
+                                scaleY = scale
+                            }
                         )
                     }
                 }
             }
-
             // Scrollable Songs List
             Surface(
                 color = MaterialTheme.colorScheme.surfaceContainer,
