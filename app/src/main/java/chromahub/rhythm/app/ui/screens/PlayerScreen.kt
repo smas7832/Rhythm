@@ -1692,7 +1692,7 @@ fun PlayerScreen(
                             targetValue = if (shuffleIsActive) {
                                 if (isDarkTheme) MaterialTheme.colorScheme.inverseSurface else MaterialTheme.colorScheme.surfaceContainerLowest
                             } else {
-                                MaterialTheme.colorScheme.surfaceContainerHigh
+                                MaterialTheme.colorScheme.surfaceContainerHighest
                             },
                             label = "shuffleButtonColor"
                         )
@@ -1700,7 +1700,7 @@ fun PlayerScreen(
                             targetValue = if (shuffleIsActive) {
                                 if (isDarkTheme) MaterialTheme.colorScheme.inverseOnSurface else MaterialTheme.colorScheme.onSurface
                             } else {
-                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                             },
                             label = "shuffleContentColor"
                         )
@@ -1760,7 +1760,7 @@ fun PlayerScreen(
                                 targetValue = if (lyricsIsActive) {
                                     if (isDarkTheme) MaterialTheme.colorScheme.inverseSurface else MaterialTheme.colorScheme.surfaceContainerLowest
                                 } else {
-                                    MaterialTheme.colorScheme.surfaceContainerHigh
+                                    MaterialTheme.colorScheme.surfaceContainerHighest
                                 },
                                 label = "lyricsButtonColor"
                             )
@@ -1768,7 +1768,7 @@ fun PlayerScreen(
                                 targetValue = if (lyricsIsActive) {
                                     if (isDarkTheme) MaterialTheme.colorScheme.inverseOnSurface else MaterialTheme.colorScheme.onSurface
                                 } else {
-                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                                 },
                                 label = "lyricsContentColor"
                             )
@@ -1832,7 +1832,7 @@ fun PlayerScreen(
                             targetValue = if (repeatIsActive) {
                                 if (isDarkTheme) MaterialTheme.colorScheme.inverseSurface else MaterialTheme.colorScheme.surfaceContainerLowest
                             } else {
-                                MaterialTheme.colorScheme.surfaceContainerHigh
+                                MaterialTheme.colorScheme.surfaceContainerHighest
                             },
                             label = "repeatButtonColor"
                         )
@@ -1840,7 +1840,7 @@ fun PlayerScreen(
                             targetValue = if (repeatIsActive) {
                                 if (isDarkTheme) MaterialTheme.colorScheme.inverseOnSurface else MaterialTheme.colorScheme.onSurface
                             } else {
-                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                             },
                             label = "repeatContentColor"
                         )
