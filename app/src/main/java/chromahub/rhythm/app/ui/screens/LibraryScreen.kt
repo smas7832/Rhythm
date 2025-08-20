@@ -201,8 +201,11 @@ fun LibraryScreen(
         pagerState.animateScrollToPage(selectedTabIndex)
     }
     
-    LaunchedEffect(pagerState.currentPage) {
-        selectedTabIndex = pagerState.currentPage
+    // Update selectedTabIndex when pager settles on a new page
+    LaunchedEffect(pagerState.targetPage) {
+        if (selectedTabIndex != pagerState.targetPage) {
+            selectedTabIndex = pagerState.targetPage
+        }
     }
 
     // Handle dialogs
@@ -1125,110 +1128,137 @@ fun LibrarySongItem(
 
                 DropdownMenu(
                     expanded = showDropdown,
-                    onDismissRequest = { 
+                    onDismissRequest = {
                         HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
-                        showDropdown = false 
+                        showDropdown = false
                     },
-                    modifier = Modifier.widthIn(min = 200.dp),
-                    shape = RoundedCornerShape(18.dp)
+                    modifier = Modifier
+                        .widthIn(min = 200.dp)
+                        .padding(4.dp), // Adjusted padding for the menu itself
+                    shape = RoundedCornerShape(16.dp) // Consistent shape
                 ) {
-                    DropdownMenuItem(
-                        text = { 
-                            Text(
-                                "Add to playlist",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Medium
-                            ) 
-                        },
-                        leadingIcon = {
-                            Surface(
-                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
-                                shape = CircleShape,
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(6.dp)
+                    // Add to playlist
+                    Surface(
+                        color = Color.Transparent, // Make item background transparent to show menu background
+                        shape = RoundedCornerShape(12.dp), // Rounded corners for the item background
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 2.dp) // Adjusted padding to match album sort menu
+                    ) {
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    "Add to playlist",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface // Default text color
                                 )
+                            },
+                            leadingIcon = {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                                    shape = CircleShape,
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(6.dp)
+                                    )
+                                }
+                            },
+                            onClick = {
+                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                                showDropdown = false
+                                onMoreClick()
                             }
-                        },
-                        onClick = {
-                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
-                            showDropdown = false
-                            onMoreClick()
-                        },
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp)
-                    )
-                    DropdownMenuItem(
-                        text = { 
-                            Text(
-                                "Song info",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Medium
-                            ) 
-                        },
-                        leadingIcon = {
-                            Surface(
-                                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
-                                shape = CircleShape,
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Info,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(6.dp)
+                        )
+                    }
+
+                    // Song info
+                    Surface(
+                        color = Color.Transparent, // Make item background transparent to show menu background
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 2.dp) // Adjusted padding to match album sort menu
+                    ) {
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    "Song info",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
+                            },
+                            leadingIcon = {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
+                                    shape = CircleShape,
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Info,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(6.dp)
+                                    )
+                                }
+                            },
+                            onClick = {
+                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                                showDropdown = false
+                                onShowSongInfo()
                             }
-                        },
-                        onClick = {
-                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
-                            showDropdown = false
-                            onShowSongInfo()
-                        },
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp)
-                    )
-                    DropdownMenuItem(
-                        text = { 
-                            Text(
-                                "Add to blacklist",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.error
-                            ) 
-                        },
-                        leadingIcon = {
-                            Surface(
-                                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f),
-                                shape = CircleShape,
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Block,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onErrorContainer,
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(6.dp)
+                        )
+                    }
+
+                    // Add to blacklist
+                    Surface(
+                        color = Color.Transparent, // Make item background transparent to show menu background
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 2.dp) // Adjusted padding to match album sort menu
+                    ) {
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    "Add to blacklist",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.error // Keep error color for blacklist
                                 )
+                            },
+                            leadingIcon = {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f),
+                                    shape = CircleShape,
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Block,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onErrorContainer,
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(6.dp)
+                                    )
+                                }
+                            },
+                            onClick = {
+                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                                showDropdown = false
+                                onAddToBlacklist()
                             }
-                        },
-                        onClick = {
-                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
-                            showDropdown = false
-                            onAddToBlacklist()
-                        },
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp)
-                    )
+                        )
+                    }
                 }
             }
         },
