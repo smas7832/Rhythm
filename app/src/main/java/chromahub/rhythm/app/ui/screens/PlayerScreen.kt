@@ -18,6 +18,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.ui.input.pointer.pointerInput
+//import kotlinx.coroutines.awaitRelease
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -1912,16 +1918,22 @@ fun PlayerScreen(
                     ) {
                         // Add to Playlist chip
                         item {
+                            var isPressed by remember { mutableStateOf(false) }
+                            val scale by animateFloatAsState(
+                                targetValue = if (isPressed) 0.95f else 1f,
+                                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+                                label = "addToPlaylistScale"
+                            )
                             AssistChip(
                                 onClick = {
                                     HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                                     onAddToPlaylist()
                                 },
-                                label = { 
+                                label = {
                                     Text(
                                         "Add to",
                                         style = MaterialTheme.typography.labelLarge
-                                    ) 
+                                    )
                                 },
                                 leadingIcon = {
                                     Icon(
@@ -1930,7 +1942,24 @@ fun PlayerScreen(
                                         modifier = Modifier.size(18.dp)
                                     )
                                 },
-                                modifier = Modifier.height(32.dp), // Reduced height
+                                modifier = Modifier
+                                    .height(32.dp) // Reduced height
+                                    .graphicsLayer {
+                                        scaleX = scale
+                                        scaleY = scale
+                                    }
+                                    .pointerInput(Unit) {
+                                        detectTapGestures(
+                                            onPress = {
+                                                isPressed = true
+                                                try {
+                                                    awaitRelease()
+                                                } finally {
+                                                    isPressed = false
+                                                }
+                                            }
+                                        )
+                                    },
                                 shape = RoundedCornerShape(16.dp), // Adjusted shape for smaller size
                                 colors = AssistChipDefaults.assistChipColors(
                                     containerColor = MaterialTheme.colorScheme.surfaceVariant,
@@ -1943,17 +1972,38 @@ fun PlayerScreen(
                         
                         // Favorite chip
                         item {
+                            val containerColor by animateColorAsState(
+                                targetValue = if (isFavorite) Color.Red.copy(alpha = 0.9f) else MaterialTheme.colorScheme.surfaceVariant,
+                                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+                                label = "favoriteChipContainerColor"
+                            )
+                            val labelColor by animateColorAsState(
+                                targetValue = if (isFavorite) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+                                label = "favoriteChipLabelColor"
+                            )
+                            val iconColor by animateColorAsState(
+                                targetValue = if (isFavorite) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+                                label = "favoriteChipIconColor"
+                            )
+                            val scale by animateFloatAsState(
+                                targetValue = if (isFavorite) 1.05f else 1f,
+                                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+                                label = "favoriteChipScale"
+                            )
+
                             FilterChip(
                                 selected = isFavorite,
                                 onClick = {
                                     HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                                     onToggleFavorite()
                                 },
-                                label = { 
+                                label = {
                                     Text(
                                         "Favorite",
                                         style = MaterialTheme.typography.labelLarge
-                                    ) 
+                                    )
                                 },
                                 leadingIcon = {
                                     Icon(
@@ -1962,15 +2012,20 @@ fun PlayerScreen(
                                         modifier = Modifier.size(16.dp) // Reduced icon size
                                     )
                                 },
-                                modifier = Modifier.height(32.dp), // Reduced height
+                                modifier = Modifier
+                                    .height(32.dp) // Reduced height
+                                    .graphicsLayer {
+                                        scaleX = scale
+                                        scaleY = scale
+                                    },
                                 shape = RoundedCornerShape(16.dp), // Adjusted shape for smaller size
                                 colors = FilterChipDefaults.filterChipColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    iconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    selectedContainerColor = Color.Red.copy(alpha = 0.9f),
-                                    selectedLabelColor = Color.White,
-                                    selectedLeadingIconColor = Color.White
+                                    containerColor = containerColor,
+                                    labelColor = labelColor,
+                                    iconColor = iconColor,
+                                    selectedContainerColor = containerColor,
+                                    selectedLabelColor = labelColor,
+                                    selectedLeadingIconColor = iconColor
                                 ),
                                 border = null // Removed border
                             )
@@ -1978,6 +2033,12 @@ fun PlayerScreen(
                         
                         // Album chip  
                         item {
+                            var isPressed by remember { mutableStateOf(false) }
+                            val scale by animateFloatAsState(
+                                targetValue = if (isPressed) 0.95f else 1f,
+                                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+                                label = "albumChipScale"
+                            )
                             AssistChip(
                                 onClick = {
                                     HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
@@ -1990,11 +2051,11 @@ fun PlayerScreen(
                                         }
                                     }
                                 },
-                                label = { 
+                                label = {
                                     Text(
                                         "Album",
                                         style = MaterialTheme.typography.labelLarge
-                                    ) 
+                                    )
                                 },
                                 leadingIcon = {
                                     Icon(
@@ -2003,7 +2064,24 @@ fun PlayerScreen(
                                         modifier = Modifier.size(16.dp) // Reduced icon size
                                     )
                                 },
-                                modifier = Modifier.height(32.dp), // Reduced height
+                                modifier = Modifier
+                                    .height(32.dp) // Reduced height
+                                    .graphicsLayer {
+                                        scaleX = scale
+                                        scaleY = scale
+                                    }
+                                    .pointerInput(Unit) {
+                                        detectTapGestures(
+                                            onPress = {
+                                                isPressed = true
+                                                try {
+                                                    awaitRelease()
+                                                } finally {
+                                                    isPressed = false
+                                                }
+                                            }
+                                        )
+                                    },
                                 shape = RoundedCornerShape(16.dp), // Adjusted shape for smaller size
                                 colors = AssistChipDefaults.assistChipColors(
                                     containerColor = MaterialTheme.colorScheme.surfaceVariant,
@@ -2016,6 +2094,12 @@ fun PlayerScreen(
                         
                         // Artist chip
                         item {
+                            var isPressed by remember { mutableStateOf(false) }
+                            val scale by animateFloatAsState(
+                                targetValue = if (isPressed) 0.95f else 1f,
+                                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+                                label = "artistChipScale"
+                            )
                             AssistChip(
                                 onClick = {
                                     HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
@@ -2028,11 +2112,11 @@ fun PlayerScreen(
                                         }
                                     }
                                 },
-                                label = { 
+                                label = {
                                     Text(
                                         "Artist",
                                         style = MaterialTheme.typography.labelLarge
-                                    ) 
+                                    )
                                 },
                                 leadingIcon = {
                                     Icon(
@@ -2041,7 +2125,24 @@ fun PlayerScreen(
                                         modifier = Modifier.size(16.dp) // Reduced icon size
                                     )
                                 },
-                                modifier = Modifier.height(32.dp), // Reduced height
+                                modifier = Modifier
+                                    .height(32.dp) // Reduced height
+                                    .graphicsLayer {
+                                        scaleX = scale
+                                        scaleY = scale
+                                    }
+                                    .pointerInput(Unit) {
+                                        detectTapGestures(
+                                            onPress = {
+                                                isPressed = true
+                                                try {
+                                                    awaitRelease()
+                                                } finally {
+                                                    isPressed = false
+                                                }
+                                            }
+                                        )
+                                    },
                                 shape = RoundedCornerShape(16.dp), // Adjusted shape for smaller size
                                 colors = AssistChipDefaults.assistChipColors(
                                     containerColor = MaterialTheme.colorScheme.surfaceVariant,
