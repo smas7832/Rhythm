@@ -125,7 +125,8 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
     private var lastUpdateCheck = 0L
     
     // AppSettings instance
-    private val appSettings = AppSettings.getInstance(application.applicationContext)
+    private val _appSettings = AppSettings.getInstance(application.applicationContext)
+    val appSettings: AppSettings = _appSettings // Expose AppSettings publicly
     
     // SharedPreferences for download state persistence
     private val downloadPrefs: SharedPreferences = application.getSharedPreferences("app_updater_downloads", Context.MODE_PRIVATE)
@@ -191,7 +192,7 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
         loadDownloadState()
         
         viewModelScope.launch {
-            appSettings.updateChannel.collectLatest { channel ->
+            _appSettings.updateChannel.collectLatest { channel ->
                 _updateChannel.value = channel
                 // Re-check for updates if channel changes
                 checkForUpdates(force = true)
@@ -280,9 +281,9 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
      */
     fun checkForUpdates(force: Boolean = false) {
         viewModelScope.launch {
-            val updatesEnabled = appSettings.updatesEnabled.first()
-            val autoCheckEnabled = appSettings.autoCheckForUpdates.first()
-            val currentChannel = appSettings.updateChannel.first()
+            val updatesEnabled = _appSettings.updatesEnabled.first()
+            val autoCheckEnabled = _appSettings.autoCheckForUpdates.first()
+            val currentChannel = _appSettings.updateChannel.first()
 
             // Master check: if updates are completely disabled, don't check unless forced
             if (!force && !updatesEnabled) {
@@ -596,7 +597,7 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
      */
     fun downloadUpdate() {
         viewModelScope.launch {
-            val updatesEnabled = appSettings.updatesEnabled.first()
+            val updatesEnabled = _appSettings.updatesEnabled.first()
             
             if (!updatesEnabled) {
                 _error.value = "Updates are disabled in settings"
@@ -998,9 +999,9 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
     private fun startPeriodicUpdateChecks() {
         viewModelScope.launch {
             // Combine both update settings
-            appSettings.updatesEnabled.collectLatest { updatesEnabled ->
+            _appSettings.updatesEnabled.collectLatest { updatesEnabled ->
                 if (updatesEnabled) {
-                    appSettings.autoCheckForUpdates.collectLatest { autoCheckEnabled ->
+                    _appSettings.autoCheckForUpdates.collectLatest { autoCheckEnabled ->
                         if (autoCheckEnabled) {
                             // Check immediately if it's been more than the interval
                             val timeSinceLastCheck = System.currentTimeMillis() - lastUpdateCheck
@@ -1009,9 +1010,9 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
                             }
                             
                             // Schedule periodic checks
-                            while (autoCheckEnabled && appSettings.updatesEnabled.first()) {
+                            while (autoCheckEnabled && _appSettings.updatesEnabled.first()) {
                                 delay(UPDATE_CHECK_INTERVAL)
-                                if (appSettings.autoCheckForUpdates.first() && appSettings.updatesEnabled.first()) {
+                                if (_appSettings.autoCheckForUpdates.first() && _appSettings.updatesEnabled.first()) {
                                     checkForUpdates(force = false)
                                 }
                             }

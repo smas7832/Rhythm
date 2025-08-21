@@ -611,6 +611,7 @@ private fun EnhancedScrollableContent(
     val updateAvailable by updaterViewModel.updateAvailable.collectAsState()
     val latestVersion by updaterViewModel.latestVersion.collectAsState()
     val error by updaterViewModel.error.collectAsState()
+    val updatesEnabled by updaterViewModel.appSettings.updatesEnabled.collectAsState(initial = true)
     
     // Auto-scroll featured pager
     LaunchedEffect(featuredPagerState.pageCount) {
@@ -642,7 +643,7 @@ private fun EnhancedScrollableContent(
         ) {
             // Update card or welcome section
             AnimatedVisibility(
-                visible = updateAvailable && latestVersion != null && error == null,
+                visible = updateAvailable && latestVersion != null && error == null && updatesEnabled, // Add updatesEnabled check
                 enter = slideInVertically() + fadeIn(),
                 exit = slideOutVertically() + fadeOut()
             ) {
@@ -654,7 +655,7 @@ private fun EnhancedScrollableContent(
                 }
             }
             
-            if (!updateAvailable || latestVersion == null || error != null) {
+            if (!updateAvailable || latestVersion == null || error != null || !updatesEnabled) { // Add updatesEnabled check
                 WelcomeSection(greeting = greeting, onSearchClick = onSearchClick)
             }
             
