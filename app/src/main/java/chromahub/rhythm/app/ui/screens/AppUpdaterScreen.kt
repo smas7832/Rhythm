@@ -120,22 +120,16 @@ fun AppUpdaterScreen(
     val context = LocalContext.current
 
     // Check for updates when the screen is first shown, respecting the AppSettings
-    LaunchedEffect(updatesEnabled, currentVersion, latestVersion) {
+    LaunchedEffect(updatesEnabled) {
         // Always check when the screen is first opened if updates are enabled
-        // Also, re-check if the current version or latest version changes, to ensure correct state
         if (updatesEnabled) {
             updaterViewModel.checkForUpdates(force = true)
         }
     }
 
     // Auto-download update when screen is opened with autoDownload flag
-    LaunchedEffect(updateAvailable, isCheckingForUpdates, autoDownload, latestVersion, downloadedFile, updatesEnabled, currentVersion) {
+    LaunchedEffect(updateAvailable, isCheckingForUpdates, autoDownload, latestVersion, downloadedFile, updatesEnabled) {
         val version = latestVersion
-        // Ensure downloadedFile is cleared if a new update is detected or if the current downloaded file is for an older version
-        if (downloadedFile != null && latestVersion != null && downloadedFile?.name?.contains(latestVersion.versionName) == false) {
-            updaterViewModel.clearDownloadedFile()
-        }
-
         if (autoDownload && updateAvailable && !isCheckingForUpdates && 
             version != null && !isDownloading && downloadedFile == null && 
             error == null && version.apkAssetName.isNotEmpty() && updatesEnabled) {
