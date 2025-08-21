@@ -641,8 +641,9 @@ private fun EnhancedScrollableContent(
             verticalArrangement = Arrangement.spacedBy(32.dp)
         ) {
             // Update card or welcome section
+            val updatesEnabled by musicViewModel.appSettings.updatesEnabled.collectAsState() // Collect updatesEnabled here
             AnimatedVisibility(
-                visible = updateAvailable && latestVersion != null && error == null,
+                visible = updateAvailable && latestVersion != null && error == null && updatesEnabled, // Add updatesEnabled condition
                 enter = slideInVertically() + fadeIn(),
                 exit = slideOutVertically() + fadeOut()
             ) {
@@ -654,7 +655,7 @@ private fun EnhancedScrollableContent(
                 }
             }
             
-            if (!updateAvailable || latestVersion == null || error != null) {
+            if (!updateAvailable || latestVersion == null || error != null || !updatesEnabled) { // Add updatesEnabled condition
                 WelcomeSection(greeting = greeting, onSearchClick = onSearchClick)
             }
             
