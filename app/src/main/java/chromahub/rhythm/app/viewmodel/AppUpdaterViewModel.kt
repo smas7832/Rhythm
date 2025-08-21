@@ -925,6 +925,13 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
             // Check if there's an app that can handle this intent
             if (intent.resolveActivity(context.packageManager) != null) {
                 context.startActivity(intent)
+                // IMPORTANT: Clear download state after successful launch of installer
+                // This prevents the app from thinking the update is still downloaded
+                // and showing "Install Update" again after the user installs it.
+                _downloadedFile.value = null
+                activeDownload = null
+                _downloadState.value = null
+                clearDownloadState() // Clear persisted state as well
             } else {
                 _error.value = "No app available to install APK files"
             }
