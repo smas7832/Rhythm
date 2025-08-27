@@ -137,8 +137,8 @@ const updateData = {
     },
     update2: {
         image: "assets/Banner.png",
-        headline: "Rhythm Stable - Maintenance Update",
-        date: "August 10, 2025",
+        headline: "2.7 Stable Update is here!",
+        date: "August 17, 2025",
         writer: "Anjishnu Nandi",
         details: `
             <p>Greetings, Rhythm users! We're excited to bring you a maintenance update focused on enhancing your overall experience. This release addresses several key areas, bringing new features, crucial fixes, and performance improvements.</p>
