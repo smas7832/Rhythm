@@ -1887,7 +1887,8 @@ footer {
 
     .update-popup-content h2 {
         font-size: 28px; /* Adjusted font size */
-    }
+        padding-top: 25px;
+      }
 
     .update-popup-content .popup-meta {
         font-size: 15px;
@@ -2214,7 +2215,7 @@ footer {
 .dark-mode .feature-card,
 .dark-mode .testimonial-card,
 .dark-mode .dashboard-preview {
-  background-color: var(--surface-container-low); /* Using SurfaceContainerLow */
+  background-color: var(--on-secondary); /* Using SurfaceContainerLow */
 }
 
 .dark-mode .tab-btn {
