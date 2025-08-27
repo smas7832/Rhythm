@@ -293,29 +293,29 @@ function setupUpdatePopup() {
         const itemImage = item.querySelector('img');
 
         if (data && data.image) {
-            imageExists(`../web/${data.image}`, (exists) => { // Adjust path for updates.html
+            imageExists(`${data.image}`, (exists) => { // Path is relative to updates.html
                 if (!exists) {
                     item.classList.add('no-image');
-                    itemImage.insertAdjacentHTML('afterend', `<img src="../assets/icon.png" alt="Rhythm Logo" class="fallback-logo">`);
+                    itemImage.insertAdjacentHTML('afterend', `<img src="assets/icon.png" alt="Rhythm Logo" class="fallback-logo">`);
                 }
             });
         } else {
             item.classList.add('no-image');
-            itemImage.insertAdjacentHTML('afterend', `<img src="../assets/icon.png" alt="Rhythm Logo" class="fallback-logo">`);
+            itemImage.insertAdjacentHTML('afterend', `<img src="assets/icon.png" alt="Rhythm Logo" class="fallback-logo">`);
         }
 
         item.addEventListener('click', () => {
             if (data) {
                 if (data.image) {
-                    imageExists(`../web/${data.image}`, (exists) => { // Adjust path for updates.html
+                    imageExists(`${data.image}`, (exists) => { // Path is relative to updates.html
                         if (exists) {
-                            popupImage.src = `../web/${data.image}`;
+                            popupImage.src = `${data.image}`;
                         } else {
-                            popupImage.src = "../assets/icon.png"; // Fallback to app logo
+                            popupImage.src = "assets/icon.png"; // Fallback to app logo
                         }
                     });
                 } else {
-                    popupImage.src = "../assets/icon.png"; // Fallback to app logo
+                    popupImage.src = "assets/icon.png"; // Fallback to app logo
                 }
                 
                 popupHeadline.textContent = data.headline;
@@ -553,14 +553,22 @@ document.addEventListener('DOMContentLoaded', () => {
     setupScrollAnimations();
     setupDarkModeToggle();
     setupPreloader();
-    setupCarousel(); // Initialize carousel functionality
-    setupNewsCarousel(); // Initialize news carousel functionality
-    setupUpdatePopup(); // Initialize update popup functionality
-    setupUpdateViewToggle(); // Initialize update view toggle functionality
 
-    // Initialize first tab content for larger screens
-    if (window.innerWidth > 768) {
-        document.querySelector('.tab-btn').click();
+    const currentPage = window.location.pathname.split('/').pop();
+
+    if (currentPage === 'index.html' || currentPage === '') {
+        setupCarousel(); // Initialize carousel functionality for index.html
+        setupNewsCarousel(); // Initialize news carousel functionality for index.html
+        // Initialize first tab content for larger screens on index.html
+        if (window.innerWidth > 768) {
+            const firstTabBtn = document.querySelector('.tab-btn');
+            if (firstTabBtn) {
+                firstTabBtn.click();
+            }
+        }
+    } else if (currentPage === 'updates.html') {
+        setupUpdatePopup(); // Initialize update popup functionality for updates.html
+        setupUpdateViewToggle(); // Initialize update view toggle functionality for updates.html
     }
 });
 

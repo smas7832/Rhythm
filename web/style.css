@@ -166,6 +166,9 @@ a:hover {
 header {
   background-color: rgba(255, 255, 255, 0);
   backdrop-filter: blur(32px);
+  padding-top: 20px;
+  padding-left: 20px;
+  padding-right: 20px;
   -webkit-backdrop-filter: blur(32px);
   position: fixed;
   width: 100%;
@@ -831,7 +834,7 @@ nav ul li a:hover::after {
 }
 
 .feature-card {
-  background-color: var(--surface);
+  background-color: var(--secondary-container);
   padding: 40px 30px;
   border-radius: var(--radius-lg);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
@@ -1610,7 +1613,7 @@ footer {
 }
 
 .update-item {
-    background-color: var(--surface);
+    background-color: var(--on-secondary);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-md);
     overflow: hidden;
@@ -1700,7 +1703,7 @@ footer {
 .update-popup-content {
     background-color: var(--surface);
     padding: 40px; /* Adjusted padding to prevent overlap */
-    padding-top: 80px; /* Increased top padding to make space for close button */
+    padding-top: 0px; /* Increased top padding to make space for close button */
     border-radius: var(--radius-lg);
     box-shadow: 0 18px 45px rgba(0, 0, 0, 0.2); /* More pronounced shadow */
     max-width: 1000px; /* Even wider */
@@ -1754,23 +1757,30 @@ footer {
 
 .update-popup-header {
     display: flex;
-    align-items: center;
-    margin-bottom: 25px; /* Increased margin */
+    flex-direction: column; /* Stack image and text vertically */
+    align-items: flex-start; /* Align items to the start */
+    margin-bottom: 0; /* Removed margin as text is now inside body */
     flex-wrap: wrap;
+    position: relative; /* For absolute positioning of text if needed */
 }
 
 .update-popup-header img {
-    width: 70px; /* Slightly larger image */
-    height: 70px; /* Slightly larger image */
-    min-width: 70px;
-    margin-right: 20px; /* Increased margin */
-    border-radius: var(--radius-sm);
+    width: calc(100% + 80px); /* Make image span full width of popup content + padding */
+    height: 200px; /* Fixed height for banner */
     object-fit: cover;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0; /* Rounded top corners */
+    margin-bottom: 0; /* Removed margin as text is now inside body */
+    margin-left: -40px; /* Counteract left padding of popup-content */
+    margin-right: -40px; /* Counteract right padding of popup-content */
     box-shadow: var(--shadow-sm);
 }
 
 .update-popup-header-text {
     flex-grow: 1;
+    padding-top: 25px; /* Removed padding as it's now inside scrollable body */
+    width: 100%; /* Ensure text takes full width */
+    box-sizing: border-box; /* Include padding in width calculation */
+    margin-bottom: 25px; /* Add margin to separate from details */
 }
 
 .update-popup-content h2 {
@@ -1784,7 +1794,7 @@ footer {
 .update-popup-content .popup-meta {
     font-size: 16px; /* Slightly larger font */
     color: var(--outline);
-    margin-bottom: 25px; /* Adjusted margin */
+    margin-bottom: 0; /* Removed margin as it's part of header-text margin */
 }
 
 .update-popup-body {
@@ -1888,8 +1898,14 @@ footer {
     }
 
     .update-popup-header img {
-        width: 60px;
-        height: 60px;
+        width: calc(100% + 50px); /* Adjust for smaller padding */
+        margin-left: -25px; /* Counteract left padding of popup-content */
+        margin-right: -25px; /* Counteract right padding of popup-content */
+        height: 150px; /* Adjust height for smaller screens */
+    }
+
+    .update-popup-header-text {
+        padding: 0 25px; /* Adjust horizontal padding for smaller screens */
     }
 }
 
@@ -1927,9 +1943,14 @@ footer {
     }
 
     .update-popup-header img {
-        width: 40px;
-        height: 40px;
-        margin-right: 15px;
+        width: calc(100% + 40px); /* Adjust for smaller padding */
+        margin-left: -20px; /* Counteract left padding of popup-content */
+        margin-right: -20px; /* Counteract right padding of popup-content */
+        height: 120px; /* Adjust height for smaller screens */
+    }
+
+    .update-popup-header-text {
+        padding: 0 20px; /* Adjust horizontal padding for smaller screens */
     }
 }
 
@@ -1982,7 +2003,7 @@ footer {
 }
 
 .dark-mode .update-item {
-    background-color: var(--surface-container-low);
+    background-color: var(--on-secondary);
 }
 
 .dark-mode .update-content h3 {
@@ -1999,10 +2020,6 @@ footer {
 
 .dark-mode .update-popup-content {
     background-color: var(--surface-container-low);
-}
-
-.dark-mode .close-popup-btn {
-    color: var(--on-surface);
 }
 
 .dark-mode .update-popup-content h2 {
@@ -2039,7 +2056,7 @@ footer {
     position: relative;
     overflow: hidden;
     border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-md);
+    /* box-shadow: var(--shadow-md); */
     background-color: var(--surface);
     transition: all 0.3s ease;
 }
