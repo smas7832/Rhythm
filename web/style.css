@@ -137,7 +137,7 @@ a:hover {
   background-color: white;
   color: var(--primary);
   transform: translateY(-5px);
-  box-shadow: 0 10px 25px rgba(0, 98, 255, 0.2);
+  box-shadow: 0 10px 25px rgba(72, 0, 255, 0.2);
 }
 
 .btn-outline {
@@ -152,7 +152,7 @@ a:hover {
   color: var(--text-light);
   border: 4px solid transparent;
   transform: translateY(-5px);
-  box-shadow: 0 10px 25px rgba(0, 98, 255, 0.2);
+  box-shadow: 0 10px 25px rgba(72, 0, 255, 0.2);
 }
 
 .btn i {
@@ -288,7 +288,7 @@ nav ul li a:hover::after {
   background: none;
   border: none;
   font-size: 24px;
-  color: var(--primary);
+  color: var(--primary); /* Default color for the icon */
   cursor: pointer;
   padding: 8px;
   border-radius: var(--radius-sm);
@@ -298,7 +298,7 @@ nav ul li a:hover::after {
 }
 
 .mobile-menu-btn:hover {
-  background-color: rgba(0, 98, 255, 0.1);
+  background-color: var(--primary-container); /* Use primary-container for hover effect */
   transform: scale(1.1);
 }
 
@@ -321,7 +321,7 @@ nav ul li a:hover::after {
     top: 80px;
     left: 0;
     right: 0;
-    background-color: rgba(255, 255, 255, 0.9);
+    background-color: rgba(255, 255, 255, 0.9); /* Light mode background with blur */
     backdrop-filter: blur(32px);
     -webkit-backdrop-filter: blur(32px);
     box-shadow: var(--shadow-md);
@@ -353,6 +353,7 @@ nav ul li a:hover::after {
     display: block;
     padding: 12px 0;
     font-size: 18px;
+    color: var(--on-surface); /* Ensure links are visible in light mode */
   }
 
   .auth-buttons {
@@ -383,17 +384,21 @@ nav ul li a:hover::after {
 }
 
 .dark-mode .mobile-menu-btn {
-  color: var(--text-light);
+  color: var(--primary); /* Use primary color for the icon in dark mode */
 }
 
 .dark-mode nav.active {
-  background-color: rgb(26, 26, 46);
-  backdrop-filter: blur(32px);
+  background-color: #151317; /* Use HSL for dark mode background with blur */
+  backdrop-filter: blur(32px) !important;
   -webkit-backdrop-filter: blur(32px);
 }
 
+.dark-mode nav ul li a {
+  color: var(--on-surface); /* Ensure links are visible in dark mode */
+}
+
 .dark-mode .auth-buttons.active {
-  background-color: rgba(26, 26, 46, 0.9);
+  background-color: rgba(var(--surface-hsl), 0.9); /* Use HSL for dark mode background with blur */
   backdrop-filter: blur(32px);
   -webkit-backdrop-filter: blur(32px);
 }
@@ -412,7 +417,7 @@ nav ul li a:hover::after {
   color: var(--on-primary-container);
   position: relative;
   overflow: hidden;
-  box-shadow: 0 20px 80px rgba(0, 98, 255, 0.15);
+  box-shadow: 0 20px 80px rgba(51, 0, 255, 0.15);
 }
 
 .hero::before {
@@ -1001,7 +1006,7 @@ nav ul li a:hover::after {
   background-color: var(--primary);
   color: var(--text-light);
   transform: translateY(-5px);
-  box-shadow: 0 10px 20px rgba(0, 98, 255, 0.15);
+  box-shadow: 0 10px 20px rgba(89, 0, 255, 0.15);
 }
 
 .tab-btn:hover:not(.active) {
@@ -1178,7 +1183,7 @@ nav ul li a:hover::after {
   margin-left: 5%;
   margin-right: 5%;
   margin-bottom: 5%;
-  box-shadow: 0 20px 80px rgba(0, 98, 255, 0.2);
+  box-shadow: 0 20px 80px rgba(98, 0, 255, 0.2);
 }
 
 .cta::before,
@@ -1554,10 +1559,53 @@ footer {
     background-color: var(--surface-container-low);
 }
 
+.view-controls {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-bottom: 50px;
+    flex-wrap: wrap;
+}
+
+.view-controls .btn {
+    min-width: 150px;
+    padding: 12px 25px;
+    font-size: 16px;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+}
+
+.view-controls .btn.active {
+    background-color: var(--primary);
+    color: var(--on-primary);
+    border-color: var(--primary);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-3px);
+}
+
+.view-controls .btn.active:hover {
+    background-color: var(--primary);
+    color: var(--on-primary);
+}
+
+.view-controls .btn:not(.active):hover {
+    background-color: var(--primary-container);
+    color: var(--on-primary-container);
+    border-color: var(--primary-container);
+}
+
 .updates-list {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 40px;
+    transition: all 0.5s ease-in-out;
+}
+
+.updates-list.list-view {
+    grid-template-columns: 1fr; /* Single column for list view */
+}
+
+.updates-list.grid-view {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* Multiple columns for grid view */
 }
 
 .update-item {
@@ -1567,6 +1615,14 @@ footer {
     overflow: hidden;
     transition: all 0.3s ease;
     cursor: pointer;
+    display: flex; /* Default to flex for list view */
+    flex-direction: row;
+    align-items: center;
+}
+
+.updates-list.grid-view .update-item {
+    flex-direction: column; /* Stack elements for grid view */
+    align-items: stretch;
 }
 
 .update-item:hover {
@@ -1575,14 +1631,22 @@ footer {
 }
 
 .update-item img {
-    width: 100%;
-    height: 200px;
+    width: 250px; /* Fixed width for list view image */
+    height: 180px; /* Fixed height for list view image */
     object-fit: cover;
     display: block;
+    border-radius: var(--radius-lg) 0 0 var(--radius-lg); /* Rounded corners for list view */
+}
+
+.updates-list.grid-view .update-item img {
+    width: 100%; /* Full width for grid view image */
+    height: 200px; /* Consistent height for grid view image */
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0; /* Rounded corners for grid view */
 }
 
 .update-content {
     padding: 20px;
+    flex-grow: 1; /* Allow content to take remaining space in list view */
 }
 
 .update-content h3 {
@@ -1634,11 +1698,13 @@ footer {
 
 .update-popup-content {
     background-color: var(--surface);
-    padding: 30px;
+    padding: 40px; /* Adjusted padding to prevent overlap */
+    padding-top: 80px; /* Increased top padding to make space for close button */
     border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-lg);
-    max-width: 900px;
-    width: 95%;
+    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.2); /* More pronounced shadow */
+    max-width: 1000px; /* Even wider */
+    width: 90%; /* Maintain flexible width */
+    border: 1px solid var(--surface-variant); /* Subtle border */
     position: relative;
     transform: translateY(20px);
     transition: transform 0.3s ease-out;
@@ -1656,49 +1722,50 @@ footer {
 
 .close-popup-btn {
     position: absolute;
-    top: 20px;
-    right: 20px;
-    background-color: var(--primary);
-    color: var(--on-primary);
+    top: 20px; /* Adjusted position */
+    right: 20px; /* Adjusted position */
+    background-color: var(--error);
+    color: var(--on-error);
     border: none;
-    padding: 10px 20px;
+    padding: 10px 20px; /* Slightly larger padding */
     border-radius: var(--radius-md);
-    font-size: 16px;
+    font-size: 16px; /* Slightly larger font */
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 8px; /* Increased gap */
     z-index: 2001;
     box-shadow: var(--shadow-sm);
 }
 
 .close-popup-btn:hover {
-    background-color: var(--primary-dark);
+    background-color: var(--error-container);
+    color: var(--on-error-container);
     transform: translateY(-3px) scale(1.02);
     box-shadow: var(--shadow-md);
 }
 
 .close-popup-btn i {
-    font-size: 18px;
+    font-size: 20px; /* Slightly larger icon */
 }
 
 .update-popup-header {
     display: flex;
     align-items: center;
-    margin-bottom: 20px;
-    flex-wrap: wrap; /* Allow wrapping on smaller screens */
+    margin-bottom: 25px; /* Increased margin */
+    flex-wrap: wrap;
 }
 
 .update-popup-header img {
-    width: 60px;
-    height: 60px;
-    min-width: 60px; /* Ensure image doesn't shrink too much */
-    margin-right: 15px;
+    width: 70px; /* Slightly larger image */
+    height: 70px; /* Slightly larger image */
+    min-width: 70px;
+    margin-right: 20px; /* Increased margin */
     border-radius: var(--radius-sm);
     object-fit: cover;
-    box-shadow: var(--shadow-sm); /* Add subtle shadow to image */
+    box-shadow: var(--shadow-sm);
 }
 
 .update-popup-header-text {
@@ -1706,24 +1773,24 @@ footer {
 }
 
 .update-popup-content h2 {
-    font-size: 32px;
+    font-size: 36px; /* Larger headline */
     font-weight: 800;
     color: var(--primary);
-    margin-bottom: 5px; /* Reduced margin */
+    margin-bottom: 8px; /* Adjusted margin */
     line-height: 1.2;
 }
 
 .update-popup-content .popup-meta {
-    font-size: 15px; /* Slightly smaller font */
+    font-size: 16px; /* Slightly larger font */
     color: var(--outline);
-    margin-bottom: 20px; /* Adjusted margin */
+    margin-bottom: 25px; /* Adjusted margin */
 }
 
 .update-popup-body {
     flex-grow: 1;
-    overflow-y: auto; /* Enable scrolling for content if it overflows */
-    padding-right: 15px; /* Padding for scrollbar */
-    margin-right: -15px; /* Counteract padding for scrollbar */
+    overflow-y: auto;
+    padding-right: 20px; /* Increased padding for scrollbar */
+    margin-right: -20px; /* Counteract padding for scrollbar */
 }
 
 .update-popup-body::-webkit-scrollbar {
@@ -1731,7 +1798,7 @@ footer {
 }
 
 .update-popup-body::-webkit-scrollbar-track {
-    background: var(--surface-variant);
+    background: transparent; /* Make scrollbar track transparent */
     border-radius: 10px;
 }
 
@@ -1766,8 +1833,32 @@ footer {
 
 /* Responsive adjustments for popup */
 @media (max-width: 768px) {
+    .view-controls {
+        gap: 10px;
+        margin-bottom: 30px;
+    }
+
+    .view-controls .btn {
+        min-width: unset;
+        width: 48%;
+        font-size: 14px;
+        padding: 10px 15px;
+    }
+
+    .updates-list.list-view .update-item {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .updates-list.list-view .update-item img {
+        width: 100%;
+        height: 180px;
+        border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    }
+
     .update-popup-content {
-        padding: 25px;
+        padding: 25px; /* Adjusted padding for medium screens */
+        padding-top: 70px; /* Adjusted top padding for medium screens */
         width: 95%;
         max-width: 95%;
     }
@@ -1784,11 +1875,11 @@ footer {
     }
 
     .update-popup-content h2 {
-        font-size: 26px;
+        font-size: 28px; /* Adjusted font size */
     }
 
     .update-popup-content .popup-meta {
-        font-size: 14px;
+        font-size: 15px;
     }
 
     .update-popup-content #popup-details {
@@ -1796,14 +1887,19 @@ footer {
     }
 
     .update-popup-header img {
-        width: 50px;
-        height: 50px;
+        width: 60px;
+        height: 60px;
     }
 }
 
 @media (max-width: 480px) {
+    .view-controls .btn {
+        width: 100%;
+    }
+
     .update-popup-content {
-        padding: 20px;
+        padding: 20px; /* Adjusted padding for small screens */
+        padding-top: 60px; /* Adjusted top padding for small screens */
     }
 
     .close-popup-btn {
@@ -1818,7 +1914,7 @@ footer {
     }
 
     .update-popup-content h2 {
-        font-size: 22px;
+        font-size: 22px; /* Adjusted font size */
     }
 
     .update-popup-content .popup-meta {
@@ -1826,13 +1922,20 @@ footer {
     }
 
     .update-popup-content #popup-details {
-        font-size: 15px;
+        font-size: 14px;
     }
 
     .update-popup-header img {
         width: 40px;
         height: 40px;
+        margin-right: 15px;
     }
+}
+
+/* Custom selection styles */
+::selection {
+  background-color: var(--accent);
+  color: var(--on-secondary);
 }
 
 /* Image fallback for updates */
@@ -2050,7 +2153,7 @@ footer {
   --error-container: #8C1D18;
   --on-error-container: #F9DEDC;
   --background: #1C1B1F;
-  --on-background: #E6E1E5;
+  --on-background: #e3e1e6;
   --surface: #1C1B1F;
   --on-surface: #E6E1E5;
   --surface-variant: #49454F;

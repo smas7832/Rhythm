@@ -556,12 +556,48 @@ document.addEventListener('DOMContentLoaded', () => {
     setupCarousel(); // Initialize carousel functionality
     setupNewsCarousel(); // Initialize news carousel functionality
     setupUpdatePopup(); // Initialize update popup functionality
+    setupUpdateViewToggle(); // Initialize update view toggle functionality
 
     // Initialize first tab content for larger screens
     if (window.innerWidth > 768) {
         document.querySelector('.tab-btn').click();
     }
 });
+
+// Update View Toggle Functionality (for updates.html)
+function setupUpdateViewToggle() {
+    const listViewBtn = document.getElementById('listViewBtn');
+    const gridViewBtn = document.getElementById('gridViewBtn');
+    const updatesList = document.querySelector('.updates-list');
+
+    if (!listViewBtn || !gridViewBtn || !updatesList) {
+        return; // Exit if elements are not found
+    }
+
+    // Set default view to list view
+    updatesList.classList.add('list-view');
+    listViewBtn.classList.add('btn-primary', 'active');
+    gridViewBtn.classList.remove('btn-primary', 'active');
+    gridViewBtn.classList.add('btn-outline');
+
+    listViewBtn.addEventListener('click', () => {
+        updatesList.classList.remove('grid-view');
+        updatesList.classList.add('list-view');
+        listViewBtn.classList.add('btn-primary', 'active');
+        listViewBtn.classList.remove('btn-outline');
+        gridViewBtn.classList.remove('btn-primary', 'active');
+        gridViewBtn.classList.add('btn-outline');
+    });
+
+    gridViewBtn.addEventListener('click', () => {
+        updatesList.classList.remove('list-view');
+        updatesList.classList.add('grid-view');
+        gridViewBtn.classList.add('btn-primary', 'active');
+        gridViewBtn.classList.remove('btn-outline');
+        listViewBtn.classList.remove('btn-primary', 'active');
+        listViewBtn.classList.add('btn-outline');
+    });
+}
 
 // Smooth scrolling for all download buttons
 document.querySelectorAll('.scroll-to-download').forEach(button => {
