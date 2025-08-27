@@ -18,7 +18,7 @@
   --on-error: #FFFFFF;
   --error-container: #F9DEDC;
   --on-error-container: #410E0B;
-  --background: #FFFBFE;
+  --background: #efeef1;
   --on-background: #1C1B1F;
   --surface: #FFFBFE;
   --on-surface: #1C1B1F;
@@ -164,7 +164,7 @@ a:hover {
 }
 
 header {
-  background-color: rgba(255, 255, 255, 0.8);
+  background-color: rgba(255, 255, 255, 0);
   backdrop-filter: blur(32px);
   -webkit-backdrop-filter: blur(32px);
   position: fixed;
@@ -180,7 +180,7 @@ header.scrolled {
   margin: 0 24px; /* Add margin to create padding effect from sides */
   width: calc(100% - 48px); /* Adjust width for margin */
   padding: 10px 20px; /* Add padding */
-  background-color: rgba(240, 236, 255, 0.61);
+  background-color: rgba(255, 255, 255, 0.695);
   /* box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05); */
   border-radius: var(--radius-lg); /* Rounded corners */
 }
@@ -1281,8 +1281,8 @@ nav ul li a:hover::after {
 footer {
   border-top-right-radius: var(--radius-lg);
   border-top-left-radius: var(--radius-lg);
-  background-color: var(--dark);
-  color: var(--text-light);
+  background-color: var(--on-secondary); /* Use a dark surface tone for the footer */
+  color: var(--on-background); /* Ensure text is visible on dark background */
   padding-top: 80px;
   position: relative;
 }
@@ -1308,7 +1308,7 @@ footer {
 }
 
 .footer-logo h2 {
-  color: var(--text-light);
+  color: var(--on-background); /* Ensure text is visible on dark background */
   font-size: 24px;
   font-weight: 700;
 }
@@ -1317,7 +1317,7 @@ footer {
   font-size: 20px;
   font-weight: 700;
   margin-bottom: 25px;
-  color: var(--primary-light);
+  color: var(--primary); /* Use primary color for headings */
   position: relative;
   padding-bottom: 15px;
 }
@@ -1327,7 +1327,7 @@ footer {
   position: absolute;
   width: 50px;
   height: 3px;
-  background-color: var(--primary-light);
+  background-color: var(--primary); /* Use primary color for underline */
   bottom: 0;
   left: 0;
   border-radius: 2px;
@@ -1354,7 +1354,7 @@ footer {
 }
 
 .footer-links a {
-  color: var(--text-light);
+  color: var(--on-background); /* Ensure text is visible on dark background */
   opacity: 0.8;
   transition: var(--transition);
   display: flex;
@@ -1363,12 +1363,12 @@ footer {
 
 .footer-links a:hover {
   opacity: 1;
-  color: var(--primary-light);
+  color: var(--primary); /* Use primary color for hover */
 }
 
 .footer-links i {
   margin-right: 10px;
-  color: var(--primary-light);
+  color: var(--primary); /* Use primary color for icons */
 }
 
 .social-links {
@@ -1384,8 +1384,8 @@ footer {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: rgba(255, 255, 255, 0.1);
-  color: var(--text-light);
+  background-color: var(--on-primary-container); /* Use a surface tone for social links */
+  color: var(--on-primary); /* Ensure text is visible */
   transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   position: relative;
   overflow: hidden;
@@ -1417,11 +1417,12 @@ footer {
 
 
 .footer-bottom {
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid var(--outline); /* Use outline color for border */
   padding: 25px 0;
   text-align: center;
   font-size: 16px;
   opacity: 0.7;
+  color: var(--on-background); /* Ensure text is visible */
 }
 
 /* Animations */
