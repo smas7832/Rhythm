@@ -136,7 +136,7 @@ const updateData = {
         `
     },
     update2: {
-        image: "assets/update.jpg",
+        image: "assets/Banner.png",
         headline: "Rhythm Stable - Maintenance Update",
         date: "August 10, 2025",
         writer: "Anjishnu Nandi",
