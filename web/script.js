@@ -189,6 +189,34 @@ function setupNewsCarousel() {
     window.addEventListener('resize', updateNewsCarousel);
     updateNewsCarousel(); // Initial update
     showNewsSlide(0); // Initialize to the first slide
+
+    // Auto-scroll functionality for news carousel
+    let newsAutoScrollInterval;
+    function startNewsAutoScroll() {
+        newsAutoScrollInterval = setInterval(() => {
+            showNewsSlide(newsSlideIndex + 1);
+        }, 5000); // Change slide every 5 seconds
+    }
+
+    function stopNewsAutoScroll() {
+        clearInterval(newsAutoScrollInterval);
+    }
+
+    // Pause auto-scroll on hover
+    newsCarouselContainer.addEventListener('mouseenter', stopNewsAutoScroll);
+    newsCarouselContainer.addEventListener('mouseleave', startNewsAutoScroll);
+
+    // Restart auto-scroll when manually navigating
+    newsPrevBtn.addEventListener('click', () => {
+        stopNewsAutoScroll();
+        startNewsAutoScroll();
+    });
+    newsNextBtn.addEventListener('click', () => {
+        stopNewsAutoScroll();
+        startNewsAutoScroll();
+    });
+
+    startNewsAutoScroll(); // Start auto-scrolling on load
 }
 
 // Showcase Carousel Functionality (for index.html)
@@ -260,6 +288,34 @@ function setupShowcaseCarousel() {
     window.addEventListener('resize', updateShowcaseCarousel);
     updateShowcaseCarousel(); // Initial update
     showShowcaseSlide(0); // Initialize to the first slide
+
+    // Auto-scroll functionality for showcase carousel
+    let showcaseAutoScrollInterval;
+    function startShowcaseAutoScroll() {
+        showcaseAutoScrollInterval = setInterval(() => {
+            showShowcaseSlide(showcaseSlideIndex + 1);
+        }, 5000); // Change slide every 5 seconds
+    }
+
+    function stopShowcaseAutoScroll() {
+        clearInterval(showcaseAutoScrollInterval);
+    }
+
+    // Pause auto-scroll on hover
+    showcaseCarouselContainer.addEventListener('mouseenter', stopShowcaseAutoScroll);
+    showcaseCarouselContainer.addEventListener('mouseleave', startShowcaseAutoScroll);
+
+    // Restart auto-scroll when manually navigating
+    showcasePrevBtn.addEventListener('click', () => {
+        stopShowcaseAutoScroll();
+        startShowcaseAutoScroll();
+    });
+    showcaseNextBtn.addEventListener('click', () => {
+        stopShowcaseAutoScroll();
+        startShowcaseAutoScroll();
+    });
+
+    startShowcaseAutoScroll(); // Start auto-scrolling on load
 }
 
 // Update Popup Functionality (for updates.html)
@@ -439,19 +495,47 @@ function setupDarkModeToggle() {
 
     const darkModeSwitch = document.getElementById('darkModeSwitch');
 
-    // Check for saved preference
-    if (localStorage.getItem('darkMode') === 'enabled') {
-        document.body.classList.add('dark-mode');
-        darkModeSwitch.checked = true;
-    }
-
-    darkModeSwitch.addEventListener('change', () => {
-        if (darkModeSwitch.checked) {
+    // Function to apply theme
+    function applyTheme(isDark) {
+        if (isDark) {
             document.body.classList.add('dark-mode');
-            localStorage.setItem('darkMode', 'enabled');
         } else {
             document.body.classList.remove('dark-mode');
-            localStorage.setItem('darkMode', null);
+        }
+    }
+
+    // Check for saved preference first
+    const savedTheme = localStorage.getItem('darkMode');
+    if (savedTheme === 'enabled') {
+        applyTheme(true);
+        darkModeSwitch.checked = true;
+    } else if (savedTheme === 'disabled') {
+        applyTheme(false);
+        darkModeSwitch.checked = false;
+    } else {
+        // If no saved preference, check system preference
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        applyTheme(prefersDark);
+        darkModeSwitch.checked = prefersDark;
+    }
+
+    // Listen for changes in system theme
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+        // Only apply system theme if no explicit user preference is set
+        if (localStorage.getItem('darkMode') === null) {
+            applyTheme(e.matches);
+            darkModeSwitch.checked = e.matches;
+        }
+    });
+
+    // Dark mode toggle event listener
+    darkModeSwitch.addEventListener('change', () => {
+        if (darkModeSwitch.checked) {
+            applyTheme(true);
+            localStorage.setItem('darkMode', 'enabled');
+        } else {
+            applyTheme(false);
+            localStorage.setItem('darkMode', 'disabled'); // Save 'disabled' to explicitly turn off dark mode
         }
     });
 }
