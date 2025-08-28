@@ -10,8 +10,8 @@
   --on-secondary: #FFFFFF;
   --secondary-container: #E8DEF8;
   --on-secondary-container: #1D192B;
-  --tertiary: #7D5260;
-  --on-tertiary: #FFFFFF;
+  --tertiary: #ffb9d0;
+  --on-tertiary: #864848;
   --tertiary-container: #FFD8E4;
   --on-tertiary-container: #31111D;
   --error: #B3261E;
@@ -35,7 +35,8 @@
 
   /* Custom variables mapped to Material 3 */
   --primary-light: var(--primary-container);
-  --primary-dark: var(--on-primary-container);
+  --primary-dark: #6a00ff;
+  --on-primary-dark: #ddcaff;
   --accent: var(--secondary);
 
   /* Existing variables adjusted for Material 3 */
@@ -134,8 +135,8 @@ a:hover {
 }
 
 .btn-primary:hover {
-  background-color: white;
-  color: var(--primary);
+  background-color: var(--tertiary);
+  color: var(--on-tertiary-container);
   transform: translateY(-5px);
   box-shadow: 0 10px 25px rgba(72, 0, 255, 0.2);
 }
@@ -1276,7 +1277,7 @@ nav ul li a:hover::after {
 
 .cta .btn-primary:hover {
   background-color: var(--primary-light);
-  color: var(--text-light);
+  color: var(--on-primary-container);
   transform: translateY(-5px);
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
 }
@@ -2110,7 +2111,8 @@ footer {
 }
 
 .news-carousel .carousel-btn:hover {
-    background-color: var(--primary-dark);
+    background-color: var(--tertiary-container);
+    color: var(--on-tertiary-container);
 }
 
 .news-carousel .prev-btn {
@@ -2166,8 +2168,8 @@ footer {
   --on-secondary-container: #E8DEF8;
   --tertiary: #EFB8C8;
   --on-tertiary: #492532;
-  --tertiary-container: #633B48;
-  --on-tertiary-container: #FFD8E4;
+  --tertiary-container: #ffbed2;
+  --on-tertiary-container: #6a3f4c;
   --error: #F2B8B5;
   --on-error: #601410;
   --error-container: #8C1D18;
