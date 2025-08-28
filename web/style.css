@@ -200,6 +200,7 @@ header.scrolled {
   display: flex;
   align-items: center;
   gap: 12px;
+  cursor: pointer; /* Add cursor pointer to indicate clickability */
 }
 
 .header-logo,
