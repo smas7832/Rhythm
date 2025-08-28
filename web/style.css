@@ -774,9 +774,19 @@ nav ul li a:hover::after {
 
 .hero-text p {
   font-size: 20px;
-  margin-bottom: 40px;
+  margin-bottom: 20px; /* Reduced margin to make space for buttons */
   max-width: 540px;
   opacity: 0.9;
+}
+
+.hero-text .view-controls {
+    justify-content: flex-start; /* Align buttons to the left within hero-text */
+    margin-top: 20px; /* Add some space between paragraph and buttons */
+}
+
+.hero-text .view-controls {
+    justify-content: flex-start; /* Align buttons to the left within hero-text */
+    margin-bottom: 0; /* Remove bottom margin as it's now inside hero-text */
 }
 
 .hero-image {
@@ -1458,9 +1468,7 @@ footer {
 
 .view-controls {
     display: flex;
-    justify-content: center;
     gap: 20px;
-    margin-bottom: 50px;
     flex-wrap: wrap;
 }
 
@@ -1591,6 +1599,8 @@ footer {
 .update-popup-overlay.active {
     opacity: 1;
     visibility: visible;
+    backdrop-filter: blur(10px); /* Add blur effect */
+    -webkit-backdrop-filter: blur(10px);
 }
 
 .update-popup-content {
@@ -1603,17 +1613,17 @@ footer {
     width: 90%; /* Maintain flexible width */
     border: 1px solid var(--surface-variant); /* Subtle border */
     position: relative;
-    transform: translateY(20px);
-    transition: transform 0.3s ease-out;
+    transform: scale(0.8); /* Start smaller for spring effect */
+    opacity: 0; /* Start hidden for animation */
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Spring animation */
     display: flex;
     flex-direction: column;
     max-height: 90vh;
     overflow: hidden;
-    opacity: 0; /* Start hidden for animation */
 }
 
 .update-popup-overlay.active .update-popup-content {
-    transform: translateY(0);
+    transform: scale(1); /* Scale to full size */
     opacity: 1; /* Fade in */
 }
 
@@ -1737,9 +1747,12 @@ footer {
 
 /* Responsive adjustments for popup */
 @media (max-width: 768px) {
+    .hero-text .view-controls {
+        justify-content: center; /* Center buttons on smaller screens within hero-text */
+    }
+
     .view-controls {
         gap: 10px;
-        margin-bottom: 30px;
     }
 
     .view-controls .btn {
@@ -2243,7 +2256,11 @@ footer {
   }
 
   .hero-text p {
-    margin: 0 auto 40px auto;
+    margin: 0 auto 20px auto; /* Adjust margin for smaller screens */
+  }
+
+  .hero-text .view-controls {
+    justify-content: center; /* Center buttons on smaller screens within hero-text */
   }
 
   .hero-image {
