@@ -21,21 +21,47 @@
                 <nav>
                     <ul>
                         <li><a href="#features">Features</a></li>
-                        <li><a href="#dashboards">Showcase</a></li>
+                        <li><a href="#showcase">Showcase</a></li>
                         <li><a href="updates.html">Updates</a></li>
                         <li><a href="#contact">Contact</a></li>
                     </ul>
                 </nav>
-                <div class="mobile-menu-btn" id="mobileMenuBtn">
-                    <i class="fas fa-bars"></i>
-                </div>
                 <div class="auth-buttons">
                     <a href="#downloadOptionsSection" class="btn btn-outline scroll-to-download">Download <i class="fas fa-download"></i></a>
                     <a href="https://github.com/cromaguy/Rhythm" class="btn btn-primary">GitHub <i class="fab fa-github"></i></a>
                 </div>
+                <button class="hamburger-menu-button" aria-label="Open navigation menu">
+                    <i class="fas fa-bars"></i>
+                </button>
             </div>
         </div>
     </header>
+
+    <div class="mobile-nav-overlay"></div>
+    <div class="mobile-nav-menu">
+        <div class="mobile-nav-header">
+            <a href="#" class="logo">
+                <img src="assets/icon.png" alt="Rhythm Logo" class="header-logo">
+                <h1>Rhythm</h1>
+                <span class="beta-tag">PRE</span>
+            </a>
+            <button class="close-menu-button" aria-label="Close navigation menu">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <nav class="mobile-nav-links">
+            <ul>
+                <li><a href="#features">Features</a></li>
+                <li><a href="#showcase">Showcase</a></li>
+                <li><a href="updates.html">Updates</a></li>
+                <li><a href="#contact">Contact</a></li>
+            </ul>
+        </nav>
+        <div class="mobile-auth-buttons">
+            <a href="#downloadOptionsSection" class="btn btn-outline scroll-to-download">Download <i class="fas fa-download"></i></a>
+            <a href="https://github.com/cromaguy/Rhythm" class="btn btn-primary">GitHub <i class="fab fa-github"></i></a>
+        </div>
+    </div>
 <br>
     <section class="hero">
         <div class="animated-circles">
@@ -111,67 +137,35 @@
         </div>
     </section>
 
-    <section class="dashboard-previews" id="dashboards">
+    <section class="showcase-section" id="showcase">
         <div class="container">
             <div class="section-header">
                 <h2>App Screenshots</h2>
-                <p>A glimpse into Rhythm's beautiful and intuitive user interface</p>
+                <p>Explore the beautiful Material You design of Rhythm through these screenshots.</p>
             </div>
-            <!-- <div class="tabs">
-                <button class="tab-btn active" data-tab="home">Home</button>
-                <button class="tab-btn" data-tab="player">Player</button>
-                <button class="tab-btn" data-tab="lyrics">Lyrics</button>
-                <button class="tab-btn" data-tab="library">Library</button>
-                <button class="tab-btn" data-tab="search">Search</button>
-                <button class="tab-btn" data-tab="settings">Settings</button>
-            </div> -->
-            <div class="carousel-container">
-                <div class="carousel-track">
-                    <div class="dashboard-preview">
+            <div class="carousel-container showcase-carousel">
+                <div class="carousel-track showcase-carousel-track" id="showcase-carousel-track">
+                    <div class="showcase-carousel-item">
                         <img src="assets/ScreenShots/Home.png" alt="Rhythm Home Screen">
-                        <div class="dashboard-overlay">
-                            <h3>Smart Home</h3>
-                            <a href="https://github.com/cromaguy/Rhythm#screenshots" class="btn btn-primary">View More</a>
-                        </div>
                     </div>
-                    <div class="dashboard-preview">
+                    <div class="showcase-carousel-item">
                         <img src="assets/ScreenShots/Player.png" alt="Rhythm Player Screen">
-                        <div class="dashboard-overlay">
-                            <h3>Beautiful Player</h3>
-                            <a href="https://github.com/cromaguy/Rhythm#screenshots" class="btn btn-primary">View More</a>
-                        </div>
                     </div>
-                    <div class="dashboard-preview">
-                        <img src="assets/ScreenShots/Player_Lyrics.png" alt="Rhythm Lyrics Screen">
-                        <div class="dashboard-overlay">
-                            <h3>Synced Lyrics</h3>
-                            <a href="https://github.com/cromaguy/Rhythm#screenshots" class="btn btn-primary">View More</a>
-                        </div>
+                    <div class="showcase-carousel-item">
+                        <img src="assets/ScreenShots/Library_Songs.png" alt="Rhythm Library Songs">
                     </div>
-                    <div class="dashboard-preview">
-                        <img src="assets/ScreenShots/Library_Songs.png" alt="Rhythm Library Screen">
-                        <div class="dashboard-overlay">
-                            <h3>Rich Library</h3>
-                            <a href="https://github.com/cromaguy/Rhythm#screenshots" class="btn btn-primary">View More</a>
-                        </div>
+                    <div class="showcase-carousel-item">
+                        <img src="assets/ScreenShots/Library_Albums.png" alt="Rhythm Library Albums">
                     </div>
-                    <div class="dashboard-preview">
-                        <img src="assets/ScreenShots/Search.png" alt="Rhythm Search Screen">
-                        <div class="dashboard-overlay">
-                            <h3>Instant Search</h3>
-                            <a href="https://github.com/cromaguy/Rhythm#screenshots" class="btn btn-primary">View More</a>
-                        </div>
+                    <div class="showcase-carousel-item">
+                        <img src="assets/ScreenShots/Player_Lyrics.png" alt="Rhythm Player Lyrics">
                     </div>
-                    <div class="dashboard-preview">
-                        <img src="assets/ScreenShots/Settings.png" alt="Rhythm Settings Screen">
-                        <div class="dashboard-overlay">
-                            <h3>Deep Settings</h3>
-                            <a href="https://github.com/cromaguy/Rhythm#screenshots" class="btn btn-primary">View More</a>
-                        </div>
+                    <div class="showcase-carousel-item">
+                        <img src="assets/ScreenShots/Settings.png" alt="Rhythm Settings">
                     </div>
                 </div>
-                <button class="carousel-btn prev-btn"><i class="fas fa-chevron-left"></i></button>
-                <button class="carousel-btn next-btn"><i class="fas fa-chevron-right"></i></button>
+                <button class="carousel-btn prev-btn showcase-prev-btn"><i class="fas fa-chevron-left"></i></button>
+                <button class="carousel-btn next-btn showcase-next-btn"><i class="fas fa-chevron-right"></i></button>
             </div>
         </div>
     </section>

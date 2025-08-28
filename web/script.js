@@ -8,121 +8,38 @@ window.addEventListener('scroll', function () {
     }
 });
 
-// Tab Functionality (for larger screens)
-const tabBtns = document.querySelectorAll('.tab-btn');
-const tabContents = document.querySelectorAll('.tab-content');
+// Mobile Navigation Menu Toggle
+document.addEventListener('DOMContentLoaded', () => {
+    const hamburgerBtn = document.querySelector('.hamburger-menu-button');
+    const closeMenuBtn = document.querySelector('.close-menu-button');
+    const mobileNavMenu = document.querySelector('.mobile-nav-menu');
+    const mobileNavOverlay = document.querySelector('.mobile-nav-overlay');
+    const mobileNavLinks = document.querySelectorAll('.mobile-nav-links ul li a');
 
-function activateTab(tabId) {
-    tabBtns.forEach(b => b.classList.remove('active'));
-    tabContents.forEach(t => t.classList.remove('active'));
-
-    const activeBtn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
-    const activeContent = document.getElementById(`${tabId}-tab`);
-
-    if (activeBtn) activeBtn.classList.add('active');
-    if (activeContent) activeContent.classList.add('active');
-}
-
-tabBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-        const tabId = btn.getAttribute('data-tab');
-        activateTab(tabId);
-    });
-});
-
-// Carousel Functionality (for screenshots)
-function setupCarousel() {
-    const carouselContainer = document.querySelector('.dashboard-previews .carousel-container');
-    const carouselTrack = document.querySelector('.dashboard-previews .carousel-track');
-    const prevBtn = document.querySelector('.dashboard-previews .prev-btn');
-    const nextBtn = document.querySelector('.dashboard-previews .next-btn');
-    const slides = document.querySelectorAll('.dashboard-previews .dashboard-preview');
-    const tabsContainer = document.querySelector('.dashboard-previews .tabs');
-    let slideIndex = 0;
-
-    if (!carouselContainer || !carouselTrack || !prevBtn || !nextBtn || slides.length === 0) {
-        return; // Exit if carousel elements are not found
-    }
-
-    function getSlidesPerView() {
-        if (window.innerWidth >= 992) {
-            return 3; // Show 3 items on large screens
-        } else if (window.innerWidth >= 768) {
-            return 2; // Show 2 items on medium screens
-        } else {
-            return 1; // Show 1 item on small screens
-        }
-    }
-
-    function updateCarousel() {
-        const slidesPerView = getSlidesPerView();
-        const totalSlides = slides.length;
-        const slideWidth = carouselContainer.offsetWidth / slidesPerView;
-
-        slides.forEach(slide => {
-            slide.style.flex = `0 0 ${100 / slidesPerView}%`;
+    if (hamburgerBtn && mobileNavMenu && closeMenuBtn && mobileNavOverlay) {
+        hamburgerBtn.addEventListener('click', () => {
+            mobileNavMenu.classList.add('active');
+            mobileNavOverlay.classList.add('active');
         });
 
-        // Adjust slideIndex to prevent showing empty space if there are fewer slides than slidesPerView
-        if (slideIndex > totalSlides - slidesPerView && totalSlides >= slidesPerView) {
-            slideIndex = totalSlides - slidesPerView;
-        } else if (slideIndex < 0) {
-            slideIndex = 0; // Prevent going below 0
-        } else if (slideIndex >= totalSlides) {
-            slideIndex = totalSlides - slidesPerView; // Loop back to the last possible slide
-        }
+        closeMenuBtn.addEventListener('click', () => {
+            mobileNavMenu.classList.remove('active');
+            mobileNavOverlay.classList.remove('active');
+        });
 
-        carouselTrack.style.transform = `translateX(-${slideIndex * slideWidth}px)`;
+        mobileNavOverlay.addEventListener('click', () => {
+            mobileNavMenu.classList.remove('active');
+            mobileNavOverlay.classList.remove('active');
+        });
+
+        mobileNavLinks.forEach(link => {
+            link.addEventListener('click', () => {
+                mobileNavMenu.classList.remove('active');
+                mobileNavOverlay.classList.remove('active');
+            });
+        });
     }
-
-    function showSlide(index) {
-        const slidesPerView = getSlidesPerView();
-        const totalSlides = slides.length;
-        
-        slideIndex = index;
-
-        if (slideIndex < 0) {
-            slideIndex = totalSlides - slidesPerView;
-        } else if (slideIndex > totalSlides - slidesPerView) {
-            slideIndex = 0;
-        }
-        updateCarousel();
-    }
-
-    prevBtn.addEventListener('click', () => {
-        showSlide(slideIndex - 1);
-    });
-
-    nextBtn.addEventListener('click', () => {
-        showSlide(slideIndex + 1);
-    });
-
-    // Initial setup and resize listener
-    window.addEventListener('resize', () => {
-        updateCarousel();
-        handleScreenSizeChange(); // Re-evaluate tab/carousel visibility on resize
-    });
-
-    // Handle tab/carousel visibility based on screen size
-    function handleScreenSizeChange() {
-        if (window.innerWidth <= 768) {
-            if (tabsContainer) tabsContainer.style.display = 'none';
-            carouselContainer.style.display = 'block';
-            prevBtn.style.display = 'block';
-            nextBtn.style.display = 'block';
-            showSlide(0); // Reset to first slide on mobile
-        } else {
-            if (tabsContainer) tabsContainer.style.display = 'flex';
-            carouselContainer.style.display = 'block'; // Keep carousel visible for larger screens, but tabs will control content
-            prevBtn.style.display = 'none';
-            nextBtn.style.display = 'none';
-            activateTab('home'); // Activate default tab on larger screens
-        }
-    }
-
-    handleScreenSizeChange(); // Initial check
-    updateCarousel(); // Initial carousel update
-}
+});
 
 // Update Data (Centralized for both pages)
 const updateData = {
@@ -274,6 +191,77 @@ function setupNewsCarousel() {
     showNewsSlide(0); // Initialize to the first slide
 }
 
+// Showcase Carousel Functionality (for index.html)
+function setupShowcaseCarousel() {
+    const showcaseCarouselTrack = document.getElementById('showcase-carousel-track');
+    const showcaseCarouselContainer = document.querySelector('.showcase-carousel');
+    const showcasePrevBtn = document.querySelector('.showcase-prev-btn');
+    const showcaseNextBtn = document.querySelector('.showcase-next-btn');
+
+    if (!showcaseCarouselTrack || !showcaseCarouselContainer || !showcasePrevBtn || !showcaseNextBtn) {
+        return; // Exit if showcase carousel elements are not found
+    }
+
+    const showcaseSlides = document.querySelectorAll('.showcase-carousel-item');
+    let showcaseSlideIndex = 0;
+
+    function getShowcaseSlidesPerView() {
+        if (window.innerWidth >= 992) {
+            return 3;
+        } else if (window.innerWidth >= 768) {
+            return 2;
+        } else {
+            return 1;
+        }
+    }
+
+    function updateShowcaseCarousel() {
+        const slidesPerView = getShowcaseSlidesPerView();
+        const totalSlides = showcaseSlides.length;
+        const slideWidth = showcaseCarouselContainer.offsetWidth / slidesPerView;
+
+        showcaseSlides.forEach(slide => {
+            slide.style.flex = `0 0 ${100 / slidesPerView}%`;
+        });
+
+        if (showcaseSlideIndex > totalSlides - slidesPerView && totalSlides >= slidesPerView) {
+            showcaseSlideIndex = totalSlides - slidesPerView;
+        } else if (showcaseSlideIndex < 0) {
+            showcaseSlideIndex = 0;
+        } else if (showcaseSlideIndex >= totalSlides) {
+            showcaseSlideIndex = totalSlides - slidesPerView;
+        }
+
+        showcaseCarouselTrack.style.transform = `translateX(-${showcaseSlideIndex * slideWidth}px)`;
+    }
+
+    function showShowcaseSlide(index) {
+        const slidesPerView = getShowcaseSlidesPerView();
+        const totalSlides = showcaseSlides.length;
+
+        showcaseSlideIndex = index;
+
+        if (showcaseSlideIndex < 0) {
+            showcaseSlideIndex = totalSlides - slidesPerView;
+        } else if (showcaseSlideIndex > totalSlides - slidesPerView) {
+            showcaseSlideIndex = 0;
+        }
+        updateShowcaseCarousel();
+    }
+
+    showcasePrevBtn.addEventListener('click', () => {
+        showShowcaseSlide(showcaseSlideIndex - 1);
+    });
+
+    showcaseNextBtn.addEventListener('click', () => {
+        showShowcaseSlide(showcaseSlideIndex + 1);
+    });
+
+    window.addEventListener('resize', updateShowcaseCarousel);
+    updateShowcaseCarousel(); // Initial update
+    showShowcaseSlide(0); // Initialize to the first slide
+}
+
 // Update Popup Functionality (for updates.html)
 function setupUpdatePopup() {
     const updateItems = document.querySelectorAll('.updates-list .update-item');
@@ -363,42 +351,6 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     });
 });
 
-// Mobile menu functionality
-function setupMobileMenu() {
-    const mobileMenuBtn = document.getElementById('mobileMenuBtn');
-    const nav = document.querySelector('nav');
-    const authButtons = document.querySelector('.auth-buttons');
-   
-    // Add click event listener to the mobile menu button
-    if (mobileMenuBtn) {
-        // Use event delegation to handle clicks on both the button and its children
-        mobileMenuBtn.addEventListener('click', (e) => {
-            e.stopPropagation(); // Prevent this click from triggering the document click handler
-            nav.classList.toggle('active');
-            authButtons.classList.toggle('active');
-           
-            // Change the icon based on the menu state
-            if (nav.classList.contains('active')) {
-                mobileMenuBtn.innerHTML = '<i class="fas fa-times"></i>';
-            } else {
-                mobileMenuBtn.innerHTML = '<i class="fas fa-bars"></i>';
-            }
-        });
-       
-        // Close mobile menu when clicking outside
-        document.addEventListener('click', (e) => {
-            if (nav.classList.contains('active') &&
-                !nav.contains(e.target) &&
-                !mobileMenuBtn.contains(e.target) &&
-                !authButtons.contains(e.target)) {
-               
-                nav.classList.remove('active');
-                authButtons.classList.remove('active');
-                mobileMenuBtn.innerHTML = '<i class="fas fa-bars"></i>';
-            }
-        });
-    }
-}
 
 // Animation on scroll
 function setupScrollAnimations() {
@@ -558,7 +510,6 @@ function setupPreloader() {
 
 // Initialize all functionality
 document.addEventListener('DOMContentLoaded', () => {
-    setupMobileMenu();
     setupScrollAnimations();
     setupDarkModeToggle();
     setupPreloader();
@@ -566,15 +517,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const currentPage = window.location.pathname.split('/').pop();
 
     if (currentPage === 'index.html' || currentPage === '') {
-        setupCarousel(); // Initialize carousel functionality for index.html
         setupNewsCarousel(); // Initialize news carousel functionality for index.html
-        // Initialize first tab content for larger screens on index.html
-        if (window.innerWidth > 768) {
-            const firstTabBtn = document.querySelector('.tab-btn');
-            if (firstTabBtn) {
-                firstTabBtn.click();
-            }
-        }
+        setupShowcaseCarousel(); // Initialize showcase carousel functionality for index.html
     } else if (currentPage === 'updates.html') {
         setupUpdatePopup(); // Initialize update popup functionality for updates.html
         setupUpdateViewToggle(); // Initialize update view toggle functionality for updates.html
