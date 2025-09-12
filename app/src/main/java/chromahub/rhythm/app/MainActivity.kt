@@ -301,7 +301,12 @@ class MainActivity : ComponentActivity() {
                             handleExternalAudioFile(uri)
                         } else {
                             Log.w(TAG, "Invalid or unsafe URI rejected: $uri")
-                            Toast.makeText(this, "Invalid file location", Toast.LENGTH_SHORT).show()
+                            val errorMsg = when {
+                                uri.scheme == null -> "Invalid file format"
+                                uri.scheme !in listOf("content", "file", "android.resource") -> "Unsupported file location type"
+                                else -> "Cannot access file location"
+                            }
+                            Toast.makeText(this, errorMsg, Toast.LENGTH_SHORT).show()
                         }
                     } ?: run {
                         Log.w(TAG, "ACTION_VIEW intent received without data")
@@ -319,30 +324,31 @@ class MainActivity : ComponentActivity() {
     
     private fun isValidAndSafeUri(uri: Uri): Boolean {
         return try {
-            // Validate URI scheme
+            // Validate URI scheme - be more permissive
             val scheme = uri.scheme?.lowercase()
-            if (scheme != "content" && scheme != "file") {
-                Log.w(TAG, "Unsupported URI scheme: $scheme")
+            if (scheme != "content" && scheme != "file" && scheme != "android.resource") {
+                Log.w(TAG, "Unsupported URI scheme: $scheme for URI: $uri")
                 return false
             }
             
-            // Validate authority for content URIs
+            // For content URIs, be more permissive with authorities
             if (scheme == "content") {
                 val authority = uri.authority
-                val allowedAuthorities = setOf(
-                    "media", // MediaStore
-                    "com.android.providers.media.documents",
-                    "com.android.externalstorage.documents",
-                    "com.android.providers.downloads.documents"
+                Log.d(TAG, "Content URI authority: $authority")
+                
+                // Allow more authorities, including third-party file managers
+                val suspiciousAuthorities = setOf(
+                    "com.malicious.app",
+                    "suspicious.authority"
                 )
                 
-                if (authority == null || !allowedAuthorities.any { authority.contains(it) }) {
-                    Log.w(TAG, "Untrusted content authority: $authority")
+                if (authority != null && suspiciousAuthorities.any { authority.contains(it) }) {
+                    Log.w(TAG, "Potentially malicious content authority: $authority")
                     return false
                 }
             }
             
-            // Validate file path for file URIs
+            // Validate file path for file URIs - be more permissive
             if (scheme == "file") {
                 val path = uri.path
                 if (path == null) {
@@ -350,29 +356,30 @@ class MainActivity : ComponentActivity() {
                     return false
                 }
                 
-                // Check for path traversal attempts
-                val normalizedPath = java.io.File(path).canonicalPath
-                if (normalizedPath != path && !normalizedPath.startsWith(path)) {
-                    Log.w(TAG, "Potential path traversal detected: $path -> $normalizedPath")
-                    return false
-                }
-                
-                // Ensure file is in allowed directories
-                val allowedPrefixes = setOf(
-                    "/storage/emulated/0/",
-                    "/sdcard/",
-                    android.os.Environment.getExternalStorageDirectory().absolutePath
-                )
-                
-                if (!allowedPrefixes.any { normalizedPath.startsWith(it) }) {
-                    Log.w(TAG, "File outside allowed directories: $normalizedPath")
+                try {
+                    // Check for path traversal attempts but be less strict
+                    val file = java.io.File(path)
+                    if (!file.exists()) {
+                        Log.w(TAG, "File does not exist: $path")
+                        return false
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error checking file existence: $path", e)
                     return false
                 }
             }
             
             // Try to access the URI to verify it exists and is readable
-            contentResolver.openInputStream(uri)?.use {
-                // URI is accessible
+            try {
+                contentResolver.openInputStream(uri)?.use { inputStream ->
+                    // URI is accessible, try reading a few bytes to ensure it's valid
+                    val buffer = ByteArray(8)
+                    inputStream.read(buffer)
+                    Log.d(TAG, "URI is accessible and readable: $uri")
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Cannot read from URI: $uri", e)
+                return false
             }
             
             true

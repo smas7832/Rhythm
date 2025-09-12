@@ -29,6 +29,7 @@ object MediaUtils {
      * @return A Song object with metadata extracted from the file
      */
     fun extractMetadataFromUri(context: Context, uri: Uri): Song {
+        Log.d(TAG, "Extracting metadata from URI: $uri")
         val contentResolver = context.contentResolver
         val retriever = MediaMetadataRetriever()
         var title: String? = null
@@ -39,47 +40,84 @@ object MediaUtils {
         var year: Int = 0
         
         try {
-            // First try to get basic info from content resolver
-            contentResolver.query(
-                uri,
-                null,
-                null,
-                null,
-                null
-            )?.use { cursor ->
-                if (cursor.moveToFirst()) {
-                    // Try to get file metadata from content resolver
-                    val displayNameIndex = cursor.getColumnIndex(MediaStore.MediaColumns.DISPLAY_NAME)
-                    val titleIndex = cursor.getColumnIndex(MediaStore.MediaColumns.TITLE)
-                    
-                    if (displayNameIndex != -1) {
-                        val displayName = cursor.getString(displayNameIndex)
-                        // Remove extension from display name to use as fallback title
-                        title = displayName.substringBeforeLast(".")
-                    }
-                    
-                    if (titleIndex != -1) {
-                        title = cursor.getString(titleIndex)
+            // First verify we can access the URI
+            try {
+                contentResolver.openInputStream(uri)?.use { stream ->
+                    // Read a small amount to ensure the file is accessible
+                    val buffer = ByteArray(1024)
+                    stream.read(buffer)
+                    Log.d(TAG, "URI is accessible and readable")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Cannot access URI: $uri", e)
+                throw IllegalArgumentException("Cannot access file at $uri", e)
+            }
+            
+            // Try to get basic info from content resolver (with error handling)
+            try {
+                contentResolver.query(
+                    uri,
+                    arrayOf(MediaStore.MediaColumns.DISPLAY_NAME, MediaStore.MediaColumns.TITLE),
+                    null,
+                    null,
+                    null
+                )?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        // Try to get file metadata from content resolver
+                        val displayNameIndex = cursor.getColumnIndex(MediaStore.MediaColumns.DISPLAY_NAME)
+                        val titleIndex = cursor.getColumnIndex(MediaStore.MediaColumns.TITLE)
+                        
+                        if (displayNameIndex != -1) {
+                            val displayName = cursor.getString(displayNameIndex)
+                            if (!displayName.isNullOrBlank()) {
+                                // Remove extension from display name to use as fallback title
+                                title = displayName.substringBeforeLast(".")
+                                Log.d(TAG, "Got display name: $displayName")
+                            }
+                        }
+                        
+                        if (titleIndex != -1) {
+                            val cursorTitle = cursor.getString(titleIndex)
+                            if (!cursorTitle.isNullOrBlank()) {
+                                title = cursorTitle
+                                Log.d(TAG, "Got cursor title: $cursorTitle")
+                            }
+                        }
                     }
                 }
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not query content resolver for basic metadata", e)
+                // Continue with MediaMetadataRetriever
             }
             
             // Now use MediaMetadataRetriever for more detailed metadata
-            retriever.setDataSource(context, uri)
-            
-            // Extract metadata
-            val extractedTitle = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
-            val extractedArtist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
-            val extractedAlbum = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM)
-            val extractedDuration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
-            val extractedYear = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_YEAR)
-            
-            // Use extracted metadata if available, otherwise use fallbacks
-            title = extractedTitle ?: title ?: uri.lastPathSegment ?: "Unknown"
-            artist = extractedArtist ?: "Unknown Artist"
-            album = extractedAlbum ?: "Unknown Album"
-            duration = extractedDuration?.toLongOrNull() ?: 0L
-            year = extractedYear?.toIntOrNull() ?: 0
+            try {
+                retriever.setDataSource(context, uri)
+                
+                // Extract metadata
+                val extractedTitle = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
+                val extractedArtist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
+                val extractedAlbum = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM)
+                val extractedDuration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                val extractedYear = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_YEAR)
+                
+                // Use extracted metadata if available, otherwise use fallbacks
+                title = extractedTitle ?: title ?: uri.lastPathSegment?.substringBeforeLast(".") ?: "Unknown"
+                artist = extractedArtist ?: "Unknown Artist"
+                album = extractedAlbum ?: "Unknown Album"
+                duration = extractedDuration?.toLongOrNull() ?: 0L
+                year = extractedYear?.toIntOrNull() ?: 0
+                
+                Log.d(TAG, "Metadata extraction successful: Title=$title, Artist=$artist, Duration=$duration")
+            } catch (e: Exception) {
+                Log.w(TAG, "MediaMetadataRetriever failed, using fallback values", e)
+                // Use basic fallbacks
+                title = title ?: uri.lastPathSegment?.substringBeforeLast(".") ?: "Unknown File"
+                artist = "Unknown Artist"
+                album = "Unknown Album"
+                duration = 0L
+                year = 0
+            }
             
             // Extract album art
             val embeddedArt = retriever.embeddedPicture

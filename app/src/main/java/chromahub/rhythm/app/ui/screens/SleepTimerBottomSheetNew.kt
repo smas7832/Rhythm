@@ -2,7 +2,6 @@
 
 package chromahub.rhythm.app.ui.screens
 
-import android.app.TimePickerDialog
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
@@ -31,6 +30,8 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import chromahub.rhythm.app.data.Song
 import chromahub.rhythm.app.viewmodel.MusicViewModel
 import kotlinx.coroutines.delay
@@ -57,14 +58,16 @@ fun SleepTimerBottomSheetNew(
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
     
-    // Collect states from settings
+    // Collect states from settings and service
     val sleepTimerActiveState by musicViewModel.appSettings.sleepTimerActive.collectAsState()
     val sleepTimerRemainingSecondsState by musicViewModel.appSettings.sleepTimerRemainingSeconds.collectAsState()
     val sleepTimerActionState by musicViewModel.appSettings.sleepTimerAction.collectAsState()
+    val serviceConnected by musicViewModel.serviceConnected.collectAsState()
     
     // Local states
     var isTimerActive by remember(sleepTimerActiveState) { mutableStateOf(sleepTimerActiveState) }
     var remainingSeconds by remember(sleepTimerRemainingSecondsState) { mutableLongStateOf(sleepTimerRemainingSecondsState) }
+    var totalTimerDuration by remember { mutableLongStateOf(if (sleepTimerActiveState) sleepTimerRemainingSecondsState else 0L) } // Track initial duration for progress calculation
     var selectedAction by remember(sleepTimerActionState) { 
         mutableStateOf(
             try { 
@@ -73,6 +76,15 @@ fun SleepTimerBottomSheetNew(
                 SleepAction.FADE_OUT 
             }
         ) 
+    }
+    
+    // Initialize totalTimerDuration for existing active timers
+    LaunchedEffect(sleepTimerActiveState) {
+        if (sleepTimerActiveState && totalTimerDuration == 0L) {
+            // If timer is active but we don't have duration, estimate from current remaining
+            // This handles cases where the app was restarted with an active timer
+            totalTimerDuration = remainingSeconds
+        }
     }
     
     // Animation states
@@ -139,9 +151,17 @@ fun SleepTimerBottomSheetNew(
     
     // Functions
     fun startTimer(minutes: Int) {
+        // Check if music is playing and service is connected before starting timer
+        if (!isPlaying || !serviceConnected || currentSong == null) {
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            // Don't start timer - let the UI show the disabled state
+            return
+        }
+        
         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
         val totalSeconds = minutes * 60L
         remainingSeconds = totalSeconds
+        totalTimerDuration = totalSeconds // Store initial duration for progress calculation
         isTimerActive = true
         
         // Save to settings
@@ -153,6 +173,7 @@ fun SleepTimerBottomSheetNew(
     fun stopTimer() {
         isTimerActive = false
         remainingSeconds = 0L
+        totalTimerDuration = 0L
         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
         
         // Save to settings
@@ -160,23 +181,19 @@ fun SleepTimerBottomSheetNew(
         musicViewModel.appSettings.setSleepTimerRemainingSeconds(0L)
     }
     
+    // State for Material 3 TimePicker dialog
+    var showTimePickerDialog by remember { mutableStateOf(false) }
+    
     fun showTimePicker() {
-        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-        val currentHour = (remainingSeconds / 3600).toInt()
-        val currentMinute = ((remainingSeconds % 3600) / 60).toInt()
+        // Check if music is playing and service is connected before showing picker
+        if (!isPlaying || !serviceConnected || currentSong == null) {
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            // Don't show picker - let the UI show the disabled state
+            return
+        }
         
-        TimePickerDialog(
-            context,
-            { _, hourOfDay, minute ->
-                val totalMinutes = hourOfDay * 60 + minute
-                if (totalMinutes > 0) {
-                    startTimer(totalMinutes)
-                }
-            },
-            currentHour,
-            currentMinute,
-            true
-        ).show()
+        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        showTimePickerDialog = true
     }
     
     // Format time
@@ -235,9 +252,17 @@ fun SleepTimerBottomSheetNew(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = if (isTimerActive) "Active • ${formatTime(remainingSeconds)} remaining" else "Set automatic playback control",
+                            text = when {
+                                isTimerActive -> "Active • ${formatTime(remainingSeconds)} remaining"
+                                !isPlaying || !serviceConnected || currentSong == null -> "No music playing • Timer unavailable"
+                                else -> "Set automatic playback control"
+                            },
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = if (!isPlaying || !serviceConnected || currentSong == null) {
+                                MaterialTheme.colorScheme.error
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            }
                         )
                     }
                 }
@@ -269,9 +294,9 @@ fun SleepTimerBottomSheetNew(
                                 modifier = Modifier.size(120.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                // Progress circle
-                                val totalDuration = remainingSeconds + 1 // Avoid division by zero
-                                val progress = if (totalDuration > 1) remainingSeconds.toFloat() / totalDuration else 0f
+                                // Progress circle - show elapsed time, not remaining time
+                                val elapsedSeconds = totalTimerDuration - remainingSeconds
+                                val progress = if (totalTimerDuration > 0) elapsedSeconds.toFloat() / totalTimerDuration else 0f
                                 
                                 Canvas(modifier = Modifier.fillMaxSize()) {
                                     val strokeWidth = 8.dp.toPx()
@@ -393,11 +418,16 @@ fun SleepTimerBottomSheetNew(
                                 contentPadding = PaddingValues(horizontal = 4.dp)
                             ) {
                                 items(timerOptions) { option ->
+                                    val isTimerAvailable = isPlaying && serviceConnected && currentSong != null
                                     Card(
-                                        onClick = { startTimer(option.minutes) },
+                                        onClick = { if (isTimerAvailable) startTimer(option.minutes) },
                                         modifier = Modifier.size(width = 85.dp, height = 90.dp),
                                         colors = CardDefaults.cardColors(
-                                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                            containerColor = if (isTimerAvailable) {
+                                                MaterialTheme.colorScheme.surfaceVariant
+                                            } else {
+                                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                            }
                                         ),
                                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                                     ) {
@@ -411,7 +441,11 @@ fun SleepTimerBottomSheetNew(
                                             Icon(
                                                 imageVector = option.icon,
                                                 contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                tint = if (isTimerAvailable) {
+                                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                                } else {
+                                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                                },
                                                 modifier = Modifier.size(24.dp)
                                             )
                                             Spacer(modifier = Modifier.height(8.dp))
@@ -419,7 +453,11 @@ fun SleepTimerBottomSheetNew(
                                                 text = option.label,
                                                 style = MaterialTheme.typography.bodySmall,
                                                 fontWeight = FontWeight.Medium,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                color = if (isTimerAvailable) {
+                                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                                } else {
+                                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                                },
                                                 textAlign = TextAlign.Center,
                                                 maxLines = 1
                                             )
@@ -467,11 +505,14 @@ fun SleepTimerBottomSheetNew(
                             
                             Spacer(modifier = Modifier.height(12.dp))
                             
+                            val isCustomTimerAvailable = isPlaying && serviceConnected && currentSong != null
                             FilledTonalButton(
-                                onClick = { showTimePicker() },
+                                onClick = { if (isCustomTimerAvailable) showTimePicker() },
+                                enabled = isCustomTimerAvailable,
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = ButtonDefaults.filledTonalButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                    disabledContainerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
                                 )
                             ) {
                                 Icon(
@@ -582,6 +623,115 @@ fun SleepTimerBottomSheetNew(
                                 }
                             }
                         }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Material 3 TimePicker Dialog
+    if (showTimePickerDialog) {
+        Material3TimePickerDialog(
+            onDismiss = { showTimePickerDialog = false },
+            onTimeSelected = { hours, minutes ->
+                val totalMinutes = hours * 60 + minutes
+                if (totalMinutes > 0) {
+                    startTimer(totalMinutes)
+                }
+                showTimePickerDialog = false
+            }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun Material3TimePickerDialog(
+    onDismiss: () -> Unit,
+    onTimeSelected: (hours: Int, minutes: Int) -> Unit
+) {
+    val timePickerState = rememberTimePickerState(
+        initialHour = 0,
+        initialMinute = 30,
+        is24Hour = true
+    )
+    
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Title
+                Text(
+                    text = "Select Timer Duration",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Text(
+                    text = "Set hours and minutes for the sleep timer",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                // TimePicker
+                TimePicker(
+                    state = timePickerState,
+                    colors = TimePickerDefaults.colors(
+                        clockDialColor = MaterialTheme.colorScheme.surfaceVariant,
+                        selectorColor = MaterialTheme.colorScheme.primary,
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        periodSelectorBorderColor = MaterialTheme.colorScheme.outline,
+                        clockDialSelectedContentColor = MaterialTheme.colorScheme.onPrimary,
+                        clockDialUnselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        periodSelectorSelectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        periodSelectorUnselectedContainerColor = MaterialTheme.colorScheme.surface,
+                        periodSelectorSelectedContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        periodSelectorUnselectedContentColor = MaterialTheme.colorScheme.onSurface,
+                        timeSelectorSelectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        timeSelectorUnselectedContainerColor = MaterialTheme.colorScheme.surface,
+                        timeSelectorSelectedContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        timeSelectorUnselectedContentColor = MaterialTheme.colorScheme.onSurface
+                    )
+                )
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                // Action buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Cancel")
+                    }
+                    
+                    Button(
+                        onClick = {
+                            onTimeSelected(timePickerState.hour, timePickerState.minute)
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Set Timer")
                     }
                 }
             }
