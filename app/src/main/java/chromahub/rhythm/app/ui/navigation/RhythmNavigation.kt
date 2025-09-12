@@ -1070,7 +1070,15 @@ fun RhythmNavigation(
                             viewModel.addSongToQueue(song)
                         },
                         initialTab = initialTab,
-                        musicViewModel = viewModel // Pass musicViewModel
+                        musicViewModel = viewModel, // Pass musicViewModel
+                        onExportAllPlaylists = { format, includeDefault ->
+                            // Export all playlists
+                            viewModel.exportAllPlaylists(format, includeDefault)
+                        },
+                        onImportPlaylist = { uri ->
+                            // Import playlist from URI
+                            viewModel.importPlaylist(uri)
+                        }
                     )
                 }
 

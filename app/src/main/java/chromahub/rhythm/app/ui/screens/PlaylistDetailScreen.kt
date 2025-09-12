@@ -20,6 +20,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -73,6 +75,12 @@ import chromahub.rhythm.app.ui.components.MiniPlayer
 import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.ui.components.RhythmIcons.Search
 import chromahub.rhythm.app.ui.LocalMiniPlayerPadding
+import chromahub.rhythm.app.ui.components.PlaylistExportDialog
+import chromahub.rhythm.app.ui.components.PlaylistImportDialog
+import chromahub.rhythm.app.ui.components.PlaylistOperationProgressDialog
+import chromahub.rhythm.app.ui.components.PlaylistOperationResultDialog
+import chromahub.rhythm.app.util.PlaylistImportExportUtils
+import android.net.Uri
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import chromahub.rhythm.app.ui.components.M3PlaceholderType
@@ -107,11 +115,18 @@ fun PlaylistDetailScreen(
     onDeletePlaylist: () -> Unit = {},
     onAddSongsToPlaylist: () -> Unit = {},
     onSkipNext: () -> Unit = {},
-    onSearchClick: () -> Unit = {}
+    onSearchClick: () -> Unit = {},
+    onExportPlaylist: ((PlaylistImportExportUtils.PlaylistExportFormat) -> Unit)? = null,
+    onImportPlaylist: ((Uri) -> Unit)? = null
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showExportDialog by remember { mutableStateOf(false) }
+    var showImportDialog by remember { mutableStateOf(false) }
+    var showOperationProgress by remember { mutableStateOf(false) }
+    var operationInProgress by remember { mutableStateOf("") }
+    var operationResult by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
     var newPlaylistName by remember { mutableStateOf(playlist.name) }
     var searchQuery by remember { mutableStateOf("") }
     var showSearchBar by remember { mutableStateOf(false) }
@@ -178,6 +193,51 @@ fun PlaylistDetailScreen(
                     Text("Cancel")
                 }
             }
+        )
+    }
+
+    // Export dialog
+    if (showExportDialog && onExportPlaylist != null) {
+        PlaylistExportDialog(
+            playlistName = playlist.name,
+            onDismiss = { showExportDialog = false },
+            onExport = { format ->
+                operationInProgress = "Exporting"
+                showOperationProgress = true
+                onExportPlaylist(format)
+                showExportDialog = false
+            }
+        )
+    }
+    
+    // Import dialog
+    if (showImportDialog && onImportPlaylist != null) {
+        PlaylistImportDialog(
+            onDismiss = { showImportDialog = false },
+            onImport = { uri ->
+                operationInProgress = "Importing"
+                showOperationProgress = true
+                onImportPlaylist(uri)
+                showImportDialog = false
+            }
+        )
+    }
+    
+    // Operation progress dialog
+    if (showOperationProgress) {
+        PlaylistOperationProgressDialog(
+            operation = operationInProgress,
+            onDismiss = { /* Cannot dismiss during operation */ }
+        )
+    }
+    
+    // Operation result dialog
+    operationResult?.let { (message, isError) ->
+        PlaylistOperationResultDialog(
+            title = if (isError) "Operation Failed" else "Operation Complete",
+            message = message,
+            isError = isError,
+            onDismiss = { operationResult = null }
         )
     }
 
@@ -270,6 +330,42 @@ fun PlaylistDetailScreen(
                             modifier = Modifier,
                             shape = RoundedCornerShape(16.dp)
                         ) {
+                            // Export playlist option
+                            if (onExportPlaylist != null) {
+                                DropdownMenuItem(
+                                    text = { Text("Export playlist") },
+                                    onClick = {
+                                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                        showMenu = false
+                                        showExportDialog = true
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.FileUpload,
+                                            contentDescription = null
+                                        )
+                                    }
+                                )
+                            }
+                            
+                            // Import playlist option
+                            if (onImportPlaylist != null) {
+                                DropdownMenuItem(
+                                    text = { Text("Import playlist") },
+                                    onClick = {
+                                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                        showMenu = false
+                                        showImportDialog = true
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = RhythmIcons.Actions.Download,
+                                            contentDescription = null
+                                        )
+                                    }
+                                )
+                            }
+                            
                             DropdownMenuItem(
                                 text = { Text("Rename playlist") },
                                 onClick = {

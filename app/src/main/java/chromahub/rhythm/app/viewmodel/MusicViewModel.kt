@@ -28,6 +28,7 @@ import chromahub.rhythm.app.service.MediaPlaybackService
 import chromahub.rhythm.app.util.AudioDeviceManager
 import chromahub.rhythm.app.util.EqualizerUtils
 import chromahub.rhythm.app.util.GsonUtils
+import chromahub.rhythm.app.util.PlaylistImportExportUtils
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
 import kotlinx.coroutines.Job
@@ -2049,6 +2050,148 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     
     fun clearTargetPlaylistForAddingSongs() {
         _targetPlaylistId.value = null
+    }
+    
+    // Playlist Import/Export Functions
+    
+    /**
+     * Exports a single playlist to the specified format
+     */
+    fun exportPlaylist(
+        playlistId: String,
+        format: PlaylistImportExportUtils.PlaylistExportFormat,
+        onResult: (Result<String>) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                val playlist = _playlists.value.find { it.id == playlistId }
+                if (playlist == null) {
+                    onResult(Result.failure(IllegalArgumentException("Playlist not found")))
+                    return@launch
+                }
+                
+                val result = withContext(Dispatchers.IO) {
+                    PlaylistImportExportUtils.exportPlaylist(
+                        context = getApplication<Application>(),
+                        playlist = playlist,
+                        format = format
+                    )
+                }
+                
+                result.fold(
+                    onSuccess = { file ->
+                        onResult(Result.success("Playlist '${playlist.name}' exported to ${file.absolutePath}"))
+                        Log.d(TAG, "Successfully exported playlist: ${playlist.name}")
+                    },
+                    onFailure = { exception ->
+                        onResult(Result.failure(exception))
+                        Log.e(TAG, "Failed to export playlist: ${playlist.name}", exception)
+                    }
+                )
+            } catch (e: Exception) {
+                onResult(Result.failure(e))
+                Log.e(TAG, "Error in exportPlaylist", e)
+            }
+        }
+    }
+    
+    /**
+     * Exports all user-created playlists (excludes default playlists)
+     */
+    fun exportAllPlaylists(
+        format: PlaylistImportExportUtils.PlaylistExportFormat,
+        includeDefaultPlaylists: Boolean = false
+    ) {
+        viewModelScope.launch {
+            try {
+                val playlistsToExport = if (includeDefaultPlaylists) {
+                    _playlists.value
+                } else {
+                    // Exclude default playlists (Favorites, Recently Added, Most Played)
+                    _playlists.value.filter { it.id !in listOf("1", "2", "3") }
+                }
+                
+                if (playlistsToExport.isEmpty()) {
+                    Log.w(TAG, "No playlists to export")
+                    return@launch
+                }
+                
+                val result = withContext(Dispatchers.IO) {
+                    PlaylistImportExportUtils.exportAllPlaylists(
+                        context = getApplication<Application>(),
+                        playlists = playlistsToExport,
+                        format = format
+                    )
+                }
+                
+                result.fold(
+                    onSuccess = { file ->
+                        Log.d(TAG, "Successfully exported ${playlistsToExport.size} playlists to ${file.absolutePath}")
+                        // Show success notification or update UI state if needed
+                    },
+                    onFailure = { exception ->
+                        Log.e(TAG, "Failed to export all playlists", exception)
+                        // Show error notification or update UI state if needed
+                    }
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Error in exportAllPlaylists", e)
+            }
+        }
+    }
+    
+    /**
+     * Imports a playlist from a file URI
+     */
+    fun importPlaylist(
+        uri: Uri
+    ) {
+        viewModelScope.launch {
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    PlaylistImportExportUtils.importPlaylist(
+                        context = getApplication<Application>(),
+                        uri = uri,
+                        availableSongs = _songs.value
+                    )
+                }
+                
+                result.fold(
+                    onSuccess = { importedPlaylist ->
+                        // Check if playlist with same name already exists
+                        val existingPlaylist = _playlists.value.find { it.name == importedPlaylist.name }
+                        val finalPlaylist = if (existingPlaylist != null) {
+                            // Add suffix to avoid name conflict
+                            importedPlaylist.copy(name = "${importedPlaylist.name} (Imported)")
+                        } else {
+                            importedPlaylist
+                        }
+                        
+                        // Add the imported playlist to our list
+                        _playlists.value = _playlists.value + finalPlaylist
+                        savePlaylists()
+                        
+                        val matchedCount = finalPlaylist.songs.size
+                        Log.d(TAG, "Successfully imported playlist: ${finalPlaylist.name} with $matchedCount songs")
+                        // Show success notification if needed
+                    },
+                    onFailure = { exception ->
+                        Log.e(TAG, "Failed to import playlist from $uri", exception)
+                        // Show error notification if needed
+                    }
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Error in importPlaylist", e)
+                // Show error notification if needed
+            }
+        }
+    }
+    
+    /**
+     * Gets all available export formats
+     */
+    fun getAvailableExportFormats(): List<PlaylistImportExportUtils.PlaylistExportFormat> {
+        return PlaylistImportExportUtils.PlaylistExportFormat.values().toList()
     }
     
     // Sort library functionality

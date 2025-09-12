@@ -138,7 +138,7 @@ fun EqualizerBottomSheetNew(
                         imageVector = Icons.Rounded.GraphicEq,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(32.dp)
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
@@ -170,11 +170,11 @@ fun EqualizerBottomSheetNew(
                 
                 Spacer(modifier = Modifier.height(8.dp))
                 
-                Text(
-                    text = "Customize your audio experience with 5-band equalizer and audio effects.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                // Text(
+                //     text = "Customize your audio experience with 5-band equalizer and audio effects.",
+                //     style = MaterialTheme.typography.bodyMedium,
+                //     color = MaterialTheme.colorScheme.onSurfaceVariant
+                // )
             }
             
             if (isEqualizerEnabled) {

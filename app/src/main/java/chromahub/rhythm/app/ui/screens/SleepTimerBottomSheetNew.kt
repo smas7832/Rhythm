@@ -235,7 +235,7 @@ fun SleepTimerBottomSheetNew(
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier
-                            .size(28.dp)
+                            .size(32.dp)
                             .let { 
                                 if (isTimerActive) it
                                     .rotate(rotationAngle)
@@ -269,11 +269,11 @@ fun SleepTimerBottomSheetNew(
                 
                 Spacer(modifier = Modifier.height(8.dp))
                 
-                Text(
-                    text = "Schedule automatic playback control after a specified time period.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                // Text(
+                //     text = "Schedule automatic playback control after a specified time period.",
+                //     style = MaterialTheme.typography.bodyMedium,
+                //     color = MaterialTheme.colorScheme.onSurfaceVariant
+                // )
             }
             
             // Timer Display (when active)

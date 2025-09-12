@@ -60,6 +60,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import android.net.Uri
+import chromahub.rhythm.app.util.PlaylistImportExportUtils
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilledIconButton
@@ -125,6 +127,10 @@ import chromahub.rhythm.app.ui.screens.AddToPlaylistBottomSheet
 import chromahub.rhythm.app.ui.components.CreatePlaylistDialog
 import chromahub.rhythm.app.ui.components.MiniPlayer
 import chromahub.rhythm.app.ui.components.M3PlaceholderType
+import chromahub.rhythm.app.ui.components.BulkPlaylistExportDialog
+import chromahub.rhythm.app.ui.components.PlaylistImportDialog
+import chromahub.rhythm.app.ui.components.PlaylistOperationProgressDialog
+import chromahub.rhythm.app.ui.components.PlaylistOperationResultDialog
 import chromahub.rhythm.app.ui.screens.SongInfoBottomSheet
 import chromahub.rhythm.app.util.ImageUtils
 import chromahub.rhythm.app.util.M3ImageUtils
@@ -168,7 +174,9 @@ fun LibraryScreen(
     onSkipNext: () -> Unit = {},
     onAddToQueue: (Song) -> Unit,
     initialTab: LibraryTab = LibraryTab.SONGS,
-    musicViewModel: MusicViewModel // Add MusicViewModel as a parameter
+    musicViewModel: MusicViewModel, // Add MusicViewModel as a parameter
+    onExportAllPlaylists: ((PlaylistImportExportUtils.PlaylistExportFormat, Boolean) -> Unit)? = null,
+    onImportPlaylist: ((Uri) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val appSettings = remember { AppSettings.getInstance(context) }
@@ -183,6 +191,20 @@ fun LibraryScreen(
     var showAddToPlaylistSheet by remember { mutableStateOf(false) }
     var showAlbumBottomSheet by remember { mutableStateOf(false) }
     var showSongInfoSheet by remember { mutableStateOf(false) }
+    var showBulkExportDialog by remember { mutableStateOf(false) }
+    var showImportDialog by remember { mutableStateOf(false) }
+    var showOperationProgress by remember { mutableStateOf(false) }
+    var operationInProgress by remember { mutableStateOf("") }
+    var operationResult by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
+    
+    // Import/Export related state
+    var operationProgressText by remember { mutableStateOf("") }
+    var operationError by remember { mutableStateOf<String?>(null) }
+    var showExportResultDialog by remember { mutableStateOf(false) }
+    var exportResultsData by remember { mutableStateOf<List<Pair<String, Boolean>>?>(null) }
+    var showImportResultDialog by remember { mutableStateOf(false) }
+    var importResult by remember { mutableStateOf<Pair<Int, String>?>(null) }
+    var showErrorDialog by remember { mutableStateOf(false) }
     var selectedSong by remember { mutableStateOf<Song?>(null) }
     var selectedAlbum by remember { mutableStateOf<Album?>(null) }
     val addToPlaylistSheetState = rememberModalBottomSheetState()
@@ -340,6 +362,59 @@ fun LibraryScreen(
                     )
                 },
                 actions = {
+                    // Playlist import/export menu (only show when on playlists tab)
+                    if (selectedTabIndex == 1 && (onExportAllPlaylists != null || onImportPlaylist != null)) {
+                        var showPlaylistMenu by remember { mutableStateOf(false) }
+                        
+                        Box {
+                            IconButton(
+                                onClick = { showPlaylistMenu = true }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.MoreVert,
+                                    contentDescription = "Playlist options"
+                                )
+                            }
+                            
+                            DropdownMenu(
+                                expanded = showPlaylistMenu,
+                                onDismissRequest = { showPlaylistMenu = false }
+                            ) {
+                                if (onExportAllPlaylists != null) {
+                                    DropdownMenuItem(
+                                        text = { Text("Export all playlists") },
+                                        onClick = {
+                                            showPlaylistMenu = false
+                                            showBulkExportDialog = true
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Default.FileUpload,
+                                                contentDescription = null
+                                            )
+                                        }
+                                    )
+                                }
+                                
+                                if (onImportPlaylist != null) {
+                                    DropdownMenuItem(
+                                        text = { Text("Import playlist") },
+                                        onClick = {
+                                            showPlaylistMenu = false
+                                            showImportDialog = true
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = RhythmIcons.Actions.Download,
+                                                contentDescription = null
+                                            )
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    
                     // Sort button with indicator of current sort order
                     FilledTonalButton(
                         onClick = {
@@ -491,6 +566,65 @@ fun LibraryScreen(
                 }
             }
         }
+    }
+    
+    // Playlist import/export dialogs
+    if (showBulkExportDialog && onExportAllPlaylists != null) {
+        BulkPlaylistExportDialog(
+            playlistCount = playlists.size,
+            onDismiss = { 
+                showBulkExportDialog = false
+                operationError = null
+            },
+            onExport = { format, includeDefault ->
+                showBulkExportDialog = false
+                showOperationProgress = true
+                operationProgressText = "Exporting playlists..."
+                
+                onExportAllPlaylists(format, includeDefault)
+            }
+        )
+    }
+    
+    if (showImportDialog && onImportPlaylist != null) {
+        PlaylistImportDialog(
+            onDismiss = { 
+                showImportDialog = false
+                operationError = null
+            },
+            onImport = { uri ->
+                showImportDialog = false
+                showOperationProgress = true
+                operationProgressText = "Importing playlist..."
+                
+                onImportPlaylist(uri)
+            }
+        )
+    }
+    
+    // Progress dialog for long operations
+    if (showOperationProgress) {
+        PlaylistOperationProgressDialog(
+            operation = operationProgressText,
+            onDismiss = {
+                showOperationProgress = false
+                operationProgressText = ""
+            }
+        )
+    }
+    
+    // Simple success/error dialogs for now
+    if (operationError != null) {
+        AlertDialog(
+            onDismissRequest = { operationError = null },
+            title = { Text("Error") },
+            text = { Text(operationError!!) },
+            confirmButton = {
+                Button(onClick = { operationError = null }) {
+                    Text("OK")
+                }
+            }
+        )
     }
 }
 

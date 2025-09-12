@@ -90,7 +90,10 @@ data class Playlist(
     val dateCreated: Long = System.currentTimeMillis(),
     val dateModified: Long = System.currentTimeMillis(),
     val artworkUri: Uri? = null
-) : Parcelable
+) : Parcelable {
+    val isDefault: Boolean
+        get() = id == "1" || id == "2" || id == "3"  // Favorites, Recently Added, Most Played
+}
 
 // Represents the current playback queue
 data class Queue(

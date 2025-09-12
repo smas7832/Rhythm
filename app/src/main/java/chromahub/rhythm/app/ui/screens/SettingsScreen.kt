@@ -84,6 +84,7 @@ import chromahub.rhythm.app.data.ArtistViewType
 import chromahub.rhythm.app.ui.screens.AlbumSortOrder
 import chromahub.rhythm.app.ui.components.MiniPlayer
 import chromahub.rhythm.app.ui.components.RhythmIcons
+import chromahub.rhythm.app.ui.components.CreatePlaylistDialog
 import chromahub.rhythm.app.R
 import chromahub.rhythm.app.ui.LocalMiniPlayerPadding
 import androidx.compose.foundation.text.KeyboardOptions
@@ -165,6 +166,9 @@ fun SettingsScreen(
     val appSettings = remember { AppSettings.getInstance(context) }
     val musicViewModel: MusicViewModel = viewModel()
     
+    // Collect playlists for playlist management
+    val playlists by musicViewModel.playlists.collectAsState()
+    
     // Use AppSettings for theme settings
     val useSystemTheme by appSettings.useSystemTheme.collectAsState()
     val darkMode by appSettings.darkMode.collectAsState()
@@ -195,6 +199,8 @@ fun SettingsScreen(
     var showCacheManagementBottomSheet by remember { mutableStateOf(false) } // New state for cache management
     var showEqualizerBottomSheet by remember { mutableStateOf(false) } // New state for equalizer
     var showSleepTimerBottomSheet by remember { mutableStateOf(false) } // New state for sleep timer
+    var showPlaylistManagementBottomSheet by remember { mutableStateOf(false) } // New state for playlist management
+    var showCreatePlaylistDialog by remember { mutableStateOf(false) } // New state for create playlist dialog
 
     val updaterViewModel: AppUpdaterViewModel = viewModel()
     val currentAppVersion by updaterViewModel.currentVersion.collectAsState()
@@ -207,6 +213,7 @@ fun SettingsScreen(
         enabled = showApiBottomSheet || showCrashLogHistoryBottomSheet || 
                  showBlacklistManagementBottomSheet || showBackupRestoreBottomSheet || 
                  showCacheManagementBottomSheet || showEqualizerBottomSheet || 
+                 showPlaylistManagementBottomSheet ||
                  showSleepTimerBottomSheet || showCrossfadeDurationDialog
     ) {
         when {
@@ -216,6 +223,7 @@ fun SettingsScreen(
             showBackupRestoreBottomSheet -> showBackupRestoreBottomSheet = false
             showCacheManagementBottomSheet -> showCacheManagementBottomSheet = false
             showEqualizerBottomSheet -> showEqualizerBottomSheet = false
+            showPlaylistManagementBottomSheet -> showPlaylistManagementBottomSheet = false
             showSleepTimerBottomSheet -> showSleepTimerBottomSheet = false
             showCrossfadeDurationDialog -> showCrossfadeDurationDialog = false
         }
@@ -292,6 +300,28 @@ fun SettingsScreen(
             currentSong = currentSong,
             isPlaying = isPlaying,
             musicViewModel = musicViewModel
+        )
+    }
+
+    if (showPlaylistManagementBottomSheet) {
+        PlaylistManagementBottomSheet(
+            onDismiss = { showPlaylistManagementBottomSheet = false },
+            playlists = playlists,
+            musicViewModel = musicViewModel,
+            onCreatePlaylist = { showCreatePlaylistDialog = true },
+            onDeletePlaylist = { playlist ->
+                musicViewModel.deletePlaylist(playlist.id)
+            }
+        )
+    }
+
+    if (showCreatePlaylistDialog) {
+        CreatePlaylistDialog(
+            onDismiss = { showCreatePlaylistDialog = false },
+            onConfirm = { name ->
+                musicViewModel.createPlaylist(name)
+                showCreatePlaylistDialog = false
+            }
         )
     }
 
@@ -610,6 +640,27 @@ fun SettingsScreen(
                         appSettings.setAlbumSortOrder(newSortOrder.name)
                     }
                 )
+
+                // Playlist Management
+                val userPlaylists = playlists.filter { !it.isDefault }
+                val defaultPlaylists = playlists.filter { it.isDefault }
+                
+                SettingsChipItem(
+                    title = "Manage playlists",
+                    description = "Create, import, export and organize playlists",
+                    primaryChipText = "${userPlaylists.size} custom",
+                    secondaryChipText = "${defaultPlaylists.size} default",
+                    icon = Icons.Rounded.PlaylistPlay,
+                    primaryChipColor = MaterialTheme.colorScheme.primaryContainer,
+                    primaryChipTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    secondaryChipColor = MaterialTheme.colorScheme.secondaryContainer,
+                    secondaryChipTextColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    onClick = { 
+                        showPlaylistManagementBottomSheet = true
+                    }
+                )
+
+                SettingsDivider()
 
                 val blacklistedSongs by appSettings.blacklistedSongs.collectAsState()
                 val blacklistedFolders by appSettings.blacklistedFolders.collectAsState()
