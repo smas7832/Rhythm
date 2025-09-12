@@ -15,6 +15,151 @@ object CacheManager {
     private const val TAG = "CacheManager"
     
     /**
+     * Gets the current cache usage in bytes
+     */
+    suspend fun getCacheSize(context: Context): Long = withContext(Dispatchers.IO) {
+        var totalSize = 0L
+        
+        try {
+            // Internal cache
+            totalSize += calculateDirectorySize(context.cacheDir)
+            
+            // External cache
+            context.externalCacheDir?.let { externalCache ->
+                totalSize += calculateDirectorySize(externalCache)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error calculating cache size", e)
+        }
+        
+        return@withContext totalSize
+    }
+    
+    /**
+     * Calculates the size of a directory recursively
+     */
+    private fun calculateDirectorySize(directory: File): Long {
+        var size = 0L
+        
+        try {
+            if (!directory.exists()) return 0L
+            
+            val files = directory.listFiles() ?: return 0L
+            
+            for (file in files) {
+                size += if (file.isDirectory) {
+                    calculateDirectorySize(file)
+                } else {
+                    file.length()
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error calculating directory size: ${directory.absolutePath}", e)
+        }
+        
+        return size
+    }
+    
+    /**
+     * Cleans cache if it exceeds the specified size limit
+     */
+    suspend fun cleanCacheIfNeeded(context: Context, maxSizeBytes: Long): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val currentSize = getCacheSize(context)
+            Log.d(TAG, "Current cache size: ${currentSize / (1024 * 1024)}MB, limit: ${maxSizeBytes / (1024 * 1024)}MB")
+            
+            if (currentSize > maxSizeBytes) {
+                Log.d(TAG, "Cache size exceeds limit, starting cleanup...")
+                
+                // First try to clean old files
+                val cleaned = cleanOldCacheFiles(context, maxSizeBytes * 0.8.toLong()) // Clean to 80% of limit
+                
+                if (!cleaned) {
+                    // If that didn't work, do a full cache clear
+                    clearAllCache(context)
+                }
+                
+                return@withContext true
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in cache size management", e)
+        }
+        
+        return@withContext false
+    }
+    
+    /**
+     * Cleans old cache files based on last modified time
+     */
+    private suspend fun cleanOldCacheFiles(context: Context, targetSize: Long): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val cacheFiles = mutableListOf<File>()
+            
+            // Collect all cache files with their modification times
+            collectCacheFiles(context.cacheDir, cacheFiles)
+            context.externalCacheDir?.let { 
+                collectCacheFiles(it, cacheFiles) 
+            }
+            
+            // Sort by last modified (oldest first)
+            cacheFiles.sortBy { it.lastModified() }
+            
+            var currentSize = calculateTotalSize(cacheFiles)
+            var deletedCount = 0
+            
+            // Delete files until we're under the target size
+            for (file in cacheFiles) {
+                if (currentSize <= targetSize) break
+                
+                try {
+                    val fileSize = file.length()
+                    if (file.delete()) {
+                        currentSize -= fileSize
+                        deletedCount++
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to delete cache file: ${file.absolutePath}", e)
+                }
+            }
+            
+            Log.d(TAG, "Cleaned $deletedCount old cache files, new size: ${currentSize / (1024 * 1024)}MB")
+            return@withContext currentSize <= targetSize
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error cleaning old cache files", e)
+            return@withContext false
+        }
+    }
+    
+    private fun collectCacheFiles(directory: File, fileList: MutableList<File>) {
+        try {
+            if (!directory.exists()) return
+            
+            val files = directory.listFiles() ?: return
+            
+            for (file in files) {
+                if (file.isFile) {
+                    fileList.add(file)
+                } else if (file.isDirectory) {
+                    collectCacheFiles(file, fileList)
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Error collecting cache files from: ${directory.absolutePath}", e)
+        }
+    }
+    
+    private fun calculateTotalSize(files: List<File>): Long {
+        return files.sumOf { file ->
+            try {
+                if (file.exists()) file.length() else 0L
+            } catch (e: Exception) {
+                0L
+            }
+        }
+    }
+    
+    /**
      * Clears all cached data including:
      * - Internal cache directory
      * - External cache directory (if available)

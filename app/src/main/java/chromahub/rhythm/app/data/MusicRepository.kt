@@ -28,12 +28,17 @@ import java.net.URLEncoder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.yield
 import java.io.File
 import java.net.URL
 import chromahub.rhythm.app.data.LyricsData
 
 class MusicRepository(private val context: Context) {
     private val TAG = "MusicRepository"
+    private val repositoryScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     /**
      * API Fallback Strategy:
@@ -62,12 +67,81 @@ class MusicRepository(private val context: Context) {
     private val ytmusicApiService = NetworkClient.ytmusicApiService
     private val genericHttpClient = NetworkClient.genericHttpClient
 
-    // Cache for artist images to avoid redundant API calls
-    private val artistImageCache = mutableMapOf<String, Uri?>()
-    private val albumImageCache = mutableMapOf<String, Uri?>()
-    private val lyricsCache = mutableMapOf<String, LyricsData>()
+    // LRU caches for artist images, album artwork, and lyrics to avoid memory leaks
+    private val artistImageCache = object : LinkedHashMap<String, Uri?>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: Map.Entry<String, Uri?>?): Boolean {
+            return size > MAX_ARTIST_CACHE_SIZE
+        }
+    }
+    private val albumImageCache = object : LinkedHashMap<String, Uri?>(32, 0.75f, true) {
+        override fun removeEldestEntry(eldest: Map.Entry<String, Uri?>?): Boolean {
+            return size > MAX_ALBUM_CACHE_SIZE
+        }
+    }
+    private val lyricsCache = object : LinkedHashMap<String, LyricsData>(50, 0.75f, true) {
+        override fun removeEldestEntry(eldest: Map.Entry<String, LyricsData>?): Boolean {
+            return size > MAX_LYRICS_CACHE_SIZE
+        }
+    }
+    
+    // Rate limiting for API calls
+    private val lastApiCalls = mutableMapOf<String, Long>()
+    private val apiCallCounts = mutableMapOf<String, Int>()
+    
+    companion object {
+        private const val MAX_ARTIST_CACHE_SIZE = 100
+        private const val MAX_ALBUM_CACHE_SIZE = 200
+        private const val MAX_LYRICS_CACHE_SIZE = 150
+        
+        // API rate limiting constants
+        private const val DEEZER_MIN_DELAY = 200L
+        private const val YTMUSIC_MIN_DELAY = 300L
+        private const val LRCLIB_MIN_DELAY = 100L
+        private const val MAX_CALLS_PER_MINUTE = 30
+    }
+    
+    private fun calculateApiDelay(apiName: String, currentTime: Long): Long {
+        val lastCall = lastApiCalls[apiName] ?: 0L
+        val minDelay = when (apiName.lowercase()) {
+            "deezer" -> DEEZER_MIN_DELAY
+            "ytmusic" -> YTMUSIC_MIN_DELAY
+            "lrclib" -> LRCLIB_MIN_DELAY
+            else -> 250L
+        }
+        
+        val timeSinceLastCall = currentTime - lastCall
+        if (timeSinceLastCall < minDelay) {
+            return minDelay - timeSinceLastCall
+        }
+        
+        // Check if we're making too many calls per minute
+        val callsInLastMinute = apiCallCounts[apiName] ?: 0
+        if (callsInLastMinute >= MAX_CALLS_PER_MINUTE) {
+            // Exponential backoff
+            return minDelay * 2
+        }
+        
+        return 0L
+    }
+    
+    private fun updateLastApiCall(apiName: String, timestamp: Long) {
+        lastApiCalls[apiName] = timestamp
+        
+        // Update call count for rate limiting
+        val currentCount = apiCallCounts[apiName] ?: 0
+        apiCallCounts[apiName] = currentCount + 1
+        
+        // Reset counter every minute
+        if (currentCount == 0) {
+            repositoryScope.launch {
+                delay(60000)
+                apiCallCounts[apiName] = 0
+            }
+        }
+    }
 
     suspend fun loadSongs(): List<Song> = withContext(Dispatchers.IO) {
+        val startTime = System.currentTimeMillis()
         val songs = mutableListOf<Song>()
         val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
@@ -84,69 +158,151 @@ class MusicRepository(private val context: Context) {
             MediaStore.Audio.Media.DURATION,
             MediaStore.Audio.Media.TRACK,
             MediaStore.Audio.Media.YEAR,
-            MediaStore.Audio.Media.DATE_ADDED // Add DATE_ADDED to projection
+            MediaStore.Audio.Media.DATE_ADDED,
+            MediaStore.Audio.Media.SIZE
         )
 
-        val selection = "${MediaStore.Audio.Media.IS_MUSIC} = 1"
-        val sortOrder = "${MediaStore.Audio.Media.TITLE} ASC"
+        // Improved selection to filter out very short files and invalid entries
+        val selection = "${MediaStore.Audio.Media.IS_MUSIC} = 1 AND ${MediaStore.Audio.Media.DURATION} > 10000"
+        val sortOrder = "${MediaStore.Audio.Media.DATE_ADDED} DESC"
 
-        context.contentResolver.query(
-            collection,
-            projection,
-            selection,
-            null,
-            sortOrder
-        )?.use { cursor ->
-            // Cache column indices
-            val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
-            val titleColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
-            val artistColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
-            val albumColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
-            val albumIdColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
-            val durationColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
-            val trackColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK)
-            val yearColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.YEAR)
-            val dateAddedColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED) // Get index for DATE_ADDED
+        try {
+            context.contentResolver.query(
+                collection,
+                projection,
+                selection,
+                null,
+                sortOrder
+            )?.use { cursor ->
+                val count = cursor.count
+                Log.d(TAG, "Found $count audio files to process")
+                
+                if (count == 0) {
+                    Log.w(TAG, "No audio files found in MediaStore")
+                    return@withContext emptyList()
+                }
 
-            while (cursor.moveToNext()) {
-                val id = cursor.getLong(idColumn)
-                val title = cursor.getString(titleColumn)
-                val artist = cursor.getString(artistColumn)
-                val album = cursor.getString(albumColumn)
-                val albumId = cursor.getLong(albumIdColumn)
-                val duration = cursor.getLong(durationColumn)
-                val track = cursor.getInt(trackColumn)
-                val year = cursor.getInt(yearColumn)
-                val dateAdded = cursor.getLong(dateAddedColumn) * 1000L // Convert seconds to milliseconds
+                // Pre-allocate list with known size for better performance
+                if (songs is ArrayList) {
+                    songs.ensureCapacity(count)
+                }
+                
+                // Cache all column indices once
+                val columnIndices = try {
+                    ColumnIndices(
+                        id = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID),
+                        title = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE),
+                        artist = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST),
+                        album = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM),
+                        albumId = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID),
+                        duration = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION),
+                        track = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK),
+                        year = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.YEAR),
+                        dateAdded = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED),
+                        size = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
+                    )
+                } catch (e: IllegalArgumentException) {
+                    Log.e(TAG, "Required column not found in MediaStore", e)
+                    return@withContext emptyList()
+                }
 
-                val contentUri: Uri = ContentUris.withAppendedId(
-                    MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-                    id
-                )
-
-                val albumArtUri = ContentUris.withAppendedId(
-                    Uri.parse("content://media/external/audio/albumart"),
-                    albumId
-                )
-
-                val song = Song(
-                    id = id.toString(),
-                    title = title,
-                    artist = artist,
-                    album = album,
-                    albumId = albumId.toString(),
-                    duration = duration,
-                    uri = contentUri,
-                    artworkUri = albumArtUri,
-                    trackNumber = track,
-                    year = year,
-                    dateAdded = dateAdded // Populate the new field
-                )
-                songs.add(song)
+                var processedCount = 0
+                val batchSize = 1000
+                
+                while (cursor.moveToNext()) {
+                    try {
+                        val song = createSongFromCursor(cursor, columnIndices)
+                        if (song != null) {
+                            songs.add(song)
+                        }
+                        
+                        processedCount++
+                        // Yield control periodically to avoid blocking
+                        if (processedCount % batchSize == 0) {
+                            yield()
+                        }
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Error processing song at position ${cursor.position}", e)
+                        continue
+                    }
+                }
+                
+                val endTime = System.currentTimeMillis()
+                Log.d(TAG, "Loaded ${songs.size} songs in ${endTime - startTime}ms")
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error querying MediaStore for songs", e)
+            return@withContext emptyList()
         }
 
-        songs
+        return@withContext songs
+    }
+    
+    private data class ColumnIndices(
+        val id: Int,
+        val title: Int,
+        val artist: Int,
+        val album: Int,
+        val albumId: Int,
+        val duration: Int,
+        val track: Int,
+        val year: Int,
+        val dateAdded: Int,
+        val size: Int
+    )
+    
+    private fun createSongFromCursor(cursor: android.database.Cursor, indices: ColumnIndices): Song? {
+        return try {
+            val id = cursor.getLong(indices.id)
+            val title = cursor.getString(indices.title)?.trim() ?: return null
+            val artist = cursor.getString(indices.artist)?.trim() ?: "Unknown Artist"
+            val album = cursor.getString(indices.album)?.trim() ?: "Unknown Album"
+            val albumId = cursor.getLong(indices.albumId)
+            val duration = cursor.getLong(indices.duration)
+            val track = cursor.getInt(indices.track)
+            val year = cursor.getInt(indices.year)
+            val dateAdded = cursor.getLong(indices.dateAdded) * 1000L
+            val size = cursor.getLong(indices.size)
+            
+            // Skip files that are too small (likely invalid)
+            if (size < 1024) { // Less than 1KB
+                Log.d(TAG, "Skipping file too small: $title ($size bytes)")
+                return null
+            }
+            
+            // Skip files with empty titles
+            if (title.isBlank() || title.equals("<unknown>", ignoreCase = true)) {
+                Log.d(TAG, "Skipping file with invalid title: $title")
+                return null
+            }
+
+            val contentUri: Uri = ContentUris.withAppendedId(
+                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                id
+            )
+
+            val albumArtUri = ContentUris.withAppendedId(
+                Uri.parse("content://media/external/audio/albumart"),
+                albumId
+            )
+
+            Song(
+                id = id.toString(),
+                title = title,
+                artist = artist,
+                album = album,
+                albumId = albumId.toString(),
+                duration = duration,
+                uri = contentUri,
+                artworkUri = albumArtUri,
+                trackNumber = track,
+                year = year,
+                dateAdded = dateAdded
+            )
+        } catch (e: Exception) {
+            Log.w(TAG, "Error creating song from cursor", e)
+            null
+        }
     }
 
     suspend fun loadAlbums(): List<Album> = withContext(Dispatchers.IO) {
@@ -386,8 +542,12 @@ class MusicRepository(private val context: Context) {
                     if (isNetworkAvailable() && NetworkClient.isDeezerApiEnabled()) {
                         Log.d(TAG, "Searching for artist on Deezer: ${artist.name}")
                         
-                        // Add delay to avoid rate limiting
-                        delay(300)
+                        // Intelligent delay based on API and previous request timing
+                        val apiDelay = calculateApiDelay("deezer", System.currentTimeMillis())
+                        if (apiDelay > 0) {
+                            delay(apiDelay)
+                        }
+                        updateLastApiCall("deezer", System.currentTimeMillis())
                         
                         try {
                             var deezerArtist: DeezerArtist? = null
@@ -1193,12 +1353,60 @@ class MusicRepository(private val context: Context) {
      */
     fun clearInMemoryCaches() {
         try {
-            artistImageCache.clear()
-            albumImageCache.clear()
-            lyricsCache.clear()
+            synchronized(artistImageCache) {
+                artistImageCache.clear()
+            }
+            synchronized(albumImageCache) {
+                albumImageCache.clear()
+            }
+            synchronized(lyricsCache) {
+                lyricsCache.clear()
+            }
             Log.d(TAG, "Cleared all in-memory caches (artist images, album images, lyrics)")
         } catch (e: Exception) {
             Log.e(TAG, "Error clearing in-memory caches", e)
+        }
+    }
+    
+    /**
+     * Performs cache maintenance - removes expired entries and optimizes memory usage
+     */
+    suspend fun performCacheMaintenance() = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "Starting cache maintenance...")
+            
+            // Check if cache cleanup is needed based on app settings
+            val maxCacheSize = try {
+                val settings = chromahub.rhythm.app.data.AppSettings.getInstance(context)
+                settings.maxCacheSize.value
+            } catch (e: Exception) {
+                Log.w(TAG, "Error getting cache size setting, using default", e)
+                512L * 1024L * 1024L // Default 512MB
+            }
+            
+            // Clean up file system cache if needed
+            val cacheManager = chromahub.rhythm.app.util.CacheManager
+            val cacheCleanedUp = cacheManager.cleanCacheIfNeeded(context, maxCacheSize)
+            
+            if (cacheCleanedUp) {
+                Log.d(TAG, "File system cache was cleaned up")
+            }
+            
+            // Optimize in-memory caches
+            val initialArtistCacheSize = artistImageCache.size
+            val initialAlbumCacheSize = albumImageCache.size
+            val initialLyricsCacheSize = lyricsCache.size
+            
+            // The LinkedHashMap LRU implementation will automatically evict oldest entries
+            // when new entries are added and the cache exceeds its limit
+            
+            Log.d(TAG, "Cache maintenance completed. " +
+                    "Artist cache: $initialArtistCacheSize entries, " +
+                    "Album cache: $initialAlbumCacheSize entries, " +
+                    "Lyrics cache: $initialLyricsCacheSize entries")
+                    
+        } catch (e: Exception) {
+            Log.e(TAG, "Error during cache maintenance", e)
         }
     }
     

@@ -42,6 +42,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.yield
 import java.time.Duration
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -56,7 +57,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val audioDeviceManager = AudioDeviceManager(application)
     
     // Settings manager
-    private val appSettings = AppSettings.getInstance(application)
+    val appSettings = AppSettings.getInstance(application)
     
     // Settings
     val showLyrics = appSettings.showLyrics
@@ -74,6 +75,15 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     val crossfadeDuration = appSettings.crossfadeDuration
     val enableAudioNormalization = appSettings.audioNormalization
     val enableReplayGain = appSettings.replayGain
+    
+    // Equalizer settings
+    val equalizerEnabled = appSettings.equalizerEnabled
+    val equalizerPreset = appSettings.equalizerPreset
+    val equalizerBandLevels = appSettings.equalizerBandLevels
+    val bassBoostEnabled = appSettings.bassBoostEnabled
+    val bassBoostStrength = appSettings.bassBoostStrength
+    val virtualizerEnabled = appSettings.virtualizerEnabled
+    val virtualizerStrength = appSettings.virtualizerStrength
     
     // Search history
     private val _searchHistory = MutableStateFlow<List<String>>(emptyList())
@@ -103,22 +113,61 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         appSettings.blacklistedSongs,
         appSettings.blacklistedFolders
     ) { songs, blacklistedIds, blacklistedFolders ->
-        // Move expensive operations to background thread
-        withContext(Dispatchers.IO) {
-            songs.filter { song ->
-                // Check if song ID is blacklisted
-                if (blacklistedIds.contains(song.id)) return@filter false
-                
-                // Check if song is in a blacklisted folder (with caching)
+        filterSongsAsync(songs, blacklistedIds, blacklistedFolders)
+    }.flowOn(Dispatchers.IO).stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Lazily, emptyList())
+    
+    private suspend fun filterSongsAsync(
+        songs: List<Song>, 
+        blacklistedIds: List<String>, 
+        blacklistedFolders: List<String>
+    ): List<Song> = withContext(Dispatchers.IO) {
+        if (blacklistedIds.isEmpty() && blacklistedFolders.isEmpty()) {
+            return@withContext songs
+        }
+        
+        val startTime = System.currentTimeMillis()
+        val result = mutableListOf<Song>()
+        
+        // Process in batches to allow yielding
+        val batchSize = 100
+        var processed = 0
+        
+        for (song in songs) {
+            // Check if song ID is blacklisted (fast check first)
+            if (blacklistedIds.contains(song.id)) {
+                processed++
+                continue
+            }
+            
+            // Check if song is in a blacklisted folder (expensive check)
+            if (blacklistedFolders.isNotEmpty()) {
                 val songPath = getPathFromUriCached(song.uri)
-                if (songPath != null && blacklistedFolders.any { folderPath ->
-                    songPath.startsWith(folderPath, ignoreCase = true)
-                }) return@filter false
-                
-                true
+                if (songPath != null && isPathBlacklisted(songPath, blacklistedFolders)) {
+                    processed++
+                    continue
+                }
+            }
+            
+            result.add(song)
+            processed++
+            
+            // Yield control periodically to prevent ANR
+            if (processed % batchSize == 0) {
+                yield()
             }
         }
-    }.flowOn(Dispatchers.IO).stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Lazily, emptyList())
+        
+        val endTime = System.currentTimeMillis()
+        Log.d(TAG, "Filtered ${songs.size} songs to ${result.size} in ${endTime - startTime}ms")
+        
+        result
+    }
+    
+    private fun isPathBlacklisted(songPath: String, blacklistedFolders: List<String>): Boolean {
+        return blacklistedFolders.any { folderPath ->
+            songPath.startsWith(folderPath, ignoreCase = true)
+        }
+    }
 
     private val _albums = MutableStateFlow<List<Album>>(emptyList())
     val albums: StateFlow<List<Album>> = _albums.asStateFlow()
@@ -270,59 +319,203 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         Log.d(TAG, "Initializing MusicViewModel")
         
         viewModelScope.launch {
-            Log.d(TAG, "Starting data initialization")
-            // Step 1: Load core music data from the repository
-            _songs.value = repository.loadSongs()
-            _albums.value = repository.loadAlbums()
-            _artists.value = repository.loadArtists()
-            Log.d(TAG, "Loaded ${_songs.value.size} songs, ${_albums.value.size} albums, ${_artists.value.size} artists")
-
-            // Step 2: Load all settings and persisted data
-            loadSettings()
-            loadSearchHistory()
-            loadSavedPlaylists() // This also loads favorite songs
-
-            // Step 3: Initialize the rest of the components
-            initializeController()
-            initializeFromPersistence()
-            startProgressUpdates()
-            // Device monitoring will start when player screen is opened
-
-            // Step 4: Populate default playlists
-            populateRecentlyAddedPlaylist()
-            populateMostPlayedPlaylist()
-
-            // Step 5: Fetch supplementary data from the internet
-            fetchArtworkFromInternet()
-
-            // Step 6: Ensure queue is properly initialized
-            if (_currentQueue.value.songs.isEmpty()) {
-                Log.d(TAG, "Queue is empty, initializing with empty state")
-                _currentQueue.value = Queue(emptyList(), -1)
+            try {
+                initializeViewModelSafely()
+            } catch (e: Exception) {
+                Log.e(TAG, "Critical error during ViewModel initialization", e)
+                handleInitializationFailure(e)
             }
-
-            // Step 7: Mark as initialized
-            _isInitialized.value = true
-            Log.d(TAG, "Data initialization complete")
         }
         
         // Initialize audio device manager but don't start continuous monitoring
         // Device monitoring will be started when needed (player screen, etc.)
         
         // Start tracking session
+        startListeningTimeTracking()
+    }
+    
+    private suspend fun initializeViewModelSafely() {
+        Log.d(TAG, "Starting safe data initialization")
+        
+        // Step 1: Load core music data with error handling
+        val initializationResults = initializeCoreData()
+        if (!initializationResults.success) {
+            throw Exception("Failed to load core music data: ${initializationResults.error}")
+        }
+        
+        Log.d(TAG, "Loaded ${_songs.value.size} songs, ${_albums.value.size} albums, ${_artists.value.size} artists")
+
+        // Step 2: Load settings and persisted data
+        val settingsLoaded = loadAllSettings()
+        if (!settingsLoaded) {
+            Log.w(TAG, "Some settings failed to load, continuing with defaults")
+        }
+
+        // Step 3: Initialize components with validation
+        val componentsInitialized = initializeComponents()
+        if (!componentsInitialized) {
+            Log.w(TAG, "Some components failed to initialize")
+        }
+
+        // Step 4: Populate playlists safely
+        populateDefaultPlaylistsSafely()
+
+        // Step 5: Initialize queue state properly
+        initializeQueueState()
+
+        // Step 6: Start background tasks
+        startBackgroundTasks()
+
+        // Step 7: Mark as initialized
+        _isInitialized.value = true
+        Log.d(TAG, "Data initialization complete successfully")
+    }
+    
+    private data class InitializationResult(val success: Boolean, val error: String? = null)
+    
+    private suspend fun initializeCoreData(): InitializationResult {
+        return try {
+            val songs = repository.loadSongs()
+            val albums = repository.loadAlbums()
+            val artists = repository.loadArtists()
+            
+            if (songs.isEmpty() && albums.isEmpty() && artists.isEmpty()) {
+                Log.w(TAG, "No media found, but this might be normal on first run")
+            }
+            
+            _songs.value = songs
+            _albums.value = albums
+            _artists.value = artists
+            
+            InitializationResult(true)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error loading core data", e)
+            InitializationResult(false, e.message)
+        }
+    }
+    
+    private suspend fun loadAllSettings(): Boolean {
+        var allSuccess = true
+        
+        try {
+            loadSettings()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error loading app settings", e)
+            allSuccess = false
+        }
+        
+        try {
+            loadSearchHistory()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error loading search history", e)
+            allSuccess = false
+        }
+        
+        try {
+            loadSavedPlaylists()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error loading saved playlists", e)
+            allSuccess = false
+        }
+        
+        return allSuccess
+    }
+    
+    private suspend fun initializeComponents(): Boolean {
+        var allSuccess = true
+        
+        try {
+            initializeController()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error initializing media controller", e)
+            allSuccess = false
+        }
+        
+        try {
+            initializeFromPersistence()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error initializing from persistence", e)
+            allSuccess = false
+        }
+        
+        try {
+            startProgressUpdates()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error starting progress updates", e)
+            allSuccess = false
+        }
+        
+        return allSuccess
+    }
+    
+    private suspend fun populateDefaultPlaylistsSafely() {
+        try {
+            populateRecentlyAddedPlaylist()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error populating recently added playlist", e)
+        }
+        
+        try {
+            populateMostPlayedPlaylist()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error populating most played playlist", e)
+        }
+    }
+    
+    private fun initializeQueueState() {
+        try {
+            if (_currentQueue.value.songs.isEmpty()) {
+                Log.d(TAG, "Queue is empty, initializing with empty state")
+                _currentQueue.value = Queue(emptyList(), -1)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error initializing queue state", e)
+            _currentQueue.value = Queue(emptyList(), -1)
+        }
+    }
+    
+    private suspend fun startBackgroundTasks() {
+        // Start artwork fetching in background without blocking initialization
         viewModelScope.launch {
-            while (isActive) {
-                if (isPlaying.value) {
-                    // Update listening time every minute
-                    delay(60000) // 1 minute
-                    val newTime = _listeningTime.value + 60000
-                    _listeningTime.value = newTime
-                    appSettings.setListeningTime(newTime)
-                } else {
-                    delay(1000) // Check every second when not playing
-                }
+            try {
+                fetchArtworkFromInternet()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error fetching artwork from internet", e)
             }
         }
+    }
+    
+    private fun startListeningTimeTracking() {
+        viewModelScope.launch {
+            try {
+                while (isActive) {
+                    if (isPlaying.value) {
+                        // Update listening time every minute
+                        delay(60000) // 1 minute
+                        val newTime = _listeningTime.value + 60000
+                        _listeningTime.value = newTime
+                        appSettings.setListeningTime(newTime)
+                    } else {
+                        delay(1000) // Check every second when not playing
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error in listening time tracking", e)
+            }
+        }
+    }
+    
+    private fun handleInitializationFailure(error: Exception) {
+        Log.e(TAG, "Handling initialization failure", error)
+        
+        // Set safe default values
+        _songs.value = emptyList()
+        _albums.value = emptyList()
+        _artists.value = emptyList()
+        _currentQueue.value = Queue(emptyList(), -1)
+        _isInitialized.value = true // Mark as initialized even with empty data
+        
+        // Could potentially show error message to user here
     }
 
     /**
@@ -1293,6 +1486,49 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 controller.play()
                 _isPlaying.value = true
                 startProgressUpdates()
+            }
+        }
+    }
+    
+    // Sleep Timer Functions
+    fun pauseMusic() {
+        Log.d(TAG, "Pausing music via sleep timer")
+        mediaController?.let { controller ->
+            controller.pause()
+            _isPlaying.value = false
+            progressUpdateJob?.cancel()
+        }
+    }
+    
+    fun stopMusic() {
+        Log.d(TAG, "Stopping music via sleep timer")
+        mediaController?.let { controller ->
+            controller.stop()
+            _isPlaying.value = false
+            progressUpdateJob?.cancel()
+        }
+    }
+    
+    fun fadeOutAndPause() {
+        Log.d(TAG, "Fading out and pausing music via sleep timer")
+        mediaController?.let { controller ->
+            // Implement fade out effect by gradually reducing volume
+            viewModelScope.launch {
+                val originalVolume = controller.volume
+                var currentVolume = originalVolume
+                
+                // Fade out over 3 seconds
+                repeat(30) {
+                    currentVolume -= originalVolume / 30f
+                    controller.volume = maxOf(0f, currentVolume)
+                    delay(100) // 100ms intervals for smooth fade
+                }
+                
+                // Pause and restore volume for next play
+                controller.pause()
+                controller.volume = originalVolume
+                _isPlaying.value = false
+                progressUpdateJob?.cancel()
             }
         }
     }
@@ -2932,4 +3168,108 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     fun getMusicRepository(): MusicRepository {
         return repository
     }
+    
+    // Sleep Timer functionality
+    fun startSleepTimer(durationMs: Long, fadeOut: Boolean = true, pauseOnly: Boolean = false) {
+        val context = getApplication<Application>()
+        val intent = Intent(context, MediaPlaybackService::class.java).apply {
+            action = MediaPlaybackService.ACTION_START_SLEEP_TIMER
+            putExtra("duration", durationMs)
+            putExtra("fadeOut", fadeOut)
+            putExtra("pauseOnly", pauseOnly)
+        }
+        context.startService(intent)
+        Log.d(TAG, "Started sleep timer for ${durationMs}ms")
+    }
+    
+    fun stopSleepTimer() {
+        val context = getApplication<Application>()
+        val intent = Intent(context, MediaPlaybackService::class.java).apply {
+            action = MediaPlaybackService.ACTION_STOP_SLEEP_TIMER
+        }
+        context.startService(intent)
+        Log.d(TAG, "Stopped sleep timer")
+    }
+    
+    // Equalizer functionality
+    fun setEqualizerEnabled(enabled: Boolean) {
+        val context = getApplication<Application>()
+        
+        // Save to settings
+        appSettings.setEqualizerEnabled(enabled)
+        
+        // Send to service
+        val intent = Intent(context, MediaPlaybackService::class.java).apply {
+            action = MediaPlaybackService.ACTION_SET_EQUALIZER_ENABLED
+            putExtra("enabled", enabled)
+        }
+        context.startService(intent)
+        Log.d(TAG, "Set equalizer enabled: $enabled")
+    }
+    
+    fun setEqualizerBandLevel(band: Short, level: Short) {
+        val context = getApplication<Application>()
+        val intent = Intent(context, MediaPlaybackService::class.java).apply {
+            action = MediaPlaybackService.ACTION_SET_EQUALIZER_BAND
+            putExtra("band", band)
+            putExtra("level", level)
+        }
+        context.startService(intent)
+        Log.d(TAG, "Set equalizer band $band to level $level")
+    }
+    
+    fun setBassBoost(enabled: Boolean, strength: Short = 500) {
+        val context = getApplication<Application>()
+        
+        // Save to settings
+        appSettings.setBassBoostEnabled(enabled)
+        appSettings.setBassBoostStrength(strength.toInt())
+        
+        val intent = Intent(context, MediaPlaybackService::class.java).apply {
+            action = MediaPlaybackService.ACTION_SET_BASS_BOOST
+            putExtra("enabled", enabled)
+            putExtra("strength", strength)
+        }
+        context.startService(intent)
+        Log.d(TAG, "Set bass boost enabled: $enabled, strength: $strength")
+    }
+    
+    fun setVirtualizer(enabled: Boolean, strength: Short = 500) {
+        val context = getApplication<Application>()
+        
+        // Save to settings
+        appSettings.setVirtualizerEnabled(enabled)
+        appSettings.setVirtualizerStrength(strength.toInt())
+        
+        val intent = Intent(context, MediaPlaybackService::class.java).apply {
+            action = MediaPlaybackService.ACTION_SET_VIRTUALIZER
+            putExtra("enabled", enabled)
+            putExtra("strength", strength)
+        }
+        context.startService(intent)
+        Log.d(TAG, "Set virtualizer enabled: $enabled, strength: $strength")
+    }
+    
+    fun applyEqualizerPreset(preset: String, levels: List<Float>) {
+        val context = getApplication<Application>()
+        
+        // Save to settings
+        appSettings.setEqualizerPreset(preset)
+        appSettings.setEqualizerBandLevels(levels.joinToString(","))
+        
+        val intent = Intent(context, MediaPlaybackService::class.java).apply {
+            action = MediaPlaybackService.ACTION_APPLY_EQUALIZER_PRESET
+            putExtra("preset", preset)
+            putExtra("levels", levels.toFloatArray())
+        }
+        context.startService(intent)
+        Log.d(TAG, "Applied equalizer preset: $preset")
+    }
+    
+    // Status getters for sleep timer (these would need service state synchronization in a full implementation)
+    private val _sleepTimerActive = MutableStateFlow(false)
+    val sleepTimerActive: StateFlow<Boolean> = _sleepTimerActive.asStateFlow()
+    
+    private val _sleepTimerRemainingTime = MutableStateFlow(0L)
+    val sleepTimerRemainingTime: StateFlow<Long> = _sleepTimerRemainingTime.asStateFlow()
 }

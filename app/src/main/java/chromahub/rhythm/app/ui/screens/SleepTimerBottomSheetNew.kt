@@ -1,0 +1,590 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
+package chromahub.rhythm.app.ui.screens
+
+import android.app.TimePickerDialog
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import chromahub.rhythm.app.data.Song
+import chromahub.rhythm.app.viewmodel.MusicViewModel
+import kotlinx.coroutines.delay
+import kotlin.math.cos
+import kotlin.math.sin
+
+data class SleepTimerOption(
+    val minutes: Int,
+    val label: String,
+    val icon: ImageVector
+)
+
+enum class SleepAction {
+    PAUSE, STOP, FADE_OUT
+}
+
+@Composable
+fun SleepTimerBottomSheetNew(
+    onDismiss: () -> Unit,
+    currentSong: Song?,
+    isPlaying: Boolean,
+    musicViewModel: MusicViewModel
+) {
+    val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
+    
+    // Collect states from settings
+    val sleepTimerActiveState by musicViewModel.appSettings.sleepTimerActive.collectAsState()
+    val sleepTimerRemainingSecondsState by musicViewModel.appSettings.sleepTimerRemainingSeconds.collectAsState()
+    val sleepTimerActionState by musicViewModel.appSettings.sleepTimerAction.collectAsState()
+    
+    // Local states
+    var isTimerActive by remember(sleepTimerActiveState) { mutableStateOf(sleepTimerActiveState) }
+    var remainingSeconds by remember(sleepTimerRemainingSecondsState) { mutableLongStateOf(sleepTimerRemainingSecondsState) }
+    var selectedAction by remember(sleepTimerActionState) { 
+        mutableStateOf(
+            try { 
+                SleepAction.valueOf(sleepTimerActionState) 
+            } catch (e: Exception) { 
+                SleepAction.FADE_OUT 
+            }
+        ) 
+    }
+    
+    // Animation states
+    val infiniteTransition = rememberInfiniteTransition(label = "sleep_timer_animation")
+    val rotationAngle by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(4000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "rotation"
+    )
+    
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 0.95f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = EaseInOutCubic),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse"
+    )
+    
+    // Timer options
+    val timerOptions = listOf(
+        SleepTimerOption(5, "5 min", Icons.Rounded.Coffee),
+        SleepTimerOption(15, "15 min", Icons.Rounded.LocalCafe),
+        SleepTimerOption(30, "30 min", Icons.Rounded.WbTwilight),
+        SleepTimerOption(45, "45 min", Icons.Rounded.Bedtime),
+        SleepTimerOption(60, "1 hour", Icons.Rounded.NightlightRound),
+        SleepTimerOption(90, "1.5 hour", Icons.Rounded.DarkMode)
+    )
+    
+    // Action options
+    val actionOptions = listOf(
+        Triple(SleepAction.FADE_OUT, "Fade Out", Icons.Rounded.VolumeDown),
+        Triple(SleepAction.PAUSE, "Pause", Icons.Rounded.Pause),
+        Triple(SleepAction.STOP, "Stop", Icons.Rounded.Stop)
+    )
+    
+    // Timer effect
+    LaunchedEffect(isTimerActive, remainingSeconds) {
+        if (isTimerActive && remainingSeconds > 0) {
+            delay(1000)
+            val newRemainingSeconds = remainingSeconds - 1
+            remainingSeconds = newRemainingSeconds
+            musicViewModel.appSettings.setSleepTimerRemainingSeconds(newRemainingSeconds)
+            
+            if (newRemainingSeconds <= 0) {
+                isTimerActive = false
+                musicViewModel.appSettings.setSleepTimerActive(false)
+                musicViewModel.appSettings.setSleepTimerRemainingSeconds(0L)
+                
+                // Execute action
+                when (selectedAction) {
+                    SleepAction.FADE_OUT -> musicViewModel.fadeOutAndPause()
+                    SleepAction.PAUSE -> musicViewModel.pauseMusic()
+                    SleepAction.STOP -> musicViewModel.stopMusic()
+                }
+            }
+        }
+    }
+    
+    // Functions
+    fun startTimer(minutes: Int) {
+        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        val totalSeconds = minutes * 60L
+        remainingSeconds = totalSeconds
+        isTimerActive = true
+        
+        // Save to settings
+        musicViewModel.appSettings.setSleepTimerActive(true)
+        musicViewModel.appSettings.setSleepTimerRemainingSeconds(totalSeconds)
+        musicViewModel.appSettings.setSleepTimerAction(selectedAction.name)
+    }
+    
+    fun stopTimer() {
+        isTimerActive = false
+        remainingSeconds = 0L
+        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        
+        // Save to settings
+        musicViewModel.appSettings.setSleepTimerActive(false)
+        musicViewModel.appSettings.setSleepTimerRemainingSeconds(0L)
+    }
+    
+    fun showTimePicker() {
+        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        val currentHour = (remainingSeconds / 3600).toInt()
+        val currentMinute = ((remainingSeconds % 3600) / 60).toInt()
+        
+        TimePickerDialog(
+            context,
+            { _, hourOfDay, minute ->
+                val totalMinutes = hourOfDay * 60 + minute
+                if (totalMinutes > 0) {
+                    startTimer(totalMinutes)
+                }
+            },
+            currentHour,
+            currentMinute,
+            true
+        ).show()
+    }
+    
+    // Format time
+    fun formatTime(totalSeconds: Long): String {
+        val hours = totalSeconds / 3600
+        val minutes = (totalSeconds % 3600) / 60
+        val seconds = totalSeconds % 60
+        
+        return if (hours > 0) {
+            "${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}"
+        } else {
+            "${minutes}:${seconds.toString().padStart(2, '0')}"
+        }
+    }
+
+    val bottomSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = bottomSheetState,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
+            // Header
+            item {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = if (isTimerActive) Icons.Rounded.Timer else Icons.Rounded.AccessTime,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .size(28.dp)
+                            .let { 
+                                if (isTimerActive) it
+                                    .rotate(rotationAngle)
+                                    .scale(pulseScale) 
+                                else it 
+                            }
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Sleep Timer",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = if (isTimerActive) "Active • ${formatTime(remainingSeconds)} remaining" else "Set automatic playback control",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Text(
+                    text = "Schedule automatic playback control after a specified time period.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
+            // Timer Display (when active)
+            if (isTimerActive) {
+                item {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Box(
+                                modifier = Modifier.size(120.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                // Progress circle
+                                val totalDuration = remainingSeconds + 1 // Avoid division by zero
+                                val progress = if (totalDuration > 1) remainingSeconds.toFloat() / totalDuration else 0f
+                                
+                                Canvas(modifier = Modifier.fillMaxSize()) {
+                                    val strokeWidth = 8.dp.toPx()
+                                    val radius = (size.minDimension - strokeWidth) / 2
+                                    val center = Offset(size.width / 2, size.height / 2)
+                                    
+                                    // Background circle
+                                    drawCircle(
+                                        color = Color.White.copy(alpha = 0.3f),
+                                        radius = radius,
+                                        center = center,
+                                        style = Stroke(width = strokeWidth)
+                                    )
+                                    
+                                    // Progress arc
+                                    drawArc(
+                                        color = Color.White,
+                                        startAngle = -90f,
+                                        sweepAngle = progress * 360f,
+                                        useCenter = false,
+                                        style = Stroke(
+                                            width = strokeWidth,
+                                            cap = StrokeCap.Round
+                                        ),
+                                        size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2),
+                                        topLeft = Offset(center.x - radius, center.y - radius)
+                                    )
+                                }
+                                
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = formatTime(remainingSeconds),
+                                        style = MaterialTheme.typography.headlineMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                    Text(
+                                        text = "remaining",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                                    )
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.height(16.dp))
+                            
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                OutlinedButton(
+                                    onClick = { stopTimer() },
+                                    modifier = Modifier.weight(1f),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                    ),
+                                    border = ButtonDefaults.outlinedButtonBorder.copy(
+                                        brush = androidx.compose.foundation.BorderStroke(
+                                            1.dp, 
+                                            MaterialTheme.colorScheme.onPrimaryContainer
+                                        ).brush
+                                    )
+                                ) {
+                                    Icon(Icons.Rounded.Stop, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Cancel")
+                                }
+                                
+                                Button(
+                                    onClick = { showTimePicker() },
+                                    modifier = Modifier.weight(1f),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        contentColor = MaterialTheme.colorScheme.primaryContainer
+                                    )
+                                ) {
+                                    Icon(Icons.Rounded.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Edit")
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Quick Timer Options
+                item {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(20.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Timer,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = "Quick Timer",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            
+                            Spacer(modifier = Modifier.height(16.dp))
+                            
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                contentPadding = PaddingValues(horizontal = 4.dp)
+                            ) {
+                                items(timerOptions) { option ->
+                                    Card(
+                                        onClick = { startTimer(option.minutes) },
+                                        modifier = Modifier.size(width = 85.dp, height = 90.dp),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                        ),
+                                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                                    ) {
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .padding(12.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = option.icon,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Text(
+                                                text = option.label,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                fontWeight = FontWeight.Medium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                textAlign = TextAlign.Center,
+                                                maxLines = 1
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Custom Timer
+                item {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(20.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Schedule,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Custom Timer",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        text = "Set a specific time duration",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.height(12.dp))
+                            
+                            FilledTonalButton(
+                                onClick = { showTimePicker() },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.AccessTime,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Set Custom Time")
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Action Selection
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(20.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.PlayArrow,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Timer Action",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = "What happens when the timer ends",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            actionOptions.forEach { (action, label, icon) ->
+                                val isSelected = selectedAction == action
+                                
+                                Card(
+                                    onClick = { 
+                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        selectedAction = action 
+                                        musicViewModel.appSettings.setSleepTimerAction(action.name)
+                                    },
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = if (isSelected) 
+                                            MaterialTheme.colorScheme.primaryContainer 
+                                        else 
+                                            MaterialTheme.colorScheme.surfaceVariant
+                                    ),
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(16.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = icon,
+                                            contentDescription = null,
+                                            tint = if (isSelected) 
+                                                MaterialTheme.colorScheme.primary 
+                                            else 
+                                                MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Text(
+                                            text = label,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (isSelected) 
+                                                MaterialTheme.colorScheme.primary 
+                                            else 
+                                                MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Spacer(modifier = Modifier.weight(1f))
+                                        if (isSelected) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.CheckCircle,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

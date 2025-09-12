@@ -290,84 +290,248 @@ class MainActivity : ComponentActivity() {
         
         Log.d(TAG, "Handling intent: ${intent.action}, data: ${intent.data}")
         
-        when (intent.action) {
-            Intent.ACTION_VIEW -> {
-                // Handle external audio file
-                intent.data?.let { uri ->
-                    Log.d(TAG, "Received ACTION_VIEW intent with URI: $uri")
-                    
-                    // Check if the URI is a content URI
-                    if (uri.scheme == "content" || uri.scheme == "file") {
-                        handleExternalAudioFile(uri)
+        try {
+            when (intent.action) {
+                Intent.ACTION_VIEW -> {
+                    // Handle external audio file with validation
+                    intent.data?.let { uri ->
+                        Log.d(TAG, "Received ACTION_VIEW intent with URI: $uri")
+                        
+                        if (isValidAndSafeUri(uri)) {
+                            handleExternalAudioFile(uri)
+                        } else {
+                            Log.w(TAG, "Invalid or unsafe URI rejected: $uri")
+                            Toast.makeText(this, "Invalid file location", Toast.LENGTH_SHORT).show()
+                        }
+                    } ?: run {
+                        Log.w(TAG, "ACTION_VIEW intent received without data")
                     }
                 }
+                else -> {
+                    Log.d(TAG, "Unhandled intent action: ${intent.action}")
+                }
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error handling intent", e)
+            Toast.makeText(this, "Error opening file", Toast.LENGTH_SHORT).show()
+        }
+    }
+    
+    private fun isValidAndSafeUri(uri: Uri): Boolean {
+        return try {
+            // Validate URI scheme
+            val scheme = uri.scheme?.lowercase()
+            if (scheme != "content" && scheme != "file") {
+                Log.w(TAG, "Unsupported URI scheme: $scheme")
+                return false
+            }
+            
+            // Validate authority for content URIs
+            if (scheme == "content") {
+                val authority = uri.authority
+                val allowedAuthorities = setOf(
+                    "media", // MediaStore
+                    "com.android.providers.media.documents",
+                    "com.android.externalstorage.documents",
+                    "com.android.providers.downloads.documents"
+                )
+                
+                if (authority == null || !allowedAuthorities.any { authority.contains(it) }) {
+                    Log.w(TAG, "Untrusted content authority: $authority")
+                    return false
+                }
+            }
+            
+            // Validate file path for file URIs
+            if (scheme == "file") {
+                val path = uri.path
+                if (path == null) {
+                    Log.w(TAG, "File URI with null path")
+                    return false
+                }
+                
+                // Check for path traversal attempts
+                val normalizedPath = java.io.File(path).canonicalPath
+                if (normalizedPath != path && !normalizedPath.startsWith(path)) {
+                    Log.w(TAG, "Potential path traversal detected: $path -> $normalizedPath")
+                    return false
+                }
+                
+                // Ensure file is in allowed directories
+                val allowedPrefixes = setOf(
+                    "/storage/emulated/0/",
+                    "/sdcard/",
+                    android.os.Environment.getExternalStorageDirectory().absolutePath
+                )
+                
+                if (!allowedPrefixes.any { normalizedPath.startsWith(it) }) {
+                    Log.w(TAG, "File outside allowed directories: $normalizedPath")
+                    return false
+                }
+            }
+            
+            // Try to access the URI to verify it exists and is readable
+            contentResolver.openInputStream(uri)?.use {
+                // URI is accessible
+            }
+            
+            true
+        } catch (e: SecurityException) {
+            Log.w(TAG, "Security exception accessing URI: $uri", e)
+            false
+        } catch (e: Exception) {
+            Log.w(TAG, "Error validating URI: $uri", e)
+            false
         }
     }
     
     private fun handleExternalAudioFile(uri: Uri) {
         Log.d(TAG, "Handling external audio file: $uri")
         
-        // Check if the URI is an audio file
-        val mimeType = MediaUtils.getMimeType(this, uri)
+        // Validate URI and check if it's an audio file
+        if (!isValidAudioUri(uri)) {
+            Log.e(TAG, "Invalid or unsupported audio file: $uri")
+            Toast.makeText(this, "Unsupported file format", Toast.LENGTH_SHORT).show()
+            return
+        }
         
-        if (mimeType?.startsWith("audio/") == true || uri.toString().endsWith(".mp3", ignoreCase = true) ||
-            uri.toString().endsWith(".m4a", ignoreCase = true) || uri.toString().endsWith(".wav", ignoreCase = true) ||
-            uri.toString().endsWith(".ogg", ignoreCase = true) || uri.toString().endsWith(".flac", ignoreCase = true)) {
-            
-            Log.d(TAG, "File is recognized as audio with mime type: $mimeType")
-            
-            // Start the service to ensure it's running
+        val mimeType = MediaUtils.getMimeType(this, uri)
+        Log.d(TAG, "File is recognized as audio with mime type: $mimeType")
+        
+        // Extract metadata from the audio file with proper error handling
+        lifecycleScope.launch {
+            try {
+                // Start the service with proper initialization waiting
+                val serviceStarted = startMediaServiceAndWait()
+                if (!serviceStarted) {
+                    Log.e(TAG, "Failed to start media service")
+                    Toast.makeText(this@MainActivity, "Failed to initialize media player", Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+                
+                // Extract metadata on a background thread
+                val song = withContext(Dispatchers.IO) {
+                    MediaUtils.extractMetadataFromUri(this@MainActivity, uri)
+                }
+                
+                Log.d(TAG, "Extracted song metadata: ${song.title} by ${song.artist} from ${song.album}")
+                
+                // Ensure service connection with timeout
+                val serviceConnected = waitForServiceConnection(timeoutMs = 5000)
+                if (!serviceConnected) {
+                    Log.w(TAG, "Service connection timeout, attempting fallback")
+                    fallbackPlayExternalFile(uri)
+                    return@launch
+                }
+                
+                // Play the external file
+                musicViewModel.playExternalAudioFile(song)
+                
+                // Verify playback started with timeout
+                val playbackStarted = waitForPlaybackStart(timeoutMs = 3000)
+                if (!playbackStarted) {
+                    Log.w(TAG, "Playback didn't start, using fallback method")
+                    fallbackPlayExternalFile(uri)
+                }
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Error processing external audio file", e)
+                val errorMessage = when (e) {
+                    is SecurityException -> "Permission denied accessing file"
+                    is IllegalArgumentException -> "Invalid audio file format"
+                    else -> "Error playing audio file: ${e.message}"
+                }
+                Toast.makeText(this@MainActivity, errorMessage, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+    
+    private fun isValidAudioUri(uri: Uri): Boolean {
+        return try {
+            val mimeType = MediaUtils.getMimeType(this, uri)
+            mimeType?.startsWith("audio/") == true || 
+            uri.toString().let { uriStr ->
+                uriStr.endsWith(".mp3", ignoreCase = true) ||
+                uriStr.endsWith(".m4a", ignoreCase = true) ||
+                uriStr.endsWith(".wav", ignoreCase = true) ||
+                uriStr.endsWith(".ogg", ignoreCase = true) ||
+                uriStr.endsWith(".flac", ignoreCase = true) ||
+                uriStr.endsWith(".aac", ignoreCase = true)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error validating URI: $uri", e)
+            false
+        }
+    }
+    
+    private suspend fun startMediaServiceAndWait(): Boolean {
+        return try {
             val serviceIntent = Intent(this, chromahub.rhythm.app.service.MediaPlaybackService::class.java)
+            serviceIntent.action = chromahub.rhythm.app.service.MediaPlaybackService.ACTION_INIT_SERVICE
+            
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 startForegroundService(serviceIntent)
             } else {
                 startService(serviceIntent)
             }
             
-            // Extract metadata from the audio file
-            lifecycleScope.launch {
-                try {
-                    // Extract metadata on a background thread
-                    val song = withContext(Dispatchers.IO) {
-                        MediaUtils.extractMetadataFromUri(this@MainActivity, uri)
-                    }
-                    
-                    Log.d(TAG, "Extracted song metadata: ${song.title} by ${song.artist} from ${song.album}")
-                    
-                    // Make sure the MediaPlaybackService is connected before trying to play the file
-                    if (!musicViewModel.isServiceConnected()) {
-                        // Wait for the service to connect
-                        musicViewModel.connectToMediaService()
-                        delay(1500)  // Give service time to connect
-                    }
-                    
-                    // Play the external file
-                    musicViewModel.playExternalAudioFile(song)
-                    
-                    // If playback doesn't start, try sending the intent directly to the service as a fallback
-                    if (!musicViewModel.isPlaying()) {
-                        delay(2000)
-                        if (!musicViewModel.isPlaying()) {
-                            Log.d(TAG, "Using direct service intent as fallback")
-                            val playIntent = Intent(this@MainActivity, chromahub.rhythm.app.service.MediaPlaybackService::class.java)
-                            playIntent.action = chromahub.rhythm.app.service.MediaPlaybackService.ACTION_PLAY_EXTERNAL_FILE
-                            playIntent.data = uri
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                startForegroundService(playIntent)
-                            } else {
-                                startService(playIntent)
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error processing external audio file", e)
-                    Toast.makeText(this@MainActivity, "Error playing audio file: ${e.message}", Toast.LENGTH_SHORT).show()
-                }
+            // Wait for service to be ready
+            delay(1000)
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start media service", e)
+            false
+        }
+    }
+    
+    private suspend fun waitForServiceConnection(timeoutMs: Long): Boolean {
+        val startTime = System.currentTimeMillis()
+        while (System.currentTimeMillis() - startTime < timeoutMs) {
+            if (musicViewModel.isServiceConnected()) {
+                return true
             }
-        } else {
-            Log.e(TAG, "File is not recognized as audio. Mime type: $mimeType")
-            Toast.makeText(this, "Unsupported file format", Toast.LENGTH_SHORT).show()
+            if (!musicViewModel.isServiceConnected()) {
+                musicViewModel.connectToMediaService()
+            }
+            delay(100)
+        }
+        return false
+    }
+    
+    private suspend fun waitForPlaybackStart(timeoutMs: Long): Boolean {
+        val startTime = System.currentTimeMillis()
+        delay(500) // Initial delay to let playback initialize
+        
+        while (System.currentTimeMillis() - startTime < timeoutMs) {
+            if (musicViewModel.isPlaying()) {
+                return true
+            }
+            delay(100)
+        }
+        return false
+    }
+    
+    private suspend fun fallbackPlayExternalFile(uri: Uri) {
+        try {
+            Log.d(TAG, "Using direct service intent as fallback")
+            val playIntent = Intent(this@MainActivity, chromahub.rhythm.app.service.MediaPlaybackService::class.java)
+            playIntent.action = chromahub.rhythm.app.service.MediaPlaybackService.ACTION_PLAY_EXTERNAL_FILE
+            playIntent.data = uri
+            
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(playIntent)
+            } else {
+                startService(playIntent)
+            }
+            
+            // Give fallback some time to start
+            delay(1000)
+            if (!musicViewModel.isPlaying()) {
+                Toast.makeText(this@MainActivity, "Unable to play audio file", Toast.LENGTH_SHORT).show()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Fallback playback also failed", e)
+            Toast.makeText(this@MainActivity, "Failed to play audio file", Toast.LENGTH_SHORT).show()
         }
     }
     

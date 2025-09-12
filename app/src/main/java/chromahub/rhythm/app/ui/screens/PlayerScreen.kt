@@ -54,6 +54,8 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -148,6 +150,8 @@ import java.util.Locale
 import kotlin.math.abs
 import chromahub.rhythm.app.ui.components.M3CircularLoader
 import android.view.animation.OvershootInterpolator
+import chromahub.rhythm.app.ui.screens.EqualizerBottomSheetNew
+import chromahub.rhythm.app.ui.screens.SleepTimerBottomSheetNew
 import chromahub.rhythm.app.ui.components.SyncedLyricsView
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
@@ -229,7 +233,8 @@ fun PlayerScreen(
     onShuffleAlbumSongs: (List<Song>) -> Unit = {},
     onPlayArtistSongs: (List<Song>) -> Unit = {},
     onShuffleArtistSongs: (List<Song>) -> Unit = {},
-    appSettings: chromahub.rhythm.app.data.AppSettings
+    appSettings: chromahub.rhythm.app.data.AppSettings,
+    musicViewModel: chromahub.rhythm.app.viewmodel.MusicViewModel
 ) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
@@ -275,6 +280,10 @@ fun PlayerScreen(
     // Enhanced screen size detection for better responsiveness
     val isCompactHeight = configuration.screenHeightDp < 600
     val isLargeHeight = configuration.screenHeightDp > 800
+    
+    // Bottom sheet states
+    var showEqualizerBottomSheet by remember { mutableStateOf(false) }
+    var showSleepTimerBottomSheet by remember { mutableStateOf(false) }
     val isCompactWidth = configuration.screenWidthDp < 400
 
     // Dynamic sizing based on screen dimensions
@@ -2152,6 +2161,114 @@ fun PlayerScreen(
                                 border = null // Removed border
                             )
                         }
+                        
+                        // Equalizer chip
+                        item {
+                            var isPressed by remember { mutableStateOf(false) }
+                            val scale by animateFloatAsState(
+                                targetValue = if (isPressed) 0.95f else 1f,
+                                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+                                label = "equalizerChipScale"
+                            )
+                            AssistChip(
+                                onClick = {
+                                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                                    showEqualizerBottomSheet = true
+                                },
+                                label = {
+                                    Text(
+                                        "EQ",
+                                        style = MaterialTheme.typography.labelLarge
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.GraphicEq,
+                                        contentDescription = "Show equalizer",
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                },
+                                modifier = Modifier
+                                    .height(32.dp)
+                                    .graphicsLayer {
+                                        scaleX = scale
+                                        scaleY = scale
+                                    }
+                                    .pointerInput(Unit) {
+                                        detectTapGestures(
+                                            onPress = {
+                                                isPressed = true
+                                                try {
+                                                    awaitRelease()
+                                                } finally {
+                                                    isPressed = false
+                                                }
+                                            }
+                                        )
+                                    },
+                                shape = RoundedCornerShape(16.dp),
+                                colors = AssistChipDefaults.assistChipColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    leadingIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                ),
+                                border = null
+                            )
+                        }
+                        
+                        // Sleep Timer chip
+                        item {
+                            var isPressed by remember { mutableStateOf(false) }
+                            val scale by animateFloatAsState(
+                                targetValue = if (isPressed) 0.95f else 1f,
+                                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+                                label = "sleepTimerChipScale"
+                            )
+                            AssistChip(
+                                onClick = {
+                                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                                    showSleepTimerBottomSheet = true
+                                },
+                                label = {
+                                    Text(
+                                        "Timer",
+                                        style = MaterialTheme.typography.labelLarge
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.AccessTime,
+                                        contentDescription = "Show sleep timer",
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                },
+                                modifier = Modifier
+                                    .height(32.dp)
+                                    .graphicsLayer {
+                                        scaleX = scale
+                                        scaleY = scale
+                                    }
+                                    .pointerInput(Unit) {
+                                        detectTapGestures(
+                                            onPress = {
+                                                isPressed = true
+                                                try {
+                                                    awaitRelease()
+                                                } finally {
+                                                    isPressed = false
+                                                }
+                                            }
+                                        )
+                                    },
+                                shape = RoundedCornerShape(16.dp),
+                                colors = AssistChipDefaults.assistChipColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    leadingIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                ),
+                                border = null
+                            )
+                        }
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
@@ -2304,5 +2421,22 @@ fun PlayerScreen(
 
             }
         }
+    }
+    
+    // Bottom sheets
+    if (showEqualizerBottomSheet) {
+        EqualizerBottomSheetNew(
+            musicViewModel = musicViewModel,
+            onDismiss = { showEqualizerBottomSheet = false }
+        )
+    }
+    
+    if (showSleepTimerBottomSheet) {
+        SleepTimerBottomSheetNew(
+            onDismiss = { showSleepTimerBottomSheet = false },
+            currentSong = song,
+            isPlaying = isPlaying,
+            musicViewModel = musicViewModel
+        )
     }
 }

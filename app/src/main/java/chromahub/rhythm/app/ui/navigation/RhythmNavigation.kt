@@ -1290,7 +1290,8 @@ fun RhythmNavigation(
                         onShuffleAlbumSongs = { songs -> viewModel.playShuffled(songs) },
                         onPlayArtistSongs = { songs -> viewModel.playSongs(songs) },
                         onShuffleArtistSongs = { songs -> viewModel.playShuffled(songs) },
-                        appSettings = appSettings
+                        appSettings = appSettings,
+                        musicViewModel = viewModel
                     )
                 }
 

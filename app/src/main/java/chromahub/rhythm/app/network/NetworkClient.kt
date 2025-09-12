@@ -1,6 +1,7 @@
 package chromahub.rhythm.app.network
 
 import android.util.Log
+import chromahub.rhythm.app.BuildConfig
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -44,15 +45,19 @@ object NetworkClient {
     }
     
     private val loggingInterceptor = HttpLoggingInterceptor { message ->
-        Log.d(TAG, message)
+        try {
+            Log.d(TAG, message)
+        } catch (e: Exception) {
+            Log.w(TAG, "Error logging HTTP message: ${e.message}")
+        }
     }.apply {
-        level = HttpLoggingInterceptor.Level.BODY
+        level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.HEADERS else HttpLoggingInterceptor.Level.NONE
     }
     
     private val retryInterceptor = Interceptor { chain ->
         var currentRetry = 0
         var response: Response? = null
-        var exception: IOException? = null
+        var lastException: IOException? = null
         
         while (currentRetry < MAX_RETRIES) {
             try {
@@ -63,36 +68,74 @@ object NetworkClient {
                     Log.d(TAG, "Request successful: ${chain.request().url}")
                     return@Interceptor response
                 } else {
-                    Log.w(TAG, "Request failed with code ${response.code}: ${chain.request().url}")
+                    val code = response.code
+                    Log.w(TAG, "Request failed with code $code: ${chain.request().url}")
+                    
+                    // Don't retry on client errors (4xx) except for specific cases
+                    if (code in 400..499 && code != 408 && code != 429) {
+                        Log.d(TAG, "Client error $code, not retrying")
+                        return@Interceptor response
+                    }
+                    
+                    // Handle rate limiting with exponential backoff
+                    if (code == 429) {
+                        val retryAfter = response.header("Retry-After")?.toLongOrNull() ?: (currentRetry + 1).toLong()
+                        val backoffDelay = minOf(retryAfter * 1000, 30000) // Max 30 seconds
+                        Log.d(TAG, "Rate limited, retrying after ${backoffDelay}ms")
+                        response.close()
+                        Thread.sleep(backoffDelay)
+                        currentRetry++
+                        continue
+                    }
+                    
                     response.close()
                 }
             } catch (e: IOException) {
-                exception = e
-                Log.e(TAG, "Request error (attempt ${currentRetry + 1}): ${e.message}")
+                lastException = e
+                Log.e(TAG, "Request error (attempt ${currentRetry + 1}): ${e.javaClass.simpleName} - ${e.message}")
                 
-                if (e is SocketTimeoutException || e is UnknownHostException) {
-                    currentRetry++
-                    if (currentRetry < MAX_RETRIES) {
-                        val backoffDelay = (2.0.pow(currentRetry.toDouble()) * 1000).toLong()
-                        Log.d(TAG, "Retrying after ${backoffDelay}ms delay")
-                        Thread.sleep(backoffDelay)
-                        continue
-                    }
+                // Classify errors for appropriate retry logic
+                val shouldRetry = when (e) {
+                    is SocketTimeoutException -> true
+                    is UnknownHostException -> true
+                    is java.net.ConnectException -> true
+                    is java.net.SocketException -> true
+                    is javax.net.ssl.SSLException -> false // Don't retry SSL errors
+                    is java.io.FileNotFoundException -> false // Don't retry 404-like errors
+                    else -> currentRetry < 1 // Only retry once for unknown errors
                 }
-                throw e
+                
+                if (!shouldRetry) {
+                    Log.d(TAG, "Error type ${e.javaClass.simpleName} is not retryable")
+                    throw e
+                }
             }
+            
             currentRetry++
+            if (currentRetry < MAX_RETRIES) {
+                val baseDelay = 1000L
+                val backoffDelay = minOf(baseDelay * (2.0.pow(currentRetry.toDouble())).toLong(), 10000L)
+                Log.d(TAG, "Retrying after ${backoffDelay}ms delay")
+                Thread.sleep(backoffDelay)
+            }
         }
         
-        throw exception ?: IOException("Request failed after $MAX_RETRIES retries")
+        // Return the last response if we have one, otherwise throw the last exception
+        response?.let { return@Interceptor it }
+        throw lastException ?: IOException("Request failed after $MAX_RETRIES retries")
     }
     
     private fun deezerHeadersInterceptor() = Interceptor { chain ->
-        val request = chain.request().newBuilder()
-            .header("User-Agent", "RhythmApp/2.5 (contact@chromahub.dev)")
-            .header("Accept", "application/json")
-            .build()
-        chain.proceed(request)
+        try {
+            val request = chain.request().newBuilder()
+                .header("User-Agent", "RhythmApp/2.5 (contact@chromahub.dev)")
+                .header("Accept", "application/json")
+                .build()
+            chain.proceed(request)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in deezer headers interceptor: ${e.message}")
+            throw e
+        }
     }
     
     private val deezerHttpClient = OkHttpClient.Builder()

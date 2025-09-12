@@ -23,6 +23,8 @@ import androidx.media3.session.MediaSession
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionError
 import androidx.media3.session.SessionResult
+import androidx.media3.session.MediaNotification
+import androidx.media3.session.DefaultMediaNotificationProvider
 import chromahub.rhythm.app.MainActivity
 import chromahub.rhythm.app.data.AppSettings
 import com.google.common.collect.ImmutableList
@@ -39,6 +41,7 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import chromahub.rhythm.app.data.Playlist
 
+@OptIn(UnstableApi::class)
 class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     private var mediaSession: MediaLibrarySession? = null
     private lateinit var player: ExoPlayer
@@ -56,6 +59,18 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     
     // Debounce custom layout updates to prevent flickering
     private var updateLayoutJob: Job? = null
+    
+    // Sleep Timer functionality
+    private var sleepTimerJob: Job? = null
+    private var sleepTimerDurationMs: Long = 0L
+    private var sleepTimerStartTime: Long = 0L
+    private var fadeOutEnabled: Boolean = true
+    private var pauseOnlyEnabled: Boolean = false
+    
+    // Audio effects (for equalizer integration)
+    private var equalizer: android.media.audiofx.Equalizer? = null
+    private var bassBoost: android.media.audiofx.BassBoost? = null
+    private var virtualizer: android.media.audiofx.Virtualizer? = null
     
     // BroadcastReceiver to listen for favorite changes from ViewModel
     private val favoriteChangeReceiver = object : BroadcastReceiver() {
@@ -99,6 +114,9 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     // Settings manager
     private lateinit var appSettings: AppSettings
     
+    // Custom notification provider for app-specific notifications
+    private var customNotificationProvider: DefaultMediaNotificationProvider? = null
+    
     // SharedPreferences keys
     companion object {
         private const val TAG = "MediaPlaybackService"
@@ -121,6 +139,22 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
         
         // Intent action for initializing the service
         const val ACTION_INIT_SERVICE = "chromahub.rhythm.app.action.INIT_SERVICE"
+        
+        // Intent actions for sleep timer
+        const val ACTION_START_SLEEP_TIMER = "chromahub.rhythm.app.action.START_SLEEP_TIMER"
+        const val ACTION_STOP_SLEEP_TIMER = "chromahub.rhythm.app.action.STOP_SLEEP_TIMER"
+        
+        // Intent actions for equalizer
+        const val ACTION_SET_EQUALIZER_ENABLED = "chromahub.rhythm.app.action.SET_EQUALIZER_ENABLED"
+        const val ACTION_SET_EQUALIZER_BAND = "chromahub.rhythm.app.action.SET_EQUALIZER_BAND"
+        const val ACTION_SET_BASS_BOOST = "chromahub.rhythm.app.action.SET_BASS_BOOST"
+        const val ACTION_SET_VIRTUALIZER = "chromahub.rhythm.app.action.SET_VIRTUALIZER"
+        const val ACTION_APPLY_EQUALIZER_PRESET = "chromahub.rhythm.app.action.APPLY_EQUALIZER_PRESET"
+        
+        // Broadcast actions for status updates
+        const val BROADCAST_SLEEP_TIMER_STATUS = "chromahub.rhythm.app.broadcast.SLEEP_TIMER_STATUS"
+        const val EXTRA_TIMER_ACTIVE = "timer_active"
+        const val EXTRA_REMAINING_TIME = "remaining_time"
 
         // Playback custom commands
         const val REPEAT_MODE_ALL = "repeat_all"
@@ -164,6 +198,9 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
             // Initialize controller asynchronously to avoid blocking
             createController()
             
+            // Observe notification preference changes
+            observeNotificationSettings()
+            
             Log.d(TAG, "Service initialized successfully")
         } catch (e: Exception) {
             Log.e(TAG, "Error initializing service", e)
@@ -199,6 +236,34 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
         Log.d(TAG, "Started foreground service")
     }
     
+    private fun observeNotificationSettings() {
+        serviceScope.launch {
+            appSettings.useCustomNotification.collect { useCustomNotification ->
+                Log.d(TAG, "Notification preference changed: $useCustomNotification")
+                updateNotificationProvider(useCustomNotification)
+            }
+        }
+    }
+    
+    private fun updateNotificationProvider(useCustomNotification: Boolean) {
+        try {
+            if (useCustomNotification && customNotificationProvider == null) {
+                // Switch to custom notification provider
+                customNotificationProvider = DefaultMediaNotificationProvider.Builder(this)
+                    .setChannelId(CHANNEL_ID)
+                    .setNotificationId(NOTIFICATION_ID)
+                    .build()
+                Log.d(TAG, "Switched to custom notification provider")
+            } else if (!useCustomNotification && customNotificationProvider != null) {
+                // Switch back to system media notifications
+                customNotificationProvider = null
+                Log.d(TAG, "Switched to system media notifications")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating notification provider", e)
+        }
+    }
+    
     private fun initializePlayer() {
         // Build the player with current settings
         player = ExoPlayer.Builder(this)
@@ -212,8 +277,22 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
             .setHandleAudioBecomingNoisy(true)
             .build()
             
+        // Add listener to initialize audio effects when session ID is ready
+        player.addListener(object : Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == Player.STATE_READY && player.audioSessionId != 0) {
+                    // Reinitialize audio effects with valid session ID
+                    Log.d(TAG, "Player ready with session ID ${player.audioSessionId}, reinitializing effects")
+                    initializeAudioEffects()
+                }
+            }
+        })
+        
         // Apply current settings
         applyPlayerSettings()
+        
+        // Try to initialize audio effects (might fail if session ID not ready)
+        initializeAudioEffects()
     }
 
     private fun createController() {
@@ -298,13 +377,25 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        return MediaLibrarySession.Builder(
+        val sessionBuilder = MediaLibrarySession.Builder(
             this,
             player,
             MediaSessionCallback()
-        )
-            .setSessionActivity(pendingIntent)
-            .build()
+        ).setSessionActivity(pendingIntent)
+        
+        // Configure notification provider based on user setting
+        if (appSettings.useCustomNotification.value) {
+            // Use custom notification provider for app-specific styling
+            customNotificationProvider = DefaultMediaNotificationProvider.Builder(this)
+                .setChannelId(CHANNEL_ID)
+                .setNotificationId(NOTIFICATION_ID)
+                .build()
+            // Note: MediaLibrarySession doesn't directly support setMediaNotificationProvider
+            // The custom notification provider will be handled through MediaNotificationManager
+        }
+        // If custom notifications are disabled, Media3 uses system media notifications
+        
+        return sessionBuilder.build()
     }
     
     private fun isCurrentSongFavorite(): Boolean {
@@ -544,6 +635,45 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
                 // Load and apply settings when service starts
                 applyPlayerSettings()
             }
+            ACTION_START_SLEEP_TIMER -> {
+                val durationMs = intent.getLongExtra("duration", 0L)
+                val fadeOut = intent.getBooleanExtra("fadeOut", true)
+                val pauseOnly = intent.getBooleanExtra("pauseOnly", false)
+                if (durationMs > 0) {
+                    startSleepTimer(durationMs, fadeOut, pauseOnly)
+                }
+            }
+            ACTION_STOP_SLEEP_TIMER -> {
+                stopSleepTimer()
+            }
+            ACTION_SET_EQUALIZER_ENABLED -> {
+                val enabled = intent.getBooleanExtra("enabled", false)
+                setEqualizerEnabled(enabled)
+            }
+            ACTION_SET_EQUALIZER_BAND -> {
+                val band = intent.getShortExtra("band", 0)
+                val level = intent.getShortExtra("level", 0)
+                setEqualizerBandLevel(band, level)
+            }
+            ACTION_SET_BASS_BOOST -> {
+                val enabled = intent.getBooleanExtra("enabled", false)
+                val strength = intent.getShortExtra("strength", 0)
+                setBassBoostEnabled(enabled)
+                if (enabled) setBassBoostStrength(strength)
+            }
+            ACTION_SET_VIRTUALIZER -> {
+                val enabled = intent.getBooleanExtra("enabled", false)
+                val strength = intent.getShortExtra("strength", 0)
+                setVirtualizerEnabled(enabled)
+                if (enabled) setVirtualizerStrength(strength)
+            }
+            ACTION_APPLY_EQUALIZER_PRESET -> {
+                val preset = intent.getStringExtra("preset") ?: ""
+                val levels = intent.getFloatArrayExtra("levels")
+                if (levels != null && levels.size == 5) {
+                    applyEqualizerPreset(levels)
+                }
+            }
         }
         
         // We make sure to call the super implementation
@@ -654,7 +784,11 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
         
         // Cancel all coroutines and pending jobs
         updateLayoutJob?.cancel()
+        sleepTimerJob?.cancel()
         serviceScope.cancel()
+        
+        // Release audio effects
+        releaseAudioEffects()
         
         mediaSession?.run {
             player.release()
@@ -840,5 +974,286 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
         Log.d(TAG, "Media item transitioned: ${mediaItem?.mediaMetadata?.title}")
         // Update custom layout when song changes to reflect correct favorite state
         scheduleCustomLayoutUpdate(50) // Shorter delay for song transitions
+    }
+
+    // Sleep Timer functionality
+    fun startSleepTimer(durationMs: Long, fadeOut: Boolean = true, pauseOnly: Boolean = false) {
+        stopSleepTimer() // Stop any existing timer
+        
+        sleepTimerDurationMs = durationMs
+        sleepTimerStartTime = System.currentTimeMillis()
+        fadeOutEnabled = fadeOut
+        pauseOnlyEnabled = pauseOnly
+        
+        sleepTimerJob = serviceScope.launch {
+            try {
+                if (fadeOut && durationMs > 10000) { // Only fade if duration > 10 seconds
+                    // Wait until fade start time (last 10 seconds)
+                    val fadeStartTime = durationMs - 10000
+                    delay(fadeStartTime)
+                    
+                    // Fade out over 10 seconds
+                    val originalVolume = player.volume
+                    val fadeSteps = 100
+                    val fadeInterval = 10000L / fadeSteps
+                    
+                    for (i in fadeSteps downTo 0) {
+                        val volume = originalVolume * (i.toFloat() / fadeSteps)
+                        player.volume = volume
+                        delay(fadeInterval)
+                    }
+                } else {
+                    // No fade out, just wait for full duration
+                    delay(durationMs)
+                }
+                
+                // Timer finished - pause or stop playback
+                if (pauseOnly) {
+                    player.pause()
+                    Log.d(TAG, "Sleep timer paused playback")
+                } else {
+                    player.stop()
+                    Log.d(TAG, "Sleep timer stopped playback")
+                }
+                
+                // Reset volume if it was changed during fade
+                if (fadeOut) {
+                    player.volume = 1.0f
+                }
+                
+                resetSleepTimer()
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Error in sleep timer", e)
+                resetSleepTimer()
+            }
+        }
+        
+        Log.d(TAG, "Sleep timer started for ${durationMs}ms")
+        broadcastSleepTimerStatus()
+    }
+    
+    fun stopSleepTimer() {
+        sleepTimerJob?.cancel()
+        sleepTimerJob = null
+        
+        // Reset volume if it was changed during fade
+        if (fadeOutEnabled) {
+            player.volume = 1.0f
+        }
+        
+        resetSleepTimer()
+        broadcastSleepTimerStatus()
+        Log.d(TAG, "Sleep timer stopped")
+    }
+    
+    fun getRemainingTimeMs(): Long {
+        return if (sleepTimerJob?.isActive == true) {
+            val elapsed = System.currentTimeMillis() - sleepTimerStartTime
+            maxOf(0, sleepTimerDurationMs - elapsed)
+        } else {
+            0L
+        }
+    }
+    
+    private fun resetSleepTimer() {
+        sleepTimerDurationMs = 0L
+        sleepTimerStartTime = 0L
+        fadeOutEnabled = true
+        pauseOnlyEnabled = false
+    }
+    
+    private fun broadcastSleepTimerStatus() {
+        val intent = Intent(BROADCAST_SLEEP_TIMER_STATUS).apply {
+            putExtra(EXTRA_TIMER_ACTIVE, isSleepTimerActive())
+            putExtra(EXTRA_REMAINING_TIME, getRemainingTimeMs())
+        }
+        sendBroadcast(intent)
+    }
+    
+    // Audio Effects (Equalizer) functionality
+    fun initializeAudioEffects() {
+        try {
+            val audioSessionId = player.audioSessionId
+            Log.d(TAG, "Initializing audio effects with session ID: $audioSessionId")
+            
+            // Skip initialization if session ID is invalid
+            if (audioSessionId == 0) {
+                Log.w(TAG, "Invalid audio session ID (0), skipping effects initialization")
+                return
+            }
+            
+            // Initialize equalizer
+            try {
+                equalizer?.release()
+                equalizer = android.media.audiofx.Equalizer(0, audioSessionId).apply {
+                    enabled = false
+                }
+                Log.d(TAG, "Equalizer initialized with ${equalizer?.numberOfBands} bands for session $audioSessionId")
+            } catch (e: Exception) {
+                Log.w(TAG, "Equalizer not available: ${e.message}")
+            }
+            
+            // Initialize bass boost
+            try {
+                bassBoost?.release()
+                bassBoost = android.media.audiofx.BassBoost(0, audioSessionId).apply {
+                    enabled = false
+                }
+                Log.d(TAG, "Bass boost initialized")
+            } catch (e: Exception) {
+                Log.w(TAG, "Bass boost not available: ${e.message}")
+            }
+            
+            // Initialize virtualizer
+            try {
+                virtualizer?.release()
+                virtualizer = android.media.audiofx.Virtualizer(0, audioSessionId).apply {
+                    enabled = false
+                }
+                Log.d(TAG, "Virtualizer initialized")
+            } catch (e: Exception) {
+                Log.w(TAG, "Virtualizer not available: ${e.message}")
+            }
+            
+            // Load saved settings and apply them
+            loadSavedAudioEffects()
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error initializing audio effects", e)
+        }
+    }
+    
+    private fun loadSavedAudioEffects() {
+        try {
+            // Load equalizer settings
+            equalizer?.enabled = appSettings.equalizerEnabled.value
+            
+            // Load band levels
+            val bandLevelsString = appSettings.equalizerBandLevels.value
+            val bandLevels = bandLevelsString.split(",").mapNotNull { it.toFloatOrNull() }
+            if (bandLevels.size == 5) {
+                equalizer?.let { eq ->
+                    for (i in 0 until minOf(eq.numberOfBands.toInt(), bandLevels.size)) {
+                        val level = (bandLevels[i] * 100).toInt().toShort()
+                        eq.setBandLevel(i.toShort(), level)
+                    }
+                }
+            }
+            
+            // Load bass boost settings
+            bassBoost?.enabled = appSettings.bassBoostEnabled.value
+            if (appSettings.bassBoostEnabled.value) {
+                bassBoost?.setStrength(appSettings.bassBoostStrength.value.toShort())
+            }
+            
+            // Load virtualizer settings
+            virtualizer?.enabled = appSettings.virtualizerEnabled.value
+            if (appSettings.virtualizerEnabled.value) {
+                virtualizer?.setStrength(appSettings.virtualizerStrength.value.toShort())
+            }
+            
+            Log.d(TAG, "Loaded saved audio effects - EQ: ${appSettings.equalizerEnabled.value}, Bass: ${appSettings.bassBoostEnabled.value}, Virtualizer: ${appSettings.virtualizerEnabled.value}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error loading saved audio effects", e)
+        }
+    }
+    
+    fun setEqualizerEnabled(enabled: Boolean) {
+        equalizer?.enabled = enabled
+        Log.d(TAG, "Equalizer enabled: $enabled")
+    }
+    
+    fun setEqualizerBandLevel(band: Short, level: Short) {
+        try {
+            equalizer?.setBandLevel(band, level)
+            Log.d(TAG, "Set equalizer band $band to level $level")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error setting equalizer band level", e)
+        }
+    }
+    
+    fun getEqualizerBandLevel(band: Short): Short {
+        return equalizer?.getBandLevel(band) ?: 0
+    }
+    
+    fun getNumberOfBands(): Short {
+        return equalizer?.numberOfBands ?: 0
+    }
+    
+    fun getBandFreqRange(band: Short): IntArray? {
+        return equalizer?.getBandFreqRange(band)
+    }
+    
+    fun applyEqualizerPreset(levels: FloatArray) {
+        try {
+            equalizer?.let { eq ->
+                val numberOfBands = eq.numberOfBands
+                for (i in 0 until minOf(numberOfBands.toInt(), levels.size)) {
+                    val level = (levels[i] * 100).toInt().toShort() // Convert -1.0 to 1.0 range to -100 to 100
+                    eq.setBandLevel(i.toShort(), level)
+                }
+                Log.d(TAG, "Applied equalizer preset with ${levels.size} bands")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error applying equalizer preset", e)
+        }
+    }
+    
+    fun setBassBoostEnabled(enabled: Boolean) {
+        bassBoost?.enabled = enabled
+        Log.d(TAG, "Bass boost enabled: $enabled")
+    }
+    
+    fun setBassBoostStrength(strength: Short) {
+        try {
+            bassBoost?.setStrength(strength)
+            Log.d(TAG, "Bass boost strength set to $strength")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error setting bass boost strength", e)
+        }
+    }
+    
+    fun getBassBoostStrength(): Short {
+        return bassBoost?.roundedStrength ?: 0
+    }
+    
+    fun setVirtualizerEnabled(enabled: Boolean) {
+        virtualizer?.enabled = enabled
+        Log.d(TAG, "Virtualizer enabled: $enabled")
+    }
+    
+    fun setVirtualizerStrength(strength: Short) {
+        try {
+            virtualizer?.setStrength(strength)
+            Log.d(TAG, "Virtualizer strength set to $strength")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error setting virtualizer strength", e)
+        }
+    }
+    
+    fun getVirtualizerStrength(): Short {
+        return virtualizer?.roundedStrength ?: 0
+    }
+    
+    // Public methods for external access
+    fun getMediaSession(): MediaLibrarySession? = mediaSession
+    
+    fun getSleepTimerRemainingTime(): Long = sleepTimerDurationMs - (System.currentTimeMillis() - sleepTimerStartTime)
+    
+    fun isSleepTimerActive(): Boolean = sleepTimerJob?.isActive == true
+    
+    private fun releaseAudioEffects() {
+        try {
+            equalizer?.release()
+            bassBoost?.release()
+            virtualizer?.release()
+            equalizer = null
+            bassBoost = null
+            virtualizer = null
+            Log.d(TAG, "Audio effects released")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error releasing audio effects", e)
+        }
     }
 }

@@ -66,6 +66,15 @@ class AppSettings private constructor(context: Context) {
         private const val KEY_AUTO_CONNECT_DEVICE = "auto_connect_device"
         private const val KEY_USE_SYSTEM_VOLUME = "use_system_volume"
         
+        // Equalizer Settings
+        private const val KEY_EQUALIZER_ENABLED = "equalizer_enabled"
+        private const val KEY_EQUALIZER_PRESET = "equalizer_preset"
+        private const val KEY_EQUALIZER_BAND_LEVELS = "equalizer_band_levels"
+        private const val KEY_BASS_BOOST_ENABLED = "bass_boost_enabled"
+        private const val KEY_BASS_BOOST_STRENGTH = "bass_boost_strength"
+        private const val KEY_VIRTUALIZER_ENABLED = "virtualizer_enabled"
+        private const val KEY_VIRTUALIZER_STRENGTH = "virtualizer_strength"
+        
         // Cache Settings
         private const val KEY_MAX_CACHE_SIZE = "max_cache_size"
         private const val KEY_CLEAR_CACHE_ON_EXIT = "clear_cache_on_exit"
@@ -126,6 +135,9 @@ class AppSettings private constructor(context: Context) {
         // Haptic Feedback
         private const val KEY_HAPTIC_FEEDBACK_ENABLED = "haptic_feedback_enabled"
         
+        // Notification Settings
+        private const val KEY_USE_CUSTOM_NOTIFICATION = "use_custom_notification"
+        
         // Blacklisted Songs
         private const val KEY_BLACKLISTED_SONGS = "blacklisted_songs"
         
@@ -136,6 +148,11 @@ class AppSettings private constructor(context: Context) {
         private const val KEY_LAST_BACKUP_TIMESTAMP = "last_backup_timestamp"
         private const val KEY_AUTO_BACKUP_ENABLED = "auto_backup_enabled"
         private const val KEY_BACKUP_LOCATION = "backup_location"
+        
+        // Sleep Timer
+        private const val KEY_SLEEP_TIMER_ACTIVE = "sleep_timer_active"
+        private const val KEY_SLEEP_TIMER_REMAINING_SECONDS = "sleep_timer_remaining_seconds"
+        private const val KEY_SLEEP_TIMER_ACTION = "sleep_timer_action"
         
         
         @Volatile
@@ -210,6 +227,38 @@ class AppSettings private constructor(context: Context) {
     
     private val _useSystemVolume = MutableStateFlow(prefs.getBoolean(KEY_USE_SYSTEM_VOLUME, false))
     val useSystemVolume: StateFlow<Boolean> = _useSystemVolume.asStateFlow()
+    
+    // Equalizer Settings
+    private val _equalizerEnabled = MutableStateFlow(prefs.getBoolean(KEY_EQUALIZER_ENABLED, false))
+    val equalizerEnabled: StateFlow<Boolean> = _equalizerEnabled.asStateFlow()
+    
+    private val _equalizerPreset = MutableStateFlow(prefs.getString(KEY_EQUALIZER_PRESET, "Custom") ?: "Custom")
+    val equalizerPreset: StateFlow<String> = _equalizerPreset.asStateFlow()
+    
+    private val _equalizerBandLevels = MutableStateFlow(prefs.getString(KEY_EQUALIZER_BAND_LEVELS, "0.0,0.0,0.0,0.0,0.0") ?: "0.0,0.0,0.0,0.0,0.0")
+    val equalizerBandLevels: StateFlow<String> = _equalizerBandLevels.asStateFlow()
+    
+    private val _bassBoostEnabled = MutableStateFlow(prefs.getBoolean(KEY_BASS_BOOST_ENABLED, false))
+    val bassBoostEnabled: StateFlow<Boolean> = _bassBoostEnabled.asStateFlow()
+    
+    private val _bassBoostStrength = MutableStateFlow(prefs.getInt(KEY_BASS_BOOST_STRENGTH, 500))
+    val bassBoostStrength: StateFlow<Int> = _bassBoostStrength.asStateFlow()
+    
+    private val _virtualizerEnabled = MutableStateFlow(prefs.getBoolean(KEY_VIRTUALIZER_ENABLED, false))
+    val virtualizerEnabled: StateFlow<Boolean> = _virtualizerEnabled.asStateFlow()
+    
+    private val _virtualizerStrength = MutableStateFlow(prefs.getInt(KEY_VIRTUALIZER_STRENGTH, 500))
+    val virtualizerStrength: StateFlow<Int> = _virtualizerStrength.asStateFlow()
+    
+    // Sleep Timer
+    private val _sleepTimerActive = MutableStateFlow(prefs.getBoolean(KEY_SLEEP_TIMER_ACTIVE, false))
+    val sleepTimerActive: StateFlow<Boolean> = _sleepTimerActive.asStateFlow()
+    
+    private val _sleepTimerRemainingSeconds = MutableStateFlow(prefs.getLong(KEY_SLEEP_TIMER_REMAINING_SECONDS, 0L))
+    val sleepTimerRemainingSeconds: StateFlow<Long> = _sleepTimerRemainingSeconds.asStateFlow()
+    
+    private val _sleepTimerAction = MutableStateFlow(prefs.getString(KEY_SLEEP_TIMER_ACTION, "FADE_OUT") ?: "FADE_OUT")
+    val sleepTimerAction: StateFlow<String> = _sleepTimerAction.asStateFlow()
     
     // Cache Settings
     private val _maxCacheSize = MutableStateFlow(safeLong(KEY_MAX_CACHE_SIZE, 1024L * 1024L * 512L)) // 512MB default
@@ -424,6 +473,10 @@ class AppSettings private constructor(context: Context) {
     private val _hapticFeedbackEnabled = MutableStateFlow(prefs.getBoolean(KEY_HAPTIC_FEEDBACK_ENABLED, true))
     val hapticFeedbackEnabled: StateFlow<Boolean> = _hapticFeedbackEnabled.asStateFlow()
     
+    // Notification Settings
+    private val _useCustomNotification = MutableStateFlow(prefs.getBoolean(KEY_USE_CUSTOM_NOTIFICATION, false))
+    val useCustomNotification: StateFlow<Boolean> = _useCustomNotification.asStateFlow()
+    
     // Blacklisted Songs
     private val _blacklistedSongs = MutableStateFlow<List<String>>(
         try {
@@ -481,8 +534,12 @@ class AppSettings private constructor(context: Context) {
     }
     
     fun setCrossfadeDuration(duration: Float) {
-        prefs.edit().putFloat(KEY_CROSSFADE_DURATION, duration).apply()
-        _crossfadeDuration.value = duration
+        if (isValidCrossfadeDuration(duration)) {
+            prefs.edit().putFloat(KEY_CROSSFADE_DURATION, duration).apply()
+            _crossfadeDuration.value = duration
+        } else {
+            Log.w("AppSettings", "Invalid crossfade duration: $duration, keeping current value")
+        }
     }
     
     fun setAudioNormalization(enable: Boolean) {
@@ -558,10 +615,66 @@ class AppSettings private constructor(context: Context) {
         _useSystemVolume.value = enable
     }
     
+    // Equalizer Settings Methods
+    fun setEqualizerEnabled(enable: Boolean) {
+        prefs.edit().putBoolean(KEY_EQUALIZER_ENABLED, enable).apply()
+        _equalizerEnabled.value = enable
+    }
+    
+    fun setEqualizerPreset(preset: String) {
+        prefs.edit().putString(KEY_EQUALIZER_PRESET, preset).apply()
+        _equalizerPreset.value = preset
+    }
+    
+    fun setEqualizerBandLevels(levels: String) {
+        prefs.edit().putString(KEY_EQUALIZER_BAND_LEVELS, levels).apply()
+        _equalizerBandLevels.value = levels
+    }
+    
+    fun setBassBoostEnabled(enable: Boolean) {
+        prefs.edit().putBoolean(KEY_BASS_BOOST_ENABLED, enable).apply()
+        _bassBoostEnabled.value = enable
+    }
+    
+    fun setBassBoostStrength(strength: Int) {
+        prefs.edit().putInt(KEY_BASS_BOOST_STRENGTH, strength).apply()
+        _bassBoostStrength.value = strength
+    }
+    
+    fun setVirtualizerEnabled(enable: Boolean) {
+        prefs.edit().putBoolean(KEY_VIRTUALIZER_ENABLED, enable).apply()
+        _virtualizerEnabled.value = enable
+    }
+    
+    fun setVirtualizerStrength(strength: Int) {
+        prefs.edit().putInt(KEY_VIRTUALIZER_STRENGTH, strength).apply()
+        _virtualizerStrength.value = strength
+    }
+    
+    // Sleep Timer Methods
+    fun setSleepTimerActive(active: Boolean) {
+        prefs.edit().putBoolean(KEY_SLEEP_TIMER_ACTIVE, active).apply()
+        _sleepTimerActive.value = active
+    }
+    
+    fun setSleepTimerRemainingSeconds(seconds: Long) {
+        prefs.edit().putLong(KEY_SLEEP_TIMER_REMAINING_SECONDS, seconds).apply()
+        _sleepTimerRemainingSeconds.value = seconds
+    }
+    
+    fun setSleepTimerAction(action: String) {
+        prefs.edit().putString(KEY_SLEEP_TIMER_ACTION, action).apply()
+        _sleepTimerAction.value = action
+    }
+    
     // Cache Settings Methods
     fun setMaxCacheSize(size: Long) {
-        prefs.edit().putLong(KEY_MAX_CACHE_SIZE, size).apply()
-        _maxCacheSize.value = size
+        if (isValidCacheSize(size)) {
+            prefs.edit().putLong(KEY_MAX_CACHE_SIZE, size).apply()
+            _maxCacheSize.value = size
+        } else {
+            Log.w("AppSettings", "Invalid cache size: $size, keeping current value")
+        }
     }
     
     fun setClearCacheOnExit(clear: Boolean) {
@@ -775,6 +888,12 @@ class AppSettings private constructor(context: Context) {
     fun setHapticFeedbackEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_HAPTIC_FEEDBACK_ENABLED, enabled).apply()
         _hapticFeedbackEnabled.value = enabled
+    }
+    
+    // Notification Settings Methods
+    fun setUseCustomNotification(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_USE_CUSTOM_NOTIFICATION, enabled).apply()
+        _useCustomNotification.value = enabled
     }
     
     // Blacklisted Songs Methods
@@ -1101,6 +1220,60 @@ class AppSettings private constructor(context: Context) {
     }
     
     /**
+     * Helper function to safely set values with validation
+     */
+    private fun safeSetValue(key: String, value: Any, validator: ((Any) -> Boolean)? = null): Boolean {
+        return try {
+            if (validator != null && !validator(value)) {
+                Log.w("AppSettings", "Invalid value for key $key: $value")
+                return false
+            }
+            
+            val editor = prefs.edit()
+            when (value) {
+                is Boolean -> editor.putBoolean(key, value)
+                is String -> editor.putString(key, value)
+                is Int -> editor.putInt(key, value)
+                is Long -> editor.putLong(key, value)
+                is Float -> editor.putFloat(key, value)
+                else -> {
+                    Log.w("AppSettings", "Unsupported value type for key $key")
+                    return false
+                }
+            }
+            
+            editor.apply()
+            true
+        } catch (e: Exception) {
+            Log.e("AppSettings", "Error setting preference $key", e)
+            false
+        }
+    }
+    
+    /**
+     * Validates cache size value
+     */
+    private fun isValidCacheSize(size: Long): Boolean {
+        val minSize = 50L * 1024 * 1024 // 50MB minimum
+        val maxSize = 10L * 1024 * 1024 * 1024 // 10GB maximum
+        return size in minSize..maxSize
+    }
+    
+    /**
+     * Validates crossfade duration
+     */
+    private fun isValidCrossfadeDuration(duration: Float): Boolean {
+        return duration in 0.1f..10.0f
+    }
+    
+    /**
+     * Validates update check interval
+     */
+    private fun isValidUpdateInterval(hours: Int): Boolean {
+        return hours in 1..168 // 1 hour to 1 week
+    }
+    
+    /**
      * Clears app cache if the clear cache on exit setting is enabled
      * This should be called when the app is being destroyed
      * 
@@ -1250,5 +1423,10 @@ class AppSettings private constructor(context: Context) {
         _lastBackupTimestamp.value = safeLong(KEY_LAST_BACKUP_TIMESTAMP, 0L)
         _autoBackupEnabled.value = prefs.getBoolean(KEY_AUTO_BACKUP_ENABLED, false)
         _backupLocation.value = prefs.getString(KEY_BACKUP_LOCATION, null)
+        
+        // Sleep Timer settings
+        _sleepTimerActive.value = prefs.getBoolean(KEY_SLEEP_TIMER_ACTIVE, false)
+        _sleepTimerRemainingSeconds.value = prefs.getLong(KEY_SLEEP_TIMER_REMAINING_SECONDS, 0L)
+        _sleepTimerAction.value = prefs.getString(KEY_SLEEP_TIMER_ACTION, "FADE_OUT") ?: "FADE_OUT"
     }
 }
