@@ -662,8 +662,6 @@ fun PlayerScreen(
     if (showArtistSheet && selectedArtist != null) {
         ArtistBottomSheet(
             artist = selectedArtist!!,
-            songs = songs,
-            albums = albums,
             onDismiss = { 
                 showArtistSheet = false
                 selectedArtist = null
@@ -671,13 +669,25 @@ fun PlayerScreen(
             onSongClick = onSongClick,
             onAlbumClick = { album -> 
                 selectedAlbum = album
+                showArtistSheet = false
+                selectedArtist = null
                 showAlbumSheet = true
             },
-            onPlayAll = { onPlayArtistSongs(songs.filter { it.artist == selectedArtist!!.name }) },
-            onShufflePlay = { onShuffleArtistSongs(songs.filter { it.artist == selectedArtist!!.name }) },
+            onPlayAll = { artistSongs -> 
+                if (artistSongs.isNotEmpty()) {
+                    onPlayArtistSongs(artistSongs)
+                }
+            },
+            onShufflePlay = { artistSongs -> 
+                if (artistSongs.isNotEmpty()) {
+                    onShuffleArtistSongs(artistSongs)
+                }
+            },
             onAddToQueue = { song -> /* TODO: Add queue functionality */ },
             onAddSongToPlaylist = { song -> onAddSongToPlaylist(song, "") },
-            sheetState = artistBottomSheetState
+            onPlayerClick = { /* Already in player screen */ },
+            sheetState = artistBottomSheetState,
+            haptics = haptic
         )
     }
 

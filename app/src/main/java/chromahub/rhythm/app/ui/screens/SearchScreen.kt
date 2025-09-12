@@ -776,8 +776,6 @@ fun SearchScreen(
     if (showArtistBottomSheet && selectedArtist != null) {
         ArtistBottomSheet(
             artist = selectedArtist!!,
-            songs = songs, // Pass all songs to filter within ArtistBottomSheet
-            albums = albums, // Pass all albums to filter within ArtistBottomSheet
             onDismiss = { 
                 scope.launch {
                     artistBottomSheetState.hide()
@@ -789,14 +787,31 @@ fun SearchScreen(
             },
             onSongClick = onSongClick,
             onAlbumClick = onAlbumClick,
-            onPlayAll = { onArtistClick(selectedArtist!!) }, // Use existing artist click handler
-            onShufflePlay = { onArtistClick(selectedArtist!!) }, // Use existing artist click handler
+            onPlayAll = { artistSongs -> 
+                if (artistSongs.isNotEmpty()) {
+                    onSongClick(artistSongs.first()) // Play first song from artist
+                }
+            },
+            onShufflePlay = { artistSongs -> 
+                if (artistSongs.isNotEmpty()) {
+                    onSongClick(artistSongs.shuffled().first()) // Play shuffled first song
+                }
+            },
             onAddToQueue = { song -> onSongClick(song) }, // For now, just play the song
             onAddSongToPlaylist = { song ->
                 selectedSong = song
-                showAddToPlaylistSheet = true
+                scope.launch {
+                    artistBottomSheetState.hide()
+                }.invokeOnCompletion {
+                    if (!artistBottomSheetState.isVisible) {
+                        showArtistBottomSheet = false
+                        showAddToPlaylistSheet = true
+                    }
+                }
             },
-            sheetState = artistBottomSheetState
+            onPlayerClick = onPlayerClick,
+            sheetState = artistBottomSheetState,
+            haptics = haptics
         )
     }
     

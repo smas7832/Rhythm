@@ -29,6 +29,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import chromahub.rhythm.app.data.AppSettings
 import chromahub.rhythm.app.data.Album
 import chromahub.rhythm.app.data.Artist
 import chromahub.rhythm.app.data.Song
@@ -49,29 +53,50 @@ import androidx.compose.foundation.layout.asPaddingValues
 @Composable
 fun ArtistBottomSheet(
     artist: Artist,
-    songs: List<Song>,
-    albums: List<Album>,
     onDismiss: () -> Unit,
     onSongClick: (Song) -> Unit,
     onAlbumClick: (Album) -> Unit,
-    onPlayAll: () -> Unit,
-    onShufflePlay: () -> Unit,
+    onPlayAll: (List<Song>) -> Unit,
+    onShufflePlay: (List<Song>) -> Unit,
     onAddToQueue: (Song) -> Unit,
     onAddSongToPlaylist: (Song) -> Unit,
-    sheetState: SheetState = rememberModalBottomSheetState()
+    onPlayerClick: () -> Unit,
+    sheetState: SheetState,
+    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback
 ) {
     val context = LocalContext.current
-    val haptics = LocalHapticFeedback.current
-    // Store viewModel reference at composition level to avoid capturing it in lambdas
+    val scope = rememberCoroutineScope()
     val viewModel: MusicViewModel = viewModel()
+    val appSettings = remember { AppSettings.getInstance(context) }
+    val collaborationMode by appSettings.artistCollaborationMode.collectAsState()
     
-    // Enhanced artist filtering using centralized utility
-    val artistSongs = remember(songs, artist) {
-        ArtistCollaborationUtils.filterSongsByArtist(songs, artist.name)
+    // Get songs and albums from viewModel
+    val allSongs by viewModel.songs.collectAsState()
+    val allAlbums by viewModel.albums.collectAsState()
+    
+    // Enhanced artist filtering using centralized utility based on collaboration mode
+    val artistSongs = remember(allSongs, artist, collaborationMode) {
+        if (collaborationMode) {
+            // Show all songs including collaborations using ArtistCollaborationUtils
+            allSongs.filter { song ->
+                ArtistCollaborationUtils.isArtistInCollaboration(artist.name, song.artist)
+            }
+        } else {
+            // Use filtered approach (default mode)
+            ArtistCollaborationUtils.filterSongsByArtist(allSongs, artist.name)
+        }
     }
     
-    val artistAlbums = remember(albums, artist) {
-        ArtistCollaborationUtils.filterAlbumsByArtist(albums, artist.name)
+    val artistAlbums = remember(allAlbums, artist, collaborationMode) {
+        if (collaborationMode) {
+            // Show all albums including collaborations using ArtistCollaborationUtils
+            allAlbums.filter { album ->
+                ArtistCollaborationUtils.isArtistInCollaboration(artist.name, album.artist)
+            }
+        } else {
+            // Use filtered approach (default mode)
+            ArtistCollaborationUtils.filterAlbumsByArtist(allAlbums, artist.name)
+        }
     }
     
     // Animation states
@@ -242,9 +267,15 @@ fun ArtistBottomSheet(
                             onClick = {
                                 HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                                 if (artistSongs.isNotEmpty()) {
-                                    // Use the correct method to play all songs
-                                    viewModel.playQueue(artistSongs)
-                                    onPlayAll()
+                                    onPlayAll(artistSongs)
+                                    scope.launch {
+                                        sheetState.hide()
+                                    }.invokeOnCompletion {
+                                        if (!sheetState.isVisible) {
+                                            onDismiss()
+                                            onPlayerClick()
+                                        }
+                                    }
                                 }
                             },
                             colors = ButtonDefaults.buttonColors(
@@ -272,10 +303,15 @@ fun ArtistBottomSheet(
                             onClick = {
                                 HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                                 if (artistSongs.isNotEmpty()) {
-                                    // Play shuffled songs using the correct method
-                                    viewModel.playQueue(artistSongs.shuffled())
-                                    viewModel.toggleShuffle() // Enable shuffle mode
-                                    onShufflePlay()
+                                    onShufflePlay(artistSongs.shuffled())
+                                    scope.launch {
+                                        sheetState.hide()
+                                    }.invokeOnCompletion {
+                                        if (!sheetState.isVisible) {
+                                            onDismiss()
+                                            onPlayerClick()
+                                        }
+                                    }
                                 }
                             },
                             colors = IconButtonDefaults.filledIconButtonColors(
@@ -403,6 +439,14 @@ fun ArtistBottomSheet(
                                         onClick = {
                                             HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                                             onSongClick(song)
+                                            scope.launch {
+                                                sheetState.hide()
+                                            }.invokeOnCompletion {
+                                                if (!sheetState.isVisible) {
+                                                    onDismiss()
+                                                    onPlayerClick()
+                                                }
+                                            }
                                         },
                                         onAddToQueue = {
                                             HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)

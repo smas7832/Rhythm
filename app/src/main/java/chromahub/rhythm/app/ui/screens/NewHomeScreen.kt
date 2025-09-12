@@ -235,8 +235,6 @@ fun NewHomeScreen(
     if (showArtistSheet && selectedArtist != null) {
         ArtistBottomSheet(
             artist = selectedArtist!!,
-            songs = songs,
-            albums = albums,
             onDismiss = { showArtistSheet = false },
             onSongClick = { song: Song ->
                 showArtistSheet = false
@@ -246,13 +244,15 @@ fun NewHomeScreen(
                 showArtistSheet = false
                 onAlbumClick(album)
             },
-            onPlayAll = {
-                // Queue will be managed in ArtistBottomSheet itself using proper queue setup
-                showArtistSheet = false
+            onPlayAll = { songs ->
+                if (songs.isNotEmpty()) {
+                    onSongClick(songs.first())
+                }
             },
-            onShufflePlay = {
-                // Queue will be managed in ArtistBottomSheet itself using proper queue setup
-                showArtistSheet = false
+            onShufflePlay = { songs ->
+                if (songs.isNotEmpty()) {
+                    onSongClick(songs.shuffled().first())
+                }
             },
             onAddToQueue = { song ->
                 onAddToQueue(song)
@@ -268,7 +268,9 @@ fun NewHomeScreen(
                     }
                 }
             },
-            sheetState = artistSheetState
+            onPlayerClick = onPlayerClick,
+            sheetState = artistSheetState,
+            haptics = haptics
         )
     }
 

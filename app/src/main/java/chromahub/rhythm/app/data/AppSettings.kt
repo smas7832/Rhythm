@@ -60,6 +60,7 @@ class AppSettings private constructor(context: Context) {
         private const val KEY_ALBUM_VIEW_TYPE = "album_view_type"
         private const val KEY_ARTIST_VIEW_TYPE = "artist_view_type"
         private const val KEY_ALBUM_SORT_ORDER = "album_sort_order"
+        private const val KEY_ARTIST_COLLABORATION_MODE = "artist_collaboration_mode"
         
         // Audio Device Settings
         private const val KEY_LAST_AUDIO_DEVICE = "last_audio_device"
@@ -217,6 +218,10 @@ class AppSettings private constructor(context: Context) {
     // Album Sort Order
     private val _albumSortOrder = MutableStateFlow(prefs.getString(KEY_ALBUM_SORT_ORDER, "TRACK_NUMBER") ?: "TRACK_NUMBER")
     val albumSortOrder: StateFlow<String> = _albumSortOrder.asStateFlow()
+    
+    // Artist Collaboration Mode
+    private val _artistCollaborationMode = MutableStateFlow(prefs.getBoolean(KEY_ARTIST_COLLABORATION_MODE, false))
+    val artistCollaborationMode: StateFlow<Boolean> = _artistCollaborationMode.asStateFlow()
     
     // Audio Device Settings
     private val _lastAudioDevice = MutableStateFlow(prefs.getString(KEY_LAST_AUDIO_DEVICE, null))
@@ -593,6 +598,11 @@ class AppSettings private constructor(context: Context) {
     fun setAlbumSortOrder(sortOrder: String) {
         prefs.edit().putString(KEY_ALBUM_SORT_ORDER, sortOrder).apply()
         _albumSortOrder.value = sortOrder
+    }
+    
+    fun setArtistCollaborationMode(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_ARTIST_COLLABORATION_MODE, enabled).apply()
+        _artistCollaborationMode.value = enabled
     }
     
     // Audio Device Settings Methods
@@ -1322,6 +1332,7 @@ class AppSettings private constructor(context: Context) {
         _albumViewType.value = AlbumViewType.valueOf(prefs.getString(KEY_ALBUM_VIEW_TYPE, AlbumViewType.GRID.name) ?: AlbumViewType.GRID.name)
         _artistViewType.value = ArtistViewType.valueOf(prefs.getString(KEY_ARTIST_VIEW_TYPE, ArtistViewType.GRID.name) ?: ArtistViewType.GRID.name)
         _albumSortOrder.value = prefs.getString(KEY_ALBUM_SORT_ORDER, "TRACK_NUMBER") ?: "TRACK_NUMBER"
+        _artistCollaborationMode.value = prefs.getBoolean(KEY_ARTIST_COLLABORATION_MODE, false)
         
         // Audio Device Settings
         _lastAudioDevice.value = prefs.getString(KEY_LAST_AUDIO_DEVICE, null)

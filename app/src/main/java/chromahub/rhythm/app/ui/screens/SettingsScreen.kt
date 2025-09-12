@@ -640,6 +640,19 @@ fun SettingsScreen(
                         appSettings.setAlbumSortOrder(newSortOrder.name)
                     }
                 )
+                SettingsDivider()
+
+                val artistCollaborationMode by appSettings.artistCollaborationMode.collectAsState()
+                
+                SettingsToggleItem(
+                    title = "Show artist collaborations",
+                    description = "Show featured artists and collaborations in artist listings (Default mode filters them)",
+                    checked = artistCollaborationMode,
+                    icon = RhythmIcons.Artist,
+                    onCheckedChange = { enabled ->
+                        appSettings.setArtistCollaborationMode(enabled)
+                    }
+                )
 
                 // Playlist Management
                 val userPlaylists = playlists.filter { !it.isDefault }

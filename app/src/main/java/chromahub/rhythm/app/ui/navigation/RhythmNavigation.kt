@@ -156,7 +156,6 @@ sealed class Screen(val route: String) {
         fun createRoute(playlistId: String) = "playlist/$playlistId"
     }
     object About : Screen("about")
-    object AllArtists : Screen("all_artists") // Added AllArtists screen
 }
 
 @Composable
@@ -664,7 +663,7 @@ fun RhythmNavigation(
                             }
                         },
                         onViewAllArtists = {
-                            navController.navigate(Screen.AllArtists.route)
+                            navController.navigate("${Screen.Library.route}?tab=artists")
                         },
                         onSkipNext = onSkipNext,
                         onSearchClick = {
@@ -880,57 +879,6 @@ fun RhythmNavigation(
                 }
 
                 composable(
-                    route = Screen.AllArtists.route,
-                    enterTransition = {
-                        fadeIn(animationSpec = tween(350)) +
-                                scaleIn(
-                                    initialScale = 0.85f,
-                                    animationSpec = tween(400, easing = EaseOutQuint)
-                                )
-                    },
-                    exitTransition = {
-                        fadeOut(animationSpec = tween(350)) +
-                                scaleOut(
-                                    targetScale = 0.85f,
-                                    animationSpec = tween(300, easing = EaseInOutQuart)
-                                )
-                    },
-                    popEnterTransition = {
-                        fadeIn(animationSpec = tween(350)) +
-                                scaleIn(
-                                    initialScale = 0.85f,
-                                    animationSpec = tween(400, easing = EaseOutQuint)
-                                )
-                    },
-                    popExitTransition = {
-                        fadeOut(animationSpec = tween(350)) +
-                                scaleOut(
-                                    targetScale = 0.85f,
-                                    animationSpec = tween(300, easing = EaseInOutQuart)
-                                )
-                    }
-                ) {
-                    chromahub.rhythm.app.ui.screens.AllArtistsScreen(
-                        artists = artists,
-                        songs = songs,
-                        albums = albums,
-                        onBackClick = { navController.popBackStack() },
-                        onArtistClick = onPlayArtist,
-                        onSongClick = onPlaySong,
-                        onAlbumClick = onPlayAlbum,
-                        onSearchClick = { navController.navigate(Screen.Search.route) },
-                        onAddToQueue = { song -> viewModel.addSongToQueue(song) },
-                        onAddSongToPlaylist = { song, playlistId ->
-                            viewModel.addSongToPlaylist(song, playlistId) { message ->
-                                coroutineScope.launch {
-                                    snackbarHostState.showSnackbar(message)
-                                }
-                            }
-                        }
-                    )
-                }
-
-                composable(
                     route = Screen.Library.route,
                     arguments = listOf(
                         navArgument("tab") {
@@ -1008,13 +956,18 @@ fun RhythmNavigation(
                     }
                 ) {
                     val tabArg = it.arguments?.getString("tab") ?: "songs"
-                    val initialTab =
-                        if (tabArg == "playlists") LibraryTab.PLAYLISTS else LibraryTab.SONGS
+                    val initialTab = when (tabArg) {
+                        "playlists" -> LibraryTab.PLAYLISTS
+                        "albums" -> LibraryTab.ALBUMS
+                        "artists" -> LibraryTab.ARTISTS
+                        else -> LibraryTab.SONGS
+                    }
 
                     LibraryScreen(
                         songs = songs,
                         albums = albums,
                         playlists = playlists,
+                        artists = artists,
                         currentSong = currentSong,
                         isPlaying = isPlaying,
                         progress = progress,
@@ -1031,6 +984,10 @@ fun RhythmNavigation(
                             // This is now handled internally with the dialog
                         },
                         onAlbumClick = onPlayAlbum,
+                        onArtistClick = { artist ->
+                            // Handle artist click - could navigate to artist detail or show bottom sheet
+                            // For now, we'll handle it within LibraryScreen
+                        },
                         onAlbumShufflePlay = onPlayAlbumShuffled,
                         onPlayQueue = { songs ->
                             // Play queue with proper replacement
