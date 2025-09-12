@@ -38,6 +38,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -55,6 +56,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.filled.*
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -66,10 +68,12 @@ import chromahub.rhythm.app.util.PlaylistImportExportUtils
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.SmallFloatingActionButton
 import chromahub.rhythm.app.ui.UiConstants
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -149,6 +153,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import chromahub.rhythm.app.ui.components.RhythmIcons
+import chromahub.rhythm.app.ui.components.M3FourColorCircularLoader
 
 
 enum class LibraryTab { SONGS, PLAYLISTS, ALBUMS, ARTISTS }
@@ -190,6 +195,7 @@ fun LibraryScreen(
     val tabs = listOf("Songs", "Playlists", "Albums", "Artists")
     var selectedTabIndex by remember { mutableStateOf(initialTab.ordinal) }
     val pagerState = rememberPagerState(initialPage = selectedTabIndex) { tabs.size }
+    val tabRowState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
     
@@ -230,15 +236,19 @@ fun LibraryScreen(
         }
     }
 
-    // Sync tabs with pager
+    // Sync tabs with pager - only animate when tab button is clicked
     LaunchedEffect(selectedTabIndex) {
-        pagerState.animateScrollToPage(selectedTabIndex)
+        if (selectedTabIndex != pagerState.currentPage) {
+            pagerState.animateScrollToPage(selectedTabIndex)
+        }
     }
     
-    // Update selectedTabIndex when pager settles on a new page
-    LaunchedEffect(pagerState.targetPage) {
-        if (selectedTabIndex != pagerState.targetPage) {
-            selectedTabIndex = pagerState.targetPage
+    // Update selectedTabIndex when pager settles on a new page (handles swiping)
+    LaunchedEffect(pagerState.currentPage, pagerState.isScrollInProgress) {
+        if (!pagerState.isScrollInProgress && selectedTabIndex != pagerState.currentPage) {
+            selectedTabIndex = pagerState.currentPage
+            // Auto-scroll tab buttons to show selected tab
+            tabRowState.animateScrollToItem(pagerState.currentPage)
         }
     }
 
@@ -407,88 +417,220 @@ fun LibraryScreen(
                     )
                 },
                 actions = {
-                    // Playlist import/export menu (only show when on playlists tab)
-                    if (selectedTabIndex == 1 && (onExportAllPlaylists != null || onImportPlaylist != null)) {
-                        var showPlaylistMenu by remember { mutableStateOf(false) }
-                        
-                        Box {
-                            IconButton(
-                                onClick = { showPlaylistMenu = true }
+                    // Tab-specific actions moved from section headers
+                    when (selectedTabIndex) {
+                        LibraryTab.ALBUMS.ordinal -> {
+                            // Enhanced Album view toggle
+                            val albumViewType by appSettings.albumViewType.collectAsState()
+                            
+                            // Animation for button press
+                            val buttonScale by animateFloatAsState(
+                                targetValue = 1f,
+                                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                                label = "albumToggleScale"
+                            )
+                            
+                            FilledTonalIconButton(
+                                onClick = {
+                                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                    val newViewType = if (albumViewType == AlbumViewType.LIST) AlbumViewType.GRID else AlbumViewType.LIST
+                                    appSettings.setAlbumViewType(newViewType)
+                                },
+                                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                                ),
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .graphicsLayer {
+                                        scaleX = buttonScale
+                                        scaleY = buttonScale
+                                    }
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.MoreVert,
-                                    contentDescription = "Playlist options"
+                                    imageVector = if (albumViewType == AlbumViewType.LIST) Icons.Default.GridView else Icons.Default.ViewList,
+                                    contentDescription = if (albumViewType == AlbumViewType.LIST) "Switch to Grid View" else "Switch to List View",
+                                    modifier = Modifier.size(24.dp)
                                 )
                             }
                             
-                            DropdownMenu(
-                                expanded = showPlaylistMenu,
-                                onDismissRequest = { showPlaylistMenu = false }
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        
+                        LibraryTab.ARTISTS.ordinal -> {
+                            // Enhanced Artist view toggle  
+                            val artistViewType by appSettings.artistViewType.collectAsState()
+                            
+                            // Animation for button press
+                            val buttonScale by animateFloatAsState(
+                                targetValue = 1f,
+                                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                                label = "artistToggleScale"
+                            )
+                            
+                            FilledTonalIconButton(
+                                onClick = {
+                                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                    val newViewType = if (artistViewType == ArtistViewType.LIST) ArtistViewType.GRID else ArtistViewType.LIST
+                                    appSettings.setArtistViewType(newViewType)
+                                },
+                                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                                ),
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .graphicsLayer {
+                                        scaleX = buttonScale
+                                        scaleY = buttonScale
+                                    }
                             ) {
-                                if (onExportAllPlaylists != null) {
+                                Icon(
+                                    imageVector = if (artistViewType == ArtistViewType.LIST) Icons.Default.GridView else Icons.Default.ViewList,
+                                    contentDescription = if (artistViewType == ArtistViewType.LIST) "Switch to Grid View" else "Switch to List View",
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                            
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        
+
+                    }
+                    
+                    // Sort dropdown like AlbumBottomSheet (only show for Songs and Albums)
+                    if (selectedTabIndex == LibraryTab.SONGS.ordinal || selectedTabIndex == LibraryTab.ALBUMS.ordinal) {
+                        var showSortMenu by remember { mutableStateOf(false) }
+                        var pendingSortOrder by remember { mutableStateOf<MusicViewModel.SortOrder?>(null) }
+                        
+                        // Clear pending sort order when actual sort order changes
+                        LaunchedEffect(sortOrder) {
+                            pendingSortOrder = null
+                        }
+                        
+                        Box {
+                        // Enhanced sort button
+                        val sortButtonScale by animateFloatAsState(
+                            targetValue = if (showSortMenu) 0.95f else 1f,
+                            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                            label = "sortButtonScale"
+                        )
+                        
+                        FilledTonalButton(
+                            onClick = {
+                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                showSortMenu = true
+                            },
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            ),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+                            modifier = Modifier.graphicsLayer {
+                                scaleX = sortButtonScale
+                                scaleY = sortButtonScale
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Sort,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            // Sort order text
+                            val sortText = when (sortOrder) {
+                                MusicViewModel.SortOrder.TITLE_ASC -> "Title A-Z"
+                                MusicViewModel.SortOrder.TITLE_DESC -> "Title Z-A"
+                                MusicViewModel.SortOrder.ARTIST_ASC -> "Artist A-Z"
+                                MusicViewModel.SortOrder.ARTIST_DESC -> "Artist Z-A"
+                            }
+
+                            Text(
+                                text = sortText,
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Medium
+                            )
+                            
+                            Spacer(modifier = Modifier.width(4.dp))
+                            
+                            Icon(
+                                imageVector = if (showSortMenu) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        
+                        DropdownMenu(
+                            expanded = showSortMenu,
+                            onDismissRequest = { showSortMenu = false },
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier.padding(4.dp)
+                        ) {
+                            MusicViewModel.SortOrder.values().forEach { order ->
+                                val isSelected = (pendingSortOrder ?: sortOrder) == order
+                                Surface(
+                                    color = if (isSelected) 
+                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+                                    else 
+                                        Color.Transparent,
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                                ) {
                                     DropdownMenuItem(
-                                        text = { Text("Export all playlists") },
-                                        onClick = {
-                                            showPlaylistMenu = false
-                                            showBulkExportDialog = true
+                                        text = { 
+                                            Text(
+                                                text = when (order) {
+                                                    MusicViewModel.SortOrder.TITLE_ASC -> "Title A-Z"
+                                                    MusicViewModel.SortOrder.TITLE_DESC -> "Title Z-A"
+                                                    MusicViewModel.SortOrder.ARTIST_ASC -> "Artist A-Z"
+                                                    MusicViewModel.SortOrder.ARTIST_DESC -> "Artist Z-A"
+                                                },
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                color = if (isSelected) 
+                                                    MaterialTheme.colorScheme.onPrimaryContainer 
+                                                else 
+                                                    MaterialTheme.colorScheme.onSurface
+                                            ) 
                                         },
                                         leadingIcon = {
                                             Icon(
-                                                imageVector = Icons.Default.FileUpload,
-                                                contentDescription = null
+                                                imageVector = when (order) {
+                                                    MusicViewModel.SortOrder.TITLE_ASC, MusicViewModel.SortOrder.TITLE_DESC -> Icons.Filled.SortByAlpha
+                                                    MusicViewModel.SortOrder.ARTIST_ASC, MusicViewModel.SortOrder.ARTIST_DESC -> Icons.Filled.Person
+                                                },
+                                                contentDescription = null,
+                                                tint = if (isSelected) 
+                                                    MaterialTheme.colorScheme.onPrimaryContainer 
+                                                else 
+                                                    MaterialTheme.colorScheme.onSurfaceVariant
                                             )
-                                        }
-                                    )
-                                }
-                                
-                                if (onImportPlaylist != null) {
-                                    DropdownMenuItem(
-                                        text = { Text("Import playlist") },
-                                        onClick = {
-                                            showPlaylistMenu = false
-                                            showImportDialog = true
                                         },
-                                        leadingIcon = {
-                                            Icon(
-                                                imageVector = RhythmIcons.Actions.Download,
-                                                contentDescription = null
-                                            )
-                                        }
+                                        onClick = {
+                                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                            pendingSortOrder = order
+                                            showSortMenu = false
+                                            // Trigger sort after a brief delay to ensure UI updates
+                                            if (sortOrder != order) {
+                                                onSort()
+                                            }
+                                        },
+                                        colors = androidx.compose.material3.MenuDefaults.itemColors(
+                                            textColor = if (isSelected) 
+                                                MaterialTheme.colorScheme.onPrimaryContainer 
+                                            else 
+                                                MaterialTheme.colorScheme.onSurface
+                                        )
                                     )
                                 }
                             }
                         }
                     }
-                    
-                    // Sort button with indicator of current sort order
-                    FilledTonalButton(
-                        onClick = {
-                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
-                            onSort()
-                        },
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
-                    ) {
-                        Icon(
-                            imageVector = RhythmIcons.List,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-
-                        Spacer(modifier = Modifier.width(8.dp))
-
-                        // Sort order text
-                        val sortText = when (sortOrder) {
-                            MusicViewModel.SortOrder.TITLE_ASC -> "Title A-Z"
-                            MusicViewModel.SortOrder.TITLE_DESC -> "Title Z-A"
-                            MusicViewModel.SortOrder.ARTIST_ASC -> "Artist A-Z"
-                            MusicViewModel.SortOrder.ARTIST_DESC -> "Artist Z-A"
-                        }
-
-                        Text(
-                            text = sortText,
-                            style = MaterialTheme.typography.labelMedium
-                        )
-                    }
+                }
                 },
                 colors = TopAppBarDefaults.largeTopAppBarColors(
                     containerColor = Color.Transparent,
@@ -501,24 +643,27 @@ fun LibraryScreen(
         bottomBar = {},
         floatingActionButton = {
             if (selectedTabIndex == LibraryTab.PLAYLISTS.ordinal) {
-                ExtendedFloatingActionButton(
-                    modifier = Modifier.padding(
-                        bottom = (LocalMiniPlayerPadding.current.calculateBottomPadding() * 0.5f) + 8.dp
-                    ),
-                    onClick = {
+                PlaylistFabMenu(
+                    expanded = fabVisibility,
+                    onCreatePlaylist = {
                         HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                         showCreatePlaylistDialog = true
                     },
-                    icon = {
-                        Icon(
-                            imageVector = RhythmIcons.Add,
-                            contentDescription = null
-                        )
-                    },
-                    text = { Text("New Playlist") },
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    expanded = fabVisibility
+                    onImportPlaylist = if (onImportPlaylist != null) {
+                        {
+                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                            showImportDialog = true
+                        }
+                    } else null,
+                    onExportPlaylists = if (onExportAllPlaylists != null) {
+                        {
+                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                            showBulkExportDialog = true
+                        }
+                    } else null,
+                    modifier = Modifier.padding(
+                        bottom = (LocalMiniPlayerPadding.current.calculateBottomPadding() * 0.5f) + 8.dp
+                    )
                 )
             }
         }
@@ -530,6 +675,7 @@ fun LibraryScreen(
         ) {
             // Horizontal Scrollable Navigation Buttons
             LazyRow(
+                state = tabRowState,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp, vertical = 8.dp),
@@ -571,6 +717,7 @@ fun LibraryScreen(
                             selectedTabIndex = index
                             scope.launch {
                                 pagerState.animateScrollToPage(index)
+                                tabRowState.animateScrollToItem(index)
                             }
                         },
                         colors = ButtonDefaults.buttonColors(
@@ -622,7 +769,9 @@ fun LibraryScreen(
                 // Content with animation
                 HorizontalPager(
                     state = pagerState,
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(top = 16.dp)
                 ) { page ->
                     when (page) {
                         LibraryTab.SONGS.ordinal -> SingleCardSongsContent(
@@ -1129,7 +1278,7 @@ fun SingleCardAlbumsContent(
             icon = RhythmIcons.Music.Album
         )
     } else {
-        if (albumViewType == AlbumViewType.GRID) {
+                        if (albumViewType == AlbumViewType.GRID) {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
                 modifier = Modifier.fillMaxSize(),
@@ -1189,27 +1338,6 @@ fun SingleCardAlbumsContent(
                                 )
                             }
 
-                            // View type toggle button
-                            FilledIconButton(
-                                onClick = {
-                                    val newViewType = if (albumViewType == AlbumViewType.LIST) AlbumViewType.GRID else AlbumViewType.LIST
-                                    appSettings.setAlbumViewType(newViewType)
-                                },
-                                colors = IconButtonDefaults.filledIconButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.surface,
-                                    contentColor = MaterialTheme.colorScheme.onSurface
-                                ),
-                                modifier = Modifier.size(36.dp)
-                            ) {
-                                Icon(
-                                    imageVector = if (albumViewType == AlbumViewType.LIST) RhythmIcons.AppsGrid else RhythmIcons.List,
-                                    contentDescription = "Toggle view type",
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.width(12.dp))
-
                             Surface(
                                 modifier = Modifier
                                     .height(2.dp)
@@ -1219,9 +1347,7 @@ fun SingleCardAlbumsContent(
                             ) {}
                         }
                     }
-                }
-
-                // Album Grid Items
+                }                // Album Grid Items
                 items(
                     items = albums,
                     key = { it.id }
@@ -1291,27 +1417,6 @@ fun SingleCardAlbumsContent(
                                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                                 )
                             }
-
-                            // View type toggle button
-                            FilledIconButton(
-                                onClick = {
-                                    val newViewType = if (albumViewType == AlbumViewType.LIST) AlbumViewType.GRID else AlbumViewType.LIST
-                                    appSettings.setAlbumViewType(newViewType)
-                                },
-                                colors = IconButtonDefaults.filledIconButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.surface,
-                                    contentColor = MaterialTheme.colorScheme.onSurface
-                                ),
-                                modifier = Modifier.size(36.dp)
-                            ) {
-                                Icon(
-                                    imageVector = if (albumViewType == AlbumViewType.LIST) RhythmIcons.AppsGrid else RhythmIcons.List,
-                                    contentDescription = "Toggle view type",
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.width(12.dp))
 
                             Surface(
                                 modifier = Modifier
@@ -2785,11 +2890,7 @@ fun SingleCardArtistsContent(
             // Sticky header for grid view
             item(span = { GridItemSpan(maxLineSpan) }) {
                 ArtistSectionHeader(
-                    artistCount = sortedArtists.size,
-                    onSortClick = { showSortOptions = true },
-                    onViewToggleClick = { appSettings.setArtistViewType(ArtistViewType.LIST) },
-                    isGridView = true,
-                    haptics = haptics
+                    artistCount = sortedArtists.size
                 )
             }
             
@@ -2834,11 +2935,7 @@ fun SingleCardArtistsContent(
             // Sticky header for list view
             stickyHeader {
                 ArtistSectionHeader(
-                    artistCount = sortedArtists.size,
-                    onSortClick = { showSortOptions = true },
-                    onViewToggleClick = { appSettings.setArtistViewType(ArtistViewType.GRID) },
-                    isGridView = false,
-                    haptics = haptics
+                    artistCount = sortedArtists.size
                 )
             }
             
@@ -2918,13 +3015,8 @@ fun SingleCardArtistsContent(
 
 @Composable
 private fun ArtistSectionHeader(
-    artistCount: Int,
-    onSortClick: () -> Unit,
-    onViewToggleClick: () -> Unit,
-    isGridView: Boolean,
-    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback
+    artistCount: Int
 ) {
-    val context = LocalContext.current
     
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -2956,7 +3048,7 @@ private fun ArtistSectionHeader(
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = "Your Artists",
                     style = MaterialTheme.typography.titleLarge,
@@ -2970,49 +3062,7 @@ private fun ArtistSectionHeader(
                 )
             }
 
-            Spacer(modifier = Modifier.weight(1f))
 
-            // Sort button
-            FilledIconButton(
-                onClick = {
-                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
-                    onSortClick()
-                },
-                colors = IconButtonDefaults.filledIconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                ),
-                modifier = Modifier.size(36.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.Sort,
-                    contentDescription = "Sort Artists",
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            // View toggle button
-            FilledIconButton(
-                onClick = {
-                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
-                    onViewToggleClick()
-                },
-                colors = IconButtonDefaults.filledIconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                ),
-                modifier = Modifier.size(36.dp)
-            ) {
-                Icon(
-                    imageVector = if (isGridView) RhythmIcons.List else RhythmIcons.AppsGrid,
-                    contentDescription = if (isGridView) "Switch to List View" else "Switch to Grid View",
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
 
             Surface(
                 modifier = Modifier
@@ -3365,5 +3415,165 @@ private fun ArtistListCard(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun PlaylistFabMenu(
+    expanded: Boolean,
+    onCreatePlaylist: () -> Unit,
+    onImportPlaylist: (() -> Unit)?,
+    onExportPlaylists: (() -> Unit)?,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    var isExpanded by remember { mutableStateOf(false) }
+    
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.End,
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Mini FABs that appear when expanded
+        androidx.compose.animation.AnimatedVisibility(
+            visible = isExpanded,
+            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.slideInVertically(
+                initialOffsetY = { it / 2 }
+            ),
+            exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.slideOutVertically(
+                targetOffsetY = { it / 2 }
+            )
+        ) {
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Export FAB
+                if (onExportPlaylists != null) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.surface,
+                            shape = RoundedCornerShape(8.dp),
+                            shadowElevation = 4.dp,
+                            modifier = Modifier.padding(4.dp)
+                        ) {
+                            Text(
+                                text = "Export playlists",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                            )
+                        }
+                        
+                        SmallFloatingActionButton(
+                            onClick = {
+                                onExportPlaylists()
+                                isExpanded = false
+                            },
+                            containerColor = MaterialTheme.colorScheme.secondary,
+                            contentColor = MaterialTheme.colorScheme.onSecondary
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.FileUpload,
+                                contentDescription = "Export playlists"
+                            )
+                        }
+                    }
+                }
+                
+                // Import FAB
+                if (onImportPlaylist != null) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.surface,
+                            shape = RoundedCornerShape(8.dp),
+                            shadowElevation = 4.dp,
+                            modifier = Modifier.padding(4.dp)
+                        ) {
+                            Text(
+                                text = "Import playlist",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                            )
+                        }
+                        
+                        SmallFloatingActionButton(
+                            onClick = {
+                                onImportPlaylist()
+                                isExpanded = false
+                            },
+                            containerColor = MaterialTheme.colorScheme.tertiary,
+                            contentColor = MaterialTheme.colorScheme.onTertiary
+                        ) {
+                            Icon(
+                                imageVector = RhythmIcons.Actions.Download,
+                                contentDescription = "Import playlist"
+                            )
+                        }
+                    }
+                }
+                
+                // Create FAB
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.surface,
+                        shape = RoundedCornerShape(8.dp),
+                        shadowElevation = 4.dp,
+                        modifier = Modifier.padding(4.dp)
+                    ) {
+                        Text(
+                            text = "New playlist",
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                        )
+                    }
+                    
+                    SmallFloatingActionButton(
+                        onClick = {
+                            onCreatePlaylist()
+                            isExpanded = false
+                        },
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ) {
+                        Icon(
+                            imageVector = RhythmIcons.Add,
+                            contentDescription = "Create playlist"
+                        )
+                    }
+                }
+            }
+        }
+        
+        // Main FAB
+        ExtendedFloatingActionButton(
+            onClick = { isExpanded = !isExpanded },
+            icon = {
+                Icon(
+                    imageVector = if (isExpanded) Icons.Default.Close else RhythmIcons.Add,
+                    contentDescription = if (isExpanded) "Close menu" else "Open menu",
+                    modifier = Modifier.graphicsLayer {
+                        rotationZ = if (isExpanded) 0f else 0f
+                    }
+                )
+            },
+            text = { 
+                Text(
+                    text = if (isExpanded) "Close" else "Playlists",
+                    maxLines = 1
+                ) 
+            },
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            expanded = expanded && !isExpanded
+        )
     }
 }

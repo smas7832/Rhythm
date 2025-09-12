@@ -466,16 +466,16 @@ fun SettingsScreen(
                     }
                 )
 
-                SettingsToggleItem(
-                    title = "Custom notifications",
-                    description = "Use app's custom notification instead of system media notification (experimental)",
-                    icon = Icons.Filled.Notifications,
-                    checked = useCustomNotification,
-                    onCheckedChange = {
-                        appSettings.setUseCustomNotification(it)
-                        // Note: Full implementation requires Media3 notification provider integration
-                    }
-                )
+                // SettingsToggleItem(
+                //     title = "Custom notifications",
+                //     description = "Use app's custom notification instead of system media notification (experimental)",
+                //     icon = Icons.Filled.Notifications,
+                //     checked = useCustomNotification,
+                //     onCheckedChange = {
+                //         appSettings.setUseCustomNotification(it)
+                //         // Note: Full implementation requires Media3 notification provider integration
+                //     }
+                // )
 
                 // SettingsToggleItem(
                 //     title = "High quality audio",
@@ -576,71 +576,71 @@ fun SettingsScreen(
             item {
                 SettingsSectionHeader(title = "Library & Content Display")
 
-                val albumViewType by appSettings.albumViewType.collectAsState()
+                // val albumViewType by appSettings.albumViewType.collectAsState()
                 
-                SettingsDropdownItem(
-                    title = "Album view type",
-                    description = "Choose how albums are displayed",
-                    selectedOption = albumViewType.name.lowercase().replaceFirstChar { it.uppercase() },
-                    icon = Icons.Filled.Album,
-                    options = AlbumViewType.values().map { 
-                        it.name.lowercase().replaceFirstChar { char -> char.uppercase() } 
-                    },
-                    onOptionSelected = { selectedOption ->
-                        val newViewType = AlbumViewType.values().find { 
-                            it.name.lowercase().replaceFirstChar { char -> char.uppercase() } == selectedOption 
-                        } ?: AlbumViewType.LIST
-                       appSettings.setAlbumViewType(newViewType)
-                    }
-                )
-                SettingsDivider()
+                // SettingsDropdownItem(
+                //     title = "Album view type",
+                //     description = "Choose how albums are displayed",
+                //     selectedOption = albumViewType.name.lowercase().replaceFirstChar { it.uppercase() },
+                //     icon = Icons.Filled.Album,
+                //     options = AlbumViewType.values().map { 
+                //         it.name.lowercase().replaceFirstChar { char -> char.uppercase() } 
+                //     },
+                //     onOptionSelected = { selectedOption ->
+                //         val newViewType = AlbumViewType.values().find { 
+                //             it.name.lowercase().replaceFirstChar { char -> char.uppercase() } == selectedOption 
+                //         } ?: AlbumViewType.LIST
+                //        appSettings.setAlbumViewType(newViewType)
+                //     }
+                // )
+                // SettingsDivider()
 
-                val artistViewType by appSettings.artistViewType.collectAsState()
+                // val artistViewType by appSettings.artistViewType.collectAsState()
                 
-                SettingsDropdownItem(
-                    title = "Artist view type",
-                    description = "Choose how artists are displayed",
-                    selectedOption = artistViewType.name.lowercase().replaceFirstChar { it.uppercase() },
-                    icon = Icons.Filled.Person,
-                    options = ArtistViewType.values().map { 
-                        it.name.lowercase().replaceFirstChar { char -> char.uppercase() } 
-                    },
-                    onOptionSelected = { selectedOption ->
-                        val newViewType = ArtistViewType.values().find { 
-                            it.name.lowercase().replaceFirstChar { char -> char.uppercase() } == selectedOption 
-                        } ?: ArtistViewType.LIST
-                        appSettings.setArtistViewType(newViewType)
-                    }
-                )
-                SettingsDivider()
+                // SettingsDropdownItem(
+                //     title = "Artist view type",
+                //     description = "Choose how artists are displayed",
+                //     selectedOption = artistViewType.name.lowercase().replaceFirstChar { it.uppercase() },
+                //     icon = Icons.Filled.Person,
+                //     options = ArtistViewType.values().map { 
+                //         it.name.lowercase().replaceFirstChar { char -> char.uppercase() } 
+                //     },
+                //     onOptionSelected = { selectedOption ->
+                //         val newViewType = ArtistViewType.values().find { 
+                //             it.name.lowercase().replaceFirstChar { char -> char.uppercase() } == selectedOption 
+                //         } ?: ArtistViewType.LIST
+                //         appSettings.setArtistViewType(newViewType)
+                //     }
+                // )
+                // SettingsDivider()
 
-                val albumSortOrder by appSettings.albumSortOrder.collectAsState()
+                // val albumSortOrder by appSettings.albumSortOrder.collectAsState()
                 
-                SettingsDropdownItem(
-                    title = "Album sort order",
-                    description = "Choose how songs are sorted on albums",
-                    selectedOption = when (AlbumSortOrder.valueOf(albumSortOrder)) {
-                        AlbumSortOrder.TRACK_NUMBER -> "Track Number"
-                        AlbumSortOrder.TITLE_ASC -> "Title A-Z"
-                        AlbumSortOrder.TITLE_DESC -> "Title Z-A"
-                        AlbumSortOrder.DURATION_ASC -> "Duration ↑"
-                        AlbumSortOrder.DURATION_DESC -> "Duration ↓"
-                    },
-                    icon = RhythmIcons.Actions.Sort,
-                    options = listOf("Track Number", "Title A-Z", "Title Z-A", "Duration ↑", "Duration ↓"),
-                    onOptionSelected = { selectedOption ->
-                        val newSortOrder = when (selectedOption) {
-                            "Track Number" -> AlbumSortOrder.TRACK_NUMBER
-                            "Title A-Z" -> AlbumSortOrder.TITLE_ASC
-                            "Title Z-A" -> AlbumSortOrder.TITLE_DESC
-                            "Duration ↑" -> AlbumSortOrder.DURATION_ASC
-                            "Duration ↓" -> AlbumSortOrder.DURATION_DESC
-                            else -> AlbumSortOrder.TRACK_NUMBER
-                        }
-                        appSettings.setAlbumSortOrder(newSortOrder.name)
-                    }
-                )
-                SettingsDivider()
+                // SettingsDropdownItem(
+                //     title = "Album sort order",
+                //     description = "Choose how songs are sorted on albums",
+                //     selectedOption = when (AlbumSortOrder.valueOf(albumSortOrder)) {
+                //         AlbumSortOrder.TRACK_NUMBER -> "Track Number"
+                //         AlbumSortOrder.TITLE_ASC -> "Title A-Z"
+                //         AlbumSortOrder.TITLE_DESC -> "Title Z-A"
+                //         AlbumSortOrder.DURATION_ASC -> "Duration ↑"
+                //         AlbumSortOrder.DURATION_DESC -> "Duration ↓"
+                //     },
+                //     icon = RhythmIcons.Actions.Sort,
+                //     options = listOf("Track Number", "Title A-Z", "Title Z-A", "Duration ↑", "Duration ↓"),
+                //     onOptionSelected = { selectedOption ->
+                //         val newSortOrder = when (selectedOption) {
+                //             "Track Number" -> AlbumSortOrder.TRACK_NUMBER
+                //             "Title A-Z" -> AlbumSortOrder.TITLE_ASC
+                //             "Title Z-A" -> AlbumSortOrder.TITLE_DESC
+                //             "Duration ↑" -> AlbumSortOrder.DURATION_ASC
+                //             "Duration ↓" -> AlbumSortOrder.DURATION_DESC
+                //             else -> AlbumSortOrder.TRACK_NUMBER
+                //         }
+                //         appSettings.setAlbumSortOrder(newSortOrder.name)
+                //     }
+                // )
+                // SettingsDivider()
 
                 val artistCollaborationMode by appSettings.artistCollaborationMode.collectAsState()
                 
