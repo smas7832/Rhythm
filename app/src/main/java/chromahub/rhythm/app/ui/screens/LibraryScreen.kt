@@ -441,7 +441,7 @@ fun LibraryScreen(
                                     contentColor = MaterialTheme.colorScheme.onTertiaryContainer
                                 ),
                                 modifier = Modifier
-                                    .size(48.dp)
+                                    .size(42.dp)
                                     .graphicsLayer {
                                         scaleX = buttonScale
                                         scaleY = buttonScale
@@ -450,7 +450,7 @@ fun LibraryScreen(
                                 Icon(
                                     imageVector = if (albumViewType == AlbumViewType.LIST) Icons.Default.GridView else Icons.Default.ViewList,
                                     contentDescription = if (albumViewType == AlbumViewType.LIST) "Switch to Grid View" else "Switch to List View",
-                                    modifier = Modifier.size(24.dp)
+                                    modifier = Modifier.size(20.dp)
                                 )
                             }
                             
@@ -479,7 +479,7 @@ fun LibraryScreen(
                                     contentColor = MaterialTheme.colorScheme.onTertiaryContainer
                                 ),
                                 modifier = Modifier
-                                    .size(48.dp)
+                                    .size(42.dp)
                                     .graphicsLayer {
                                         scaleX = buttonScale
                                         scaleY = buttonScale
@@ -488,7 +488,7 @@ fun LibraryScreen(
                                 Icon(
                                     imageVector = if (artistViewType == ArtistViewType.LIST) Icons.Default.GridView else Icons.Default.ViewList,
                                     contentDescription = if (artistViewType == ArtistViewType.LIST) "Switch to Grid View" else "Switch to List View",
-                                    modifier = Modifier.size(24.dp)
+                                    modifier = Modifier.size(20.dp)
                                 )
                             }
                             
