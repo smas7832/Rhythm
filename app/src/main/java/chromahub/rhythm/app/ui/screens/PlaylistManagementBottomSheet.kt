@@ -69,15 +69,21 @@ fun PlaylistManagementBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = bottomSheetState,
+        dragHandle = { 
+            BottomSheetDefaults.DragHandle(
+                color = MaterialTheme.colorScheme.primary
+            )
+        },
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        tonalElevation = 0.dp,
         modifier = Modifier.fillMaxWidth()
     ) {
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             // Header
             item {
@@ -188,13 +194,14 @@ fun PlaylistManagementBottomSheet(
             item {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(20.dp)
+                            .padding(24.dp)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -204,18 +211,18 @@ fun PlaylistManagementBottomSheet(
                                 imageVector = Icons.Rounded.Analytics,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(28.dp)
                             )
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
                                 text = "Your Collection",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold,
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                         }
                         
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(20.dp))
                         
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -245,11 +252,12 @@ fun PlaylistManagementBottomSheet(
             item {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
-                        modifier = Modifier.padding(20.dp)
+                        modifier = Modifier.padding(24.dp)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -258,20 +266,21 @@ fun PlaylistManagementBottomSheet(
                             Icon(
                                 imageVector = Icons.Rounded.Settings,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(28.dp)
                             )
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
                                 text = "Management Options",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold
                             )
                         }
                         
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(20.dp))
                         
                         Column(
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             ManagementOptionItem(
                                 icon = Icons.Rounded.AddCircle,
@@ -324,11 +333,12 @@ fun PlaylistManagementBottomSheet(
                 item {
                     Card(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        shape = RoundedCornerShape(16.dp),
+                        shape = RoundedCornerShape(20.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(
-                            modifier = Modifier.padding(20.dp)
+                            modifier = Modifier.padding(24.dp)
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -337,20 +347,21 @@ fun PlaylistManagementBottomSheet(
                                 Icon(
                                     imageVector = Icons.Rounded.Star,
                                     contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(28.dp)
                                 )
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Text(
                                     text = "Default Playlists",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.SemiBold
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.Bold
                                 )
                             }
                             
-                            Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(20.dp))
                             
                             LazyColumn(
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
                                 modifier = Modifier.heightIn(max = 200.dp)
                             ) {
                                 items(playlists.filter { it.isDefault }) { playlist ->
@@ -371,11 +382,12 @@ fun PlaylistManagementBottomSheet(
                 item {
                     Card(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        shape = RoundedCornerShape(16.dp),
+                        shape = RoundedCornerShape(20.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(
-                            modifier = Modifier.padding(20.dp)
+                            modifier = Modifier.padding(24.dp)
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -384,20 +396,21 @@ fun PlaylistManagementBottomSheet(
                                 Icon(
                                     imageVector = Icons.Rounded.Person,
                                     contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(28.dp)
                                 )
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Text(
                                     text = "My Playlists",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.SemiBold
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.Bold
                                 )
                             }
                             
-                            Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(20.dp))
                             
                             LazyColumn(
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
                                 modifier = Modifier.heightIn(max = 300.dp)
                             ) {
                                 items(playlists.filter { !it.isDefault }) { playlist ->
@@ -426,7 +439,17 @@ fun PlaylistManagementBottomSheet(
                 operationProgressText = "Exporting ${playlists.size} playlists..."
                 
                 // Handle bulk export
-                musicViewModel.exportAllPlaylists(format, includeMetadata)
+                musicViewModel.exportAllPlaylists(format, includeMetadata) { result ->
+                    showOperationProgress = false
+                    result.fold(
+                        onSuccess = { message ->
+                            // Success handled by snackbar in navigation layer
+                        },
+                        onFailure = { error ->
+                            operationError = error.message ?: "Export failed"
+                        }
+                    )
+                }
             }
         )
     }
@@ -440,7 +463,17 @@ fun PlaylistManagementBottomSheet(
                 operationProgressText = "Importing playlists..."
                 
                 // Handle import
-                musicViewModel.importPlaylist(uri)
+                musicViewModel.importPlaylist(uri) { result ->
+                    showOperationProgress = false
+                    result.fold(
+                        onSuccess = { message ->
+                            // Success handled by snackbar in navigation layer
+                        },
+                        onFailure = { error ->
+                            operationError = error.message ?: "Import failed"
+                        }
+                    )
+                }
             }
         )
     }
@@ -528,15 +561,17 @@ private fun StatisticItem(
     ) {
         Text(
             text = value,
-            style = MaterialTheme.typography.headlineSmall,
+            style = MaterialTheme.typography.displaySmall,
             fontWeight = FontWeight.Bold,
             color = color
         )
+        Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = color.copy(alpha = 0.8f),
-            textAlign = TextAlign.Center
+            style = MaterialTheme.typography.bodyMedium,
+            color = color.copy(alpha = 0.9f),
+            textAlign = TextAlign.Center,
+            fontWeight = FontWeight.Medium
         )
     }
 }
@@ -551,34 +586,47 @@ private fun ManagementOptionItem(
     Card(
         onClick = onClick,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        shape = RoundedCornerShape(16.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(20.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp)
-            )
+            Surface(
+                color = MaterialTheme.colorScheme.primaryContainer,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.size(48.dp)
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }

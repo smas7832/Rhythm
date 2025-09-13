@@ -208,6 +208,12 @@ object MediaUtils {
         var composer = ""
         var discNumber = 0
         var totalTracks = 0
+        var albumArtist = ""
+        var year = 0
+        var mimeType = ""
+        var channels = "Unknown"
+        var hasLyrics = false
+        var isBookmark = -1L
         
         try {
             // Query ContentResolver for file information
@@ -218,7 +224,10 @@ object MediaUtils {
                 MediaStore.Audio.Media.DATE_MODIFIED,
                 MediaStore.Audio.Media.COMPOSER,
                 MediaStore.Audio.Media.CD_TRACK_NUMBER,
-                MediaStore.Audio.Media.TRACK
+                MediaStore.Audio.Media.TRACK,
+                MediaStore.Audio.Media.ALBUM_ARTIST,
+                MediaStore.Audio.Media.YEAR,
+                MediaStore.Audio.Media.MIME_TYPE
             )
             
             contentResolver.query(
@@ -235,12 +244,19 @@ object MediaUtils {
                     val dateModifiedIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_MODIFIED)
                     val composerIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.COMPOSER)
                     val trackIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK)
+                    val albumArtistIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ARTIST)
+                    val yearIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.YEAR)
+                    val mimeTypeIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
                     
                     filePath = cursor.getString(dataIndex) ?: ""
                     fileSize = cursor.getLong(sizeIndex)
                     dateAdded = cursor.getLong(dateAddedIndex) * 1000 // Convert to milliseconds
                     dateModified = cursor.getLong(dateModifiedIndex) * 1000 // Convert to milliseconds
                     composer = cursor.getString(composerIndex) ?: ""
+                    albumArtist = cursor.getString(albumArtistIndex) ?: ""
+                    year = cursor.getInt(yearIndex)
+                    mimeType = cursor.getString(mimeTypeIndex) ?: ""
+                    // isBookmark is not available in all Android versions, so we'll skip it
                     
                     // Extract track and disc numbers from TRACK field
                     val trackInfo = cursor.getInt(trackIndex)
@@ -264,28 +280,78 @@ object MediaUtils {
                     }
                 }
                 
-                // Get sample rate (only available on API 23+)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    val sampleRateStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE)
-                    if (sampleRateStr != null) {
-                        val sampleRateValue = sampleRateStr.toIntOrNull()
-                        if (sampleRateValue != null) {
-                            sampleRate = "${sampleRateValue} Hz"
+                // Get sample rate (try multiple methods for better compatibility)
+                val sampleRateStr = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    // Android 11+ has better metadata support
+                    retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_SAMPLERATE)
+                } else {
+                    // Fallback for older versions
+                    retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE)
+                }
+                
+                if (sampleRateStr != null) {
+                    val sampleRateValue = sampleRateStr.toIntOrNull()
+                    if (sampleRateValue != null) {
+                        sampleRate = "${sampleRateValue} Hz"
+                    }
+                }
+                
+                // Get number of audio channels
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    val channelCountStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_NUM_TRACKS)
+                    if (channelCountStr != null) {
+                        val channelCount = channelCountStr.toIntOrNull()
+                        if (channelCount != null) {
+                            channels = when (channelCount) {
+                                1 -> "Mono"
+                                2 -> "Stereo"
+                                else -> "$channelCount channels"
+                            }
                         }
                     }
                 }
                 
-                // Determine format from file extension
+                // Check for lyrics availability (METADATA_KEY_LYRICS not available in all versions)
+                // We'll skip lyrics detection for now to maintain compatibility
+                hasLyrics = false
+                
+                // Fill in missing composer if available from MediaMetadataRetriever
+                if (composer.isEmpty()) {
+                    val composerStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_COMPOSER)
+                    if (!composerStr.isNullOrEmpty()) {
+                        composer = composerStr
+                    }
+                }
+                
+                // Fill in missing album artist if available
+                if (albumArtist.isEmpty()) {
+                    val albumArtistStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUMARTIST)
+                    if (!albumArtistStr.isNullOrEmpty()) {
+                        albumArtist = albumArtistStr
+                    }
+                }
+                
+                // Fill in missing year if available
+                if (year == 0) {
+                    val yearStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_YEAR)
+                    if (!yearStr.isNullOrEmpty()) {
+                        year = yearStr.toIntOrNull() ?: 0
+                    }
+                }
+                
+                // Determine format from file extension and MIME type
                 val file = File(filePath)
                 val extension = file.extension.lowercase()
-                format = when (extension) {
-                    "mp3" -> "MP3"
-                    "flac" -> "FLAC"
-                    "ogg" -> "OGG"
-                    "m4a", "aac" -> "AAC"
-                    "wav" -> "WAV"
-                    "wma" -> "WMA"
-                    else -> extension.uppercase()
+                format = when {
+                    mimeType.contains("mp3", ignoreCase = true) || extension == "mp3" -> "MP3"
+                    mimeType.contains("flac", ignoreCase = true) || extension == "flac" -> "FLAC"
+                    mimeType.contains("ogg", ignoreCase = true) || extension == "ogg" -> "OGG"
+                    mimeType.contains("aac", ignoreCase = true) || extension in listOf("m4a", "aac") -> "AAC"
+                    mimeType.contains("wav", ignoreCase = true) || extension == "wav" -> "WAV"
+                    mimeType.contains("wma", ignoreCase = true) || extension == "wma" -> "WMA"
+                    extension.isNotEmpty() -> extension.uppercase()
+                    mimeType.isNotEmpty() -> mimeType.substringAfter("/").uppercase()
+                    else -> "Unknown"
                 }
             }
             
@@ -309,7 +375,223 @@ object MediaUtils {
             filePath = filePath,
             composer = composer,
             discNumber = discNumber,
-            totalTracks = totalTracks
+            albumArtist = albumArtist,
+            year = year,
+            mimeType = mimeType,
+            channels = channels,
+            hasLyrics = hasLyrics
         )
+    }
+    
+    /**
+     * Updates song metadata using ContentResolver
+     * @param context The application context
+     * @param song The song to update
+     * @param newTitle The new title
+     * @param newArtist The new artist
+     * @param newAlbum The new album
+     * @param newGenre The new genre
+     * @param newTrackNumber The new track number
+     * @return true if the update was successful, false otherwise
+     */
+    fun updateSongMetadata(
+        context: Context,
+        song: Song,
+        newTitle: String,
+        newArtist: String,
+        newAlbum: String,
+        newGenre: String,
+        newTrackNumber: Int
+    ): Boolean {
+        return try {
+            val contentResolver = context.contentResolver
+            
+            // Log initial state for debugging
+            Log.d(TAG, "Attempting to update metadata for song: ${song.title}")
+            Log.d(TAG, "Song URI: ${song.uri}")
+            Log.d(TAG, "Song ID: ${song.id}")
+            Log.d(TAG, "New values - Title: $newTitle, Artist: $newArtist, Album: $newAlbum, Genre: $newGenre, Year: N/A, Track: $newTrackNumber")
+            
+            // Check if URI is valid and accessible
+            if (!song.uri.toString().startsWith("content://media/")) {
+                Log.e(TAG, "Invalid URI scheme for metadata update: ${song.uri}")
+                return false
+            }
+            
+            // Validate required fields
+            if (newTitle.isBlank()) {
+                Log.e(TAG, "Title cannot be blank")
+                return false
+            }
+            if (newArtist.isBlank()) {
+                Log.e(TAG, "Artist cannot be blank")
+                return false
+            }
+            
+            // Check write permissions for older versions
+            if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
+                val hasWritePermission = androidx.core.content.ContextCompat.checkSelfPermission(
+                    context,
+                    android.Manifest.permission.WRITE_EXTERNAL_STORAGE
+                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                
+                if (!hasWritePermission) {
+                    Log.e(TAG, "Missing WRITE_EXTERNAL_STORAGE permission")
+                    return false
+                }
+            }
+            
+            // For Android 11+, check if we can access the specific file
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                try {
+                    // Test if we can query the file
+                    val testCursor = contentResolver.query(
+                        song.uri,
+                        arrayOf(MediaStore.Audio.Media._ID),
+                        null,
+                        null,
+                        null
+                    )
+                    testCursor?.close()
+                } catch (e: SecurityException) {
+                    Log.e(TAG, "Cannot access file - permission denied: ${song.uri}")
+                    return false
+                }
+            }
+            
+            val values = android.content.ContentValues().apply {
+                put(MediaStore.Audio.Media.TITLE, newTitle)
+                put(MediaStore.Audio.Media.ARTIST, newArtist)
+                put(MediaStore.Audio.Media.ALBUM, newAlbum)
+                if (newGenre.isNotBlank()) {
+                    put(MediaStore.Audio.Media.GENRE, newGenre)
+                }
+                if (newTrackNumber > 0) {
+                    put(MediaStore.Audio.Media.TRACK, newTrackNumber)
+                }
+            }
+            
+            // For Android 11+ (API 30+), we need to handle MediaStore differently
+            val rowsUpdated = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                try {
+                    // Try direct update first
+                    val directUpdate = contentResolver.update(
+                        song.uri,
+                        values,
+                        null,
+                        null
+                    )
+                    
+                    if (directUpdate > 0) {
+                        Log.d(TAG, "Direct update successful for song: ${song.title}")
+                        directUpdate
+                    } else {
+                        Log.w(TAG, "Direct update failed, may require user permission for song: ${song.title}")
+                        // On Android 11+, we might need to request user permission for modifying this file
+                        // For now, we'll try alternative approach using MediaStore.Audio.Media table
+                        updateViaMediaStore(contentResolver, song, values)
+                    }
+                } catch (e: SecurityException) {
+                    Log.w(TAG, "Security exception during direct update, trying alternative approach", e)
+                    updateViaMediaStore(contentResolver, song, values)
+                }
+            } else {
+                // For older Android versions, direct update should work
+                contentResolver.update(
+                    song.uri,
+                    values,
+                    null,
+                    null
+                )
+            }
+            
+            Log.d(TAG, "Updated $rowsUpdated rows for song: ${song.title}")
+            val success = rowsUpdated > 0
+            
+            if (success) {
+                // Trigger media scanner to refresh the metadata
+                try {
+                    // Get file path from URI
+                    val filePath = when (song.uri.scheme) {
+                        "content" -> {
+                            val projection = arrayOf(MediaStore.Audio.Media.DATA)
+                            contentResolver.query(song.uri, projection, null, null, null)
+                                ?.use { cursor ->
+                                    if (cursor.moveToFirst()) {
+                                        val dataIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
+                                        cursor.getString(dataIndex)
+                                    } else null
+                                }
+                        }
+                        "file" -> song.uri.path
+                        else -> null
+                    }
+                    
+                    if (filePath != null) {
+                        android.media.MediaScannerConnection.scanFile(
+                            context,
+                            arrayOf(filePath),
+                            null,
+                            null
+                        )
+                        Log.d(TAG, "Media scanner triggered for updated file: $filePath")
+                    } else {
+                        Log.w(TAG, "Could not get file path for media scanner")
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to trigger media scanner", e)
+                }
+            }
+            
+            success
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to update song metadata: ${song.title}", e)
+            false
+        }
+    }
+    
+    private fun updateViaMediaStore(
+        contentResolver: android.content.ContentResolver,
+        song: Song,
+        values: android.content.ContentValues
+    ): Int {
+        return try {
+            Log.d(TAG, "Attempting update via MediaStore table for song ID: ${song.id}")
+            
+            // Try to update via MediaStore query using the song ID
+            val selection = "${MediaStore.Audio.Media._ID} = ?"
+            val selectionArgs = arrayOf(song.id.toString())
+            
+            val rowsUpdated = contentResolver.update(
+                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                values,
+                selection,
+                selectionArgs
+            )
+            
+            Log.d(TAG, "MediaStore update result: $rowsUpdated rows updated")
+            
+            if (rowsUpdated == 0) {
+                // Try alternative approach with different content URI
+                Log.d(TAG, "Trying alternative content URI")
+                val altRowsUpdated = contentResolver.update(
+                    MediaStore.Audio.Media.getContentUri("external"),
+                    values,
+                    selection,
+                    selectionArgs
+                )
+                Log.d(TAG, "Alternative URI update result: $altRowsUpdated rows updated")
+                return altRowsUpdated
+            }
+            
+            rowsUpdated
+        } catch (e: SecurityException) {
+            Log.e(TAG, "SecurityException during MediaStore update - check app permissions", e)
+            0
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to update via MediaStore table", e)
+            0
+        }
     }
 } 

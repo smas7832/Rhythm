@@ -1028,13 +1028,41 @@ fun RhythmNavigation(
                         },
                         initialTab = initialTab,
                         musicViewModel = viewModel, // Pass musicViewModel
-                        onExportAllPlaylists = { format, includeDefault ->
+                        onExportAllPlaylists = { format, includeDefault, resultCallback ->
                             // Export all playlists
-                            viewModel.exportAllPlaylists(format, includeDefault)
+                            viewModel.exportAllPlaylists(format, includeDefault) { result ->
+                                result.fold(
+                                    onSuccess = { message ->
+                                        coroutineScope.launch {
+                                            snackbarHostState.showSnackbar(message)
+                                        }
+                                    },
+                                    onFailure = { error ->
+                                        coroutineScope.launch {
+                                            snackbarHostState.showSnackbar("Export failed: ${error.message}")
+                                        }
+                                    }
+                                )
+                                resultCallback(result)
+                            }
                         },
-                        onImportPlaylist = { uri ->
+                        onImportPlaylist = { uri, resultCallback ->
                             // Import playlist from URI
-                            viewModel.importPlaylist(uri)
+                            viewModel.importPlaylist(uri) { result ->
+                                result.fold(
+                                    onSuccess = { message ->
+                                        coroutineScope.launch {
+                                            snackbarHostState.showSnackbar(message)
+                                        }
+                                    },
+                                    onFailure = { error ->
+                                        coroutineScope.launch {
+                                            snackbarHostState.showSnackbar("Import failed: ${error.message}")
+                                        }
+                                    }
+                                )
+                                resultCallback(result)
+                            }
                         }
                     )
                 }

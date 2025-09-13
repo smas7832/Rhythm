@@ -978,19 +978,35 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
 
     // Sleep Timer functionality
     fun startSleepTimer(durationMs: Long, fadeOut: Boolean = true, pauseOnly: Boolean = false) {
+        Log.d(TAG, "Starting sleep timer: ${durationMs}ms, fadeOut: $fadeOut, pauseOnly: $pauseOnly")
         stopSleepTimer() // Stop any existing timer
+        
+        if (durationMs <= 0) {
+            Log.e(TAG, "Invalid sleep timer duration: $durationMs")
+            return
+        }
         
         sleepTimerDurationMs = durationMs
         sleepTimerStartTime = System.currentTimeMillis()
         fadeOutEnabled = fadeOut
         pauseOnlyEnabled = pauseOnly
         
+        // Broadcast initial status immediately
+        broadcastSleepTimerStatus()
+        
         sleepTimerJob = serviceScope.launch {
             try {
                 if (fadeOut && durationMs > 10000) { // Only fade if duration > 10 seconds
-                    // Wait until fade start time (last 10 seconds)
+                    // Regular updates until fade start time (last 10 seconds)
                     val fadeStartTime = durationMs - 10000
-                    delay(fadeStartTime)
+                    var remainingTime = durationMs
+                    
+                    while (remainingTime > 10000) {
+                        delay(1000) // Update every second
+                        remainingTime = durationMs - (System.currentTimeMillis() - sleepTimerStartTime)
+                        if (remainingTime <= 0) break
+                        broadcastSleepTimerStatus()
+                    }
                     
                     // Fade out over 10 seconds
                     val originalVolume = player.volume
@@ -1001,10 +1017,20 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
                         val volume = originalVolume * (i.toFloat() / fadeSteps)
                         player.volume = volume
                         delay(fadeInterval)
+                        // Broadcast status every few steps during fade
+                        if (i % 10 == 0) {
+                            broadcastSleepTimerStatus()
+                        }
                     }
                 } else {
-                    // No fade out, just wait for full duration
-                    delay(durationMs)
+                    // No fade out, broadcast updates every second until completion
+                    var remainingTime = durationMs
+                    while (remainingTime > 0) {
+                        delay(1000) // Update every second
+                        remainingTime = durationMs - (System.currentTimeMillis() - sleepTimerStartTime)
+                        if (remainingTime <= 0) break
+                        broadcastSleepTimerStatus()
+                    }
                 }
                 
                 // Timer finished - pause or stop playback
@@ -1023,14 +1049,18 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
                 
                 resetSleepTimer()
                 
+            } catch (e: CancellationException) {
+                Log.d(TAG, "Sleep timer was cancelled")
+                resetSleepTimer()
             } catch (e: Exception) {
                 Log.e(TAG, "Error in sleep timer", e)
                 resetSleepTimer()
+            } finally {
+                broadcastSleepTimerStatus()
             }
         }
         
-        Log.d(TAG, "Sleep timer started for ${durationMs}ms")
-        broadcastSleepTimerStatus()
+        Log.d(TAG, "Sleep timer job started for ${durationMs}ms")
     }
     
     fun stopSleepTimer() {
@@ -1048,7 +1078,7 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     }
     
     fun getRemainingTimeMs(): Long {
-        return if (sleepTimerJob?.isActive == true) {
+        return if (sleepTimerJob?.isActive == true && sleepTimerDurationMs > 0 && sleepTimerStartTime > 0) {
             val elapsed = System.currentTimeMillis() - sleepTimerStartTime
             maxOf(0, sleepTimerDurationMs - elapsed)
         } else {

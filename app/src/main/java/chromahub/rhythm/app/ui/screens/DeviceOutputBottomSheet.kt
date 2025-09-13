@@ -60,10 +60,10 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import chromahub.rhythm.app.data.PlaybackLocation
 import chromahub.rhythm.app.ui.components.RhythmIcons
@@ -151,7 +151,11 @@ fun DeviceOutputBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        dragHandle = { BottomSheetDefaults.DragHandle() },
+        dragHandle = { 
+            BottomSheetDefaults.DragHandle(
+                color = MaterialTheme.colorScheme.primary
+            )
+        },
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         contentColor = MaterialTheme.colorScheme.onBackground,
         tonalElevation = 0.dp
@@ -164,8 +168,8 @@ fun DeviceOutputBottomSheet(
             // Header
             AnimatedVisibility(
                 visible = showContent,
-                enter = fadeIn() + slideInVertically { -it },
-                exit = fadeOut() + slideOutVertically { -it }
+                enter = fadeIn() + slideInVertically { it },
+                exit = fadeOut() + slideOutVertically { it }
             ) {
                 DeviceOutputHeader(
                     onRefreshDevices = onRefreshDevices,
@@ -213,7 +217,7 @@ fun DeviceOutputBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "AUDIO OUTPUT",
+                    text = "SAVED DEVICES",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -248,11 +252,13 @@ fun DeviceOutputBottomSheet(
             if (locations.isNotEmpty()) {
                 LazyColumn(
                     contentPadding = PaddingValues(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.graphicsLayer {
-                        alpha = contentAlpha
-                        translationY = contentTranslation
-                    }
+                    verticalArrangement = Arrangement.spacedBy(18.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .graphicsLayer {
+                            alpha = contentAlpha
+                            translationY = contentTranslation
+                        }
                 ) {
                     items(locations) { location ->
                         DeviceCard(
@@ -290,20 +296,34 @@ private fun DeviceOutputHeader(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Column(modifier = Modifier.weight(1f)) {
+        Column {
             Text(
                 text = "Audio Output",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
+                style = MaterialTheme.typography.displayMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface
             )
-            Text(
-                text = "Choose your playback device",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            if (devicesCount > 0) {
+                Box(
+                    modifier = Modifier
+                        .padding(top = 6.dp)
+                        .background(
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            shape = CircleShape
+                        )
+                ) {
+                    Text(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        style = MaterialTheme.typography.labelLarge,
+                        text = if (devicesCount == 1) "1 device" else "$devicesCount devices",
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
         }
         
         // Refresh devices button
@@ -313,12 +333,15 @@ private fun DeviceOutputHeader(
                 onRefreshDevices()
             },
             colors = IconButtonDefaults.filledTonalIconButtonColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer
-            )
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+            ),
+            modifier = Modifier.size(48.dp)
         ) {
             Icon(
                 imageVector = RhythmIcons.Refresh,
-                contentDescription = "Refresh devices"
+                contentDescription = "Refresh devices",
+                modifier = Modifier.size(20.dp)
             )
         }
     }

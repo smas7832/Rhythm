@@ -22,6 +22,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import chromahub.rhythm.app.util.PlaylistImportExportUtils
+import androidx.compose.animation.core.*
+import androidx.compose.animation.core.VectorConverter
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
+import chromahub.rhythm.app.ui.components.M3FourColorCircularLoader
 
 /**
  * Dialog for selecting playlist export format and initiating export
@@ -349,7 +357,7 @@ fun PlaylistImportDialog(
 }
 
 /**
- * Progress dialog for import/export operations
+ * Enhanced progress dialog for import/export operations using Material 3 loader
  */
 @Composable
 fun PlaylistOperationProgressDialog(
@@ -361,31 +369,63 @@ fun PlaylistOperationProgressDialog(
         properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false)
     ) {
         Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            shape = RoundedCornerShape(28.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
             Column(
-                modifier = Modifier.padding(24.dp),
+                modifier = Modifier.padding(32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(48.dp)
+                // Enhanced M3 Four-Color Circular Loader (no background shape)
+                M3FourColorCircularLoader(
+                    modifier = Modifier.size(60.dp),
+                    strokeWidth = 6f,
+                    isExpressive = true
                 )
                 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(24.dp))
                 
                 Text(
-                    text = "$operation playlist...",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Medium
+                    text = operation,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
                 
                 Spacer(modifier = Modifier.height(8.dp))
                 
                 Text(
-                    text = "Please wait",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = "This may take a few moments...",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Animated dots indicator
+                val infiniteTransition = rememberInfiniteTransition(label = "dots")
+                val dotCount by infiniteTransition.animateValue(
+                    initialValue = 0,
+                    targetValue = 3,
+                    typeConverter = Int.VectorConverter,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(1000),
+                        repeatMode = RepeatMode.Restart
+                    ),
+                    label = "dots"
+                )
+                
+                Text(
+                    text = "•".repeat(dotCount + 1),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    letterSpacing = 4.sp,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
             }
         }

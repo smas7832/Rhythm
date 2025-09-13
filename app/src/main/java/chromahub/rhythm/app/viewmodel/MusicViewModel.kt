@@ -1,9 +1,11 @@
 package chromahub.rhythm.app.viewmodel
 
 import android.app.Application
+import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.media.audiofx.AudioEffect
 import android.net.Uri
 import android.provider.MediaStore
@@ -44,6 +46,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.yield
+import kotlinx.coroutines.withTimeoutOrNull
 import java.time.Duration
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -328,11 +331,23 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         
-        // Initialize audio device manager but don't start continuous monitoring
-        // Device monitoring will be started when needed (player screen, etc.)
-        
-        // Start tracking session
-        startListeningTimeTracking()
+        // Initialize non-blocking components asynchronously
+        viewModelScope.launch {
+            try {
+                // Initialize audio device manager but don't start continuous monitoring
+                // Device monitoring will be started when needed (player screen, etc.)
+                
+                // Start tracking session (async)
+                startListeningTimeTracking()
+                
+                // Register broadcast receiver for sleep timer updates (async)
+                registerSleepTimerReceiver()
+                
+                Log.d(TAG, "Async initialization completed")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error in async initialization", e)
+            }
+        }
     }
     
     private suspend fun initializeViewModelSafely() {
@@ -490,14 +505,16 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 while (isActive) {
-                    if (isPlaying.value) {
-                        // Update listening time every minute
+                    if (isPlaying.value && _currentSong.value != null) {
+                        // Update listening time every minute when actually playing music
                         delay(60000) // 1 minute
                         val newTime = _listeningTime.value + 60000
                         _listeningTime.value = newTime
                         appSettings.setListeningTime(newTime)
                     } else {
-                        delay(1000) // Check every second when not playing
+                        // Check less frequently when not playing to reduce resource usage
+                        // This helps prevent ANR when app is used without playing music
+                        delay(5000) // Check every 5 seconds when not playing
                     }
                 }
             } catch (e: Exception) {
@@ -600,6 +617,40 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
         savePlaylists()
         Log.d(TAG, "Playlists refreshed.")
+    }
+    
+    /**
+     * Updates the current song metadata in the UI and library
+     * @param updatedSong The song with updated metadata
+     */
+    fun updateCurrentSongMetadata(updatedSong: Song) {
+        viewModelScope.launch {
+            // Update the song in the main songs list
+            val updatedSongs = _songs.value.map { song ->
+                if (song.id == updatedSong.id) updatedSong else song
+            }
+            _songs.value = updatedSongs
+            
+            // Update current song if it matches
+            if (_currentSong.value?.id == updatedSong.id) {
+                _currentSong.value = updatedSong
+            }
+            
+            // Update in any playlists
+            _playlists.value = _playlists.value.map { playlist ->
+                playlist.copy(
+                    songs = playlist.songs.map { song ->
+                        if (song.id == updatedSong.id) updatedSong else song
+                    }
+                )
+            }
+            
+            // Update albums and artists to reflect the new metadata
+            _albums.value = repository.loadAlbums()
+            _artists.value = repository.loadArtists()
+            
+            Log.d(TAG, "Updated song metadata: ${updatedSong.title} by ${updatedSong.artist}")
+        }
     }
     
     /**
@@ -1873,6 +1924,16 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         mediaController?.release()
         controllerFuture?.let { MediaController.releaseFuture(it) }
         audioDeviceManager.cleanup()
+        
+        // Unregister sleep timer broadcast receiver
+        try {
+            val context = getApplication<Application>()
+            context.unregisterReceiver(sleepTimerReceiver)
+            Log.d(TAG, "Unregistered sleep timer broadcast receiver")
+        } catch (e: Exception) {
+            Log.w(TAG, "Error unregistering sleep timer receiver", e)
+        }
+        
         super.onCleared()
     }
 
@@ -2100,10 +2161,13 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun exportAllPlaylists(
         format: PlaylistImportExportUtils.PlaylistExportFormat,
-        includeDefaultPlaylists: Boolean = false
+        includeDefaultPlaylists: Boolean = false,
+        onResult: (Result<String>) -> Unit
     ) {
         viewModelScope.launch {
             try {
+                Log.d(TAG, "Starting export all playlists operation")
+                
                 val playlistsToExport = if (includeDefaultPlaylists) {
                     _playlists.value
                 } else {
@@ -2113,29 +2177,42 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 
                 if (playlistsToExport.isEmpty()) {
                     Log.w(TAG, "No playlists to export")
+                    onResult(Result.failure(IllegalStateException("No playlists available to export")))
                     return@launch
                 }
                 
-                val result = withContext(Dispatchers.IO) {
-                    PlaylistImportExportUtils.exportAllPlaylists(
-                        context = getApplication<Application>(),
-                        playlists = playlistsToExport,
-                        format = format
-                    )
+                Log.d(TAG, "Exporting ${playlistsToExport.size} playlists")
+                
+                // Add timeout to prevent infinite loading
+                val result = withTimeoutOrNull(30000) { // 30 second timeout
+                    withContext(Dispatchers.IO) {
+                        PlaylistImportExportUtils.exportAllPlaylists(
+                            context = getApplication<Application>(),
+                            playlists = playlistsToExport,
+                            format = format
+                        )
+                    }
+                }
+                
+                if (result == null) {
+                    Log.e(TAG, "Export operation timed out")
+                    onResult(Result.failure(Exception("Export operation timed out after 30 seconds")))
+                    return@launch
                 }
                 
                 result.fold(
                     onSuccess = { file ->
                         Log.d(TAG, "Successfully exported ${playlistsToExport.size} playlists to ${file.absolutePath}")
-                        // Show success notification or update UI state if needed
+                        onResult(Result.success("Successfully exported ${playlistsToExport.size} playlists to ${file.absolutePath}"))
                     },
                     onFailure = { exception ->
                         Log.e(TAG, "Failed to export all playlists", exception)
-                        // Show error notification or update UI state if needed
+                        onResult(Result.failure(exception))
                     }
                 )
             } catch (e: Exception) {
                 Log.e(TAG, "Error in exportAllPlaylists", e)
+                onResult(Result.failure(e))
             }
         }
     }
@@ -2144,20 +2221,34 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
      * Imports a playlist from a file URI
      */
     fun importPlaylist(
-        uri: Uri
+        uri: Uri,
+        onResult: (Result<String>) -> Unit
     ) {
         viewModelScope.launch {
             try {
-                val result = withContext(Dispatchers.IO) {
-                    PlaylistImportExportUtils.importPlaylist(
-                        context = getApplication<Application>(),
-                        uri = uri,
-                        availableSongs = _songs.value
-                    )
+                Log.d(TAG, "Starting import playlist operation from URI: $uri")
+                
+                // Add timeout to prevent infinite loading
+                val result = withTimeoutOrNull(30000) { // 30 second timeout
+                    withContext(Dispatchers.IO) {
+                        PlaylistImportExportUtils.importPlaylist(
+                            context = getApplication<Application>(),
+                            uri = uri,
+                            availableSongs = _songs.value
+                        )
+                    }
+                }
+                
+                if (result == null) {
+                    Log.e(TAG, "Import operation timed out")
+                    onResult(Result.failure(Exception("Import operation timed out after 30 seconds")))
+                    return@launch
                 }
                 
                 result.fold(
                     onSuccess = { importedPlaylist ->
+                        Log.d(TAG, "Successfully imported playlist from utility: ${importedPlaylist.name}")
+                        
                         // Check if playlist with same name already exists
                         val existingPlaylist = _playlists.value.find { it.name == importedPlaylist.name }
                         val finalPlaylist = if (existingPlaylist != null) {
@@ -2173,16 +2264,16 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                         
                         val matchedCount = finalPlaylist.songs.size
                         Log.d(TAG, "Successfully imported playlist: ${finalPlaylist.name} with $matchedCount songs")
-                        // Show success notification if needed
+                        onResult(Result.success("Successfully imported playlist '${finalPlaylist.name}' with $matchedCount songs"))
                     },
                     onFailure = { exception ->
                         Log.e(TAG, "Failed to import playlist from $uri", exception)
-                        // Show error notification if needed
+                        onResult(Result.failure(exception))
                     }
                 )
             } catch (e: Exception) {
                 Log.e(TAG, "Error in importPlaylist", e)
-                // Show error notification if needed
+                onResult(Result.failure(e))
             }
         }
     }
@@ -2242,6 +2333,53 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             )
             
             Log.d(TAG, "Library sorted: ${_sortOrder.value}")
+        }
+    }
+    
+    // Set specific sort order
+    fun setSortOrder(newSortOrder: SortOrder) {
+        viewModelScope.launch {
+            if (_sortOrder.value != newSortOrder) {
+                _sortOrder.value = newSortOrder
+                
+                // Sort songs based on new sort order
+                _songs.value = when (newSortOrder) {
+                    SortOrder.TITLE_ASC -> _songs.value.sortedBy { it.title }
+                    SortOrder.TITLE_DESC -> _songs.value.sortedByDescending { it.title }
+                    SortOrder.ARTIST_ASC -> _songs.value.sortedBy { it.artist }
+                    SortOrder.ARTIST_DESC -> _songs.value.sortedByDescending { it.artist }
+                }
+                
+                // Sort albums based on new sort order
+                _albums.value = when (newSortOrder) {
+                    SortOrder.TITLE_ASC -> _albums.value.sortedBy { it.title }
+                    SortOrder.TITLE_DESC -> _albums.value.sortedByDescending { it.title }
+                    SortOrder.ARTIST_ASC -> _albums.value.sortedBy { it.artist }
+                    SortOrder.ARTIST_DESC -> _albums.value.sortedByDescending { it.artist }
+                }
+                
+                // Sort playlists by name, keeping the default playlists at the top
+                _playlists.value = _playlists.value.sortedWith(
+                    compareBy<Playlist> { 
+                        // Put default playlists first
+                        when (it.id) {
+                            "1" -> 0 // Favorites
+                            "2" -> 1 // Recently Added
+                            "3" -> 2 // Most Played
+                            else -> 3 // User-created playlists
+                        }
+                    }.thenBy { 
+                        // Then sort by name according to current sort order
+                        if (newSortOrder == SortOrder.TITLE_ASC || newSortOrder == SortOrder.ARTIST_ASC) {
+                            it.name
+                        } else {
+                            it.name.reversed()
+                        }
+                    }
+                )
+                
+                Log.d(TAG, "Sort order set to: $newSortOrder")
+            }
         }
     }
 
@@ -3315,14 +3453,33 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     // Sleep Timer functionality
     fun startSleepTimer(durationMs: Long, fadeOut: Boolean = true, pauseOnly: Boolean = false) {
         val context = getApplication<Application>()
-        val intent = Intent(context, MediaPlaybackService::class.java).apply {
-            action = MediaPlaybackService.ACTION_START_SLEEP_TIMER
-            putExtra("duration", durationMs)
-            putExtra("fadeOut", fadeOut)
-            putExtra("pauseOnly", pauseOnly)
+        
+        Log.d(TAG, "Starting sleep timer request: ${durationMs}ms, fadeOut: $fadeOut, pauseOnly: $pauseOnly")
+        
+        if (durationMs <= 0) {
+            Log.e(TAG, "Invalid sleep timer duration: $durationMs")
+            return
         }
-        context.startService(intent)
-        Log.d(TAG, "Started sleep timer for ${durationMs}ms")
+        
+        // Ensure service is running first by sending an init intent
+        val initIntent = Intent(context, MediaPlaybackService::class.java).apply {
+            action = MediaPlaybackService.ACTION_INIT_SERVICE
+        }
+        context.startService(initIntent)
+        
+        // Small delay to ensure service is initialized
+        viewModelScope.launch {
+            delay(100) // 100ms delay
+            
+            val timerIntent = Intent(context, MediaPlaybackService::class.java).apply {
+                action = MediaPlaybackService.ACTION_START_SLEEP_TIMER
+                putExtra("duration", durationMs)
+                putExtra("fadeOut", fadeOut)
+                putExtra("pauseOnly", pauseOnly)
+            }
+            context.startService(timerIntent)
+            Log.d(TAG, "Sleep timer service request sent for ${durationMs}ms")
+        }
     }
     
     fun stopSleepTimer() {
@@ -3409,10 +3566,38 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         Log.d(TAG, "Applied equalizer preset: $preset")
     }
     
-    // Status getters for sleep timer (these would need service state synchronization in a full implementation)
+    // Status getters for sleep timer with service state synchronization
     private val _sleepTimerActive = MutableStateFlow(false)
     val sleepTimerActive: StateFlow<Boolean> = _sleepTimerActive.asStateFlow()
     
     private val _sleepTimerRemainingTime = MutableStateFlow(0L)
     val sleepTimerRemainingTime: StateFlow<Long> = _sleepTimerRemainingTime.asStateFlow()
+    
+    // Broadcast receiver for sleep timer status updates from service
+    private val sleepTimerReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            intent?.let { receivedIntent ->
+                when (receivedIntent.action) {
+                    MediaPlaybackService.BROADCAST_SLEEP_TIMER_STATUS -> {
+                        val isActive = receivedIntent.getBooleanExtra(MediaPlaybackService.EXTRA_TIMER_ACTIVE, false)
+                        val remainingTime = receivedIntent.getLongExtra(MediaPlaybackService.EXTRA_REMAINING_TIME, 0L)
+                        
+                        _sleepTimerActive.value = isActive
+                        _sleepTimerRemainingTime.value = remainingTime
+                        
+                        Log.d(TAG, "Sleep timer status updated: active=$isActive, remaining=${remainingTime}ms")
+                    }
+                }
+            }
+        }
+    }
+    
+    // Register broadcast receiver in init and clean up in onCleared
+    private fun registerSleepTimerReceiver() {
+        val context = getApplication<Application>()
+        val filter = IntentFilter(MediaPlaybackService.BROADCAST_SLEEP_TIMER_STATUS)
+        context.registerReceiver(sleepTimerReceiver, filter)
+        Log.d(TAG, "Registered sleep timer broadcast receiver")
+    }
+    
 }

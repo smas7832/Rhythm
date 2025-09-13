@@ -1,6 +1,7 @@
 package chromahub.rhythm.app.ui.screens
 
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.EaseInOut
 import androidx.compose.animation.core.Spring
@@ -165,6 +166,7 @@ import chromahub.rhythm.app.ui.screens.AddToPlaylistBottomSheet
 import chromahub.rhythm.app.ui.screens.DeviceOutputBottomSheet
 import chromahub.rhythm.app.ui.screens.SongInfoBottomSheet
 import chromahub.rhythm.app.ui.screens.ArtistBottomSheet
+import chromahub.rhythm.app.util.MediaUtils
 import chromahub.rhythm.app.ui.components.CanvasPlayer
 import chromahub.rhythm.app.data.CanvasRepository
 import chromahub.rhythm.app.data.CanvasData
@@ -635,7 +637,52 @@ fun PlayerScreen(
     if (showSongInfoSheet && song != null) {
         SongInfoBottomSheet(
             song = song,
-            onDismiss = { showSongInfoSheet = false }
+            onDismiss = { showSongInfoSheet = false },
+            onEditSong = { title, artist, album, genre, year, trackNumber ->
+                // Update metadata using MediaUtils
+                val success = MediaUtils.updateSongMetadata(
+                    context = context,
+                    song = song,
+                    newTitle = title,
+                    newArtist = artist,
+                    newAlbum = album,
+                    newGenre = genre,
+                    newTrackNumber = trackNumber
+                )
+                
+                if (success) {
+                    // Create updated song object and refresh the UI
+                    val updatedSong = song.copy(
+                        title = title,
+                        artist = artist,
+                        album = album,
+                        genre = if (genre.isNotBlank()) genre else null,
+                        year = year,
+                        trackNumber = trackNumber
+                    )
+                    
+                    // Update the music service with new metadata
+                    musicViewModel.updateCurrentSongMetadata(updatedSong)
+                    
+                    // Force refresh the library to reflect changes
+                    musicViewModel.refreshLibrary()
+                    
+                    // Show success message
+                    Toast.makeText(context, "Metadata updated successfully", Toast.LENGTH_SHORT).show()
+                } else {
+                    // Show detailed error message with troubleshooting info
+                    Toast.makeText(
+                        context, 
+                        "Failed to update metadata. Check app permissions or try editing this file with another app first.", 
+                        Toast.LENGTH_LONG
+                    ).show()
+                    
+                    // Log additional debug info
+                    android.util.Log.w("PlayerScreen", "Metadata update failed for song: ${song.title}")
+                    android.util.Log.w("PlayerScreen", "Song URI: ${song.uri}")
+                    android.util.Log.w("PlayerScreen", "Android version: ${android.os.Build.VERSION.SDK_INT}")
+                }
+            }
         )
     }
 

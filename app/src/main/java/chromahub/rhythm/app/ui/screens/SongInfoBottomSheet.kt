@@ -1,48 +1,41 @@
 package chromahub.rhythm.app.ui.screens
 
-import android.content.ContentUris
-import android.media.MediaMetadataRetriever
+import android.content.Intent
 import android.provider.MediaStore
-import androidx.compose.foundation.background
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import chromahub.rhythm.app.data.AppSettings
-import chromahub.rhythm.app.util.HapticUtils
 import chromahub.rhythm.app.data.Song
+import chromahub.rhythm.app.data.AppSettings
 import chromahub.rhythm.app.ui.components.M3PlaceholderType
-import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.ui.components.SimpleCircularLoader
 import chromahub.rhythm.app.util.ImageUtils
 import chromahub.rhythm.app.util.MediaUtils
-import chromahub.rhythm.app.util.performIfEnabled
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.text.DecimalFormat
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 // Data class to hold additional song metadata
 data class ExtendedSongInfo(
@@ -50,12 +43,16 @@ data class ExtendedSongInfo(
     val bitrate: String = "Unknown",
     val sampleRate: String = "Unknown",
     val format: String = "Unknown",
+    val composer: String = "",
+    val discNumber: Int = 0,
     val dateAdded: Long = 0,
     val dateModified: Long = 0,
     val filePath: String = "",
-    val composer: String = "",
-    val discNumber: Int = 0,
-    val totalTracks: Int = 0
+    val albumArtist: String = "",
+    val year: Int = 0,
+    val mimeType: String = "",
+    val channels: String = "Unknown",
+    val hasLyrics: Boolean = false
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -63,10 +60,51 @@ data class ExtendedSongInfo(
 fun SongInfoBottomSheet(
     song: Song?,
     onDismiss: () -> Unit,
+    onEditSong: ((title: String, artist: String, album: String, genre: String, year: Int, trackNumber: Int) -> Unit)? = null,
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 ) {
     val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
+    val appSettings = remember { AppSettings.getInstance(context) }
     var extendedInfo by remember { mutableStateOf<ExtendedSongInfo?>(null) }
+    var showEditSheet by remember { mutableStateOf(false) }
+    
+    // Blacklist states
+    val blacklistedSongs by appSettings.blacklistedSongs.collectAsState()
+    val blacklistedFolders by appSettings.blacklistedFolders.collectAsState()
+    var isLoadingBlacklist by remember { mutableStateOf(false) }
+    
+    // Check if song is blacklisted
+    val isBlacklisted = song?.let { blacklistedSongs.contains(it.id) } ?: false
+    
+    // Check if song is in a blacklisted folder
+    val folderPath = remember(song?.uri) {
+        song?.let { 
+            try {
+                when (it.uri.scheme) {
+                    "content" -> {
+                        val projection = arrayOf(MediaStore.Audio.Media.DATA)
+                        context.contentResolver.query(it.uri, projection, null, null, null)
+                            ?.use { cursor ->
+                                if (cursor.moveToFirst()) {
+                                    val dataIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
+                                    val filePath = cursor.getString(dataIndex)
+                                    File(filePath).parent
+                                } else null
+                            }
+                    }
+                    "file" -> File(it.uri.path ?: "").parent
+                    else -> null
+                }
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+    
+    val isInBlacklistedFolder = folderPath != null && blacklistedFolders.any { blacklistedPath ->
+        folderPath.startsWith(blacklistedPath, ignoreCase = true)
+    }
 
     if (song == null) {
         onDismiss()
@@ -83,245 +121,673 @@ fun SongInfoBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        dragHandle = { BottomSheetDefaults.DragHandle() },
+        dragHandle = { 
+            BottomSheetDefaults.DragHandle(
+                color = MaterialTheme.colorScheme.primary
+            )
+        },
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         contentColor = MaterialTheme.colorScheme.onSurface,
+        tonalElevation = 0.dp
+    ) {
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(start = 24.dp, end = 24.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item {
+                // Header with album art and track info
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Album Art with modern styling
+                    Surface(
+                        modifier = Modifier.size(80.dp),
+                        shape = RoundedCornerShape(20.dp),
+                        tonalElevation = 0.dp,
+                        shadowElevation = 0.dp
+                    ) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .apply(
+                                    ImageUtils.buildImageRequest(
+                                        song.artworkUri,
+                                        song.title,
+                                        context.cacheDir,
+                                        M3PlaceholderType.TRACK
+                                    )
+                                )
+                                .build(),
+                            contentDescription = "Album artwork",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+
+                    // Song info with improved layout
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = song.title,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        
+                        Text(
+                            text = song.artist,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        
+                        Text(
+                            text = song.album,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    
+                    // Edit button
+                    onEditSong?.let { editCallback ->
+                        FilledTonalIconButton(
+                            onClick = { 
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                showEditSheet = true
+                            },
+                            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Edit,
+                                contentDescription = "Edit metadata"
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                // Action buttons (Top Row)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Block/Unblock Song
+                    FilledTonalButton(
+                        onClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            isLoadingBlacklist = true
+                            
+                            song?.let { songToBlock ->
+                                if (isBlacklisted) {
+                                    appSettings.removeFromBlacklist(songToBlock.id)
+                                } else {
+                                    appSettings.addToBlacklist(songToBlock.id)
+                                }
+                                
+                                isLoadingBlacklist = false
+                                val message = if (isBlacklisted) "Song removed from blocklist" else "Song added to blocklist" 
+                                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        enabled = !isLoadingBlacklist,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = if (isBlacklisted) 
+                                MaterialTheme.colorScheme.errorContainer 
+                            else 
+                                MaterialTheme.colorScheme.secondaryContainer
+                        )
+                    ) {
+                        if (isLoadingBlacklist) {
+                            SimpleCircularLoader(
+                                size = 16.dp,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        } else {
+                            Icon(
+                                imageVector = if (isBlacklisted) Icons.Rounded.Block else Icons.Rounded.DoNotDisturb,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(if (isBlacklisted) "Unblock" else "Block")
+                    }
+                    
+                    // Block/Unblock Folder
+                    if (folderPath != null) {
+                        FilledTonalButton(
+                            onClick = {
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                isLoadingBlacklist = true
+                                
+                                if (isInBlacklistedFolder) {
+                                    appSettings.removeFolderFromBlacklist(folderPath)
+                                } else {
+                                    appSettings.addFolderToBlacklist(folderPath)
+                                }
+                                
+                                isLoadingBlacklist = false
+                                val message = if (isInBlacklistedFolder) "Folder removed from blocklist" else "Folder added to blocklist"
+                                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                            },
+                            enabled = !isLoadingBlacklist,
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = if (isInBlacklistedFolder) 
+                                    MaterialTheme.colorScheme.errorContainer 
+                                else 
+                                    MaterialTheme.colorScheme.tertiaryContainer
+                            )
+                        ) {
+                            if (isLoadingBlacklist) {
+                                SimpleCircularLoader(
+                                    size = 16.dp,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = if (isInBlacklistedFolder) Icons.Rounded.FolderOff else Icons.Rounded.Folder,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(if (isInBlacklistedFolder) "Unblock Folder" else "Block Folder")
+                        }
+                    }
+                }
+            }
+            
+            // item {
+            //     // Action buttons (Bottom Row)
+            //     Row(
+            //         modifier = Modifier.fillMaxWidth(),
+            //         horizontalArrangement = Arrangement.spacedBy(8.dp)
+            //     ) {
+            //         // Share Song Info
+            //         FilledTonalButton(
+            //             onClick = {
+            //                 haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            //                 val shareIntent = Intent().apply {
+            //                     action = Intent.ACTION_SEND
+            //                     putExtra(Intent.EXTRA_TEXT, "Now playing: ${song.title} by ${song.artist}")
+            //                     type = "text/plain"
+            //                 }
+            //                 context.startActivity(Intent.createChooser(shareIntent, "Share song"))
+            //             },
+            //             modifier = Modifier.weight(1f),
+            //             colors = ButtonDefaults.filledTonalButtonColors(
+            //                 containerColor = MaterialTheme.colorScheme.primaryContainer
+            //             )
+            //         ) {
+            //             Icon(
+            //                 imageVector = Icons.Rounded.Share,
+            //                 contentDescription = null,
+            //                 modifier = Modifier.size(16.dp)
+            //             )
+            //             Spacer(modifier = Modifier.width(8.dp))
+            //             Text("Share Info")
+            //         }
+                    
+            //         // Share Original File
+            //         FilledTonalButton(
+            //             onClick = {
+            //                 haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            //                 try {
+            //                     val shareIntent = Intent().apply {
+            //                         action = Intent.ACTION_SEND
+            //                         type = "audio/*"
+            //                         putExtra(Intent.EXTRA_STREAM, song.uri)
+            //                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            //                     }
+            //                     context.startActivity(Intent.createChooser(shareIntent, "Share original file"))
+            //                 } catch (e: Exception) {
+            //                     Toast.makeText(context, "Unable to share file", Toast.LENGTH_SHORT).show()
+            //                 }
+            //             },
+            //             modifier = Modifier.weight(1f),
+            //             colors = ButtonDefaults.filledTonalButtonColors(
+            //                 containerColor = MaterialTheme.colorScheme.secondaryContainer
+            //             )
+            //         ) {
+            //             Icon(
+            //                 imageVector = Icons.Rounded.AudioFile,
+            //                 contentDescription = null,
+            //                 modifier = Modifier.size(16.dp)
+            //             )
+            //             Spacer(modifier = Modifier.width(8.dp))
+            //             Text("Share File")
+            //         }
+                    
+            //         // Open in external player
+            //         FilledTonalButton(
+            //             onClick = {
+            //                 haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            //                 val intent = Intent().apply {
+            //                     action = Intent.ACTION_VIEW
+            //                     setDataAndType(song.uri, "audio/*")
+            //                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            //                 }
+            //                 try {
+            //                     context.startActivity(intent)
+            //                 } catch (_: Exception) {
+            //                     Toast.makeText(context, "No app found to open file", Toast.LENGTH_SHORT).show()
+            //                 }
+            //             },
+            //             modifier = Modifier.weight(1f),
+            //             colors = ButtonDefaults.filledTonalButtonColors(
+            //                 containerColor = MaterialTheme.colorScheme.tertiaryContainer
+            //             )
+            //         ) {
+            //             Icon(
+            //                 imageVector = Icons.Rounded.PlayArrow,
+            //                 contentDescription = null,
+            //                 modifier = Modifier.size(16.dp)
+            //             )
+            //             Spacer(modifier = Modifier.width(8.dp))
+            //             Text("Open")
+            //         }
+            //     }
+            // }
+
+            item {
+                // Metadata grid section
+                MetadataGridSection(
+                    song = song,
+                    extendedInfo = extendedInfo
+                )
+            }
+        }
+        
+        // Show Edit Sheet
+        if (showEditSheet) {
+            EditSongSheet(
+                song = song,
+                onDismiss = { showEditSheet = false },
+                onSave = { title, artist, album, genre, year, trackNumber ->
+                    onEditSong?.invoke(title, artist, album, genre, year, trackNumber)
+                    showEditSheet = false
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun MetadataGridSection(
+    song: Song,
+    extendedInfo: ExtendedSongInfo?
+) {
+    // Prepare metadata items (avoiding duplicates and showing more information)
+    val metadataItems = buildList {
+        // Basic song info
+        add(MetadataItem("Duration", formatDuration(song.duration), Icons.Rounded.Schedule))
+        
+        // Track info (prefer extended info if available)
+        val trackNum = if (song.trackNumber > 0) song.trackNumber else 0
+        val discNum = extendedInfo?.discNumber ?: 0
+        when {
+            trackNum > 0 && discNum > 0 -> add(MetadataItem("Track", "$discNum.$trackNum", Icons.Rounded.FormatListNumbered))
+            trackNum > 0 -> add(MetadataItem("Track", trackNum.toString(), Icons.Rounded.FormatListNumbered))
+        }
+        
+        // Year (prefer song data, fallback to extended info)
+        val yearValue = if (song.year > 0) song.year else extendedInfo?.year ?: 0
+        if (yearValue > 0) {
+            add(MetadataItem("Year", yearValue.toString(), Icons.Rounded.DateRange))
+        }
+        
+        // Genre
+        if (!song.genre.isNullOrEmpty()) {
+            add(MetadataItem("Genre", song.genre, Icons.Rounded.Category))
+        }
+        
+        extendedInfo?.let { info ->
+            // Audio quality info
+            if (info.bitrate != "Unknown") {
+                add(MetadataItem("Bitrate", info.bitrate, Icons.Rounded.GraphicEq))
+            }
+            if (info.sampleRate != "Unknown") {
+                add(MetadataItem("Sample Rate", info.sampleRate, Icons.Rounded.Tune))
+            }
+            if (info.channels != "Unknown") {
+                add(MetadataItem("Channels", info.channels, Icons.Rounded.SettingsInputComponent))
+            }
+            if (info.format != "Unknown") {
+                add(MetadataItem("Format", info.format, Icons.Rounded.MusicNote))
+            }
+            
+            // File info
+            if (info.fileSize > 0) {
+                add(MetadataItem("File Size", formatFileSize(info.fileSize), Icons.Rounded.FolderOpen))
+            }
+            
+            // Additional metadata (non-duplicating)
+            if (info.composer.isNotEmpty() && info.composer != song.artist) {
+                add(MetadataItem("Composer", info.composer, Icons.Rounded.EditNote))
+            }
+            if (info.albumArtist.isNotEmpty() && info.albumArtist != song.artist) {
+                add(MetadataItem("Album Artist", info.albumArtist, Icons.Rounded.Person))
+            }
+            if (info.hasLyrics) {
+                add(MetadataItem("Lyrics", "Available", Icons.Rounded.Lyrics))
+            }
+            if (info.mimeType.isNotEmpty()) {
+                add(MetadataItem("MIME Type", info.mimeType.substringAfter("/").uppercase(), Icons.Rounded.Code))
+            }
+            
+            // Date info
+            if (info.dateAdded > 0) {
+                add(MetadataItem("Date Added", formatDate(info.dateAdded), Icons.Rounded.Add))
+            }
+            if (info.dateModified > 0 && info.dateModified != info.dateAdded) {
+                add(MetadataItem("Modified", formatDate(info.dateModified), Icons.Rounded.Update))
+            }
+        }
+    }
+    
+    if (metadataItems.isNotEmpty()) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Info,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Metadata",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.height(((metadataItems.size / 2 + metadataItems.size % 2) * 80).dp)
+                ) {
+                    items(metadataItems) { item ->
+                        MetadataGridItem(item = item)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MetadataGridItem(
+    item: MetadataItem
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(68.dp),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(
+                    imageVector = item.icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp)
+                )
+                Text(
+                    text = item.label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            
+            Text(
+                text = item.value,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditSongSheet(
+    song: Song,
+    onDismiss: () -> Unit,
+    onSave: (title: String, artist: String, album: String, genre: String, year: Int, trackNumber: Int) -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var title by remember { mutableStateOf(song.title) }
+    var artist by remember { mutableStateOf(song.artist) }
+    var album by remember { mutableStateOf(song.album) }
+    var genre by remember { mutableStateOf(song.genre ?: "") }
+    var year by remember { mutableStateOf(if (song.year > 0) song.year.toString() else "") }
+    var trackNumber by remember { mutableStateOf(if (song.trackNumber > 0) song.trackNumber.toString() else "") }
+    val haptics = LocalHapticFeedback.current
+    
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        dragHandle = {
+            BottomSheetDefaults.DragHandle(
+                color = MaterialTheme.colorScheme.primary
+            )
+        },
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
         tonalElevation = 0.dp
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 24.dp)
-                .verticalScroll(rememberScrollState())
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Header with horizontal layout - Album art and track info
+            Text(
+                text = "Edit Metadata",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            
+            // Title field
+            OutlinedTextField(
+                value = title,
+                onValueChange = { title = it },
+                label = { Text("Title") },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Rounded.MusicNote,
+                        contentDescription = null
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp)
+            )
+            
+            // Artist field
+            OutlinedTextField(
+                value = artist,
+                onValueChange = { artist = it },
+                label = { Text("Artist") },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Rounded.Person,
+                        contentDescription = null
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp)
+            )
+            
+            // Album field
+            OutlinedTextField(
+                value = album,
+                onValueChange = { album = it },
+                label = { Text("Album") },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Rounded.Album,
+                        contentDescription = null
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp)
+            )
+            
+            // Genre field
+            OutlinedTextField(
+                value = genre,
+                onValueChange = { genre = it },
+                label = { Text("Genre") },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Rounded.Category,
+                        contentDescription = null
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp)
+            )
+            
+            // Year and Track Number in a row
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Smaller Album Art
-                Card(
-                    modifier = Modifier.size(80.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f)
-                    ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                ) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (song.artworkUri != null) {
-                            AsyncImage(
-                                model = ImageRequest.Builder(context)
-                                    .apply(
-                                        ImageUtils.buildImageRequest(
-                                            song.artworkUri,
-                                            song.title,
-                                            context.cacheDir,
-                                            M3PlaceholderType.TRACK
-                                        )
-                                    )
-                                    .build(),
-                                contentDescription = "Album artwork for ${song.title}",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .clip(RoundedCornerShape(12.dp))
-                            )
-                        } else {
-                            Icon(
-                                imageVector = RhythmIcons.Album,
-                                contentDescription = "Album art",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(40.dp)
-                            )
+                // Year field
+                OutlinedTextField(
+                    value = year,
+                    onValueChange = { input ->
+                        // Only allow digits and limit to 4 characters
+                        if (input.all { it.isDigit() } && input.length <= 4) {
+                            year = input
                         }
-                    }
-                }
-
-                Spacer(modifier = Modifier.width(16.dp))
-
-                // Track Info
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        text = song.title,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    
-                    Spacer(modifier = Modifier.height(4.dp))
-                    
-                    Text(
-                        text = song.artist,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    
-                    Spacer(modifier = Modifier.height(2.dp))
-                    
-                    Text(
-                        text = song.album,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+                    },
+                    label = { Text("Year") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Rounded.DateRange,
+                            contentDescription = null
+                        )
+                    },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(16.dp),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
+                
+                // Track Number field
+                OutlinedTextField(
+                    value = trackNumber,
+                    onValueChange = { input ->
+                        // Only allow digits and limit to 3 characters
+                        if (input.all { it.isDigit() } && input.length <= 3) {
+                            trackNumber = input
+                        }
+                    },
+                    label = { Text("Track") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Rounded.FormatListNumbered,
+                            contentDescription = null
+                        )
+                    },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(16.dp),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
             }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Track Metadata Section
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                ) {
-                    Text(
-                        text = "Track Information",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
-
-                    // Basic track info
-                    DetailRow(label = "Duration", value = formatDuration(song.duration))
-                    if (song.trackNumber > 0) {
-                        DetailRow(label = "Track", value = song.trackNumber.toString())
-                    }
-                    if (song.year > 0) {
-                        DetailRow(label = "Year", value = song.year.toString())
-                    }
-                    if (!song.genre.isNullOrEmpty()) {
-                        DetailRow(label = "Genre", value = song.genre)
-                    }
-
-                    // Extended metadata if available
-                    extendedInfo?.let { info ->
-                        if (info.bitrate != "Unknown") {
-                            DetailRow(label = "Bitrate", value = info.bitrate)
-                        }
-                        if (info.sampleRate != "Unknown") {
-                            DetailRow(label = "Sample Rate", value = info.sampleRate)
-                        }
-                        if (info.format != "Unknown") {
-                            DetailRow(label = "Format", value = info.format)
-                        }
-                        if (info.fileSize > 0) {
-                            DetailRow(label = "File Size", value = formatFileSize(info.fileSize))
-                        }
-                        if (info.composer.isNotEmpty()) {
-                            DetailRow(label = "Composer", value = info.composer)
-                        }
-                        if (info.discNumber > 0) {
-                            DetailRow(label = "Disc", value = info.discNumber.toString())
-                        }
-                        if (info.dateAdded > 0) {
-                            DetailRow(label = "Date Added", value = formatDate(info.dateAdded))
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // File Information Section
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                ) {
-                    Text(
-                        text = "File Information",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
-
-                    extendedInfo?.let { info ->
-                        if (info.filePath.isNotEmpty()) {
-                            DetailRow(label = "Location", value = File(info.filePath).name)
-                            if (info.dateModified > 0) {
-                                DetailRow(label = "Modified", value = formatDate(info.dateModified))
-                            }
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
             
             // Action buttons
-            ActionButtonsSection(
-                song = song,
-                onDismiss = onDismiss
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text("Cancel")
+                }
+                
+                Button(
+                    onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        val yearInt = year.toIntOrNull() ?: 0
+                        val trackInt = trackNumber.toIntOrNull() ?: 0
+                        onSave(title.trim(), artist.trim(), album.trim(), genre.trim(), yearInt, trackInt)
+                    },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(16.dp),
+                    enabled = title.isNotBlank() && artist.isNotBlank()
+                ) {
+                    Text("Save")
+                }
+            }
             
             Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }
 
-@Composable
-private fun DetailRow(label: String, value: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(1f)
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.End,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1.5f),
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
+// Data classes
+data class MetadataItem(
+    val label: String,
+    val value: String,
+    val icon: ImageVector
+)
 
+// Helper functions
 private fun formatDuration(durationMs: Long): String {
     val minutes = java.util.concurrent.TimeUnit.MILLISECONDS.toMinutes(durationMs)
     val seconds = java.util.concurrent.TimeUnit.MILLISECONDS.toSeconds(durationMs) - java.util.concurrent.TimeUnit.MINUTES.toSeconds(minutes)
@@ -346,399 +812,12 @@ private fun formatFileSize(bytes: Long): String {
     }
 }
 
-private fun formatDate(timestampMs: Long): String {
-    val date = Date(timestampMs)
-    val formatter = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
-    return formatter.format(date)
-}
-
-@Composable
-private fun ActionButtonsSection(
-    song: Song,
-    onDismiss: () -> Unit
-) {
-    val context = LocalContext.current
-    val appSettings = remember { AppSettings.getInstance(context) }
-    val haptic = LocalHapticFeedback.current
-    val blacklistedSongs by appSettings.blacklistedSongs.collectAsState()
-    val blacklistedFolders by appSettings.blacklistedFolders.collectAsState()
-    
-    // Loading states for blacklist operations
-    var isLoadingSongBlacklist by remember { mutableStateOf(false) }
-    var isLoadingFolderBlacklist by remember { mutableStateOf(false) }
-    
-    val isBlacklisted = blacklistedSongs.contains(song.id)
-    
-    // Check if song is in a blacklisted folder
-    val folderPath = remember(song.uri) {
-        try {
-            when (song.uri.scheme) {
-                "content" -> {
-                    val projection = arrayOf(MediaStore.Audio.Media.DATA)
-                    context.contentResolver.query(song.uri, projection, null, null, null)
-                        ?.use { cursor ->
-                            if (cursor.moveToFirst()) {
-                                val dataIndex =
-                                    cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
-                                val filePath = cursor.getString(dataIndex)
-                                File(filePath).parent
-                            } else null
-                        }
-                }
-                "file" -> File(song.uri.path ?: "").parent
-                else -> null
-            }
-        } catch (e: Exception) {
-            null
-        }
-    }
-    
-    val isInBlacklistedFolder = folderPath != null && blacklistedFolders.any { blacklistedPath ->
-        folderPath.startsWith(blacklistedPath, ignoreCase = true)
-    }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Text(
-                text = "Actions",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
-
-            // Only show individual song blacklist section if folder is not blacklisted
-            // or if song is already individually blacklisted (to allow removal)
-            if (!isInBlacklistedFolder || isBlacklisted) {
-                // Blacklist toggle button
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    if (isBlacklisted) {
-                        FilledTonalButton(
-                            onClick = {
-                                isLoadingSongBlacklist = true
-                                HapticUtils.performHapticFeedback(context, haptic, androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
-                                appSettings.removeFromBlacklist(song.id)
-                                isLoadingSongBlacklist = false
-                            },
-                            colors = ButtonDefaults.filledTonalButtonColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                            ),
-                            modifier = Modifier.weight(1f),
-                            enabled = !isLoadingSongBlacklist
-                        ) {
-                            if (isLoadingSongBlacklist) {
-                                SimpleCircularLoader(
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    size = 18.dp
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Filled.Check,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Remove from Blacklist")
-                        }
-                    } else {
-                        OutlinedButton(
-                            onClick = {
-                                isLoadingSongBlacklist = true
-                                HapticUtils.performHapticFeedback(context, haptic, androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
-                                appSettings.addToBlacklist(song.id)
-                                isLoadingSongBlacklist = false
-                            },
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = MaterialTheme.colorScheme.error
-                            ),
-                            modifier = Modifier.weight(1f),
-                            enabled = !isLoadingSongBlacklist
-                        ) {
-                            if (isLoadingSongBlacklist) {
-                                SimpleCircularLoader(
-                                    color = MaterialTheme.colorScheme.error,
-                                    size = 18.dp
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Filled.Block,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Add to Blacklist")
-                        }
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                // Enhanced status message with synchronization info - centered
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = when {
-                            isBlacklisted && isInBlacklistedFolder -> 
-                                "This song is hidden (both individually blacklisted and in blocked folder)"
-                            isBlacklisted -> 
-                                "This song is individually hidden from search results and recommendations"
-                            isInBlacklistedFolder -> 
-                                "This song is hidden because its folder is blocked"
-                            else -> 
-                                "Hide this song from search results and recommendations"
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = when {
-                            isBlacklisted && isInBlacklistedFolder -> MaterialTheme.colorScheme.error
-                            isBlacklisted || isInBlacklistedFolder -> MaterialTheme.colorScheme.primary
-                            else -> MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                        textAlign = TextAlign.Center
-                    )
-                    
-                    // Show warning for conflicting states
-                    if (isBlacklisted && isInBlacklistedFolder) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "💡 Tip: Unblock the folder to remove both restrictions at once",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
-            } else {
-                // Show a simple message when folder is blacklisted and song is not individually blacklisted - centered
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = "This song is hidden because its folder is blocked",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Folder blacklist functionality
-            FolderBlacklistSection(song = song, appSettings = appSettings, haptic = haptic)
-        }
-    }
-}
-
-@Composable
-private fun FolderBlacklistSection(
-    song: Song,
-    appSettings: AppSettings,
-    haptic: androidx.compose.ui.hapticfeedback.HapticFeedback
-) {
-    val context = LocalContext.current
-    val blacklistedFolders by appSettings.blacklistedFolders.collectAsState()
-    val blacklistedSongs by appSettings.blacklistedSongs.collectAsState()
-    
-    // Loading state for folder blacklist operations
-    var isLoadingFolderBlacklist by remember { mutableStateOf(false) }
-
-    // Get folder path from song URI
-    val folderPath = remember(song.uri) {
-        try {
-            when (song.uri.scheme) {
-                "content" -> {
-                    // For content URIs, query the MediaStore to get the file path
-                    val projection = arrayOf(MediaStore.Audio.Media.DATA)
-                    context.contentResolver.query(song.uri, projection, null, null, null)
-                        ?.use { cursor ->
-                            if (cursor.moveToFirst()) {
-                                val dataIndex =
-                                    cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
-                                val filePath = cursor.getString(dataIndex)
-                                File(filePath).parent // Get parent directory
-                            } else null
-                        }
-                }
-
-                "file" -> {
-                    File(song.uri.path ?: "").parent
-                }
-
-                else -> null
-            }
-        } catch (e: Exception) {
-            null
-        }
-    }
-
-    val isFolderBlacklisted = folderPath != null && blacklistedFolders.any { blacklistedPath ->
-        folderPath.startsWith(blacklistedPath, ignoreCase = true)
-    }
-    
-    // Check if song is individually blacklisted
-    val isSongBlacklisted = blacklistedSongs.contains(song.id)
-
-    if (folderPath != null) {
-        Text(
-            text = "Folder Actions",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(bottom = 12.dp)
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            if (isFolderBlacklisted) {
-                FilledTonalButton(
-                    onClick = {
-                        isLoadingFolderBlacklist = true
-                        HapticUtils.performHapticFeedback(
-                            context,
-                            haptic,
-                            androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress
-                        )
-                        // Find the exact blacklisted folder path and remove it
-                        val matchingPath = blacklistedFolders.find { blacklistedPath ->
-                            folderPath.startsWith(blacklistedPath, ignoreCase = true)
-                        }
-                        matchingPath?.let { 
-                            // Use the new method to remove folder and related song
-                            appSettings.removeFolderAndRelatedSongs(it, listOf(song.id))
-                        }
-                        isLoadingFolderBlacklist = false
-                    },
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    ),
-                    modifier = Modifier.weight(1f),
-                    enabled = !isLoadingFolderBlacklist
-                ) {
-                    if (isLoadingFolderBlacklist) {
-                        SimpleCircularLoader(
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            size = 18.dp
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Filled.Folder,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Unblock Folder")
-                }
-            } else {
-                OutlinedButton(
-                    onClick = {
-                        isLoadingFolderBlacklist = true
-                        HapticUtils.performHapticFeedback(
-                            context,
-                            haptic,
-                            androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress
-                        )
-                        // Use the new method to add folder and optionally song for immediate sync
-                        appSettings.addFolderAndOptionalSong(folderPath, if (!isSongBlacklisted) song.id else null)
-                        isLoadingFolderBlacklist = false
-                    },
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    ),
-                    modifier = Modifier.weight(1f),
-                    enabled = !isLoadingFolderBlacklist
-                ) {
-                    if (isLoadingFolderBlacklist) {
-                        SimpleCircularLoader(
-                            color = MaterialTheme.colorScheme.error,
-                            size = 18.dp
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Filled.Block,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Block Folder")
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                text = if (isFolderBlacklisted) {
-                    "All songs in this folder are hidden from search results and recommendations"
-                } else {
-                    "Hide all songs in this folder from search results and recommendations"
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Text(
-                text = "Folder: ${File(folderPath).name}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.Medium,
-                textAlign = TextAlign.Center
-            )
-            
-            // Show sync status
-            if (isFolderBlacklisted && isSongBlacklisted) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "⚠️ Song is individually blacklisted and in blocked folder",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                    fontWeight = FontWeight.Medium,
-                    textAlign = TextAlign.Center
-                )
-            } else if (isFolderBlacklisted && !isSongBlacklisted) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "✓ Song is hidden due to folder blacklist",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Medium,
-                    textAlign = TextAlign.Center
-                )
-            }
-        }
+private fun formatDate(timestamp: Long): String {
+    return if (timestamp > 0) {
+        val date = java.util.Date(timestamp)
+        val formatter = java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault())
+        formatter.format(date)
+    } else {
+        "Unknown"
     }
 }

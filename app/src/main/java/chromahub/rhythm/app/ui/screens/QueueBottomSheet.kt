@@ -133,7 +133,11 @@ fun QueueBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        dragHandle = { BottomSheetDefaults.DragHandle() },
+        dragHandle = { 
+            BottomSheetDefaults.DragHandle(
+                color = MaterialTheme.colorScheme.primary
+            )
+        },
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         contentColor = MaterialTheme.colorScheme.onBackground,
         tonalElevation = 0.dp
@@ -146,8 +150,8 @@ fun QueueBottomSheet(
             // Header with title and actions
             AnimatedVisibility(
                 visible = showContent,
-                enter = fadeIn() + slideInVertically { -it },
-                exit = fadeOut() + slideOutVertically { -it }
+                enter = fadeIn() + slideInVertically { it },
+                exit = fadeOut() + slideOutVertically { it }
             ) {
                 QueueHeader(
                     queueSize = mutableQueue.size,
@@ -172,8 +176,8 @@ fun QueueBottomSheet(
                 currentSong?.let { song ->
                     AnimatedVisibility(
                         visible = showContent,
-                        enter = fadeIn() + slideInVertically { -it },
-                        exit = fadeOut() + slideOutVertically { -it }
+                        enter = fadeIn() + slideInVertically { it },
+                        exit = fadeOut() + slideOutVertically { it }
                     ) {
                         NowPlayingCard(
                             song = song,
@@ -255,10 +259,9 @@ fun QueueBottomSheet(
                         val actualQueuePosition = currentQueueIndex + displayIndex + 1
                         
                         Box(
-                            modifier = Modifier.padding(
-                                horizontal = 16.dp,
-                                vertical = 2.dp
-                            )
+                            modifier = Modifier
+                                .padding(horizontal = 16.dp, vertical = 4.dp)
+                                .clip(RoundedCornerShape(16.dp))
                         ) {
                             AnimateIn {
                                 QueueItem(
@@ -305,51 +308,73 @@ private fun QueueHeader(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Column(modifier = Modifier.weight(1f)) {
+        Column {
             Text(
                 text = "Queue",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
+                style = MaterialTheme.typography.displayMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface
             )
-            Text(
-                text = if (queueSize == 1) "1 song" else "$queueSize songs",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            if (queueSize > 0) {
+                Box(
+                    modifier = Modifier
+                        .padding(top = 6.dp)
+                        .background(
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            shape = CircleShape
+                        )
+                ) {
+                    Text(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        style = MaterialTheme.typography.labelLarge,
+                        text = if (queueSize == 1) "1 song" else "$queueSize songs",
+                        overflow = TextOverflow.Ellipsis,
+                        maxLines = 1,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
         }
         
         Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {                    // Clear queue button (only show if queue is not empty)
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Add songs button
+            FilledTonalIconButton(
+                onClick = onAddSongsClick,
+                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ),
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Add songs",
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            
+            // Clear queue button (only show if queue is not empty)
             onClearQueue?.let { clearAction ->
                 FilledTonalIconButton(
                     onClick = clearAction,
                     colors = IconButtonDefaults.filledTonalIconButtonColors(
                         containerColor = MaterialTheme.colorScheme.errorContainer,
                         contentColor = MaterialTheme.colorScheme.onErrorContainer
-                    )
+                    ),
+                    modifier = Modifier.size(48.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Delete,
-                        contentDescription = "Clear queue"
+                        contentDescription = "Clear queue",
+                        modifier = Modifier.size(20.dp)
                     )
                 }
-            }
-            
-            // Add songs button
-            FilledTonalIconButton(
-                onClick = onAddSongsClick,
-                colors = IconButtonDefaults.filledTonalIconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                )
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Add songs"
-                )
             }
         }
     }

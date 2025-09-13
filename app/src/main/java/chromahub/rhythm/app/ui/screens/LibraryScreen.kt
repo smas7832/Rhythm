@@ -187,8 +187,8 @@ fun LibraryScreen(
     onAddToQueue: (Song) -> Unit,
     initialTab: LibraryTab = LibraryTab.SONGS,
     musicViewModel: MusicViewModel, // Add MusicViewModel as a parameter
-    onExportAllPlaylists: ((PlaylistImportExportUtils.PlaylistExportFormat, Boolean) -> Unit)? = null,
-    onImportPlaylist: ((Uri) -> Unit)? = null
+    onExportAllPlaylists: ((PlaylistImportExportUtils.PlaylistExportFormat, Boolean, (Result<String>) -> Unit) -> Unit)? = null,
+    onImportPlaylist: ((Uri, (Result<String>) -> Unit) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val appSettings = remember { AppSettings.getInstance(context) }
@@ -614,9 +614,9 @@ fun LibraryScreen(
                                             HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                                             pendingSortOrder = order
                                             showSortMenu = false
-                                            // Trigger sort after a brief delay to ensure UI updates
+                                            // Set the specific sort order instead of cycling
                                             if (sortOrder != order) {
-                                                onSort()
+                                                musicViewModel.setSortOrder(order)
                                             }
                                         },
                                         colors = androidx.compose.material3.MenuDefaults.itemColors(
@@ -834,7 +834,17 @@ fun LibraryScreen(
                 showOperationProgress = true
                 operationProgressText = "Exporting playlists..."
                 
-                onExportAllPlaylists(format, includeDefault)
+                onExportAllPlaylists(format, includeDefault) { result ->
+                    showOperationProgress = false
+                    result.fold(
+                        onSuccess = { message ->
+                            // Success will be shown via snackbar from navigation layer
+                        },
+                        onFailure = { error ->
+                            operationError = error.message ?: "Export failed"
+                        }
+                    )
+                }
             }
         )
     }
@@ -850,7 +860,17 @@ fun LibraryScreen(
                 showOperationProgress = true
                 operationProgressText = "Importing playlist..."
                 
-                onImportPlaylist(uri)
+                onImportPlaylist(uri) { result ->
+                    showOperationProgress = false
+                    result.fold(
+                        onSuccess = { message ->
+                            // Success will be shown via snackbar from navigation layer
+                        },
+                        onFailure = { error ->
+                            operationError = error.message ?: "Import failed"
+                        }
+                    )
+                }
             }
         )
     }
@@ -2971,7 +2991,12 @@ fun SingleCardArtistsContent(
     if (showSortOptions) {
         ModalBottomSheet(
             onDismissRequest = { showSortOptions = false },
-            sheetState = rememberModalBottomSheetState()
+            sheetState = rememberModalBottomSheetState(),
+            dragHandle = { 
+                BottomSheetDefaults.DragHandle(
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
