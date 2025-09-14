@@ -49,7 +49,7 @@ val SurfaceContainerHighestLight = Color(0xFFE6E4E8) // Highest elevation
 // Inverse colors for special cases
 val InverseSurfaceLight = Color(0xFF303033) // Dark surface for light theme
 val InverseOnSurfaceLight = Color(0xFFF3F0F4) // Light text on inverse surface
-val InversePrimaryLight = Color(0xFFCBC2FF) // Light primary on dark surface
+val InversePrimaryLight = Color(0xFF2E1E8C) // Light primary on dark surface
 
 // Material Design 3 Color System - Dark Theme
 // Primary color palette based on purple/violet for music app
@@ -97,8 +97,8 @@ val SurfaceContainerHighestDark = Color(0xFF353539) // Highest elevation
 
 // Inverse colors for special cases
 val InverseSurfaceDark = Color(0xFFE5E1E6) // Light surface for dark theme
-val InverseOnSurfaceDark = Color(0xFF303033) // Dark text on inverse surface
-val InversePrimaryDark = Color(0xFF5C4AD5) // Dark primary on light surface
+val InverseOnSurfaceDark = Color(0xFF030338) // Dark text on inverse surface
+val InversePrimaryDark = Color(0xFFE6CFFF) // Dark primary on light surface
 
 // Legacy music-specific colors (for backward compatibility)
 val MusicPrimaryLight = PrimaryLight

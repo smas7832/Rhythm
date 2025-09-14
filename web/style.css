@@ -2,13 +2,13 @@
 
 :root {
   /* Material 3 Inspired Color Palette */
-  --primary: #552ebe;
+  --primary: #292278;
   --on-primary: #FFFFFF;
-  --primary-container: #EADDFF;
+  --primary-container: #f0ddff;
   --on-primary-container: #21005D;
-  --secondary: #6721ff;
+  --secondary: #30216d;
   --on-secondary: #FFFFFF;
-  --secondary-container: #E8DEF8;
+  --secondary-container: #f0def8;
   --on-secondary-container: #1D192B;
   --tertiary: #ffb9d0;
   --on-tertiary: #864848;
@@ -28,15 +28,15 @@
   --shadow: #000000;
   --inverse-surface: #313033;
   --inverse-on-surface: #F4EFF4;
-  --inverse-primary: #D0BCFF;
-  --surface-tint: #6750A4;
+  --inverse-primary: #dfbcff;
+  --surface-tint: #3a10af;
   --ripple: rgba(103, 80, 164, 0.1);
   --surface-hsl: 290, 100%, 99%; /* HSL representation of #FFFBFE */
 
   /* Custom variables mapped to Material 3 */
   --primary-light: var(--primary-container);
-  --primary-dark: #6a00ff;
-  --on-primary-dark: #ddcaff;
+  --primary-dark: #2d1879;
+  --on-primary-dark: #eccaff;
   --accent: var(--secondary);
 
   /* Existing variables adjusted for Material 3 */

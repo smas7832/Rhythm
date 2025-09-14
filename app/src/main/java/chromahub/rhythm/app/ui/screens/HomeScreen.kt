@@ -937,7 +937,7 @@ private fun ModernWelcomeSection(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer
         ),
-        shape = RoundedCornerShape(24.dp)
+        shape = RoundedCornerShape(28.dp)
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
             // Decorative elements in background
@@ -959,7 +959,7 @@ private fun ModernWelcomeSection(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(20.dp) // Reduced padding for more compact design
+                    .padding(24.dp) // Reduced padding for more compact design
             ) {
                 // Main greeting
                 Row(
@@ -995,10 +995,11 @@ private fun ModernWelcomeSection(
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
-                        
+//                        Spacer(modifier = Modifier.height(8.dp))
+
                         Text(
                             text = personalizedMessage,
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
                             modifier = Modifier.padding(top = 2.dp) // Reduced spacing
                         )
@@ -1026,7 +1027,7 @@ private fun ModernWelcomeSection(
 
                 // Quote section with Material 3 Expressive design
                 Surface(
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                    color = MaterialTheme.colorScheme.inversePrimary,
                     shape = RoundedCornerShape(24.dp), // More rounded
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -1056,7 +1057,7 @@ private fun ModernWelcomeSection(
                             text = timeBasedQuote,
                             style = MaterialTheme.typography.bodyLarge, // Larger text for readability
                             fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = MaterialTheme.colorScheme.inverseOnSurface,
                             lineHeight = 22.sp, // Better line height
                             modifier = Modifier.weight(1f)
                         )
