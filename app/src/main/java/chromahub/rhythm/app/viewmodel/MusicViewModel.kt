@@ -1,11 +1,12 @@
 package chromahub.rhythm.app.viewmodel
 
 import android.app.Application
-import android.content.BroadcastReceiver
+
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
+
+import android.os.Build
 import android.media.audiofx.AudioEffect
 import android.net.Uri
 import android.provider.MediaStore
@@ -318,6 +319,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         ARTIST_ASC,
         ARTIST_DESC
     }
+    
+    enum class SleepAction {
+        PAUSE, STOP, FADE_OUT
+    }
 
     init {
         Log.d(TAG, "Initializing MusicViewModel")
@@ -340,8 +345,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 // Start tracking session (async)
                 startListeningTimeTracking()
                 
-                // Register broadcast receiver for sleep timer updates (async)
-                registerSleepTimerReceiver()
+                // Sleep timer initialization removed - now using direct ViewModel state
                 
                 Log.d(TAG, "Async initialization completed")
             } catch (e: Exception) {
@@ -1925,14 +1929,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         controllerFuture?.let { MediaController.releaseFuture(it) }
         audioDeviceManager.cleanup()
         
-        // Unregister sleep timer broadcast receiver
-        try {
-            val context = getApplication<Application>()
-            context.unregisterReceiver(sleepTimerReceiver)
-            Log.d(TAG, "Unregistered sleep timer broadcast receiver")
-        } catch (e: Exception) {
-            Log.w(TAG, "Error unregistering sleep timer receiver", e)
-        }
+        // Clean up sleep timer
+        sleepTimerJob?.cancel()
+        sleepTimerJob = null
         
         super.onCleared()
     }
@@ -3450,45 +3449,50 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         return repository
     }
     
-    // Sleep Timer functionality
-    fun startSleepTimer(durationMs: Long, fadeOut: Boolean = true, pauseOnly: Boolean = false) {
-        val context = getApplication<Application>()
+    // Clean sleep timer functionality
+    fun startSleepTimer(minutes: Int, action: SleepAction) {
+        // Stop any existing timer first
+        stopSleepTimer()
         
-        Log.d(TAG, "Starting sleep timer request: ${durationMs}ms, fadeOut: $fadeOut, pauseOnly: $pauseOnly")
+        val totalSeconds = minutes * 60L
+        _sleepTimerActive.value = true
+        _sleepTimerRemainingSeconds.value = totalSeconds
+        _sleepTimerAction.value = action.name
         
-        if (durationMs <= 0) {
-            Log.e(TAG, "Invalid sleep timer duration: $durationMs")
-            return
-        }
+        Log.d(TAG, "Starting sleep timer: ${minutes} minutes, action: ${action.name}")
         
-        // Ensure service is running first by sending an init intent
-        val initIntent = Intent(context, MediaPlaybackService::class.java).apply {
-            action = MediaPlaybackService.ACTION_INIT_SERVICE
-        }
-        context.startService(initIntent)
-        
-        // Small delay to ensure service is initialized
-        viewModelScope.launch {
-            delay(100) // 100ms delay
+        sleepTimerJob = viewModelScope.launch {
+            var remaining = totalSeconds
             
-            val timerIntent = Intent(context, MediaPlaybackService::class.java).apply {
-                action = MediaPlaybackService.ACTION_START_SLEEP_TIMER
-                putExtra("duration", durationMs)
-                putExtra("fadeOut", fadeOut)
-                putExtra("pauseOnly", pauseOnly)
+            while (remaining > 0 && _sleepTimerActive.value) {
+                delay(1000) // Wait 1 second
+                remaining--
+                _sleepTimerRemainingSeconds.value = remaining
             }
-            context.startService(timerIntent)
-            Log.d(TAG, "Sleep timer service request sent for ${durationMs}ms")
+            
+            // Timer finished, execute action
+            if (_sleepTimerActive.value && remaining <= 0) {
+                Log.d(TAG, "Sleep timer finished, executing action: ${action.name}")
+                
+                when (action) {
+                    SleepAction.FADE_OUT -> fadeOutAndPause()
+                    SleepAction.PAUSE -> pauseMusic()
+                    SleepAction.STOP -> stopMusic()
+                }
+                
+                // Reset timer state
+                _sleepTimerActive.value = false
+                _sleepTimerRemainingSeconds.value = 0L
+            }
         }
     }
     
     fun stopSleepTimer() {
-        val context = getApplication<Application>()
-        val intent = Intent(context, MediaPlaybackService::class.java).apply {
-            action = MediaPlaybackService.ACTION_STOP_SLEEP_TIMER
-        }
-        context.startService(intent)
-        Log.d(TAG, "Stopped sleep timer")
+        Log.d(TAG, "Stopping sleep timer")
+        sleepTimerJob?.cancel()
+        sleepTimerJob = null
+        _sleepTimerActive.value = false
+        _sleepTimerRemainingSeconds.value = 0L
     }
     
     // Equalizer functionality
@@ -3566,38 +3570,18 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         Log.d(TAG, "Applied equalizer preset: $preset")
     }
     
-    // Status getters for sleep timer with service state synchronization
+    // Clean sleep timer implementation
     private val _sleepTimerActive = MutableStateFlow(false)
     val sleepTimerActive: StateFlow<Boolean> = _sleepTimerActive.asStateFlow()
     
-    private val _sleepTimerRemainingTime = MutableStateFlow(0L)
-    val sleepTimerRemainingTime: StateFlow<Long> = _sleepTimerRemainingTime.asStateFlow()
+    private val _sleepTimerRemainingSeconds = MutableStateFlow(0L)
+    val sleepTimerRemainingSeconds: StateFlow<Long> = _sleepTimerRemainingSeconds.asStateFlow()
     
-    // Broadcast receiver for sleep timer status updates from service
-    private val sleepTimerReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            intent?.let { receivedIntent ->
-                when (receivedIntent.action) {
-                    MediaPlaybackService.BROADCAST_SLEEP_TIMER_STATUS -> {
-                        val isActive = receivedIntent.getBooleanExtra(MediaPlaybackService.EXTRA_TIMER_ACTIVE, false)
-                        val remainingTime = receivedIntent.getLongExtra(MediaPlaybackService.EXTRA_REMAINING_TIME, 0L)
-                        
-                        _sleepTimerActive.value = isActive
-                        _sleepTimerRemainingTime.value = remainingTime
-                        
-                        Log.d(TAG, "Sleep timer status updated: active=$isActive, remaining=${remainingTime}ms")
-                    }
-                }
-            }
-        }
-    }
+    private val _sleepTimerAction = MutableStateFlow("FADE_OUT")
+    val sleepTimerAction: StateFlow<String> = _sleepTimerAction.asStateFlow()
     
-    // Register broadcast receiver in init and clean up in onCleared
-    private fun registerSleepTimerReceiver() {
-        val context = getApplication<Application>()
-        val filter = IntentFilter(MediaPlaybackService.BROADCAST_SLEEP_TIMER_STATUS)
-        context.registerReceiver(sleepTimerReceiver, filter)
-        Log.d(TAG, "Registered sleep timer broadcast receiver")
-    }
+    private var sleepTimerJob: kotlinx.coroutines.Job? = null
+    
+    // Sleep timer now uses direct ViewModel state management instead of broadcast receivers
     
 }

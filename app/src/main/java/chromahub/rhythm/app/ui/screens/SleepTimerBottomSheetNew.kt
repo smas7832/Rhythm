@@ -34,6 +34,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import chromahub.rhythm.app.data.Song
 import chromahub.rhythm.app.viewmodel.MusicViewModel
+import chromahub.rhythm.app.viewmodel.MusicViewModel.SleepAction
 import kotlinx.coroutines.delay
 import kotlin.math.cos
 import kotlin.math.sin
@@ -44,9 +45,7 @@ data class SleepTimerOption(
     val icon: ImageVector
 )
 
-enum class SleepAction {
-    PAUSE, STOP, FADE_OUT
-}
+
 
 @Composable
 fun SleepTimerBottomSheetNew(
@@ -58,32 +57,24 @@ fun SleepTimerBottomSheetNew(
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
     
-    // Collect states from settings and service
-    val sleepTimerActiveState by musicViewModel.appSettings.sleepTimerActive.collectAsState()
-    val sleepTimerRemainingSecondsState by musicViewModel.appSettings.sleepTimerRemainingSeconds.collectAsState()
-    val sleepTimerActionState by musicViewModel.appSettings.sleepTimerAction.collectAsState()
+    // Use ViewModel's sleep timer state directly
+    val isTimerActive by musicViewModel.sleepTimerActive.collectAsState()
+    val remainingSeconds by musicViewModel.sleepTimerRemainingSeconds.collectAsState()
+    val timerAction by musicViewModel.sleepTimerAction.collectAsState()
     val serviceConnected by musicViewModel.serviceConnected.collectAsState()
     
-    // Local states
-    var isTimerActive by remember(sleepTimerActiveState) { mutableStateOf(sleepTimerActiveState) }
-    var remainingSeconds by remember(sleepTimerRemainingSecondsState) { mutableLongStateOf(sleepTimerRemainingSecondsState) }
-    var totalTimerDuration by remember { mutableLongStateOf(if (sleepTimerActiveState) sleepTimerRemainingSecondsState else 0L) } // Track initial duration for progress calculation
-    var selectedAction by remember(sleepTimerActionState) { 
-        mutableStateOf(
-            try { 
-                SleepAction.valueOf(sleepTimerActionState) 
-            } catch (e: Exception) { 
-                SleepAction.FADE_OUT 
-            }
-        ) 
+    // Local UI states
+    var selectedAction by remember { mutableStateOf(SleepAction.valueOf(timerAction.takeIf { it.isNotBlank() } ?: "FADE_OUT")) }
+    var totalTimerDuration by remember(isTimerActive, remainingSeconds) { 
+        mutableLongStateOf(if (isTimerActive && remainingSeconds > 0) remainingSeconds else 0L) 
     }
     
-    // Initialize totalTimerDuration for existing active timers
-    LaunchedEffect(sleepTimerActiveState) {
-        if (sleepTimerActiveState && totalTimerDuration == 0L) {
-            // If timer is active but we don't have duration, estimate from current remaining
-            // This handles cases where the app was restarted with an active timer
+    // Update total duration when timer starts
+    LaunchedEffect(isTimerActive, remainingSeconds) {
+        if (isTimerActive && totalTimerDuration == 0L && remainingSeconds > 0) {
             totalTimerDuration = remainingSeconds
+        } else if (!isTimerActive) {
+            totalTimerDuration = 0L
         }
     }
     
@@ -126,59 +117,21 @@ fun SleepTimerBottomSheetNew(
         Triple(SleepAction.STOP, "Stop", Icons.Rounded.Stop)
     )
     
-    // Timer effect
-    LaunchedEffect(isTimerActive, remainingSeconds) {
-        if (isTimerActive && remainingSeconds > 0) {
-            delay(1000)
-            val newRemainingSeconds = remainingSeconds - 1
-            remainingSeconds = newRemainingSeconds
-            musicViewModel.appSettings.setSleepTimerRemainingSeconds(newRemainingSeconds)
-            
-            if (newRemainingSeconds <= 0) {
-                isTimerActive = false
-                musicViewModel.appSettings.setSleepTimerActive(false)
-                musicViewModel.appSettings.setSleepTimerRemainingSeconds(0L)
-                
-                // Execute action
-                when (selectedAction) {
-                    SleepAction.FADE_OUT -> musicViewModel.fadeOutAndPause()
-                    SleepAction.PAUSE -> musicViewModel.pauseMusic()
-                    SleepAction.STOP -> musicViewModel.stopMusic()
-                }
-            }
-        }
-    }
-    
-    // Functions
+    // Clean timer functions
     fun startTimer(minutes: Int) {
-        // Check if music is playing and service is connected before starting timer
         if (!isPlaying || !serviceConnected || currentSong == null) {
             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-            // Don't start timer - let the UI show the disabled state
             return
         }
         
         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-        val totalSeconds = minutes * 60L
-        remainingSeconds = totalSeconds
-        totalTimerDuration = totalSeconds // Store initial duration for progress calculation
-        isTimerActive = true
-        
-        // Save to settings
-        musicViewModel.appSettings.setSleepTimerActive(true)
-        musicViewModel.appSettings.setSleepTimerRemainingSeconds(totalSeconds)
-        musicViewModel.appSettings.setSleepTimerAction(selectedAction.name)
+        totalTimerDuration = minutes * 60L
+        musicViewModel.startSleepTimer(minutes, selectedAction)
     }
     
     fun stopTimer() {
-        isTimerActive = false
-        remainingSeconds = 0L
-        totalTimerDuration = 0L
         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-        
-        // Save to settings
-        musicViewModel.appSettings.setSleepTimerActive(false)
-        musicViewModel.appSettings.setSleepTimerRemainingSeconds(0L)
+        musicViewModel.stopSleepTimer()
     }
     
     // State for Material 3 TimePicker dialog

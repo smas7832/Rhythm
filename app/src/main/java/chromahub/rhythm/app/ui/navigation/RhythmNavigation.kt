@@ -82,7 +82,7 @@ import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.ui.screens.AppUpdaterScreen
 import chromahub.rhythm.app.ui.screens.LibraryScreen
 import chromahub.rhythm.app.ui.components.RhythmIcons.Delete
-import chromahub.rhythm.app.ui.screens.NewHomeScreen
+import chromahub.rhythm.app.ui.screens.HomeScreen
 import chromahub.rhythm.app.ui.screens.PlayerScreen
 import chromahub.rhythm.app.ui.screens.PlaylistDetailScreen
 import chromahub.rhythm.app.ui.screens.SearchScreen
@@ -628,7 +628,7 @@ fun RhythmNavigation(
                         fadeOut(animationSpec = tween(200))
                     }
                 ) {
-                    NewHomeScreen(
+                    HomeScreen(
                         songs = songs,
                         albums = albums,
                         artists = artists,
