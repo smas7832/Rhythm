@@ -1,8 +1,15 @@
 package chromahub.rhythm.app.ui.screens
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
 import android.provider.MediaStore
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -13,6 +20,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,8 +34,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import chromahub.rhythm.app.data.Song
 import chromahub.rhythm.app.data.AppSettings
 import chromahub.rhythm.app.ui.components.M3PlaceholderType
@@ -606,6 +613,7 @@ private fun EditSongSheet(
     onDismiss: () -> Unit,
     onSave: (title: String, artist: String, album: String, genre: String, year: Int, trackNumber: Int) -> Unit
 ) {
+    val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var title by remember { mutableStateOf(song.title) }
     var artist by remember { mutableStateOf(song.artist) }
@@ -613,8 +621,109 @@ private fun EditSongSheet(
     var genre by remember { mutableStateOf(song.genre ?: "") }
     var year by remember { mutableStateOf(if (song.year > 0) song.year.toString() else "") }
     var trackNumber by remember { mutableStateOf(if (song.trackNumber > 0) song.trackNumber.toString() else "") }
+    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
     val haptics = LocalHapticFeedback.current
+    var showPermissionDialog by remember { mutableStateOf(false) }
+    var showWarningDialog by remember { mutableStateOf(false) }
+    var showImagePicker by remember { mutableStateOf(false) }
     
+    // Permission launchers for different scenarios
+    val storagePermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+//            proceedWithSave(title, artist, album, genre, year, trackNumber, selectedImageUri, onSave)
+        } else {
+            Toast.makeText(
+                context, 
+                "Storage permission is required to edit audio file metadata", 
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+    
+    // Multiple permissions launcher for Android 13+
+    val multiplePermissionsLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val allGranted = permissions.values.all { it }
+        if (allGranted) {
+//            proceedWithSave(title, artist, album, genre, year, trackNumber, selectedImageUri, onSave)
+        } else {
+            Toast.makeText(
+                context,
+                "Media permissions are required to edit audio file metadata",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+    
+    // Image picker launcher
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        selectedImageUri = uri
+    }
+    
+    // Function to handle save with permission checks
+    fun handleSave() {
+        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        showWarningDialog = true
+    }
+    
+    fun proceedAfterWarning() {
+        when {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> {
+                // Android 13+ - Request media permissions
+                multiplePermissionsLauncher.launch(
+                    arrayOf(
+                        Manifest.permission.READ_MEDIA_AUDIO,
+                        Manifest.permission.READ_MEDIA_IMAGES
+                    )
+                )
+            }
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.R -> {
+                // Android 11-12 - Use scoped storage
+//                proceedWithSave(title, artist, album, genre, year, trackNumber, selectedImageUri, onSave)
+            }
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> {
+                // Android 10 - Scoped storage but may need some permissions
+//                proceedWithSave(title, artist, album, genre, year, trackNumber, selectedImageUri, onSave)
+            }
+            else -> {
+                // Android 9 and below - Request write permission
+                val hasWritePermission = ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE
+                ) == PackageManager.PERMISSION_GRANTED
+                
+                if (hasWritePermission) {
+//                    proceedWithSave(title, artist, album, genre, year, trackNumber, selectedImageUri, onSave)
+                } else {
+                    storagePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                }
+            }
+        }
+    }
+
+    // Function to proceed with saving after permissions are granted
+    fun proceedWithSave(
+        title: String, artist: String, album: String, genre: String, 
+        year: String, trackNumber: String, imageUri: Uri?, 
+        onSave: (String, String, String, String, Int, Int) -> Unit
+    ) {
+        val yearInt = year.toIntOrNull() ?: 0
+        val trackInt = trackNumber.toIntOrNull() ?: 0
+        
+        // For now, we'll pass the basic metadata. The artwork handling will be added later
+        onSave(title.trim(), artist.trim(), album.trim(), genre.trim(), yearInt, trackInt)
+        
+        // TODO: Handle artwork saving separately if imageUri is not null
+        if (imageUri != null) {
+            Toast.makeText(context, "Artwork editing coming soon!", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -638,6 +747,86 @@ private fun EditSongSheet(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
             )
+            
+            // Artwork section
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                ),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Album Artwork",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    // Current artwork display
+                    Card(
+                        modifier = Modifier.size(120.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .data(selectedImageUri ?: song.artworkUri)
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = "Album artwork",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                            // Show fallback icon if no image
+                            if (selectedImageUri == null && (song.artworkUri == null || song.artworkUri.toString().isEmpty())) {
+                                Icon(
+                                    imageVector = Icons.Rounded.MusicNote,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(48.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                )
+                            }
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    // Change artwork button
+                    OutlinedButton(
+                        onClick = { 
+                            imagePickerLauncher.launch("image/*")
+                        },
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Image,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Change Artwork")
+                    }
+                    
+                    if (selectedImageUri != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        TextButton(
+                            onClick = { selectedImageUri = null }
+                        ) {
+                            Text("Remove New Artwork")
+                        }
+                    }
+                }
+            }
             
             // Title field
             OutlinedTextField(
@@ -761,22 +950,126 @@ private fun EditSongSheet(
                 }
                 
                 Button(
-                    onClick = {
-                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                        val yearInt = year.toIntOrNull() ?: 0
-                        val trackInt = trackNumber.toIntOrNull() ?: 0
-                        onSave(title.trim(), artist.trim(), album.trim(), genre.trim(), yearInt, trackInt)
-                    },
+                    onClick = { handleSave() },
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(16.dp),
                     enabled = title.isNotBlank() && artist.isNotBlank()
                 ) {
-                    Text("Save")
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Save,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Save Changes")
+                    }
                 }
             }
             
             Spacer(modifier = Modifier.height(8.dp))
         }
+    }
+    
+    // Warning Dialog
+    if (showWarningDialog) {
+        AlertDialog(
+            onDismissRequest = { showWarningDialog = false },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Warning,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Irreversible Changes")
+                }
+            },
+            text = {
+                Column {
+                    Text(
+                        "The changes you're about to make will permanently modify the audio file's metadata.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "This action cannot be undone. Make sure you have a backup if needed.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showWarningDialog = false
+                        proceedAfterWarning()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Proceed")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showWarningDialog = false }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+    
+    // Permission confirmation dialog for Android 10+
+    if (showPermissionDialog) {
+        AlertDialog(
+            onDismissRequest = { showPermissionDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Rounded.Security,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            },
+            title = {
+                Text("Media Access Required")
+            },
+            text = {
+                Text(
+                    text = "Rhythm needs permission to modify this audio file's metadata. You may see a system dialog asking for access - please allow it to save your changes.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showPermissionDialog = false
+                        val yearInt = year.toIntOrNull() ?: 0
+                        val trackInt = trackNumber.toIntOrNull() ?: 0
+                        onSave(title.trim(), artist.trim(), album.trim(), genre.trim(), yearInt, trackInt)
+                    }
+                ) {
+                    Text("Continue")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showPermissionDialog = false }
+                ) {
+                    Text("Cancel")
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            shape = RoundedCornerShape(16.dp)
+        )
     }
 }
 

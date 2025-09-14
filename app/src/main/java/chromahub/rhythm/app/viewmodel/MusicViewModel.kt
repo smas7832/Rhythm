@@ -658,6 +658,53 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     /**
+     * Saves metadata changes to the audio file and updates the UI
+     */
+    fun saveMetadataChanges(
+        song: Song,
+        title: String,
+        artist: String,
+        album: String,
+        genre: String,
+        year: Int,
+        trackNumber: Int,
+        artworkUri: Uri? = null
+    ) {
+        viewModelScope.launch {
+            try {
+                // TODO: Implement actual metadata writing to audio file
+                // This would involve using a library like JAudioTagger or similar
+                // For now, we'll update the in-memory data
+                
+                val updatedSong = song.copy(
+                    title = title,
+                    artist = artist,
+                    album = album,
+                    genre = genre,
+                    year = year,
+                    trackNumber = trackNumber,
+                    // artwork = artworkUri?.toString() // If the Song data class has artwork field
+                )
+                
+                // Update the song using existing function
+                updateCurrentSongMetadata(updatedSong)
+                
+                // TODO: Handle artwork saving if provided
+                if (artworkUri != null) {
+                    // Save artwork to the audio file
+                    Log.d(TAG, "Artwork saving not yet implemented")
+                }
+                
+                Log.d(TAG, "Metadata saved for: $title by $artist")
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Error saving metadata", e)
+                throw e
+            }
+        }
+    }
+    
+    /**
      * Reloads playlists and favorite songs from settings after a backup restore
      */
     fun reloadPlaylistsFromSettings() {

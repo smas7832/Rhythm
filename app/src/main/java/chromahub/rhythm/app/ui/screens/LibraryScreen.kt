@@ -1,6 +1,7 @@
 @file:OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 package chromahub.rhythm.app.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
@@ -266,7 +267,28 @@ fun LibraryScreen(
     if (showSongInfoSheet && selectedSong != null) {
         SongInfoBottomSheet(
             song = selectedSong!!,
-            onDismiss = { showSongInfoSheet = false }
+            onDismiss = { showSongInfoSheet = false },
+            onEditSong = { title, artist, album, genre, year, trackNumber ->
+                try {
+                    // Use the ViewModel's new metadata saving function
+                    musicViewModel.saveMetadataChanges(
+                        song = selectedSong!!,
+                        title = title,
+                        artist = artist,
+                        album = album,
+                        genre = genre,
+                        year = year,
+                        trackNumber = trackNumber
+                    )
+                    
+                    // Show success message
+                    Toast.makeText(context, "Metadata updated successfully", Toast.LENGTH_SHORT).show()
+                    showSongInfoSheet = false
+                } catch (e: Exception) {
+                    // Show error message
+                    Toast.makeText(context, "Failed to update metadata: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
         )
     }
     

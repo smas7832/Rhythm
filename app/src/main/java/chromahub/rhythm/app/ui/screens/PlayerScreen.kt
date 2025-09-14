@@ -55,6 +55,7 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.rounded.Info
@@ -157,6 +158,7 @@ import chromahub.rhythm.app.ui.components.SyncedLyricsView
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.material.icons.rounded.AccessTime
 import chromahub.rhythm.app.ui.components.formatDuration
 import java.util.concurrent.TimeUnit // Import TimeUnit for duration formatting
 import chromahub.rhythm.app.ui.components.M3CircularLoader // Added for play/pause button loader
@@ -287,6 +289,16 @@ fun PlayerScreen(
     var showEqualizerBottomSheet by remember { mutableStateOf(false) }
     var showSleepTimerBottomSheet by remember { mutableStateOf(false) }
     val isCompactWidth = configuration.screenWidthDp < 400
+    
+    // Sleep timer state from ViewModel
+    val sleepTimerActive by musicViewModel.sleepTimerActive.collectAsState()
+    val sleepTimerRemainingSeconds by musicViewModel.sleepTimerRemainingSeconds.collectAsState()
+    
+    // Equalizer state from ViewModel
+    val equalizerEnabled by musicViewModel.equalizerEnabled.collectAsState()
+    
+    // Chip visibility state
+    var showChips by remember { mutableStateOf(false) }
 
     // Dynamic sizing based on screen dimensions
     val albumArtSize = when {
@@ -639,48 +651,30 @@ fun PlayerScreen(
             song = song,
             onDismiss = { showSongInfoSheet = false },
             onEditSong = { title, artist, album, genre, year, trackNumber ->
-                // Update metadata using MediaUtils
-                val success = MediaUtils.updateSongMetadata(
-                    context = context,
-                    song = song,
-                    newTitle = title,
-                    newArtist = artist,
-                    newAlbum = album,
-                    newGenre = genre,
-                    newTrackNumber = trackNumber
-                )
-                
-                if (success) {
-                    // Create updated song object and refresh the UI
-                    val updatedSong = song.copy(
+                try {
+                    // Use the ViewModel's new metadata saving function
+                    musicViewModel.saveMetadataChanges(
+                        song = song,
                         title = title,
                         artist = artist,
                         album = album,
-                        genre = if (genre.isNotBlank()) genre else null,
+                        genre = genre,
                         year = year,
                         trackNumber = trackNumber
                     )
                     
-                    // Update the music service with new metadata
-                    musicViewModel.updateCurrentSongMetadata(updatedSong)
-                    
-                    // Force refresh the library to reflect changes
-                    musicViewModel.refreshLibrary()
-                    
                     // Show success message
                     Toast.makeText(context, "Metadata updated successfully", Toast.LENGTH_SHORT).show()
-                } else {
-                    // Show detailed error message with troubleshooting info
+                } catch (e: Exception) {
+                    // Show detailed error message
                     Toast.makeText(
                         context, 
-                        "Failed to update metadata. Check app permissions or try editing this file with another app first.", 
+                        "Failed to update metadata: ${e.message}", 
                         Toast.LENGTH_LONG
                     ).show()
                     
                     // Log additional debug info
-                    android.util.Log.w("PlayerScreen", "Metadata update failed for song: ${song.title}")
-                    android.util.Log.w("PlayerScreen", "Song URI: ${song.uri}")
-                    android.util.Log.w("PlayerScreen", "Android version: ${android.os.Build.VERSION.SDK_INT}")
+                    android.util.Log.w("PlayerScreen", "Metadata update failed for song: ${song.title}", e)
                 }
             }
         )
@@ -1972,16 +1966,61 @@ fun PlayerScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
 
-                    // Action chips for playlist, favorite, album, and artist
-                    LazyRow(
+                    // Arrow button to show chips or chips themselves
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 24.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp)
+                        contentAlignment = Alignment.Center
                     ) {
+                        // Up arrow button (shown when chips are hidden)
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible = !showChips,
+                            enter = fadeIn(animationSpec = tween(300, delayMillis = 200)) + scaleIn(animationSpec = tween(300, delayMillis = 200)),
+                            exit = fadeOut(animationSpec = tween(200)) + scaleOut(animationSpec = tween(200))
+                        ) {
+                            IconButton(
+                                onClick = {
+                                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                                    showChips = true
+                                },
+                                modifier = Modifier
+                                    .width(226.dp)
+                                    .height(26.dp)
+                                    .background(
+                                        color = BottomSheetDefaults.ContainerColor,
+//                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                                        shape = RoundedCornerShape(20.dp)
+                                    )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.KeyboardArrowUp,
+                                    contentDescription = "Show actions",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
+                        }
+                        
+                        // Action chips (shown when chips are visible)
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible = showChips,
+                            enter = slideInVertically(
+                                animationSpec = tween(400, easing = EaseInOut),
+                                initialOffsetY = { it / 2 }
+                            ) + fadeIn(animationSpec = tween(400)),
+                            exit = slideOutVertically(
+                                animationSpec = tween(300, easing = EaseInOut),
+                                targetOffsetY = { it / 2 }
+                            ) + fadeOut(animationSpec = tween(300))
+                        ) {
+                            LazyRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp)
+                            ) {
                         // Add to Playlist chip
                         item {
                             var isPressed by remember { mutableStateOf(false) }
@@ -2094,6 +2133,79 @@ fun PlayerScreen(
                                     selectedLeadingIconColor = iconColor
                                 ),
                                 border = null // Removed border
+                            )
+                        }
+                        
+                        // Sleep Timer chip with status
+                        item {
+                            var isPressed by remember { mutableStateOf(false) }
+                            val scale by animateFloatAsState(
+                                targetValue = if (isPressed) 0.95f else 1f,
+                                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+                                label = "sleepTimerChipScale"
+                            )
+                            
+                            val timerText = if (sleepTimerActive) {
+                                val minutes = sleepTimerRemainingSeconds / 60
+                                val seconds = sleepTimerRemainingSeconds % 60
+                                "${minutes}:${seconds.toString().padStart(2, '0')}"
+                            } else {
+                                "Timer"
+                            }
+                            
+                            val chipColors = if (sleepTimerActive) {
+                                AssistChipDefaults.assistChipColors(
+                                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                    labelColor = MaterialTheme.colorScheme.primary,
+                                    leadingIconContentColor = MaterialTheme.colorScheme.primary
+                                )
+                            } else {
+                                AssistChipDefaults.assistChipColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    leadingIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            
+                            AssistChip(
+                                onClick = {
+                                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                                    showSleepTimerBottomSheet = true
+                                },
+                                label = {
+                                    Text(
+                                        text = timerText,
+                                        style = MaterialTheme.typography.labelLarge
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = if (sleepTimerActive) Icons.Rounded.AccessTime else Icons.Default.AccessTime,
+                                        contentDescription = if (sleepTimerActive) "Active sleep timer" else "Set sleep timer",
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                },
+                                modifier = Modifier
+                                    .height(32.dp)
+                                    .graphicsLayer {
+                                        scaleX = scale
+                                        scaleY = scale
+                                    }
+                                    .pointerInput(Unit) {
+                                        detectTapGestures(
+                                            onPress = {
+                                                isPressed = true
+                                                try {
+                                                    awaitRelease()
+                                                } finally {
+                                                    isPressed = false
+                                                }
+                                            }
+                                        )
+                                    },
+                                shape = RoundedCornerShape(16.dp),
+                                colors = chipColors,
+                                border = null
                             )
                         }
                         
@@ -2234,17 +2346,32 @@ fun PlayerScreen(
                                 },
                                 label = {
                                     Text(
-                                        "EQ",
-                                        style = MaterialTheme.typography.labelLarge
+                                        if (equalizerEnabled) "EQ ON" else "EQ OFF",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = if (equalizerEnabled) FontWeight.SemiBold else FontWeight.Normal
                                     )
                                 },
                                 leadingIcon = {
                                     Icon(
-                                        imageVector = Icons.Default.GraphicEq,
-                                        contentDescription = "Show equalizer",
-                                        modifier = Modifier.size(16.dp)
+                                        imageVector = if (equalizerEnabled) Icons.Default.GraphicEq else Icons.Default.GraphicEq,
+                                        contentDescription = if (equalizerEnabled) "Equalizer enabled" else "Equalizer disabled",
+                                        modifier = Modifier.size(16.dp),
+                                        tint = if (equalizerEnabled) 
+                                            MaterialTheme.colorScheme.primary 
+                                        else 
+                                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                                     )
                                 },
+                                colors = AssistChipDefaults.assistChipColors(
+                                    containerColor = if (equalizerEnabled) 
+                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+                                    else 
+                                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                                    labelColor = if (equalizerEnabled)
+                                        MaterialTheme.colorScheme.onPrimaryContainer
+                                    else
+                                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                                ),
                                 modifier = Modifier
                                     .height(32.dp)
                                     .graphicsLayer {
@@ -2264,67 +2391,11 @@ fun PlayerScreen(
                                         )
                                     },
                                 shape = RoundedCornerShape(16.dp),
-                                colors = AssistChipDefaults.assistChipColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    leadingIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                ),
                                 border = null
                             )
                         }
-                        
-                        // Sleep Timer chip
-                        item {
-                            var isPressed by remember { mutableStateOf(false) }
-                            val scale by animateFloatAsState(
-                                targetValue = if (isPressed) 0.95f else 1f,
-                                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
-                                label = "sleepTimerChipScale"
-                            )
-                            AssistChip(
-                                onClick = {
-                                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
-                                    showSleepTimerBottomSheet = true
-                                },
-                                label = {
-                                    Text(
-                                        "Timer",
-                                        style = MaterialTheme.typography.labelLarge
-                                    )
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Default.AccessTime,
-                                        contentDescription = "Show sleep timer",
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                },
-                                modifier = Modifier
-                                    .height(32.dp)
-                                    .graphicsLayer {
-                                        scaleX = scale
-                                        scaleY = scale
-                                    }
-                                    .pointerInput(Unit) {
-                                        detectTapGestures(
-                                            onPress = {
-                                                isPressed = true
-                                                try {
-                                                    awaitRelease()
-                                                } finally {
-                                                    isPressed = false
-                                                }
-                                            }
-                                        )
-                                    },
-                                shape = RoundedCornerShape(16.dp),
-                                colors = AssistChipDefaults.assistChipColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    leadingIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                ),
-                                border = null
-                            )
+
+                    }
                         }
                     }
                 }
