@@ -128,142 +128,126 @@ fun AddToPlaylistBottomSheet(
                 .fillMaxWidth()
                 .padding(bottom = 24.dp)
         ) {
-            // Header with song info
+            // Header with title and song info
             AnimatedVisibility(
                 visible = showContent,
-                enter = fadeIn() + slideInVertically { -it },
-                exit = fadeOut() + slideOutVertically { -it }
+                enter = fadeIn() + slideInVertically { it },
+                exit = fadeOut() + slideOutVertically { it }
             ) {
-                SongHeaderCard(song = song)
+                AddToPlaylistHeader(
+                    song = song,
+                    totalPlaylists = playlists.size
+                )
             }
             
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            // Add to playlist section header
-//            Row(
-//                modifier = Modifier
-//                    .fillMaxWidth()
-//                    .padding(horizontal = 24.dp)
-//                    .graphicsLayer {
-//                        alpha = contentAlpha
-//                        translationY = contentTranslation
-//                    },
-//                verticalAlignment = Alignment.CenterVertically
-//            ) {
-//                Text(
-//                    text = "ADD TO PLAYLIST",
-//                    style = MaterialTheme.typography.titleSmall,
-//                    fontWeight = FontWeight.Bold,
-//                    color = MaterialTheme.colorScheme.primary
-//                )
-//
-//                Spacer(modifier = Modifier.width(8.dp))
-//
-//                HorizontalDivider(
-//                    modifier = Modifier
-//                        .weight(1f)
-//                        .padding(horizontal = 8.dp),
-//                    thickness = 1.dp,
-//                    color = MaterialTheme.colorScheme.outlineVariant
-//                )
-//            }
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Create new playlist button
-            CreateNewPlaylistCard(
-                onClick = {
-                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
-                    scope.launch { sheetState.hide() }.invokeOnCompletion {
-                        if (!sheetState.isVisible) {
-                            onCreateNewPlaylist()
-                        }
-                    }
-                },
-                modifier = Modifier.graphicsLayer {
-                    alpha = contentAlpha
-                    translationY = contentTranslation
-                }
-            )
-
-            if (playlists.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(20.dp))
-                
-                // Playlists header
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp)
-                        .graphicsLayer {
-                            alpha = contentAlpha
-                            translationY = contentTranslation
-                        },
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "YOUR PLAYLISTS",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    
-                    Spacer(modifier = Modifier.width(8.dp))
-                    
-                    HorizontalDivider(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(horizontal = 8.dp),
-                        thickness = 1.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant
-                    )
-                    
-                    Text(
-                        text = "${playlists.size}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier
-                            .background(
-                                color = MaterialTheme.colorScheme.surfaceVariant,
-                                shape = CircleShape
-                            )
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
-                }
-                
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // List of existing playlists
-                LazyColumn(
-                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.graphicsLayer {
-                        alpha = contentAlpha
-                        translationY = contentTranslation
-                    }
-                ) {
-                    items(playlists) { playlist ->
-                        PlaylistCard(
-                            playlist = playlist,
-                            onClick = {
-                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
-                                scope.launch { sheetState.hide() }.invokeOnCompletion {
-                                    if (!sheetState.isVisible) {
-                                        onAddToPlaylist(playlist)
-                                    }
-                                }
+            AnimatedVisibility(
+                visible = showContent,
+                enter = fadeIn() + slideInVertically { it },
+                exit = fadeOut() + slideOutVertically { it }
+            ) {
+                CreateNewPlaylistCard(
+                    onClick = {
+                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                        scope.launch { sheetState.hide() }.invokeOnCompletion {
+                            if (!sheetState.isVisible) {
+                                onCreateNewPlaylist()
                             }
-                        )
-                    }
-                }
-            } else {
-                // Empty state
-                EmptyPlaylistsState(
-                    modifier = Modifier.graphicsLayer {
-                        alpha = contentAlpha
-                        translationY = contentTranslation
+                        }
                     }
                 )
             }
+
+            if (playlists.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Playlists section
+                AnimatedVisibility(
+                    visible = showContent,
+                    enter = fadeIn() + slideInVertically { it },
+                    exit = fadeOut() + slideOutVertically { it }
+                ) {
+                    Column {
+                        // List of existing playlists
+                        LazyColumn(
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(playlists) { playlist ->
+                                PlaylistCard(
+                                    playlist = playlist,
+                                    onClick = {
+                                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                                        scope.launch { sheetState.hide() }.invokeOnCompletion {
+                                            if (!sheetState.isVisible) {
+                                                onAddToPlaylist(playlist)
+                                            }
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Empty state
+                AnimatedVisibility(
+                    visible = showContent,
+                    enter = fadeIn() + slideInVertically { it },
+                    exit = fadeOut() + slideOutVertically { it }
+                ) {
+                    EmptyPlaylistsState()
+                }
+            }
         }
+    }
+}
+
+@Composable
+private fun AddToPlaylistHeader(
+    song: Song,
+    totalPlaylists: Int,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Title and count
+        Column {
+            Text(
+                text = "Add to Playlists",
+                style = MaterialTheme.typography.displayMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            if (totalPlaylists > 0) {
+                Text(
+                    text = "$totalPlaylists playlists",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier
+                        .background(
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            shape = CircleShape
+                        )
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(18.dp))
+        
+        // Song info card
+        SongHeaderCard(song = song)
+        }
+        
+
     }
 }
 

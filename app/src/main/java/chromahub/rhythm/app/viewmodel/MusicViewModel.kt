@@ -2476,13 +2476,15 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     /**
-     * Fetches lyrics for the current song if settings allow
+     * Fetches lyrics for the current song if settings allow, with automatic retry logic
      */
-    private fun fetchLyricsForCurrentSong() {
+    private fun fetchLyricsForCurrentSong(retryCount: Int = 0) {
         val song = currentSong.value ?: return
         
-        // Clear current lyrics first
-        _currentLyrics.value = null
+        // Clear current lyrics first only on initial attempt
+        if (retryCount == 0) {
+            _currentLyrics.value = null
+        }
         
         // Check if lyrics are enabled
         if (!showLyrics.value) {
@@ -2500,13 +2502,40 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val lyricsData = repository.fetchLyrics(song.artist, song.title)
                 _currentLyrics.value = lyricsData
+                Log.d(TAG, "Successfully fetched lyrics for: ${song.artist} - ${song.title}")
             } catch (e: Exception) {
-                Log.e(TAG, "Error fetching lyrics", e)
-                _currentLyrics.value = LyricsData("Error fetching lyrics", null)
+                Log.e(TAG, "Error fetching lyrics (attempt ${retryCount + 1})", e)
+                
+                // Retry logic - try up to 2 more times with exponential backoff
+                if (retryCount < 2) {
+                    val delayMs = (1000 * (retryCount + 1)).toLong() // 1s, 2s delays
+                    Log.d(TAG, "Retrying lyrics fetch in ${delayMs}ms...")
+                    delay(delayMs)
+                    
+                    // Check if the song is still the same before retrying
+                    if (currentSong.value?.id == song.id) {
+                        fetchLyricsForCurrentSong(retryCount + 1)
+                        return@launch
+                    } else {
+                        Log.d(TAG, "Song changed during retry, cancelling lyrics fetch")
+                    }
+                } else {
+                    // All retries failed
+                    Log.w(TAG, "Failed to fetch lyrics after ${retryCount + 1} attempts")
+                    _currentLyrics.value = LyricsData("Unable to load lyrics. Tap to retry.", null)
+                }
             } finally {
                 _isLoadingLyrics.value = false
             }
         }
+    }
+    
+    /**
+     * Manually retry fetching lyrics for the current song
+     */
+    fun retryFetchLyrics() {
+        Log.d(TAG, "Manual retry of lyrics fetch requested")
+        fetchLyricsForCurrentSong(0)
     }
 
     fun setVolume(newVolume: Float) {

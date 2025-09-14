@@ -2135,7 +2135,71 @@ fun PlayerScreen(
                                 border = null // Removed border
                             )
                         }
-                        
+
+                                // Equalizer chip
+                                item {
+                                    var isPressed by remember { mutableStateOf(false) }
+                                    val scale by animateFloatAsState(
+                                        targetValue = if (isPressed) 0.95f else 1f,
+                                        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+                                        label = "equalizerChipScale"
+                                    )
+                                    AssistChip(
+                                        onClick = {
+                                            HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                                            showEqualizerBottomSheet = true
+                                        },
+                                        label = {
+                                            Text(
+                                                if (equalizerEnabled) "EQ ON" else "EQ OFF",
+                                                style = MaterialTheme.typography.labelLarge,
+                                                fontWeight = if (equalizerEnabled) FontWeight.SemiBold else FontWeight.Normal
+                                            )
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = if (equalizerEnabled) Icons.Default.GraphicEq else Icons.Default.GraphicEq,
+                                                contentDescription = if (equalizerEnabled) "Equalizer enabled" else "Equalizer disabled",
+                                                modifier = Modifier.size(16.dp),
+                                                tint = if (equalizerEnabled)
+                                                    MaterialTheme.colorScheme.primary
+                                                else
+                                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                            )
+                                        },
+                                        colors = AssistChipDefaults.assistChipColors(
+                                            containerColor = if (equalizerEnabled)
+                                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+                                            else
+                                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                                            labelColor = if (equalizerEnabled)
+                                                MaterialTheme.colorScheme.onPrimaryContainer
+                                            else
+                                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                                        ),
+                                        modifier = Modifier
+                                            .height(32.dp)
+                                            .graphicsLayer {
+                                                scaleX = scale
+                                                scaleY = scale
+                                            }
+                                            .pointerInput(Unit) {
+                                                detectTapGestures(
+                                                    onPress = {
+                                                        isPressed = true
+                                                        try {
+                                                            awaitRelease()
+                                                        } finally {
+                                                            isPressed = false
+                                                        }
+                                                    }
+                                                )
+                                            },
+                                        shape = RoundedCornerShape(16.dp),
+                                        border = null
+                                    )
+                                }
+
                         // Sleep Timer chip with status
                         item {
                             var isPressed by remember { mutableStateOf(false) }
@@ -2328,70 +2392,6 @@ fun PlayerScreen(
                                     leadingIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant
                                 ),
                                 border = null // Removed border
-                            )
-                        }
-                        
-                        // Equalizer chip
-                        item {
-                            var isPressed by remember { mutableStateOf(false) }
-                            val scale by animateFloatAsState(
-                                targetValue = if (isPressed) 0.95f else 1f,
-                                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
-                                label = "equalizerChipScale"
-                            )
-                            AssistChip(
-                                onClick = {
-                                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
-                                    showEqualizerBottomSheet = true
-                                },
-                                label = {
-                                    Text(
-                                        if (equalizerEnabled) "EQ ON" else "EQ OFF",
-                                        style = MaterialTheme.typography.labelLarge,
-                                        fontWeight = if (equalizerEnabled) FontWeight.SemiBold else FontWeight.Normal
-                                    )
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = if (equalizerEnabled) Icons.Default.GraphicEq else Icons.Default.GraphicEq,
-                                        contentDescription = if (equalizerEnabled) "Equalizer enabled" else "Equalizer disabled",
-                                        modifier = Modifier.size(16.dp),
-                                        tint = if (equalizerEnabled) 
-                                            MaterialTheme.colorScheme.primary 
-                                        else 
-                                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                    )
-                                },
-                                colors = AssistChipDefaults.assistChipColors(
-                                    containerColor = if (equalizerEnabled) 
-                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
-                                    else 
-                                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
-                                    labelColor = if (equalizerEnabled)
-                                        MaterialTheme.colorScheme.onPrimaryContainer
-                                    else
-                                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-                                ),
-                                modifier = Modifier
-                                    .height(32.dp)
-                                    .graphicsLayer {
-                                        scaleX = scale
-                                        scaleY = scale
-                                    }
-                                    .pointerInput(Unit) {
-                                        detectTapGestures(
-                                            onPress = {
-                                                isPressed = true
-                                                try {
-                                                    awaitRelease()
-                                                } finally {
-                                                    isPressed = false
-                                                }
-                                            }
-                                        )
-                                    },
-                                shape = RoundedCornerShape(16.dp),
-                                border = null
                             )
                         }
 

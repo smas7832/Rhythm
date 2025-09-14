@@ -642,17 +642,17 @@ fun SettingsScreen(
                 // )
                 // SettingsDivider()
 
-                val artistCollaborationMode by appSettings.artistCollaborationMode.collectAsState()
+                // val artistCollaborationMode by appSettings.artistCollaborationMode.collectAsState()
                 
-                SettingsToggleItem(
-                    title = "Show artist collaborations",
-                    description = "Show featured artists and collaborations in artist listings (Default mode filters them)",
-                    checked = artistCollaborationMode,
-                    icon = RhythmIcons.Artist,
-                    onCheckedChange = { enabled ->
-                        appSettings.setArtistCollaborationMode(enabled)
-                    }
-                )
+                // SettingsToggleItem(
+                //     title = "Show artist collaborations",
+                //     description = "Show featured artists and collaborations in artist listings (Default mode filters them)",
+                //     checked = artistCollaborationMode,
+                //     icon = RhythmIcons.Artist,
+                //     onCheckedChange = { enabled ->
+                //         appSettings.setArtistCollaborationMode(enabled)
+                //     }
+                // )
 
                 // Playlist Management
                 val userPlaylists = playlists.filter { !it.isDefault }
@@ -672,8 +672,6 @@ fun SettingsScreen(
                         showPlaylistManagementBottomSheet = true
                     }
                 )
-
-                SettingsDivider()
 
                 val blacklistedSongs by appSettings.blacklistedSongs.collectAsState()
                 val blacklistedFolders by appSettings.blacklistedFolders.collectAsState()
