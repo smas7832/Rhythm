@@ -77,7 +77,6 @@ import kotlinx.coroutines.delay
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.rounded.Collections
-import androidx.compose.material.icons.rounded.VideoLibrary
 import chromahub.rhythm.app.data.Song
 import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.ui.components.M3PlaceholderType
@@ -355,7 +354,7 @@ private fun QueueHeader(
                 modifier = Modifier.size(48.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.VideoLibrary,
+                    imageVector = Icons.Rounded.Collections,
                     contentDescription = "Add songs",
                     modifier = Modifier.size(20.dp)
                 )
@@ -499,9 +498,9 @@ private fun QueueItem(
             .fillMaxWidth()
             .graphicsLayer {
                 if (isDragging) {
-//                    shadowElevation = 0f
-//                    scaleX = 1.02f
-//                    scaleY = 1.02f
+                    shadowElevation = 8f
+                    scaleX = 1.02f
+                    scaleY = 1.02f
                 }
             }
     ) {
