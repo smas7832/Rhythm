@@ -4,9 +4,9 @@ import androidx.compose.ui.graphics.Color
 
 // Material Design 3 Color System - Light Theme
 // Primary color palette based on purple/violet for music app
-val PrimaryLight = Color(0xFF170F75) // Vibrant purple - main brand color
+val PrimaryLight = Color(0xFF5C4AD5) // Vibrant purple - main brand color
 val OnPrimaryLight = Color(0xFFFFFFFF) // White text on primary
-val PrimaryContainerLight = Color(0xFFEBD2FF) // Lighter purple container
+val PrimaryContainerLight = Color(0xFFE6DEFF) // Lighter purple container
 val OnPrimaryContainerLight = Color(0xFF170C3E) // Dark text on primary container
 
 // Secondary color palette - complementary teal/green
@@ -53,10 +53,10 @@ val InversePrimaryLight = Color(0xFFCBC2FF) // Light primary on dark surface
 
 // Material Design 3 Color System - Dark Theme
 // Primary color palette based on purple/violet for music app
-val PrimaryDark = Color(0xFFE1C2FF) // Light purple for dark theme
+val PrimaryDark = Color(0xFFCBC2FF) // Light purple for dark theme
 val OnPrimaryDark = Color(0xFF170C3E) // Dark text on primary
-val PrimaryContainerDark = Color(0xFF292377) // Medium purple container
-val OnPrimaryContainerDark = Color(0xFFEBD5FF) // Light text on primary container
+val PrimaryContainerDark = Color(0xFF433499) // Medium purple container
+val OnPrimaryContainerDark = Color(0xFFE6DEFF) // Light text on primary container
 
 // Secondary color palette - complementary neutral
 val SecondaryDark = Color(0xFFC7C5D4) // Light gray-purple for balance
