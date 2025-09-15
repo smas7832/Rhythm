@@ -7,6 +7,7 @@ enum class OnboardingStep {
     AUDIO_PLAYBACK, // New step for audio and playback settings
     THEMING,
     LIBRARY_SETUP, // New step for library organization preferences
+    MEDIA_SCAN, // New step for choosing blacklist/whitelist filtering mode
     UPDATER,
     COMPLETE
 }

@@ -139,7 +139,8 @@ import chromahub.rhythm.app.util.HapticUtils
 import chromahub.rhythm.app.ui.screens.ApiManagementBottomSheet
 import chromahub.rhythm.app.ui.screens.CacheManagementBottomSheet
 import chromahub.rhythm.app.ui.screens.CrashLogHistoryBottomSheet
-import chromahub.rhythm.app.ui.screens.BlacklistManagementBottomSheet
+import chromahub.rhythm.app.ui.screens.MediaScanBottomSheet
+import chromahub.rhythm.app.ui.screens.MediaScanMode
 import chromahub.rhythm.app.ui.screens.BackupRestoreBottomSheet
 import chromahub.rhythm.app.ui.screens.EqualizerBottomSheetNew
 import chromahub.rhythm.app.ui.screens.SleepTimerBottomSheetNew
@@ -194,7 +195,7 @@ fun SettingsScreen(
     var showCrossfadeDurationDialog by remember { mutableStateOf(false) }
     var showCacheSizeDialog by remember { mutableStateOf(false) }
     var showCrashLogHistoryBottomSheet by remember { mutableStateOf(false) } // New state for crash log history
-    var showBlacklistManagementBottomSheet by remember { mutableStateOf(false) } // New state for blacklist management
+    var showMediaScanBottomSheet by remember { mutableStateOf(false) } // New state for media scan management
     var showBackupRestoreBottomSheet by remember { mutableStateOf(false) } // New state for backup and restore
     var showCacheManagementBottomSheet by remember { mutableStateOf(false) } // New state for cache management
     var showEqualizerBottomSheet by remember { mutableStateOf(false) } // New state for equalizer
@@ -211,7 +212,7 @@ fun SettingsScreen(
     // Handle back button when bottom sheets are open to prevent navigation issues
     BackHandler(
         enabled = showApiBottomSheet || showCrashLogHistoryBottomSheet || 
-                 showBlacklistManagementBottomSheet || showBackupRestoreBottomSheet || 
+                 showMediaScanBottomSheet || showBackupRestoreBottomSheet || 
                  showCacheManagementBottomSheet || showEqualizerBottomSheet || 
                  showPlaylistManagementBottomSheet ||
                  showSleepTimerBottomSheet || showCrossfadeDurationDialog
@@ -219,7 +220,7 @@ fun SettingsScreen(
         when {
             showApiBottomSheet -> showApiBottomSheet = false
             showCrashLogHistoryBottomSheet -> showCrashLogHistoryBottomSheet = false
-            showBlacklistManagementBottomSheet -> showBlacklistManagementBottomSheet = false
+            showMediaScanBottomSheet -> showMediaScanBottomSheet = false
             showBackupRestoreBottomSheet -> showBackupRestoreBottomSheet = false
             showCacheManagementBottomSheet -> showCacheManagementBottomSheet = false
             showEqualizerBottomSheet -> showEqualizerBottomSheet = false
@@ -265,10 +266,11 @@ fun SettingsScreen(
         )
     }
 
-    if (showBlacklistManagementBottomSheet) {
-        BlacklistManagementBottomSheet(
-            onDismiss = { showBlacklistManagementBottomSheet = false },
-            appSettings = appSettings
+    if (showMediaScanBottomSheet) {
+        MediaScanBottomSheet(
+            onDismiss = { showMediaScanBottomSheet = false },
+            appSettings = appSettings,
+            initialMode = MediaScanMode.BLACKLIST
         )
     }
 
@@ -687,17 +689,17 @@ fun SettingsScreen(
                 val blacklistedFoldersCount = blacklistedFolders.size
                 
                 SettingsChipItem(
-                    title = "Manage blacklist",
-                    description = "Control which songs and folders are hidden",
-                    primaryChipText = "$effectivelyBlacklistedSongsCount songs",
+                    title = "Manage Media Scan",
+                    description = "Control blacklist and whitelist for media scanning",
+                    primaryChipText = "$effectivelyBlacklistedSongsCount blocked",
                     secondaryChipText = "$blacklistedFoldersCount folders",
-                    icon = Icons.Filled.Block,
+                    icon = Icons.Filled.FilterList,
                     primaryChipColor = MaterialTheme.colorScheme.errorContainer,
                     primaryChipTextColor = MaterialTheme.colorScheme.onErrorContainer,
                     secondaryChipColor = MaterialTheme.colorScheme.tertiaryContainer,
                     secondaryChipTextColor = MaterialTheme.colorScheme.onTertiaryContainer,
                     onClick = { 
-                        showBlacklistManagementBottomSheet = true
+                        showMediaScanBottomSheet = true
                     }
                 )
 

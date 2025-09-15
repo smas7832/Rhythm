@@ -81,8 +81,16 @@ fun SongInfoBottomSheet(
     val blacklistedFolders by appSettings.blacklistedFolders.collectAsState()
     var isLoadingBlacklist by remember { mutableStateOf(false) }
     
+    // Whitelist states
+    val whitelistedSongs by appSettings.whitelistedSongs.collectAsState()
+    val whitelistedFolders by appSettings.whitelistedFolders.collectAsState()
+    var isLoadingWhitelist by remember { mutableStateOf(false) }
+    
     // Check if song is blacklisted
     val isBlacklisted = song?.let { blacklistedSongs.contains(it.id) } ?: false
+    
+    // Check if song is whitelisted
+    val isWhitelisted = song?.let { whitelistedSongs.contains(it.id) } ?: false
     
     // Check if song is in a blacklisted folder
     val folderPath = remember(song?.uri) {
@@ -111,6 +119,10 @@ fun SongInfoBottomSheet(
     
     val isInBlacklistedFolder = folderPath != null && blacklistedFolders.any { blacklistedPath ->
         folderPath.startsWith(blacklistedPath, ignoreCase = true)
+    }
+    
+    val isInWhitelistedFolder = folderPath != null && whitelistedFolders.any { whitelistedPath ->
+        folderPath.startsWith(whitelistedPath, ignoreCase = true)
     }
 
     if (song == null) {
@@ -228,7 +240,13 @@ fun SongInfoBottomSheet(
             }
 
             item {
-                // Action buttons (Top Row)
+                Text(
+                    text = "Blacklist Actions",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                    color = MaterialTheme.colorScheme.primary
+                )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -247,7 +265,7 @@ fun SongInfoBottomSheet(
                                 }
                                 
                                 isLoadingBlacklist = false
-                                val message = if (isBlacklisted) "Song removed from blocklist" else "Song added to blocklist" 
+                                val message = if (isBlacklisted) "Song removed from blacklist" else "Song added to blacklist"
                                 Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                             }
                         },
@@ -273,7 +291,7 @@ fun SongInfoBottomSheet(
                             )
                         }
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(if (isBlacklisted) "Unblock" else "Block")
+                        Text(if (isBlacklisted) "Remove File from Blacklist" else "Add File to Blacklist")
                     }
                     
                     // Block/Unblock Folder
@@ -290,7 +308,7 @@ fun SongInfoBottomSheet(
                                 }
                                 
                                 isLoadingBlacklist = false
-                                val message = if (isInBlacklistedFolder) "Folder removed from blocklist" else "Folder added to blocklist"
+                                val message = if (isInBlacklistedFolder) "Folder removed from blacklist" else "Folder added to blacklist"
                                 Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                             },
                             enabled = !isLoadingBlacklist,
@@ -315,7 +333,109 @@ fun SongInfoBottomSheet(
                                 )
                             }
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(if (isInBlacklistedFolder) "Unblock Folder" else "Block Folder")
+                            Text(if (isInBlacklistedFolder) "Remove Folder from Blacklist" else "Add Folder to Blacklist")
+                        }
+                    }
+                }
+            }
+            
+            item {
+                // Whitelist Actions Section
+                Text(
+                    text = "Whitelist Actions",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                    color = MaterialTheme.colorScheme.primary
+                )
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Whitelist/Remove from whitelist Song
+                    FilledTonalButton(
+                        onClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            isLoadingWhitelist = true
+                            
+                            song?.let { songToWhitelist ->
+                                if (isWhitelisted) {
+                                    appSettings.removeFromWhitelist(songToWhitelist.id)
+                                } else {
+                                    appSettings.addToWhitelist(songToWhitelist.id)
+                                }
+                                
+                                isLoadingWhitelist = false
+                                val message = if (isWhitelisted) "Song removed from whitelist" else "Song added to whitelist" 
+                                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        enabled = !isLoadingWhitelist,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = if (isWhitelisted) 
+                                MaterialTheme.colorScheme.primaryContainer 
+                            else 
+                                MaterialTheme.colorScheme.secondaryContainer
+                        )
+                    ) {
+                        if (isLoadingWhitelist) {
+                            SimpleCircularLoader(
+                                size = 16.dp,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        } else {
+                            Icon(
+                                imageVector = if (isWhitelisted) Icons.Rounded.CheckCircle else Icons.Rounded.Add,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(if (isWhitelisted) "Remove File from Whitelist" else "Add File to Whitelist")
+                    }
+                    
+                    // Whitelist/Remove from whitelist Folder
+                    if (folderPath != null) {
+                        FilledTonalButton(
+                            onClick = {
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                isLoadingWhitelist = true
+                                
+                                if (isInWhitelistedFolder) {
+                                    appSettings.removeFolderFromWhitelist(folderPath)
+                                } else {
+                                    appSettings.addFolderToWhitelist(folderPath)
+                                }
+                                
+                                isLoadingWhitelist = false
+                                val message = if (isInWhitelistedFolder) "Folder removed from whitelist" else "Folder added to whitelist"
+                                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                            },
+                            enabled = !isLoadingWhitelist,
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = if (isInWhitelistedFolder) 
+                                    MaterialTheme.colorScheme.primaryContainer 
+                                else 
+                                    MaterialTheme.colorScheme.tertiaryContainer
+                            )
+                        ) {
+                            if (isLoadingWhitelist) {
+                                SimpleCircularLoader(
+                                    size = 16.dp,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = if (isInWhitelistedFolder) Icons.Rounded.FolderOff else Icons.Rounded.Folder,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(if (isInWhitelistedFolder) "Remove Folder from Whitelist" else "Add Folder to Whitelist")
                         }
                     }
                 }

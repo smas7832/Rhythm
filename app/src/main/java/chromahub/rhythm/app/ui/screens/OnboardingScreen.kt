@@ -3,6 +3,7 @@ package chromahub.rhythm.app.ui.screens
 import android.Manifest
 import android.os.Build
 import android.provider.Settings
+import androidx.compose.material.icons.filled.*
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateContentSize
@@ -18,6 +19,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -42,6 +44,7 @@ import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.FormatListNumbered
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -128,11 +131,12 @@ fun OnboardingScreen(
         OnboardingStep.AUDIO_PLAYBACK -> 3
         OnboardingStep.THEMING -> 4
         OnboardingStep.LIBRARY_SETUP -> 5
-        OnboardingStep.UPDATER -> 6
-        OnboardingStep.COMPLETE -> 7
+        OnboardingStep.MEDIA_SCAN -> 6
+        OnboardingStep.UPDATER -> 7
+        OnboardingStep.COMPLETE -> 8
     }
     
-    val totalSteps = 7 // Welcome, Permissions, Backup/Restore, Audio/Playback, Theming, Library Setup, Updater
+    val totalSteps = 8 // Welcome, Permissions, Backup/Restore, Audio/Playback, Theming, Library Setup, Media Scan, Updater
     
     Box(
         modifier = Modifier
@@ -287,6 +291,12 @@ fun OnboardingScreen(
                                 }
                                 OnboardingStep.LIBRARY_SETUP -> {
                                     EnhancedLibrarySetupContent(
+                                        onNextStep = onNextStep,
+                                        appSettings = appSettings
+                                    )
+                                }
+                                OnboardingStep.MEDIA_SCAN -> {
+                                    EnhancedMediaScanContent(
                                         onNextStep = onNextStep,
                                         appSettings = appSettings
                                     )
@@ -1995,5 +2005,228 @@ fun OnboardingProgressIndicator(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+    }
+}
+
+@Composable
+fun EnhancedMediaScanContent(
+    onNextStep: () -> Unit,
+    appSettings: AppSettings
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    
+    // Get current media scan mode preference
+    val mediaScanMode by appSettings.mediaScanMode.collectAsState()
+    
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        // Enhanced icon with animation
+        AnimatedVisibility(
+            visible = true,
+            enter = scaleIn() + fadeIn()
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.FilterList,
+                    contentDescription = "Media Scan Filtering",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(40.dp)
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        Text(
+            text = "Media Scan Filtering",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+        
+        Text(
+            text = "Choose how Rhythm should filter your music library. You can change this later in Settings.",
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 32.dp)
+        )
+        
+        // Filtering mode options
+        Column(
+            modifier = Modifier.padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Blacklist mode option
+            MediaScanModeOption(
+                icon = Icons.Filled.Block,
+                title = "Blacklist Mode",
+                description = "Hide specific songs and folders from your library",
+                example = "Example: Hide ringtones, voice memos, or unwanted audio files",
+                isSelected = mediaScanMode == "blacklist",
+                onSelect = {
+                    scope.launch {
+                        appSettings.setMediaScanMode("blacklist")
+                    }
+                }
+            )
+            
+            // Whitelist mode option
+            MediaScanModeOption(
+                icon = Icons.Filled.CheckCircle,
+                title = "Whitelist Mode",
+                description = "Only show songs and folders you specifically allow",
+                example = "Example: Only show your main music folders and ignore everything else", 
+                isSelected = mediaScanMode == "whitelist",
+                onSelect = {
+                    scope.launch {
+                        appSettings.setMediaScanMode("whitelist")
+                    }
+                }
+            )
+        }
+        
+        val haptic = LocalHapticFeedback.current
+        FilledTonalButton(
+            onClick = {
+                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                onNextStep()
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            colors = ButtonDefaults.filledTonalButtonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            )
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Next", style = MaterialTheme.typography.labelLarge)
+                Spacer(modifier = Modifier.width(8.dp))
+                Icon(
+                    imageVector = RhythmIcons.Forward,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun MediaScanModeOption(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    description: String,
+    example: String,
+    isSelected: Boolean,
+    onSelect: () -> Unit
+) {
+    val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+    
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .clickable { 
+                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
+                onSelect() 
+            },
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) 
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+            else 
+                MaterialTheme.colorScheme.surfaceContainer
+        ),
+        border = if (isSelected) 
+            BorderStroke(4.dp, MaterialTheme.colorScheme.primary)
+        else null
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(20.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (isSelected)
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                        else
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = if (isSelected) 
+                        MaterialTheme.colorScheme.primary 
+                    else 
+                        MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (isSelected) 
+                        MaterialTheme.colorScheme.onPrimaryContainer 
+                    else 
+                        MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (isSelected) 
+                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                    else 
+                        MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+                Text(
+                    text = example,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (isSelected) 
+                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
+                    else 
+                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            if (isSelected) {
+                Icon(
+                    imageVector = Icons.Filled.CheckCircle,
+                    contentDescription = "Selected",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
     }
 }

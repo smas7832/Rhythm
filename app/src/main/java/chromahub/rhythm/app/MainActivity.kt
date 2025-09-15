@@ -567,6 +567,7 @@ class MainActivity : ComponentActivity() {
             OnboardingStep.AUDIO_PLAYBACK -> "Audio & Playback"
             OnboardingStep.THEMING -> "Theming"
             OnboardingStep.LIBRARY_SETUP -> "Library Setup"
+            OnboardingStep.MEDIA_SCAN -> "Media Scan"
             OnboardingStep.UPDATER -> "Updates"
             OnboardingStep.COMPLETE -> "Complete"
         }

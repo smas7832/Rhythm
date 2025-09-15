@@ -124,6 +124,7 @@ class AppSettings private constructor(context: Context) {
         private const val KEY_AUTO_CHECK_FOR_UPDATES = "auto_check_for_updates"
         private const val KEY_UPDATE_CHANNEL = "update_channel" // New key for update channel
         private const val KEY_UPDATES_ENABLED = "updates_enabled" // Master switch for updates
+        private const val KEY_MEDIA_SCAN_MODE = "media_scan_mode" // Mode for media scanning: "blacklist" or "whitelist"
         private const val KEY_UPDATE_CHECK_INTERVAL_HOURS = "update_check_interval_hours" // Configurable interval
 
         // Beta Program
@@ -144,6 +145,12 @@ class AppSettings private constructor(context: Context) {
         
         // Blacklisted Folders
         private const val KEY_BLACKLISTED_FOLDERS = "blacklisted_folders"
+        
+        // Whitelisted Songs
+        private const val KEY_WHITELISTED_SONGS = "whitelisted_songs"
+        
+        // Whitelisted Folders
+        private const val KEY_WHITELISTED_FOLDERS = "whitelisted_folders"
         
         // Backup and Restore
         private const val KEY_LAST_BACKUP_TIMESTAMP = "last_backup_timestamp"
@@ -449,6 +456,10 @@ class AppSettings private constructor(context: Context) {
     private val _updatesEnabled = MutableStateFlow(prefs.getBoolean(KEY_UPDATES_ENABLED, true))
     val updatesEnabled: StateFlow<Boolean> = _updatesEnabled.asStateFlow()
 
+    // Media Scan Mode
+    private val _mediaScanMode = MutableStateFlow(prefs.getString(KEY_MEDIA_SCAN_MODE, "blacklist") ?: "blacklist")
+    val mediaScanMode: StateFlow<String> = _mediaScanMode.asStateFlow()
+
     private val _updateCheckIntervalHours = MutableStateFlow(prefs.getInt(KEY_UPDATE_CHECK_INTERVAL_HOURS, 6))
     val updateCheckIntervalHours: StateFlow<Int> = _updateCheckIntervalHours.asStateFlow()
 
@@ -511,6 +522,38 @@ class AppSettings private constructor(context: Context) {
         }
     )
     val blacklistedFolders: StateFlow<List<String>> = _blacklistedFolders.asStateFlow()
+    
+    // Whitelisted Songs
+    private val _whitelistedSongs = MutableStateFlow<List<String>>(
+        try {
+            val json = prefs.getString(KEY_WHITELISTED_SONGS, null)
+            if (json != null) {
+                val type = object : com.google.gson.reflect.TypeToken<List<String>>() {}.type
+                Gson().fromJson(json, type) ?: emptyList()
+            } else {
+                emptyList()
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    )
+    val whitelistedSongs: StateFlow<List<String>> = _whitelistedSongs.asStateFlow()
+    
+    // Whitelisted Folders
+    private val _whitelistedFolders = MutableStateFlow<List<String>>(
+        try {
+            val json = prefs.getString(KEY_WHITELISTED_FOLDERS, null)
+            if (json != null) {
+                val type = object : com.google.gson.reflect.TypeToken<List<String>>() {}.type
+                Gson().fromJson(json, type) ?: emptyList()
+            } else {
+                emptyList()
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    )
+    val whitelistedFolders: StateFlow<List<String>> = _whitelistedFolders.asStateFlow()
     
     // Backup and Restore Settings
     private val _lastBackupTimestamp = MutableStateFlow(safeLong(KEY_LAST_BACKUP_TIMESTAMP, 0L))
@@ -857,6 +900,11 @@ class AppSettings private constructor(context: Context) {
         _updatesEnabled.value = enable
     }
 
+    fun setMediaScanMode(mode: String) {
+        prefs.edit().putString(KEY_MEDIA_SCAN_MODE, mode).apply()
+        _mediaScanMode.value = mode
+    }
+
     fun setUpdateCheckIntervalHours(hours: Int) {
         prefs.edit().putInt(KEY_UPDATE_CHECK_INTERVAL_HOURS, hours).apply()
         _updateCheckIntervalHours.value = hours
@@ -1022,6 +1070,86 @@ class AppSettings private constructor(context: Context) {
         // Check folder blacklist
         if (songPath != null) {
             return _blacklistedFolders.value.any { folderPath ->
+                songPath.startsWith(folderPath, ignoreCase = true)
+            }
+        }
+        
+        return false
+    }
+    
+    // Whitelisted Songs Methods
+    fun addToWhitelist(songId: String) {
+        val currentList = _whitelistedSongs.value.toMutableList()
+        if (!currentList.contains(songId)) {
+            currentList.add(songId)
+            val json = Gson().toJson(currentList)
+            prefs.edit().putString(KEY_WHITELISTED_SONGS, json).apply()
+            _whitelistedSongs.value = currentList
+        }
+    }
+    
+    fun removeFromWhitelist(songId: String) {
+        val currentList = _whitelistedSongs.value.toMutableList()
+        if (currentList.remove(songId)) {
+            val json = Gson().toJson(currentList)
+            prefs.edit().putString(KEY_WHITELISTED_SONGS, json).apply()
+            _whitelistedSongs.value = currentList
+        }
+    }
+    
+    fun isSongWhitelisted(songId: String): Boolean {
+        return _whitelistedSongs.value.contains(songId)
+    }
+    
+    fun clearWhitelist() {
+        prefs.edit().remove(KEY_WHITELISTED_SONGS).apply()
+        _whitelistedSongs.value = emptyList()
+    }
+    
+    // Whitelisted Folders Methods
+    fun addFolderToWhitelist(folderPath: String) {
+        val currentList = _whitelistedFolders.value.toMutableList()
+        if (!currentList.contains(folderPath)) {
+            currentList.add(folderPath)
+            val json = Gson().toJson(currentList)
+            prefs.edit().putString(KEY_WHITELISTED_FOLDERS, json).apply()
+            _whitelistedFolders.value = currentList
+        }
+    }
+    
+    fun removeFolderFromWhitelist(folderPath: String) {
+        val currentList = _whitelistedFolders.value.toMutableList()
+        if (currentList.remove(folderPath)) {
+            val json = Gson().toJson(currentList)
+            prefs.edit().putString(KEY_WHITELISTED_FOLDERS, json).apply()
+            _whitelistedFolders.value = currentList
+        }
+    }
+    
+    fun isFolderWhitelisted(folderPath: String): Boolean {
+        return _whitelistedFolders.value.any { whitelistedPath ->
+            folderPath.startsWith(whitelistedPath, ignoreCase = true)
+        }
+    }
+    
+    fun clearFolderWhitelist() {
+        prefs.edit().remove(KEY_WHITELISTED_FOLDERS).apply()
+        _whitelistedFolders.value = emptyList()
+    }
+    
+    // Helper method to check if a song would be filtered by current whitelist rules
+    fun isEffectivelyWhitelisted(songId: String, songPath: String?): Boolean {
+        // If no whitelist exists, all songs are effectively whitelisted
+        if (_whitelistedSongs.value.isEmpty() && _whitelistedFolders.value.isEmpty()) {
+            return true
+        }
+        
+        // Check individual song whitelist
+        if (_whitelistedSongs.value.contains(songId)) return true
+        
+        // Check folder whitelist
+        if (songPath != null) {
+            return _whitelistedFolders.value.any { folderPath ->
                 songPath.startsWith(folderPath, ignoreCase = true)
             }
         }
@@ -1402,6 +1530,7 @@ class AppSettings private constructor(context: Context) {
         _autoCheckForUpdates.value = prefs.getBoolean(KEY_AUTO_CHECK_FOR_UPDATES, true)
         _updateChannel.value = prefs.getString(KEY_UPDATE_CHANNEL, "stable") ?: "stable"
         _updatesEnabled.value = prefs.getBoolean(KEY_UPDATES_ENABLED, true)
+        _mediaScanMode.value = prefs.getString(KEY_MEDIA_SCAN_MODE, "blacklist") ?: "blacklist"
         _updateCheckIntervalHours.value = prefs.getInt(KEY_UPDATE_CHECK_INTERVAL_HOURS, 24)
         
         // Beta Program

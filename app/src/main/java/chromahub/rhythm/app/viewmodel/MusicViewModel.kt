@@ -112,21 +112,28 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     // Cache for file paths to avoid repeated ContentResolver queries
     private val pathCache = mutableMapOf<String, String?>()
     
-    // Filtered songs excluding blacklisted ones (both songs and folders)
+    // Filtered songs excluding blacklisted ones and including only whitelisted ones (both songs and folders)
     val filteredSongs: StateFlow<List<Song>> = kotlinx.coroutines.flow.combine(
         _songs,
         appSettings.blacklistedSongs,
-        appSettings.blacklistedFolders
-    ) { songs, blacklistedIds, blacklistedFolders ->
-        filterSongsAsync(songs, blacklistedIds, blacklistedFolders)
+        appSettings.blacklistedFolders,
+        appSettings.whitelistedSongs,
+        appSettings.whitelistedFolders
+    ) { songs, blacklistedIds, blacklistedFolders, whitelistedIds, whitelistedFolders ->
+        filterSongsAsync(songs, blacklistedIds, blacklistedFolders, whitelistedIds, whitelistedFolders)
     }.flowOn(Dispatchers.IO).stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Lazily, emptyList())
     
     private suspend fun filterSongsAsync(
         songs: List<Song>, 
         blacklistedIds: List<String>, 
-        blacklistedFolders: List<String>
+        blacklistedFolders: List<String>,
+        whitelistedIds: List<String>,
+        whitelistedFolders: List<String>
     ): List<Song> = withContext(Dispatchers.IO) {
-        if (blacklistedIds.isEmpty() && blacklistedFolders.isEmpty()) {
+        val hasBlacklist = blacklistedIds.isNotEmpty() || blacklistedFolders.isNotEmpty()
+        val hasWhitelist = whitelistedIds.isNotEmpty() || whitelistedFolders.isNotEmpty()
+        
+        if (!hasBlacklist && !hasWhitelist) {
             return@withContext songs
         }
         
@@ -138,16 +145,38 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         var processed = 0
         
         for (song in songs) {
-            // Check if song ID is blacklisted (fast check first)
-            if (blacklistedIds.contains(song.id)) {
-                processed++
-                continue
+            // First check blacklist (if song is blacklisted, skip it)
+            if (hasBlacklist) {
+                if (blacklistedIds.contains(song.id)) {
+                    processed++
+                    continue
+                }
+                
+                if (blacklistedFolders.isNotEmpty()) {
+                    val songPath = getPathFromUriCached(song.uri)
+                    if (songPath != null && isPathBlacklisted(songPath, blacklistedFolders)) {
+                        processed++
+                        continue
+                    }
+                }
             }
             
-            // Check if song is in a blacklisted folder (expensive check)
-            if (blacklistedFolders.isNotEmpty()) {
-                val songPath = getPathFromUriCached(song.uri)
-                if (songPath != null && isPathBlacklisted(songPath, blacklistedFolders)) {
+            // Then check whitelist (if whitelist exists, song must be whitelisted)
+            if (hasWhitelist) {
+                var isWhitelisted = false
+                
+                // Check if song ID is whitelisted
+                if (whitelistedIds.contains(song.id)) {
+                    isWhitelisted = true
+                } else if (whitelistedFolders.isNotEmpty()) {
+                    // Check if song is in a whitelisted folder
+                    val songPath = getPathFromUriCached(song.uri)
+                    if (songPath != null && isPathWhitelisted(songPath, whitelistedFolders)) {
+                        isWhitelisted = true
+                    }
+                }
+                
+                if (!isWhitelisted) {
                     processed++
                     continue
                 }
@@ -163,13 +192,19 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
         
         val endTime = System.currentTimeMillis()
-        Log.d(TAG, "Filtered ${songs.size} songs to ${result.size} in ${endTime - startTime}ms")
+        Log.d(TAG, "Filtered ${songs.size} songs to ${result.size} in ${endTime - startTime}ms (blacklist: $hasBlacklist, whitelist: $hasWhitelist)")
         
         result
     }
     
     private fun isPathBlacklisted(songPath: String, blacklistedFolders: List<String>): Boolean {
         return blacklistedFolders.any { folderPath ->
+            songPath.startsWith(folderPath, ignoreCase = true)
+        }
+    }
+    
+    private fun isPathWhitelisted(songPath: String, whitelistedFolders: List<String>): Boolean {
+        return whitelistedFolders.any { folderPath ->
             songPath.startsWith(folderPath, ignoreCase = true)
         }
     }
@@ -602,18 +637,20 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     /**
      * Refreshes all playlists by re-validating their songs against the currently available songs.
-     * This removes songs from playlists if they no longer exist on the device.
+     * This removes songs from playlists if they no longer exist on the device OR are blacklisted.
      */
     private fun refreshPlaylists() {
         Log.d(TAG, "Refreshing playlists...")
         val currentSongsMap = _songs.value.associateBy { it.id }
+        val filteredSongsSet = filteredSongs.value.map { it.id }.toSet()
         
         _playlists.value = _playlists.value.map { playlist ->
             val updatedSongs = playlist.songs.filter { song ->
-                currentSongsMap.containsKey(song.id)
+                // Keep song only if it exists on device AND is not filtered out (blacklisted/not whitelisted)
+                currentSongsMap.containsKey(song.id) && filteredSongsSet.contains(song.id)
             }
             if (updatedSongs.size < playlist.songs.size) {
-                Log.d(TAG, "Removed ${playlist.songs.size - updatedSongs.size} missing songs from playlist: ${playlist.name}")
+                Log.d(TAG, "Removed ${playlist.songs.size - updatedSongs.size} missing/filtered songs from playlist: ${playlist.name}")
                 playlist.copy(songs = updatedSongs, dateModified = System.currentTimeMillis())
             } else {
                 playlist
@@ -2063,6 +2100,13 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun addSongToPlaylist(song: Song, playlistId: String, showSnackbar: (String) -> Unit) {
+        // Check if song is filtered out (blacklisted or not whitelisted)
+        val filteredSongsSet = filteredSongs.value.map { it.id }.toSet()
+        if (!filteredSongsSet.contains(song.id)) {
+            showSnackbar("Cannot add ${song.title} - song is filtered out")
+            return
+        }
+        
         var success = false
         _playlists.value = _playlists.value.map { playlist ->
             if (playlist.id == playlistId) {

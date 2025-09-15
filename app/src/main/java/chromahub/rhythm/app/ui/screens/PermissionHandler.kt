@@ -297,7 +297,8 @@ fun PermissionHandler(
                         OnboardingStep.BACKUP_RESTORE -> currentOnboardingStep = OnboardingStep.AUDIO_PLAYBACK // Move to audio playback
                         OnboardingStep.AUDIO_PLAYBACK -> currentOnboardingStep = OnboardingStep.THEMING // Move to theming
                         OnboardingStep.THEMING -> currentOnboardingStep = OnboardingStep.LIBRARY_SETUP // Move to library setup
-                        OnboardingStep.LIBRARY_SETUP -> currentOnboardingStep = OnboardingStep.UPDATER // Move to updater
+                        OnboardingStep.LIBRARY_SETUP -> currentOnboardingStep = OnboardingStep.MEDIA_SCAN // Move to media scan
+                        OnboardingStep.MEDIA_SCAN -> currentOnboardingStep = OnboardingStep.UPDATER // Move to updater
                         OnboardingStep.UPDATER -> {
                             appSettings.setOnboardingCompleted(true) // Mark onboarding as complete
                             currentOnboardingStep = OnboardingStep.COMPLETE // Move to complete
@@ -318,7 +319,8 @@ fun PermissionHandler(
                         OnboardingStep.AUDIO_PLAYBACK -> currentOnboardingStep = OnboardingStep.BACKUP_RESTORE
                         OnboardingStep.THEMING -> currentOnboardingStep = OnboardingStep.AUDIO_PLAYBACK
                         OnboardingStep.LIBRARY_SETUP -> currentOnboardingStep = OnboardingStep.THEMING
-                        OnboardingStep.UPDATER -> currentOnboardingStep = OnboardingStep.LIBRARY_SETUP
+                        OnboardingStep.MEDIA_SCAN -> currentOnboardingStep = OnboardingStep.LIBRARY_SETUP
+                        OnboardingStep.UPDATER -> currentOnboardingStep = OnboardingStep.MEDIA_SCAN
                         else -> { /* Should not happen for WELCOME or COMPLETE */ }
                     }
                 },
