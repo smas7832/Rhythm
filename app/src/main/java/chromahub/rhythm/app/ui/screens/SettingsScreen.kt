@@ -557,12 +557,12 @@ fun SettingsScreen(
                         )
                 }
 
-                SettingsClickableItem(
-                    title = "Sleep timer",
-                    description = "Set a timer to automatically stop playback",
-                    icon = Icons.Filled.AccessTime,
-                    onClick = { showSleepTimerBottomSheet = true }
-                )
+//                SettingsClickableItem(
+//                    title = "Sleep timer",
+//                    description = "Set a timer to automatically stop playback",
+//                    icon = Icons.Filled.AccessTime,
+//                    onClick = { showSleepTimerBottomSheet = true }
+//                )
 
                 SettingsClickableItem(
                     title = "Equalizer",

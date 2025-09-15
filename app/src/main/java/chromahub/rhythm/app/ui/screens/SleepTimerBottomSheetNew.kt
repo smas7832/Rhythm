@@ -65,9 +65,7 @@ fun SleepTimerBottomSheetNew(
     
     // Local UI states
     var selectedAction by remember { mutableStateOf(SleepAction.valueOf(timerAction.takeIf { it.isNotBlank() } ?: "FADE_OUT")) }
-    var totalTimerDuration by remember(isTimerActive, remainingSeconds) { 
-        mutableLongStateOf(if (isTimerActive && remainingSeconds > 0) remainingSeconds else 0L) 
-    }
+    var totalTimerDuration by remember { mutableLongStateOf(0L) }
     
     // Update total duration when timer starts
     LaunchedEffect(isTimerActive, remainingSeconds) {
@@ -251,6 +249,9 @@ fun SleepTimerBottomSheetNew(
                                 val elapsedSeconds = totalTimerDuration - remainingSeconds
                                 val progress = if (totalTimerDuration > 0) elapsedSeconds.toFloat() / totalTimerDuration else 0f
                                 
+                                val primaryColor = MaterialTheme.colorScheme.primary
+                                val backgroundColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f)
+                                
                                 Canvas(modifier = Modifier.fillMaxSize()) {
                                     val strokeWidth = 8.dp.toPx()
                                     val radius = (size.minDimension - strokeWidth) / 2
@@ -258,7 +259,7 @@ fun SleepTimerBottomSheetNew(
                                     
                                     // Background circle
                                     drawCircle(
-                                        color = Color.White.copy(alpha = 0.3f),
+                                        color = backgroundColor,
                                         radius = radius,
                                         center = center,
                                         style = Stroke(width = strokeWidth)
@@ -266,7 +267,7 @@ fun SleepTimerBottomSheetNew(
                                     
                                     // Progress arc
                                     drawArc(
-                                        color = Color.White,
+                                        color = primaryColor,
                                         startAngle = -90f,
                                         sweepAngle = progress * 360f,
                                         useCenter = false,

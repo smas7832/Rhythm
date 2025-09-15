@@ -747,12 +747,26 @@ private fun EditSongSheet(
     var showWarningDialog by remember { mutableStateOf(false) }
     var showImagePicker by remember { mutableStateOf(false) }
     
+    // Helper function to proceed with save after permissions are granted
+    val proceedWithSave = { 
+        val yearInt = year.toIntOrNull() ?: 0
+        val trackInt = trackNumber.toIntOrNull() ?: 0
+        
+        // For now, we'll pass the basic metadata. The artwork handling will be added later
+        onSave(title.trim(), artist.trim(), album.trim(), genre.trim(), yearInt, trackInt)
+        
+        // TODO: Handle artwork saving separately if selectedImageUri is not null
+        if (selectedImageUri != null) {
+            Toast.makeText(context, "Artwork editing coming soon!", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     // Permission launchers for different scenarios
     val storagePermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
-//            proceedWithSave(title, artist, album, genre, year, trackNumber, selectedImageUri, onSave)
+            proceedWithSave()
         } else {
             Toast.makeText(
                 context, 
@@ -768,7 +782,7 @@ private fun EditSongSheet(
     ) { permissions ->
         val allGranted = permissions.values.all { it }
         if (allGranted) {
-//            proceedWithSave(title, artist, album, genre, year, trackNumber, selectedImageUri, onSave)
+            proceedWithSave()
         } else {
             Toast.makeText(
                 context,
@@ -804,11 +818,11 @@ private fun EditSongSheet(
             }
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.R -> {
                 // Android 11-12 - Use scoped storage
-//                proceedWithSave(title, artist, album, genre, year, trackNumber, selectedImageUri, onSave)
+                proceedWithSave()
             }
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> {
                 // Android 10 - Scoped storage but may need some permissions
-//                proceedWithSave(title, artist, album, genre, year, trackNumber, selectedImageUri, onSave)
+                proceedWithSave()
             }
             else -> {
                 // Android 9 and below - Request write permission
@@ -818,29 +832,11 @@ private fun EditSongSheet(
                 ) == PackageManager.PERMISSION_GRANTED
                 
                 if (hasWritePermission) {
-//                    proceedWithSave(title, artist, album, genre, year, trackNumber, selectedImageUri, onSave)
+                    proceedWithSave()
                 } else {
                     storagePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
                 }
             }
-        }
-    }
-
-    // Function to proceed with saving after permissions are granted
-    fun proceedWithSave(
-        title: String, artist: String, album: String, genre: String, 
-        year: String, trackNumber: String, imageUri: Uri?, 
-        onSave: (String, String, String, String, Int, Int) -> Unit
-    ) {
-        val yearInt = year.toIntOrNull() ?: 0
-        val trackInt = trackNumber.toIntOrNull() ?: 0
-        
-        // For now, we'll pass the basic metadata. The artwork handling will be added later
-        onSave(title.trim(), artist.trim(), album.trim(), genre.trim(), yearInt, trackInt)
-        
-        // TODO: Handle artwork saving separately if imageUri is not null
-        if (imageUri != null) {
-            Toast.makeText(context, "Artwork editing coming soon!", Toast.LENGTH_SHORT).show()
         }
     }
 

@@ -651,31 +651,23 @@ fun PlayerScreen(
             song = song,
             onDismiss = { showSongInfoSheet = false },
             onEditSong = { title, artist, album, genre, year, trackNumber ->
-                try {
-                    // Use the ViewModel's new metadata saving function
-                    musicViewModel.saveMetadataChanges(
-                        song = song,
-                        title = title,
-                        artist = artist,
-                        album = album,
-                        genre = genre,
-                        year = year,
-                        trackNumber = trackNumber
-                    )
-                    
-                    // Show success message
-                    Toast.makeText(context, "Metadata updated successfully", Toast.LENGTH_SHORT).show()
-                } catch (e: Exception) {
-                    // Show detailed error message
-                    Toast.makeText(
-                        context, 
-                        "Failed to update metadata: ${e.message}", 
-                        Toast.LENGTH_LONG
-                    ).show()
-                    
-                    // Log additional debug info
-                    android.util.Log.w("PlayerScreen", "Metadata update failed for song: ${song.title}", e)
-                }
+                // Use the ViewModel's new metadata saving function with callbacks
+                musicViewModel.saveMetadataChanges(
+                    song = song,
+                    title = title,
+                    artist = artist,
+                    album = album,
+                    genre = genre,
+                    year = year,
+                    trackNumber = trackNumber,
+                    onSuccess = {
+                        Toast.makeText(context, "Metadata updated successfully", Toast.LENGTH_SHORT).show()
+                    },
+                    onError = { errorMessage ->
+                        Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
+                        android.util.Log.w("PlayerScreen", "Metadata update failed for song: ${song.title}")
+                    }
+                )
             }
         )
     }

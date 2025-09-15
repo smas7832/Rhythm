@@ -583,7 +583,7 @@ fun EqualizerBottomSheetNew(
                             }
                         }
                     }
-                }
+                }}
                 
                 // System Equalizer Section
                 item {
@@ -635,7 +635,7 @@ fun EqualizerBottomSheetNew(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text("Open System Equalizer")
-                            }
+                            
                         }
                     }
                 }

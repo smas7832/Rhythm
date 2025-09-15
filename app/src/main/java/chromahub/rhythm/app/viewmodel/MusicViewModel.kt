@@ -52,6 +52,7 @@ import java.time.Duration
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import java.util.Calendar
+import java.io.File
 import chromahub.rhythm.app.data.LyricsData // Import LyricsData
 
 class MusicViewModel(application: Application) : AndroidViewModel(application) {
@@ -705,39 +706,85 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         genre: String,
         year: Int,
         trackNumber: Int,
-        artworkUri: Uri? = null
+        artworkUri: Uri? = null,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
     ) {
         viewModelScope.launch {
             try {
-                // TODO: Implement actual metadata writing to audio file
-                // This would involve using a library like JAudioTagger or similar
-                // For now, we'll update the in-memory data
+                // Try to update the actual file metadata first
+                val context = getApplication<Application>().applicationContext
+                val success = withContext(Dispatchers.IO) {
+                    chromahub.rhythm.app.util.MediaUtils.updateSongMetadata(
+                        context = context,
+                        song = song,
+                        newTitle = title,
+                        newArtist = artist,
+                        newAlbum = album,
+                        newGenre = genre,
+                        newTrackNumber = trackNumber
+                    )
+                }
                 
+                // Always update in-memory data
                 val updatedSong = song.copy(
                     title = title,
                     artist = artist,
                     album = album,
                     genre = genre,
                     year = year,
-                    trackNumber = trackNumber,
-                    // artwork = artworkUri?.toString() // If the Song data class has artwork field
+                    trackNumber = trackNumber
                 )
                 
                 // Update the song using existing function
                 updateCurrentSongMetadata(updatedSong)
                 
-                // TODO: Handle artwork saving if provided
-                if (artworkUri != null) {
-                    // Save artwork to the audio file
-                    Log.d(TAG, "Artwork saving not yet implemented")
+                if (success) {
+                    Log.d(TAG, "Successfully updated file metadata for: $title by $artist")
+                    
+                    // Handle artwork saving if provided
+                    if (artworkUri != null) {
+                        try {
+                            // Save artwork to cache directory for now
+                            saveArtworkToCache(context, song, artworkUri)
+                            Log.d(TAG, "Artwork saved to cache for: $title")
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Failed to save artwork, but metadata was saved successfully", e)
+                        }
+                    }
+                    
+                    withContext(Dispatchers.Main) {
+                        onSuccess()
+                    }
+                } else {
+                    Log.w(TAG, "File metadata update failed, updated in-memory data only")
+                    withContext(Dispatchers.Main) {
+                        onError("Metadata updated in app only. File permissions may prevent saving to audio file.")
+                    }
                 }
-                
-                Log.d(TAG, "Metadata saved for: $title by $artist")
                 
             } catch (e: Exception) {
                 Log.e(TAG, "Error saving metadata", e)
-                throw e
+                withContext(Dispatchers.Main) {
+                    onError("Failed to save metadata: ${e.message ?: "Unknown error"}")
+                }
             }
+        }
+    }
+    
+    private suspend fun saveArtworkToCache(context: Context, song: Song, artworkUri: Uri) {
+        try {
+            val inputStream = context.contentResolver.openInputStream(artworkUri)
+            if (inputStream != null) {
+                val artworkFile = File(context.cacheDir, "artwork_${song.id}.jpg")
+                artworkFile.outputStream().use { output ->
+                    inputStream.copyTo(output)
+                }
+                Log.d(TAG, "Artwork saved to cache: ${artworkFile.absolutePath}")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to save artwork to cache", e)
+            throw e
         }
     }
     

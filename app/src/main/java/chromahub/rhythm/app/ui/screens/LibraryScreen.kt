@@ -269,25 +269,23 @@ fun LibraryScreen(
             song = selectedSong!!,
             onDismiss = { showSongInfoSheet = false },
             onEditSong = { title, artist, album, genre, year, trackNumber ->
-                try {
-                    // Use the ViewModel's new metadata saving function
-                    musicViewModel.saveMetadataChanges(
-                        song = selectedSong!!,
-                        title = title,
-                        artist = artist,
-                        album = album,
-                        genre = genre,
-                        year = year,
-                        trackNumber = trackNumber
-                    )
-                    
-                    // Show success message
-                    Toast.makeText(context, "Metadata updated successfully", Toast.LENGTH_SHORT).show()
-                    showSongInfoSheet = false
-                } catch (e: Exception) {
-                    // Show error message
-                    Toast.makeText(context, "Failed to update metadata: ${e.message}", Toast.LENGTH_SHORT).show()
-                }
+                // Use the ViewModel's new metadata saving function with callbacks
+                musicViewModel.saveMetadataChanges(
+                    song = selectedSong!!,
+                    title = title,
+                    artist = artist,
+                    album = album,
+                    genre = genre,
+                    year = year,
+                    trackNumber = trackNumber,
+                    onSuccess = {
+                        Toast.makeText(context, "Metadata updated successfully", Toast.LENGTH_SHORT).show()
+                        showSongInfoSheet = false
+                    },
+                    onError = { errorMessage ->
+                        Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
+                    }
+                )
             }
         )
     }
