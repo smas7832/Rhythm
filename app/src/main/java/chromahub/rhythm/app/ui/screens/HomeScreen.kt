@@ -995,6 +995,7 @@ private fun ModernWelcomeSection(
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
+//                        Spacer(modifier = Modifier.height(8.dp))
 
                         Text(
                             text = personalizedMessage,
@@ -1023,7 +1024,6 @@ private fun ModernWelcomeSection(
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
 
                 // Quote section with Material 3 Expressive design
                 Surface(
