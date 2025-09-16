@@ -1294,6 +1294,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     fun playSong(song: Song) {
         Log.d(TAG, "Playing song: ${song.title}")
 
+        // Clear current lyrics to prevent showing stale lyrics from previous song
+        _currentLyrics.value = null
+
         updateRecentlyPlayed(song)
         trackSongPlay(song)
 
@@ -1403,6 +1406,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     fun playSongWithQueueOption(song: Song, replaceQueue: Boolean = false, shuffleQueue: Boolean = false) {
         Log.d(TAG, "Playing song with queue option: ${song.title}, replaceQueue: $replaceQueue")
         
+        // Clear current lyrics to prevent showing stale lyrics from previous song
+        _currentLyrics.value = null
+        
         if (replaceQueue) {
             // Replace the entire queue with this song and context
             val queueSongs = if (shuffleQueue) {
@@ -1438,6 +1444,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun playSongFromContext(song: Song, contextSongs: List<Song>, contextName: String? = null) {
         Log.d(TAG, "Playing song from context: ${song.title}, context: $contextName, contextSize: ${contextSongs.size}")
+        
+        // Clear current lyrics to prevent showing stale lyrics from previous song
+        _currentLyrics.value = null
         
         if (contextSongs.isEmpty()) {
             // Fallback to regular playSong
@@ -1575,6 +1584,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     fun playQueue(songs: List<Song>) {
         Log.d(TAG, "Playing queue with ${songs.size} songs")
+        
+        // Clear current lyrics to prevent showing stale lyrics from previous song
+        _currentLyrics.value = null
         
         if (songs.isEmpty()) {
             Log.e(TAG, "Cannot play empty queue")
@@ -2585,6 +2597,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         // Check if we should only fetch lyrics when online
         if (showOnlineOnlyLyrics.value && !repository.isNetworkAvailable()) {
             Log.d(TAG, "Online-only lyrics enabled but device is offline")
+            _currentLyrics.value = LyricsData("Online-only lyrics enabled.\nConnect to the internet to view lyrics.", null)
             return
         }
         

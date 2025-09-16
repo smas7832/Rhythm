@@ -46,7 +46,9 @@ data class LyricsData(
             "No lyrics found for this song",
             "Error fetching lyrics",
             "Lyrics not available offline",
-            "No lyrics available for this song"
+            "No lyrics available for this song",
+            "Unable to load lyrics. Tap to retry.",
+            "Online-only lyrics enabled.\nConnect to the internet to view lyrics."
         )
         return errorMessages.any { error ->
             plainLyrics?.contains(error) == true || syncedLyrics?.contains(error) == true
