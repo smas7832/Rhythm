@@ -1,6 +1,7 @@
 package chromahub.rhythm.app.ui.components
 
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -24,7 +25,8 @@ fun SyncedLyricsView(
     lyrics: String,
     currentPlaybackTime: Long,
     modifier: Modifier = Modifier,
-    listState: LazyListState = rememberLazyListState()
+    listState: LazyListState = rememberLazyListState(),
+    onSeek: ((Long) -> Unit)? = null
 ) {
     val parsedLyrics = remember(lyrics) {
         LyricsParser.parseLyrics(lyrics)
@@ -121,6 +123,9 @@ fun SyncedLyricsView(
                     textAlign = TextAlign.Center,
                     modifier = Modifier
                         .fillMaxWidth()
+                        .clickable {
+                            onSeek?.invoke(line.timestamp)
+                        }
                         .padding(vertical = 12.dp, horizontal = 16.dp)
                         .graphicsLayer {
                             scaleX = scale

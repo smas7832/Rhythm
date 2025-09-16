@@ -1,5 +1,6 @@
 package chromahub.rhythm.app.ui.navigation
 
+import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -84,6 +85,7 @@ import chromahub.rhythm.app.ui.screens.LibraryScreen
 import chromahub.rhythm.app.ui.components.RhythmIcons.Delete
 import chromahub.rhythm.app.ui.screens.HomeScreen
 import chromahub.rhythm.app.ui.screens.PlayerScreen
+
 import chromahub.rhythm.app.ui.screens.PlaylistDetailScreen
 import chromahub.rhythm.app.ui.screens.SearchScreen
 import chromahub.rhythm.app.ui.screens.SettingsScreen
@@ -235,6 +237,11 @@ fun RhythmNavigation(
     val onSkipNext = { viewModel.skipToNext() }
     val onSkipPrevious = { viewModel.skipToPrevious() }
     val onSeek = { value: Float -> viewModel.seekTo(value) }
+    val onLyricsSeek: (Long) -> Unit = { timestampMs ->
+        // Use the timestamp-based seekTo method directly for lyrics
+        Log.d("RhythmNavigation", "Lyrics seek: timestampMs=$timestampMs")
+        viewModel.seekTo(timestampMs)
+    }
     val onPlaySong = { song: chromahub.rhythm.app.data.Song -> viewModel.playSong(song) }
     val onPlayAlbum = { album: chromahub.rhythm.app.data.Album -> viewModel.playAlbum(album) }
     val onPlayAlbumShuffled = { album: chromahub.rhythm.app.data.Album -> viewModel.playAlbumShuffled(album) }
@@ -1147,10 +1154,11 @@ fun RhythmNavigation(
                         onSkipNext = onSkipNext,
                         onSkipPrevious = onSkipPrevious,
                         onSeek = { position ->
-                            // Convert the progress (0-1) to milliseconds
-                            val positionMs = (currentSong?.duration ?: 0) * position
-                            viewModel.seekTo(positionMs.toLong())
+                            // Use the progress-based seekTo method directly
+                            Log.d("LyricsSeek", "Navigation onSeek - Position: $position, Duration: ${currentSong?.duration}s")
+                            viewModel.seekTo(position)
                         },
+                        onLyricsSeek = onLyricsSeek,
                         onBack = {
                             navController.popBackStack()
                         },

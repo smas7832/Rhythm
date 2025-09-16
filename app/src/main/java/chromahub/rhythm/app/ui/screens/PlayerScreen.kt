@@ -188,6 +188,7 @@ fun PlayerScreen(
     onSkipNext: () -> Unit,
     onSkipPrevious: () -> Unit,
     onSeek: (Float) -> Unit,
+    onLyricsSeek: ((Long) -> Unit)? = null,
     onBack: () -> Unit,
     onLocationClick: () -> Unit,
     onQueueClick: () -> Unit,
@@ -311,6 +312,7 @@ fun PlayerScreen(
     var showAlbumArt by remember { mutableStateOf(false) }
 
     // Toggle between album art and lyrics with improved state management
+    // Made lyrics view state persistent across song changes
     var showLyricsView by remember { mutableStateOf(false) }
     var isLyricsContentVisible by remember { mutableStateOf(false) }
     var isSongInfoVisible by remember { mutableStateOf(true) }
@@ -359,12 +361,14 @@ fun PlayerScreen(
         }
     }
 
-    // Reset to song info when song changes and load canvas
+    // Load canvas when song changes, but preserve lyrics view state
     LaunchedEffect(song?.id) {
         if (song != null) {
-            showLyricsView = false
-            isLyricsContentVisible = false
-            isSongInfoVisible = true
+            // Don't reset lyrics view state - let user maintain their preference
+            // Only reset song info visibility if lyrics are currently showing
+            if (!showLyricsView) {
+                isSongInfoVisible = true
+            }
             
             // Reset canvas state
             canvasData = null
@@ -517,8 +521,7 @@ fun PlayerScreen(
         delay(100)
         showAlbumArt = true
 
-        // Reset to album art view when song changes
-        showLyricsView = false
+        // Don't reset lyrics view - preserve user's preference
     }
 
     // Start device monitoring when player screen is shown and stop when closed
@@ -651,23 +654,40 @@ fun PlayerScreen(
             song = song,
             onDismiss = { showSongInfoSheet = false },
             onEditSong = { title, artist, album, genre, year, trackNumber ->
-                // Use the ViewModel's new metadata saving function with callbacks
-                musicViewModel.saveMetadataChanges(
-                    song = song,
-                    title = title,
-                    artist = artist,
-                    album = album,
-                    genre = genre,
-                    year = year,
-                    trackNumber = trackNumber,
-                    onSuccess = {
-                        Toast.makeText(context, "Metadata updated successfully", Toast.LENGTH_SHORT).show()
-                    },
-                    onError = { errorMessage ->
-                        Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
-                        android.util.Log.w("PlayerScreen", "Metadata update failed for song: ${song.title}")
-                    }
-                )
+                try {
+                    // Use the ViewModel's new metadata saving function
+                    musicViewModel.saveMetadataChanges(
+                        song = song,
+                        title = title,
+                        artist = artist,
+                        album = album,
+                        genre = genre,
+                        year = year,
+                        trackNumber = trackNumber,
+                        onSuccess = {
+                            // Show success message
+                            Toast.makeText(context, "Metadata updated successfully", Toast.LENGTH_SHORT).show()
+                        },
+                        onError = { errorMessage ->
+                            // Show detailed error message
+                            Toast.makeText(
+                                context, 
+                                "Failed to update metadata: $errorMessage", 
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    )
+                } catch (e: Exception) {
+                    // Show generic error message for unexpected exceptions
+                    Toast.makeText(
+                        context, 
+                        "Unexpected error: ${e.message}", 
+                        Toast.LENGTH_LONG
+                    ).show()
+                    
+                    // Log additional debug info
+                    android.util.Log.w("PlayerScreen", "Metadata update failed for song: ${song.title}", e)
+                }
             }
         )
     }
@@ -1428,7 +1448,8 @@ fun PlayerScreen(
                                                     SyncedLyricsView(
                                                         lyrics = lyricsText,
                                                         currentPlaybackTime = currentTimeMs,
-                                                        modifier = Modifier.fillMaxSize()
+                                                        modifier = Modifier.fillMaxSize(),
+                                                        onSeek = onLyricsSeek
                                                     )
                                                 } else {
                                                     // Fallback to plain text lyrics if not synchronized
