@@ -1192,6 +1192,9 @@ fun RhythmNavigation(
                         onlineOnlyLyrics = showOnlineOnlyLyrics,
                         lyrics = lyrics,
                         isLoadingLyrics = isLoadingLyrics,
+                        onRetryLyrics = {
+                            viewModel.retryFetchLyrics()
+                        },
                         volume = viewModel.volume.collectAsState().value,
                         isMuted = viewModel.isMuted.collectAsState().value,
                         onVolumeChange = { volume ->

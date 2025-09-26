@@ -238,15 +238,16 @@ fun SongInfoBottomSheet(
                     }
                 }
             }
-
             item {
                 Text(
-                    text = "Blacklist Actions",
+                    text = "Actions",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 8.dp),
+                    modifier = Modifier.padding(top = 4.dp, bottom = 2.dp),
                     color = MaterialTheme.colorScheme.primary
                 )
+            }
+            item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -291,7 +292,7 @@ fun SongInfoBottomSheet(
                             )
                         }
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(if (isBlacklisted) "Remove File from Blacklist" else "Add File to Blacklist")
+                        Text(if (isBlacklisted) "Un-Blacklist Track" else "Blacklist Track")
                     }
                     
                     // Block/Unblock Folder
@@ -333,21 +334,13 @@ fun SongInfoBottomSheet(
                                 )
                             }
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(if (isInBlacklistedFolder) "Remove Folder from Blacklist" else "Add Folder to Blacklist")
+                            Text(if (isInBlacklistedFolder) "Un-Blacklist Folder" else "Blacklist Folder")
                         }
                     }
                 }
             }
             
             item {
-                // Whitelist Actions Section
-                Text(
-                    text = "Whitelist Actions",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 8.dp),
-                    color = MaterialTheme.colorScheme.primary
-                )
                 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -393,7 +386,7 @@ fun SongInfoBottomSheet(
                             )
                         }
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(if (isWhitelisted) "Remove File from Whitelist" else "Add File to Whitelist")
+                        Text(if (isWhitelisted) "Un-Whitelist Track" else "Whitelist Track")
                     }
                     
                     // Whitelist/Remove from whitelist Folder
@@ -435,7 +428,7 @@ fun SongInfoBottomSheet(
                                 )
                             }
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(if (isInWhitelistedFolder) "Remove Folder from Whitelist" else "Add Folder to Whitelist")
+                            Text(if (isInWhitelistedFolder) "Un-Whitelist Folder" else "Whitelist Folder")
                         }
                     }
                 }

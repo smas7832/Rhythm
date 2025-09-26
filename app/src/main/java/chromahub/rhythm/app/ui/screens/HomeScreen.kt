@@ -58,6 +58,12 @@ import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.Error
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Album
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.NewReleases
+import androidx.compose.material.icons.rounded.LibraryAdd
+import androidx.compose.material.icons.rounded.TipsAndUpdates
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -109,6 +115,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.util.lerp
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.sp
@@ -670,18 +677,12 @@ private fun ModernScrollableContent(
 
             // Recently Played with modern design
             item {
-                AnimatedVisibility(
-                    visible = recentlyPlayed.isNotEmpty(),
-                    enter = slideInVertically() + fadeIn(),
-                    exit = slideOutVertically() + fadeOut()
-                ) {
-                    ModernRecentlyPlayedSection(
-                        recentlyPlayed = recentlyPlayed.take(6), // Increased count
-                        onSongClick = onSongClick,
-                        musicViewModel = musicViewModel,
-                        coroutineScope = coroutineScope
-                    )
-                }
+                ModernRecentlyPlayedSection(
+                    recentlyPlayed = recentlyPlayed.take(6), // Increased count
+                    onSongClick = onSongClick,
+                    musicViewModel = musicViewModel,
+                    coroutineScope = coroutineScope
+                )
             }
 
             // Spacing between recently played and featured albums
@@ -691,22 +692,25 @@ private fun ModernScrollableContent(
 
             // Featured Albums with enhanced design
             item {
-                AnimatedVisibility(
-                    visible = currentFeaturedAlbums.isNotEmpty(),
-                    enter = slideInVertically() + fadeIn(),
-                    exit = slideOutVertically() + fadeOut()
-                ) {
-                    Column {
-                        ModernSectionTitle(
-                            title = "Featured Albums", 
-                            subtitle = "Discover amazing music",
-                            viewAllAction = onViewAllAlbums
-                        )
-                        Spacer(modifier = Modifier.height(20.dp))
+                Column {
+                    ModernSectionTitle(
+                        title = "Featured Albums", 
+                        subtitle = "Discover amazing music",
+                        viewAllAction = onViewAllAlbums
+                    )
+                    Spacer(modifier = Modifier.height(20.dp))
+                    if (currentFeaturedAlbums.isNotEmpty()) {
                         ModernFeaturedSection(
                             albums = currentFeaturedAlbums,
                             pagerState = featuredPagerState,
                             onAlbumClick = onAlbumClick
+                        )
+                    } else {
+                        ModernEmptyState(
+                            icon = Icons.Rounded.Album,
+                            title = "No Featured Albums",
+                            subtitle = "Add some albums to your library to see featured content",
+                            iconSize = 48.dp
                         )
                     }
                 }
@@ -719,17 +723,28 @@ private fun ModernScrollableContent(
 
             // Artists carousel with modern layout
             item {
-                AnimatedVisibility(
-                    visible = availableArtists.isNotEmpty(),
-                    enter = slideInVertically() + fadeIn(),
-                    exit = slideOutVertically() + fadeOut()
-                ) {
+                if (availableArtists.isNotEmpty()) {
                     ModernArtistsSection(
                         artists = availableArtists,
                         songs = allSongs,
                         onArtistClick = onArtistClick,
                         onViewAllArtists = onViewAllArtists
                     )
+                } else {
+                    Column {
+                        ModernSectionTitle(
+                            title = "Artists",
+                            subtitle = "Explore your favorite musicians",
+                            viewAllAction = onViewAllArtists
+                        )
+                        Spacer(modifier = Modifier.height(20.dp))
+                        ModernEmptyState(
+                            icon = Icons.Rounded.Person,
+                            title = "No Artists Found",
+                            subtitle = "Add some music to your library to see your artists",
+                            iconSize = 48.dp
+                        )
+                    }
                 }
             }
 
@@ -740,37 +755,33 @@ private fun ModernScrollableContent(
 
             // New Releases with enhanced cards
             item {
-                AnimatedVisibility(
-                    visible = newReleases.isNotEmpty(),
-                    enter = slideInVertically() + fadeIn(),
-                    exit = slideOutVertically() + fadeOut()
-                ) {
-                    Column {
-                        ModernSectionTitle(
-                            title = "New Releases",
-                            subtitle = "Fresh music just for you",
-                            onPlayAll = {
-                                coroutineScope.launch {
-                                    val allNewReleaseSongs = newReleases.flatMap { album ->
-                                        musicViewModel.getMusicRepository().getSongsForAlbum(album.id)
-                                    }
-                                    if (allNewReleaseSongs.isNotEmpty()) {
-                                        musicViewModel.playQueue(allNewReleaseSongs)
-                                    }
+                Column {
+                    ModernSectionTitle(
+                        title = "New Releases",
+                        subtitle = "Fresh music just for you",
+                        onPlayAll = {
+                            coroutineScope.launch {
+                                val allNewReleaseSongs = newReleases.flatMap { album ->
+                                    musicViewModel.getMusicRepository().getSongsForAlbum(album.id)
                                 }
-                            },
-                            onShufflePlay = {
-                                coroutineScope.launch {
-                                    val allNewReleaseSongs = newReleases.flatMap { album ->
-                                        musicViewModel.getMusicRepository().getSongsForAlbum(album.id)
-                                    }
-                                    if (allNewReleaseSongs.isNotEmpty()) {
-                                        musicViewModel.playShuffled(allNewReleaseSongs)
-                                    }
+                                if (allNewReleaseSongs.isNotEmpty()) {
+                                    musicViewModel.playQueue(allNewReleaseSongs)
                                 }
                             }
-                        )
-                        Spacer(modifier = Modifier.height(20.dp))
+                        },
+                        onShufflePlay = {
+                            coroutineScope.launch {
+                                val allNewReleaseSongs = newReleases.flatMap { album ->
+                                    musicViewModel.getMusicRepository().getSongsForAlbum(album.id)
+                                }
+                                if (allNewReleaseSongs.isNotEmpty()) {
+                                    musicViewModel.playShuffled(allNewReleaseSongs)
+                                }
+                            }
+                        }
+                    )
+                    Spacer(modifier = Modifier.height(20.dp))
+                    if (newReleases.isNotEmpty()) {
                         LazyRow(
                             contentPadding = PaddingValues(horizontal = 8.dp),
                             horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -782,6 +793,13 @@ private fun ModernScrollableContent(
                                 )
                             }
                         }
+                    } else {
+                        ModernEmptyState(
+                            icon = Icons.Rounded.NewReleases,
+                            title = "No New Releases",
+                            subtitle = "New albums will appear here as they're added to your library",
+                            iconSize = 48.dp
+                        )
                     }
                 }
             }
@@ -793,33 +811,29 @@ private fun ModernScrollableContent(
 
             // Recently Added Albums (matching new releases style)
             item {
-                AnimatedVisibility(
-                    visible = recentlyAddedAlbums.isNotEmpty(),
-                    enter = slideInVertically() + fadeIn(),
-                    exit = slideOutVertically() + fadeOut()
-                ) {
-                    Column {
-                        ModernSectionTitle(
-                            title = "Recently Added",
-                            subtitle = "Your latest additions",
-                            onPlayAll = {
-                                if (recentlyAddedAlbums.isNotEmpty()) {
-                                    val allSongs = recentlyAddedAlbums.flatMap { album ->
-                                        album.songs
-                                    }
-                                    musicViewModel.playQueue(allSongs)
+                Column {
+                    ModernSectionTitle(
+                        title = "Recently Added",
+                        subtitle = "Your latest additions",
+                        onPlayAll = {
+                            if (recentlyAddedAlbums.isNotEmpty()) {
+                                val allSongs = recentlyAddedAlbums.flatMap { album ->
+                                    album.songs
                                 }
-                            },
-                            onShufflePlay = {
-                                if (recentlyAddedAlbums.isNotEmpty()) {
-                                    val allSongs = recentlyAddedAlbums.flatMap { album ->
-                                        album.songs
-                                    }
-                                    musicViewModel.playShuffled(allSongs)
-                                }
+                                musicViewModel.playQueue(allSongs)
                             }
-                        )
-                        Spacer(modifier = Modifier.height(20.dp))
+                        },
+                        onShufflePlay = {
+                            if (recentlyAddedAlbums.isNotEmpty()) {
+                                val allSongs = recentlyAddedAlbums.flatMap { album ->
+                                    album.songs
+                                }
+                                musicViewModel.playShuffled(allSongs)
+                            }
+                        }
+                    )
+                    Spacer(modifier = Modifier.height(20.dp))
+                    if (recentlyAddedAlbums.isNotEmpty()) {
                         LazyRow(
                             contentPadding = PaddingValues(horizontal = 8.dp),
                             horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -831,8 +845,45 @@ private fun ModernScrollableContent(
                                 )
                             }
                         }
+                    } else {
+                        ModernEmptyState(
+                            icon = Icons.Rounded.LibraryAdd,
+                            title = "No Recently Added Albums",
+                            subtitle = "Albums you add to your library will appear here",
+                            iconSize = 48.dp
+                        )
                     }
                 }
+            }
+
+            // Spacing before recommended section
+            item {
+                Spacer(modifier = Modifier.height(0.dp))
+            }
+
+            // Recommended for you section
+            item {
+                val recommendedSongs = remember(recentlyPlayed, songs) {
+                    // Generate recommendations based on recently played songs
+                    if (recentlyPlayed.isNotEmpty()) {
+                        val playedArtists = recentlyPlayed.map { it.artist }.distinct()
+                        val playedAlbums = recentlyPlayed.map { it.album }.distinct()
+                        
+                        // Find songs from similar artists or albums
+                        songs.filter { song ->
+                            (song.artist in playedArtists || song.album in playedAlbums) && 
+                            !recentlyPlayed.contains(song)
+                        }.shuffled().take(6)
+                    } else {
+                        // Fallback to random popular songs if no history
+                        songs.shuffled().take(6)
+                    }
+                }
+                
+                ModernRecommendedSection(
+                    recommendedSongs = recommendedSongs,
+                    onSongClick = onSongClick
+                )
             }
 
             // Spacing before stats section
@@ -1100,16 +1151,26 @@ private fun ModernRecentlyPlayedSection(
         
         Spacer(modifier = Modifier.height(20.dp))
         
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp) // More spacing between items
-        ) {
-            items(recentlyPlayed, key = { it.id }) { song ->
-                ModernRecentSongCard(
-                    song = song,
-                    onClick = { onSongClick(song) }
-                )
+        if (recentlyPlayed.isNotEmpty()) {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp) // More spacing between items
+            ) {
+                items(recentlyPlayed, key = { it.id }) { song ->
+                    ModernRecentSongCard(
+                        song = song,
+                        onClick = { onSongClick(song) }
+                    )
+                }
             }
+        } else {
+            // Empty state for recently played
+            ModernEmptyState(
+                icon = Icons.Rounded.History,
+                title = "No Recent Activity",
+                subtitle = "Start listening to see your recently played songs here",
+                iconSize = 48.dp
+            )
         }
     }
 }
@@ -2402,36 +2463,205 @@ private fun ModernUpdateSection(
                 shape = RoundedCornerShape(20.dp)
             ) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.padding(20.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Text(
+                        text = if (isDownloading) "Downloading..." else "Update Now",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        fontWeight = FontWeight.Bold
+                    )
+                    
                     if (isDownloading) {
-                        chromahub.rhythm.app.ui.components.M3FourColorCircularLoader(
+                        CircularProgressIndicator(
                             modifier = Modifier.size(24.dp),
-                            strokeWidth = 3.dp.value
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            strokeWidth = 2.dp
                         )
                     } else {
                         Icon(
-                            imageVector = RhythmIcons.Download,
-                            contentDescription = "Download update",
-                            tint = MaterialTheme.colorScheme.primaryContainer,
-                            modifier = Modifier.size(24.dp)
+                            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                            contentDescription = "Update",
+                            tint = MaterialTheme.colorScheme.primaryContainer
                         )
                     }
-                    
-                    Spacer(modifier = Modifier.width(12.dp))
-                    
-                    Text(
-                        text = if (isDownloading) "Downloading..." else "Update Now",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primaryContainer
-                    )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ModernRecommendedSection(
+    recommendedSongs: List<Song>,
+    onSongClick: (Song) -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        ModernSectionTitle(
+            title = "Recommended For You",
+            subtitle = "Based on your listening history"
+        )
+        
+        Spacer(modifier = Modifier.height(20.dp))
+        
+        if (recommendedSongs.isNotEmpty()) {
+            Surface(
+                color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f),
+                shape = RoundedCornerShape(20.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp)
+                ) {
+                    recommendedSongs.forEachIndexed { index, song ->
+                        RecommendedSongItem(
+                            song = song,
+                            onClick = { onSongClick(song) }
+                        )
+                        
+                        if (index != recommendedSongs.lastIndex) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
+                    }
+                }
+            }
+        } else {
+            ModernEmptyState(
+                icon = Icons.Rounded.TipsAndUpdates,
+                title = "No Recommendations",
+                subtitle = "Listen to some music to get personalized recommendations",
+                iconSize = 48.dp
+            )
+        }
+    }
+}
+
+@Composable
+private fun RecommendedSongItem(
+    song: Song,
+    onClick: () -> Unit
+) {
+    val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
+    
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = {
+                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                onClick()
+            })
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.size(52.dp)
+        ) {
+            AsyncImage(
+                model = ImageRequest.Builder(context)
+                    .apply(ImageUtils.buildImageRequest(
+                        song.artworkUri,
+                        song.title,
+                        context.cacheDir,
+                        M3PlaceholderType.TRACK
+                    ))
+                    .build(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+        
+        Spacer(modifier = Modifier.width(16.dp))
+        
+        Column(
+            modifier = Modifier.weight(1f)
+        ) {
+            Text(
+                text = song.title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            
+            Text(
+                text = "${song.artist} • ${song.album}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        
+        FilledIconButton(
+            onClick = {
+                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                onClick()
+            },
+            modifier = Modifier.size(40.dp),
+            colors = IconButtonDefaults.filledIconButtonColors(
+                containerColor = MaterialTheme.colorScheme.tertiary,
+                contentColor = MaterialTheme.colorScheme.onTertiary
+            )
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.PlayArrow,
+                contentDescription = "Play",
+                modifier = Modifier.size(25.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun ModernEmptyState(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    iconSize: Dp = 56.dp
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(120.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                modifier = Modifier.size(iconSize)
+            )
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            )
+            
+            Spacer(modifier = Modifier.height(4.dp))
+            
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 32.dp)
+            )
         }
     }
 }

@@ -59,6 +59,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.BottomSheetDefaults
@@ -212,6 +213,7 @@ fun PlayerScreen(
     onlineOnlyLyrics: Boolean = false,
     lyrics: chromahub.rhythm.app.data.LyricsData? = null,
     isLoadingLyrics: Boolean = false,
+    onRetryLyrics: () -> Unit = {},
     playlists: List<Playlist> = emptyList(),
     queue: List<Song> = emptyList(),
     onSongClick: (Song) -> Unit = {},
@@ -1427,6 +1429,29 @@ fun PlayerScreen(
                                                             ),
                                                             textAlign = TextAlign.Center
                                                         )
+                                                        
+                                                        // Show retry button when not loading
+                                                        if (!isLoadingLyrics) {
+                                                            Spacer(modifier = Modifier.height(16.dp))
+                                                            FilledTonalButton(
+                                                                onClick = {
+                                                                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                                                                    onRetryLyrics()
+                                                                },
+                                                                colors = ButtonDefaults.filledTonalButtonColors(
+                                                                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                                                                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                                                                )
+                                                            ) {
+                                                                Icon(
+                                                                    imageVector = Icons.Rounded.Refresh,
+                                                                    contentDescription = null,
+                                                                    modifier = Modifier.size(18.dp)
+                                                                )
+                                                                Spacer(modifier = Modifier.width(8.dp))
+                                                                Text("Retry")
+                                                            }
+                                                        }
                                                     }
                                                 }
                                             }
