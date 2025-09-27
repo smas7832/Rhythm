@@ -3,6 +3,7 @@
 package chromahub.rhythm.app.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -18,12 +19,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -55,6 +59,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
@@ -123,9 +128,13 @@ fun EqualizerBottomSheetNew(
         label = "contentTranslation"
     )
 
-    LaunchedEffect(Unit) {
-        delay(100)
-        showContent = true
+    LaunchedEffect(bottomSheetState.currentValue) {
+        if (bottomSheetState.currentValue != SheetValue.Hidden) {
+            delay(100) // Small delay for visual effect
+            showContent = true
+        } else {
+            showContent = false
+        }
     }
     
     // Collect states from settings
@@ -200,13 +209,20 @@ fun EqualizerBottomSheetNew(
         musicViewModel.openSystemEqualizer()
     }
 
+    val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = bottomSheetState,
-        dragHandle = { 
-            BottomSheetDefaults.DragHandle(
-                color = MaterialTheme.colorScheme.primary
-            )
+        dragHandle = remember(bottomSheetState.currentValue, statusBarPadding) {
+            {
+                val isExpanded = bottomSheetState.currentValue == SheetValue.Expanded
+                val dragHandleModifier = if (isExpanded) Modifier.padding(top = statusBarPadding) else Modifier
+                BottomSheetDefaults.DragHandle(
+                    modifier = dragHandleModifier,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
         },
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         contentColor = MaterialTheme.colorScheme.onBackground,
@@ -216,6 +232,7 @@ fun EqualizerBottomSheetNew(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 24.dp)
+                .animateContentSize(animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow))
         ) {
             // Header
             AnimatedVisibility(

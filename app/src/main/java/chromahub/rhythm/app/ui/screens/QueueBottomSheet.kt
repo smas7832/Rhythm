@@ -84,6 +84,14 @@ import chromahub.rhythm.app.ui.components.M3PlaceholderType
 import chromahub.rhythm.app.ui.components.DragDropLazyColumn
 import chromahub.rhythm.app.util.ImageUtils
 import kotlin.collections.IndexedValue
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.max
+import androidx.compose.ui.unit.min
+import androidx.compose.material3.SheetValue // Add this import
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -132,13 +140,29 @@ fun QueueBottomSheet(
         if (queue.isNotEmpty()) queue.toMutableStateList() else mutableStateListOf()
     }
 
+    val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+
+    val animatedDragHandlePadding by animateDpAsState(
+        targetValue = if (sheetState.currentValue == SheetValue.Expanded) {
+            statusBarPadding
+        } else {
+            0.dp
+        },
+        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
+        label = "animatedDragHandlePadding"
+    )
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         dragHandle = { 
-            BottomSheetDefaults.DragHandle(
-                color = MaterialTheme.colorScheme.primary
-            )
+            Column(
+                modifier = Modifier.padding(top = animatedDragHandlePadding)
+            ) {
+                BottomSheetDefaults.DragHandle(
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
         },
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         contentColor = MaterialTheme.colorScheme.onBackground,

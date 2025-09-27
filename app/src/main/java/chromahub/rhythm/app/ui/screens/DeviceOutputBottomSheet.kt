@@ -69,6 +69,12 @@ import chromahub.rhythm.app.data.PlaybackLocation
 import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.data.AppSettings
 import chromahub.rhythm.app.util.HapticUtils
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.ui.unit.Dp
+import androidx.compose.material3.SheetValue // Add this import
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -148,13 +154,29 @@ fun DeviceOutputBottomSheet(
         }
     }
 
+    val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+
+    val animatedDragHandlePadding by animateDpAsState(
+        targetValue = if (sheetState.currentValue == SheetValue.Expanded) {
+            statusBarPadding
+        } else {
+            0.dp
+        },
+        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
+        label = "animatedDragHandlePadding"
+    )
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         dragHandle = { 
-            BottomSheetDefaults.DragHandle(
-                color = MaterialTheme.colorScheme.primary
-            )
+            Column(
+                modifier = Modifier.padding(top = animatedDragHandlePadding)
+            ) {
+                BottomSheetDefaults.DragHandle(
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
         },
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         contentColor = MaterialTheme.colorScheme.onBackground,
