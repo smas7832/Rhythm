@@ -40,6 +40,7 @@ import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.LinearScale
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Piano
+import androidx.compose.animation.animateContentSize
 import androidx.compose.material.icons.rounded.RecordVoiceOver
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Speaker
@@ -124,7 +125,7 @@ fun EqualizerBottomSheetNew(
     )
 
     LaunchedEffect(Unit) {
-        delay(100)
+        delay(400)
         showContent = true
     }
     
@@ -216,6 +217,7 @@ fun EqualizerBottomSheetNew(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 24.dp)
+//                .animateContentSize(animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow))
         ) {
             // Header
             AnimatedVisibility(

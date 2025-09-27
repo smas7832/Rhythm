@@ -204,7 +204,7 @@ fun PlaylistExportDialog(
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Choose Location")
+                        Text("Choose")
                     }
                 }
             } else {
@@ -371,7 +371,7 @@ fun BulkPlaylistExportDialog(
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Choose Location")
+                        Text("Choose")
                     }
                 }
             } else {
