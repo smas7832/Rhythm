@@ -117,7 +117,8 @@ fun PlaylistDetailScreen(
     onSkipNext: () -> Unit = {},
     onSearchClick: () -> Unit = {},
     onExportPlaylist: ((PlaylistImportExportUtils.PlaylistExportFormat) -> Unit)? = null,
-    onImportPlaylist: ((Uri) -> Unit)? = null
+    onExportPlaylistToCustomLocation: ((PlaylistImportExportUtils.PlaylistExportFormat, Uri) -> Unit)? = null,
+    onImportPlaylist: ((Uri, (Result<String>) -> Unit, (() -> Unit)?) -> Unit)? = null
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
@@ -197,14 +198,20 @@ fun PlaylistDetailScreen(
     }
 
     // Export dialog
-    if (showExportDialog && onExportPlaylist != null) {
+    if (showExportDialog && (onExportPlaylist != null || onExportPlaylistToCustomLocation != null)) {
         PlaylistExportDialog(
             playlistName = playlist.name,
             onDismiss = { showExportDialog = false },
             onExport = { format ->
                 operationInProgress = "Exporting"
                 showOperationProgress = true
-                onExportPlaylist(format)
+                onExportPlaylist?.invoke(format)
+                showExportDialog = false
+            },
+            onExportToCustomLocation = { format, directoryUri ->
+                operationInProgress = "Exporting"
+                showOperationProgress = true
+                onExportPlaylistToCustomLocation?.invoke(format, directoryUri)
                 showExportDialog = false
             }
         )
@@ -214,10 +221,10 @@ fun PlaylistDetailScreen(
     if (showImportDialog && onImportPlaylist != null) {
         PlaylistImportDialog(
             onDismiss = { showImportDialog = false },
-            onImport = { uri ->
+            onImport = { uri, onResult, onRestartRequired ->
                 operationInProgress = "Importing"
                 showOperationProgress = true
-                onImportPlaylist(uri)
+                onImportPlaylist(uri, onResult, onRestartRequired)
                 showImportDialog = false
             }
         )
@@ -331,7 +338,7 @@ fun PlaylistDetailScreen(
                             shape = RoundedCornerShape(16.dp)
                         ) {
                             // Export playlist option
-                            if (onExportPlaylist != null) {
+                            if (onExportPlaylist != null || onExportPlaylistToCustomLocation != null) {
                                 DropdownMenuItem(
                                     text = { Text("Export playlist") },
                                     onClick = {

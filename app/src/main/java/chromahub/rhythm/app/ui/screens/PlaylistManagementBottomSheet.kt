@@ -450,6 +450,23 @@ fun PlaylistManagementBottomSheet(
                         }
                     )
                 }
+            },
+            onExportToCustomLocation = { format, includeMetadata, directoryUri ->
+                showBulkExportDialog = false
+                showOperationProgress = true
+                operationProgressText = "Exporting playlists to selected location..."
+
+                musicViewModel.exportAllPlaylists(format, includeMetadata, directoryUri) { result ->
+                    showOperationProgress = false
+                    result.fold(
+                        onSuccess = { message ->
+                            // Success handled by snackbar in navigation layer
+                        },
+                        onFailure = { error ->
+                            operationError = error.message ?: "Export failed"
+                        }
+                    )
+                }
             }
         )
     }
@@ -457,23 +474,13 @@ fun PlaylistManagementBottomSheet(
     if (showImportDialog) {
         PlaylistImportDialog(
             onDismiss = { showImportDialog = false },
-            onImport = { uri ->
+            onImport = { uri, onResultCallback, onRestartRequiredCallback ->
                 showImportDialog = false
                 showOperationProgress = true
                 operationProgressText = "Importing playlists..."
                 
                 // Handle import
-                musicViewModel.importPlaylist(uri) { result ->
-                    showOperationProgress = false
-                    result.fold(
-                        onSuccess = { message ->
-                            // Success handled by snackbar in navigation layer
-                        },
-                        onFailure = { error ->
-                            operationError = error.message ?: "Import failed"
-                        }
-                    )
-                }
+                musicViewModel.importPlaylist(uri, onResultCallback, onRestartRequiredCallback)
             }
         )
     }

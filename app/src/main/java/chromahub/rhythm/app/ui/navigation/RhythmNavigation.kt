@@ -1035,9 +1035,9 @@ fun RhythmNavigation(
                         },
                         initialTab = initialTab,
                         musicViewModel = viewModel, // Pass musicViewModel
-                        onExportAllPlaylists = { format, includeDefault, resultCallback ->
-                            // Export all playlists
-                            viewModel.exportAllPlaylists(format, includeDefault) { result ->
+                        onExportAllPlaylists = { format, includeDefault, userDirectoryUri, resultCallback ->
+                            // Export all playlists with optional user-selected directory
+                            viewModel.exportAllPlaylists(format, includeDefault, userDirectoryUri) { result ->
                                 result.fold(
                                     onSuccess = { message ->
                                         coroutineScope.launch {
@@ -1053,9 +1053,9 @@ fun RhythmNavigation(
                                 resultCallback(result)
                             }
                         },
-                        onImportPlaylist = { uri, resultCallback ->
-                            // Import playlist from URI
-                            viewModel.importPlaylist(uri) { result ->
+                        onImportPlaylist = { uri, resultCallback, onRestartRequired ->
+                            // Import playlist from URI with restart functionality
+                            viewModel.importPlaylist(uri, { result ->
                                 result.fold(
                                     onSuccess = { message ->
                                         coroutineScope.launch {
@@ -1069,7 +1069,13 @@ fun RhythmNavigation(
                                     }
                                 )
                                 resultCallback(result)
-                            }
+                            }, onRestartRequired = {
+                                // Trigger restart dialog or function
+                                onRestartRequired?.invoke()
+                            })
+                        },
+                        onRestartApp = {
+                            viewModel.restartApp()
                         }
                     )
                 }

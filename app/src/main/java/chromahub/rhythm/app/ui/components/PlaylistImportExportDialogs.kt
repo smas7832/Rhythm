@@ -32,15 +32,87 @@ import androidx.compose.ui.unit.sp
 import chromahub.rhythm.app.ui.components.M3FourColorCircularLoader
 
 /**
- * Dialog for selecting playlist export format and initiating export
+ * Dialog asking user if they want to restart the app after import
+ */
+@Composable
+fun AppRestartDialog(
+    onDismiss: () -> Unit,
+    onRestart: () -> Unit,
+    onContinue: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                imageVector = Icons.Rounded.RestartAlt,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+        },
+        title = {
+            Text(
+                text = "Restart App?",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Text(
+                text = "To ensure all imported playlists work correctly, we recommend restarting the app. You can continue using the app normally, but some features may not work as expected until restart.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onRestart()
+                    onDismiss()
+                }
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.RestartAlt,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Restart Now")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = {
+                    onContinue()
+                    onDismiss()
+                }
+            ) {
+                Text("Continue Without Restart")
+            }
+        }
+    )
+}
+
+/**
+ * Dialog for selecting playlist export format and choosing export location
  */
 @Composable
 fun PlaylistExportDialog(
     playlistName: String,
     onDismiss: () -> Unit,
-    onExport: (PlaylistImportExportUtils.PlaylistExportFormat) -> Unit
+    onExport: (PlaylistImportExportUtils.PlaylistExportFormat) -> Unit,
+    onExportToCustomLocation: (PlaylistImportExportUtils.PlaylistExportFormat, Uri) -> Unit
 ) {
     var selectedFormat by remember { mutableStateOf(PlaylistImportExportUtils.PlaylistExportFormat.JSON) }
+    var showLocationOptions by remember { mutableStateOf(false) }
+    
+    val directoryPickerLauncher = rememberLauncherForActivityResult<Uri?, Uri?>(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        uri?.let { 
+            onExportToCustomLocation(selectedFormat, it)
+            onDismiss()
+        }
+    }
     
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -104,24 +176,60 @@ fun PlaylistExportDialog(
             }
         },
         confirmButton = {
-            Button(
-                onClick = {
-                    onExport(selectedFormat)
-                    onDismiss()
+            if (showLocationOptions) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = {
+                            onExport(selectedFormat)
+                            onDismiss()
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Folder,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Default")
+                    }
+                    
+                    Button(
+                        onClick = {
+                            directoryPickerLauncher.launch(null)
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.FolderOpen,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Choose Location")
+                    }
                 }
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.FileUpload,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Export")
+            } else {
+                Button(
+                    onClick = { showLocationOptions = true }
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.FileUpload,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Export")
+                }
             }
         },
         dismissButton = {
-            OutlinedButton(onClick = onDismiss) {
-                Text("Cancel")
+            OutlinedButton(onClick = { 
+                if (showLocationOptions) {
+                    showLocationOptions = false
+                } else {
+                    onDismiss()
+                }
+            }) {
+                Text(if (showLocationOptions) "Back" else "Cancel")
             }
         }
     )
@@ -134,10 +242,21 @@ fun PlaylistExportDialog(
 fun BulkPlaylistExportDialog(
     playlistCount: Int,
     onDismiss: () -> Unit,
-    onExport: (PlaylistImportExportUtils.PlaylistExportFormat, Boolean) -> Unit
+    onExport: (PlaylistImportExportUtils.PlaylistExportFormat, Boolean) -> Unit,
+    onExportToCustomLocation: (PlaylistImportExportUtils.PlaylistExportFormat, Boolean, Uri) -> Unit
 ) {
     var selectedFormat by remember { mutableStateOf(PlaylistImportExportUtils.PlaylistExportFormat.JSON) }
     var includeDefaultPlaylists by remember { mutableStateOf(false) }
+    var showLocationOptions by remember { mutableStateOf(false) }
+    
+    val directoryPickerLauncher = rememberLauncherForActivityResult<Uri?, Uri?>(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        uri?.let { 
+            onExportToCustomLocation(selectedFormat, includeDefaultPlaylists, it)
+            onDismiss()
+        }
+    }
     
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -224,19 +343,49 @@ fun BulkPlaylistExportDialog(
             }
         },
         confirmButton = {
-            Button(
-                onClick = {
-                    onExport(selectedFormat, includeDefaultPlaylists)
-                    onDismiss()
+            if (showLocationOptions) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = {
+                            onExport(selectedFormat, includeDefaultPlaylists)
+                            onDismiss()
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Folder,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Default")
+                    }
+                    
+                    Button(
+                        onClick = {
+                            directoryPickerLauncher.launch(null)
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.FolderOpen,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Choose Location")
+                    }
                 }
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.FolderZip,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Export All")
+            } else {
+                Button(
+                    onClick = { showLocationOptions = true }
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.FolderZip,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Export All")
+                }
             }
         },
         dismissButton = {
@@ -253,14 +402,17 @@ fun BulkPlaylistExportDialog(
 @Composable
 fun PlaylistImportDialog(
     onDismiss: () -> Unit,
-    onImport: (Uri) -> Unit
+    onImport: (Uri, (Result<String>) -> Unit, (() -> Unit)?) -> Unit
 ) {
     val context = LocalContext.current
     
-    val filePickerLauncher = rememberLauncherForActivityResult(
+    val filePickerLauncher = rememberLauncherForActivityResult<Array<String>, Uri?>(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
-        uri?.let { onImport(it) }
+        uri?.let { selectedUri ->
+            // Pass a dummy onResult and onRestartRequired for now, will be replaced by actual implementation in PlaylistManagementBottomSheet
+            onImport(selectedUri, { /* no-op */ }, { /* no-op */ })
+        }
         onDismiss()
     }
     

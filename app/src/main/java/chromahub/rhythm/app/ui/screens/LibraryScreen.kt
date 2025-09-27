@@ -66,6 +66,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import android.net.Uri
 import chromahub.rhythm.app.util.PlaylistImportExportUtils
+import chromahub.rhythm.app.util.AppRestarter
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilledIconButton
@@ -188,8 +189,9 @@ fun LibraryScreen(
     onAddToQueue: (Song) -> Unit,
     initialTab: LibraryTab = LibraryTab.SONGS,
     musicViewModel: MusicViewModel, // Add MusicViewModel as a parameter
-    onExportAllPlaylists: ((PlaylistImportExportUtils.PlaylistExportFormat, Boolean, (Result<String>) -> Unit) -> Unit)? = null,
-    onImportPlaylist: ((Uri, (Result<String>) -> Unit) -> Unit)? = null
+    onExportAllPlaylists: ((PlaylistImportExportUtils.PlaylistExportFormat, Boolean, Uri?, (Result<String>) -> Unit) -> Unit)? = null,
+    onImportPlaylist: ((Uri, (Result<String>) -> Unit, (() -> Unit)?) -> Unit)? = null,
+    onRestartApp: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val appSettings = remember { AppSettings.getInstance(context) }
@@ -220,6 +222,7 @@ fun LibraryScreen(
     var showImportResultDialog by remember { mutableStateOf(false) }
     var importResult by remember { mutableStateOf<Pair<Int, String>?>(null) }
     var showErrorDialog by remember { mutableStateOf(false) }
+    var showRestartDialog by remember { mutableStateOf(false) }
     var selectedSong by remember { mutableStateOf<Song?>(null) }
     var selectedAlbum by remember { mutableStateOf<Album?>(null) }
     var selectedArtist by remember { mutableStateOf<Artist?>(null) }
@@ -236,6 +239,14 @@ fun LibraryScreen(
             scrollBehavior.state.collapsedFraction < 0.5f
         }
     }
+
+    // Lambda to pass to PlaylistFabMenu for import
+    val onImportPlaylistForFab: (() -> Unit)? = if (onImportPlaylist != null) {
+        {
+            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+            showImportDialog = true
+        }
+    } else null
 
     // Sync tabs with pager - only animate when tab button is clicked
     LaunchedEffect(selectedTabIndex) {
@@ -669,12 +680,7 @@ fun LibraryScreen(
                         HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                         showCreatePlaylistDialog = true
                     },
-                    onImportPlaylist = if (onImportPlaylist != null) {
-                        {
-                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
-                            showImportDialog = true
-                        }
-                    } else null,
+                    onImportPlaylist = onImportPlaylistForFab,
                     onExportPlaylists = if (onExportAllPlaylists != null) {
                         {
                             HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
@@ -854,7 +860,24 @@ fun LibraryScreen(
                 showOperationProgress = true
                 operationProgressText = "Exporting playlists..."
                 
-                onExportAllPlaylists(format, includeDefault) { result ->
+                onExportAllPlaylists(format, includeDefault, null) { result ->
+                    showOperationProgress = false
+                    result.fold(
+                        onSuccess = { message ->
+                            // Success will be shown via snackbar from navigation layer
+                        },
+                        onFailure = { error ->
+                            operationError = error.message ?: "Export failed"
+                        }
+                    )
+                }
+            },
+            onExportToCustomLocation = { format, includeDefault, directoryUri ->
+                showBulkExportDialog = false
+                showOperationProgress = true
+                operationProgressText = "Exporting playlists to selected location..."
+                
+                onExportAllPlaylists(format, includeDefault, directoryUri) { result ->
                     showOperationProgress = false
                     result.fold(
                         onSuccess = { message ->
@@ -875,26 +898,42 @@ fun LibraryScreen(
                 showImportDialog = false
                 operationError = null
             },
-            onImport = { uri ->
+            onImport = { uri, onResult, onRestartRequired ->
                 showImportDialog = false
                 showOperationProgress = true
                 operationProgressText = "Importing playlist..."
-                
-                onImportPlaylist(uri) { result ->
+                onImportPlaylist(uri, { result ->
                     showOperationProgress = false
                     result.fold(
                         onSuccess = { message ->
-                            // Success will be shown via snackbar from navigation layer
+                            operationResult = Pair(message, true)
+                            showRestartDialog = true
                         },
                         onFailure = { error ->
                             operationError = error.message ?: "Import failed"
                         }
                     )
-                }
+                    onResult(result)
+                }, onRestartRequired)
             }
         )
     }
-    
+
+    // App Restart Dialog
+    if (showRestartDialog && onRestartApp != null) {
+        chromahub.rhythm.app.ui.components.AppRestartDialog(
+            onDismiss = { showRestartDialog = false },
+            onRestart = {
+                showRestartDialog = false
+                onRestartApp()
+            },
+            onContinue = {
+                showRestartDialog = false
+                // Continue without restart
+            }
+        )
+    }
+
     // Progress dialog for long operations
     if (showOperationProgress) {
         PlaylistOperationProgressDialog(
@@ -915,6 +954,32 @@ fun LibraryScreen(
             confirmButton = {
                 Button(onClick = { operationError = null }) {
                     Text("OK")
+                }
+            }
+        )
+    }
+
+    // Dialog to show import result and offer restart
+    if (showImportResultDialog && importResult != null) {
+        AlertDialog(
+            onDismissRequest = { showImportResultDialog = false; importResult = null },
+            title = { Text("Import Complete") },
+            text = {
+                val (count, message) = importResult!!
+                Text("Successfully imported $count playlists.\n$message\n\nRestart the app to apply changes.")
+            },
+            confirmButton = {
+                Button(onClick = {
+                    showImportResultDialog = false
+                    importResult = null
+                    AppRestarter.restartApp(context)
+                }) {
+                    Text("Restart App")
+                }
+            },
+            dismissButton = {
+                Button(onClick = { showImportResultDialog = false; importResult = null }) {
+                    Text("Later")
                 }
             }
         )

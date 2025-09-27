@@ -2270,6 +2270,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     fun exportPlaylist(
         playlistId: String,
         format: PlaylistImportExportUtils.PlaylistExportFormat,
+        userSelectedDirectoryUri: Uri? = null,
         onResult: (Result<String>) -> Unit
     ) {
         viewModelScope.launch {
@@ -2284,7 +2285,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                     PlaylistImportExportUtils.exportPlaylist(
                         context = getApplication<Application>(),
                         playlist = playlist,
-                        format = format
+                        format = format,
+                        userSelectedDirectoryUri = userSelectedDirectoryUri
                     )
                 }
                 
@@ -2311,6 +2313,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     fun exportAllPlaylists(
         format: PlaylistImportExportUtils.PlaylistExportFormat,
         includeDefaultPlaylists: Boolean = false,
+        userSelectedDirectoryUri: Uri? = null,
         onResult: (Result<String>) -> Unit
     ) {
         viewModelScope.launch {
@@ -2338,7 +2341,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                         PlaylistImportExportUtils.exportAllPlaylists(
                             context = getApplication<Application>(),
                             playlists = playlistsToExport,
-                            format = format
+                            format = format,
+                            userSelectedDirectoryUri = userSelectedDirectoryUri
                         )
                     }
                 }
@@ -2371,7 +2375,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun importPlaylist(
         uri: Uri,
-        onResult: (Result<String>) -> Unit
+        onResult: (Result<String>) -> Unit,
+        onRestartRequired: (() -> Unit)? = null
     ) {
         viewModelScope.launch {
             try {
@@ -2413,7 +2418,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                         
                         val matchedCount = finalPlaylist.songs.size
                         Log.d(TAG, "Successfully imported playlist: ${finalPlaylist.name} with $matchedCount songs")
-                        onResult(Result.success("Successfully imported playlist '${finalPlaylist.name}' with $matchedCount songs"))
+                        onResult(Result.success("Successfully imported playlist '${finalPlaylist.name}' with $matchedCount songs. App restart recommended for best experience."))
+                        
+                        // Recommend app restart for imported playlists to ensure proper UI update
+                        onRestartRequired?.invoke()
                     },
                     onFailure = { exception ->
                         Log.e(TAG, "Failed to import playlist from $uri", exception)
@@ -2424,6 +2432,26 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 Log.e(TAG, "Error in importPlaylist", e)
                 onResult(Result.failure(e))
             }
+        }
+    }
+    
+    /**
+     * Restarts the application to ensure all changes take effect
+     */
+    fun restartApp() {
+        val context = getApplication<Application>().applicationContext
+        
+        // Create restart intent
+        val packageManager = context.packageManager
+        val intent = packageManager.getLaunchIntentForPackage(context.packageName)
+        if (intent != null) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
+            
+            // Start the activity and exit current process
+            context.startActivity(intent)
+            android.os.Process.killProcess(android.os.Process.myPid())
         }
     }
     

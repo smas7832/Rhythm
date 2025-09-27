@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.os.Environment
 import android.util.Log
+import androidx.documentfile.provider.DocumentFile
 import chromahub.rhythm.app.data.Playlist
 import chromahub.rhythm.app.data.Song
 import com.google.gson.Gson
@@ -53,22 +54,31 @@ object PlaylistImportExportUtils {
         context: Context,
         playlist: Playlist,
         format: PlaylistExportFormat,
-        outputDirectory: File? = null
+        outputDirectory: File? = null,
+        userSelectedDirectoryUri: Uri? = null
     ): Result<File> {
         return try {
-            val exportDir = outputDirectory ?: getDefaultExportDirectory(context)
-            if (!exportDir.exists()) {
-                exportDir.mkdirs()
-            }
-            
             val fileName = sanitizeFileName("${playlist.name}_${getCurrentTimestamp()}${format.extension}")
-            val outputFile = File(exportDir, fileName)
             
-            when (format) {
-                PlaylistExportFormat.JSON -> exportToJson(playlist, outputFile)
-                PlaylistExportFormat.M3U -> exportToM3u(playlist, outputFile, false)
-                PlaylistExportFormat.M3U8 -> exportToM3u(playlist, outputFile, true)
-                PlaylistExportFormat.PLS -> exportToPls(playlist, outputFile)
+            // Use user-selected directory if provided, otherwise use default
+            val outputFile = if (userSelectedDirectoryUri != null) {
+                // Use Storage Access Framework for user-selected directory
+                exportToUserSelectedDirectory(context, userSelectedDirectoryUri, playlist, format, fileName)
+            } else {
+                // Use traditional file system approach
+                val exportDir = outputDirectory ?: getDefaultExportDirectory(context)
+                if (!exportDir.exists()) {
+                    exportDir.mkdirs()
+                }
+                val file = File(exportDir, fileName)
+                
+                when (format) {
+                    PlaylistExportFormat.JSON -> exportToJson(playlist, file)
+                    PlaylistExportFormat.M3U -> exportToM3u(playlist, file, false)
+                    PlaylistExportFormat.M3U8 -> exportToM3u(playlist, file, true)
+                    PlaylistExportFormat.PLS -> exportToPls(playlist, file)
+                }
+                file
             }
             
             Log.d(TAG, "Successfully exported playlist '${playlist.name}' to ${outputFile.absolutePath}")
@@ -86,18 +96,26 @@ object PlaylistImportExportUtils {
         context: Context,
         playlists: List<Playlist>,
         format: PlaylistExportFormat,
-        outputDirectory: File? = null
+        outputDirectory: File? = null,
+        userSelectedDirectoryUri: Uri? = null
     ): Result<File> {
         return try {
-            val exportDir = outputDirectory ?: getDefaultExportDirectory(context)
-            if (!exportDir.exists()) {
-                exportDir.mkdirs()
-            }
-            
             val fileName = "RhythmPlaylists_${getCurrentTimestamp()}.zip"
-            val zipFile = File(exportDir, fileName)
             
-            createPlaylistsZip(playlists, format, zipFile)
+            // Use user-selected directory if provided, otherwise use default
+            val zipFile = if (userSelectedDirectoryUri != null) {
+                // Use Storage Access Framework for user-selected directory
+                exportAllPlaylistsToUserSelectedDirectory(context, userSelectedDirectoryUri, playlists, format, fileName)
+            } else {
+                // Use traditional file system approach
+                val exportDir = outputDirectory ?: getDefaultExportDirectory(context)
+                if (!exportDir.exists()) {
+                    exportDir.mkdirs()
+                }
+                val file = File(exportDir, fileName)
+                createPlaylistsZip(playlists, format, file)
+                file
+            }
             
             Log.d(TAG, "Successfully exported ${playlists.size} playlists to ${zipFile.absolutePath}")
             Result.success(zipFile)
@@ -196,15 +214,32 @@ object PlaylistImportExportUtils {
     private fun importFromJson(content: String, availableSongs: List<Song>): Playlist {
         val exportData = Gson().fromJson(content, PlaylistExportData::class.java)
         val songMap = availableSongs.associateBy { it.uri.toString() }
+        val addedSongUris = mutableSetOf<String>()
+        val addedSongKeys = mutableSetOf<String>()
         
         val matchedSongs = exportData.songs.mapNotNull { entry ->
-            // Try to match by URI first
-            songMap[entry.uri] ?: 
-            // Fallback: match by title and artist
-            availableSongs.find { 
-                it.title.equals(entry.title, ignoreCase = true) && 
-                it.artist.equals(entry.artist, ignoreCase = true) 
+            // Create a key for duplicate detection (title + artist, normalized)
+            val songKey = "${entry.title.trim().lowercase()}_${entry.artist.trim().lowercase()}"
+            
+            // Skip if already added by URI or by title+artist combination
+            if (addedSongUris.contains(entry.uri) || addedSongKeys.contains(songKey)) {
+                Log.d(TAG, "Skipping duplicate song: ${entry.title} by ${entry.artist}")
+                return@mapNotNull null
             }
+            
+            val matchedSong = songMap[entry.uri] ?: 
+                // Fallback: match by title and artist
+                availableSongs.find { 
+                    it.title.equals(entry.title, ignoreCase = true) && 
+                    it.artist.equals(entry.artist, ignoreCase = true) 
+                }
+            
+            matchedSong?.let {
+                addedSongUris.add(it.uri.toString())
+                addedSongKeys.add("${it.title.trim().lowercase()}_${it.artist.trim().lowercase()}")
+            }
+            
+            matchedSong
         }
         
         return Playlist(
@@ -219,6 +254,8 @@ object PlaylistImportExportUtils {
     private fun importFromM3u(content: String, fileName: String, availableSongs: List<Song>): Playlist {
         val lines = content.lines().filter { it.isNotBlank() }
         val matchedSongs = mutableListOf<Song>()
+        val addedSongUris = mutableSetOf<String>()
+        val addedSongKeys = mutableSetOf<String>()
         var currentTitle = ""
         
         lines.forEach { line ->
@@ -236,7 +273,19 @@ object PlaylistImportExportUtils {
                 else -> {
                     // This is a file path/URI
                     val song = findSongByPathOrTitle(line, currentTitle, availableSongs)
-                    song?.let { matchedSongs.add(it) }
+                    song?.let { 
+                        val songKey = "${it.title.trim().lowercase()}_${it.artist.trim().lowercase()}"
+                        val songUri = it.uri.toString()
+                        
+                        // Check for duplicates
+                        if (!addedSongUris.contains(songUri) && !addedSongKeys.contains(songKey)) {
+                            matchedSongs.add(it) 
+                            addedSongUris.add(songUri)
+                            addedSongKeys.add(songKey)
+                        } else {
+                            Log.d(TAG, "Skipping duplicate song in M3U: ${it.title} by ${it.artist}")
+                        }
+                    }
                     currentTitle = ""
                 }
             }
@@ -254,6 +303,8 @@ object PlaylistImportExportUtils {
     private fun importFromPls(content: String, fileName: String, availableSongs: List<Song>): Playlist {
         val lines = content.lines()
         val matchedSongs = mutableListOf<Song>()
+        val addedSongUris = mutableSetOf<String>()
+        val addedSongKeys = mutableSetOf<String>()
         val entries = mutableMapOf<Int, Triple<String?, String?, String?>>() // file, title, length
         
         lines.forEach { line ->
@@ -286,7 +337,19 @@ object PlaylistImportExportUtils {
             val (filePath, title, _) = entry
             if (filePath != null) {
                 val song = findSongByPathOrTitle(filePath, title ?: "", availableSongs)
-                song?.let { matchedSongs.add(it) }
+                song?.let { 
+                    val songKey = "${it.title.trim().lowercase()}_${it.artist.trim().lowercase()}"
+                    val songUri = it.uri.toString()
+                    
+                    // Check for duplicates
+                    if (!addedSongUris.contains(songUri) && !addedSongKeys.contains(songKey)) {
+                        matchedSongs.add(it)
+                        addedSongUris.add(songUri)
+                        addedSongKeys.add(songKey)
+                    } else {
+                        Log.d(TAG, "Skipping duplicate song in PLS: ${it.title} by ${it.artist}")
+                    }
+                }
             }
         }
         
@@ -370,5 +433,116 @@ object PlaylistImportExportUtils {
             }
         }
         return uri.lastPathSegment ?: "unknown"
+    }
+    
+    /**
+     * Export playlist to user-selected directory using Storage Access Framework
+     */
+    private fun exportToUserSelectedDirectory(
+        context: Context,
+        directoryUri: Uri,
+        playlist: Playlist,
+        format: PlaylistExportFormat,
+        fileName: String
+    ): File {
+        val directory = DocumentFile.fromTreeUri(context, directoryUri)
+            ?: throw IllegalArgumentException("Cannot access selected directory")
+        
+        val documentFile = directory.createFile(format.mimeType, fileName)
+            ?: throw IllegalArgumentException("Cannot create file in selected directory")
+        
+        context.contentResolver.openOutputStream(documentFile.uri)?.use { outputStream ->
+            when (format) {
+                PlaylistExportFormat.JSON -> {
+                    val exportData = PlaylistExportData(
+                        name = playlist.name,
+                        id = playlist.id,
+                        dateCreated = playlist.dateCreated,
+                        dateModified = playlist.dateModified,
+                        songs = playlist.songs.map { song ->
+                            PlaylistSongEntry(
+                                title = song.title,
+                                artist = song.artist,
+                                album = song.album,
+                                duration = song.duration,
+                                filePath = song.uri.path,
+                                uri = song.uri.toString(),
+                                trackNumber = song.trackNumber,
+                                year = song.year
+                            )
+                        }
+                    )
+                    val json = Gson().toJson(exportData)
+                    outputStream.write(json.toByteArray())
+                }
+                PlaylistExportFormat.M3U -> exportM3uToStream(playlist, outputStream, false)
+                PlaylistExportFormat.M3U8 -> exportM3uToStream(playlist, outputStream, true)
+                PlaylistExportFormat.PLS -> exportPlsToStream(playlist, outputStream)
+            }
+        } ?: throw IllegalArgumentException("Cannot open output stream for selected file")
+        
+        // Return a File object for compatibility (though it's not a real file path)
+        return File(directory.uri.path ?: "user_selected", fileName)
+    }
+    
+    /**
+     * Export all playlists to user-selected directory using Storage Access Framework
+     */
+    private fun exportAllPlaylistsToUserSelectedDirectory(
+        context: Context,
+        directoryUri: Uri,
+        playlists: List<Playlist>,
+        format: PlaylistExportFormat,
+        zipFileName: String
+    ): File {
+        val directory = DocumentFile.fromTreeUri(context, directoryUri)
+            ?: throw IllegalArgumentException("Cannot access selected directory")
+        
+        // For now, export as separate files instead of ZIP to user directory
+        // since ZIP creation in SAF is complex
+        playlists.forEach { playlist ->
+            val fileName = sanitizeFileName("${playlist.name}${format.extension}")
+            exportToUserSelectedDirectory(context, directoryUri, playlist, format, fileName)
+        }
+        
+        // Return a dummy File object for compatibility
+        return File(directory.uri.path ?: "user_selected", "playlists_exported")
+    }
+    
+    /**
+     * Helper to export M3U format to output stream
+     */
+    private fun exportM3uToStream(playlist: Playlist, outputStream: java.io.OutputStream, extended: Boolean) {
+        val writer = outputStream.bufferedWriter()
+        if (extended) {
+            writer.write("#EXTM3U\n")
+        }
+        
+        playlist.songs.forEach { song ->
+            if (extended) {
+                writer.write("#EXTINF:${song.duration / 1000},${song.artist} - ${song.title}\n")
+            }
+            writer.write("${song.uri}\n")
+        }
+        writer.flush()
+    }
+    
+    /**
+     * Helper to export PLS format to output stream
+     */
+    private fun exportPlsToStream(playlist: Playlist, outputStream: java.io.OutputStream) {
+        val writer = outputStream.bufferedWriter()
+        writer.write("[playlist]\n")
+        
+        playlist.songs.forEachIndexed { index, song ->
+            val num = index + 1
+            writer.write("File$num=${song.uri}\n")
+            writer.write("Title$num=${song.artist} - ${song.title}\n")
+            writer.write("Length$num=${song.duration / 1000}\n")
+        }
+        
+        writer.write("NumberOfEntries=${playlist.songs.size}\n")
+        writer.write("Version=2\n")
+        writer.flush()
     }
 }
