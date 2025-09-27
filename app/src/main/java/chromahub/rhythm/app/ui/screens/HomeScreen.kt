@@ -871,12 +871,12 @@ private fun ModernScrollableContent(
                         
                         // Find songs from similar artists or albums
                         songs.filter { song ->
-                            (song.artist in playedArtists || song.album in playedAlbums) && 
+                            (song.artist in playedArtists || song.album in playedAlbums) &&
                             !recentlyPlayed.contains(song)
-                        }.shuffled().take(6)
+                        }.shuffled().take(4) // Show only max 4 songs
                     } else {
                         // Fallback to random popular songs if no history
-                        songs.shuffled().take(6)
+                        songs.shuffled().take(4) // Show only max 4 songs
                     }
                 }
                 
@@ -2555,7 +2555,7 @@ private fun RecommendedSongItem(
                 HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                 onClick()
             })
-            .padding(vertical = 6.dp),
+            .padding(vertical = 12.dp), // Increased vertical padding
         verticalAlignment = Alignment.CenterVertically
     ) {
         Surface(
@@ -2625,42 +2625,49 @@ private fun ModernEmptyState(
     icon: ImageVector,
     title: String,
     subtitle: String,
-    iconSize: Dp = 56.dp
+    iconSize: Dp = 64.dp // Increased icon size
 ) {
-    Box(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(120.dp),
-        contentAlignment = Alignment.Center
+            .height(200.dp) // Increased height for better visual presence
+            .padding(horizontal = 8.dp), // Added horizontal padding
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow // Subtle background
+        ),
+        shape = RoundedCornerShape(28.dp) // Rounded corners for the card
     ) {
         Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp), // Increased padding inside the card
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f), // Changed tint to primary with alpha
                 modifier = Modifier.size(iconSize)
             )
             
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp)) // Increased spacing
             
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                style = MaterialTheme.typography.titleLarge, // Larger title
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
             )
             
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(8.dp)) // Increased spacing
             
             Text(
                 text = subtitle,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                style = MaterialTheme.typography.bodyLarge, // Larger subtitle
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 32.dp)
+                modifier = Modifier.padding(horizontal = 16.dp) // Added horizontal padding for subtitle
             )
         }
     }
