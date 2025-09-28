@@ -16,8 +16,8 @@ android {
         applicationId = "chromahub.rhythm.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 28203598
-        versionName = "2.8.203.598 Beta"
+        versionCode = 28205602
+        versionName = "2.8.205.602 Beta"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -111,13 +111,13 @@ dependencies {
     implementation("androidx.palette:palette-ktx:1.0.0")
     
     // Physics-based animations
-    implementation("androidx.compose.animation:animation:1.9.0")
+    implementation("androidx.compose.animation:animation:1.9.2")
     //noinspection GradleDependency
     implementation("androidx.compose.animation:animation-graphics:1.8.3")
-    implementation("androidx.compose.animation:animation-core:1.9.0")
+    implementation("androidx.compose.animation:animation-core:1.9.2")
     
     // Navigation
-    implementation("androidx.navigation:navigation-compose:2.9.3")
+    implementation("androidx.navigation:navigation-compose:2.9.5")
     
     // Permissions
     implementation("com.google.accompanist:accompanist-permissions:0.37.3")
@@ -136,7 +136,7 @@ dependencies {
     implementation("com.squareup.retrofit2:converter-gson:3.0.0")
     implementation("com.squareup.okhttp3:okhttp:5.1.0")
     implementation("com.squareup.okhttp3:logging-interceptor:5.1.0")
-    implementation("com.google.code.gson:gson:2.13.1")
+    implementation("com.google.code.gson:gson:2.13.2")
 //    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 //    implementation("com.jakewharton.retrofit:retrofit2-kotlinx-serialization-converter:1.0.0")
 
