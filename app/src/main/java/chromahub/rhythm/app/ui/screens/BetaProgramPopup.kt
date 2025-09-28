@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
@@ -59,7 +60,7 @@ fun BetaProgramPopup(onDismiss: () -> Unit) {
                 )
                 
                 Icon(
-                    imageVector = Icons.Filled.Warning,
+                    imageVector = Icons.Rounded.Warning,
                     contentDescription = "Beta Program Warning",
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(64.dp).padding(bottom = 16.dp)

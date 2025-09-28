@@ -125,7 +125,7 @@ fun EqualizerBottomSheetNew(
     )
 
     LaunchedEffect(Unit) {
-        delay(400)
+        delay(100)
         showContent = true
     }
     
