@@ -1034,7 +1034,7 @@ fun SingleCardSongsContent(
         // Extract actual music genres from songs
         val genres = songs.mapNotNull { song ->
             song.genre?.takeIf { it.isNotBlank() && it.lowercase() != "unknown" }
-        }.distinct()
+        }.distinct().sorted() // Sort genres alphabetically
         
         // Add genres first (these are the primary categories)
         allCategories.addAll(genres)
@@ -1073,16 +1073,15 @@ fun SingleCardSongsContent(
         if (favoritesSongs.isNotEmpty()) allCategories.add("Favorites")
         
         // Add duration-based categories only if they have songs and not too many genres
-        if (genres.size < 3) {
-            val shortSongs = songs.filter { it.duration < 3 * 60 * 1000 }
-            if (shortSongs.isNotEmpty()) allCategories.add("Short (< 3 min)")
-            
-            val mediumSongs = songs.filter { it.duration in (3 * 60 * 1000)..(5 * 60 * 1000) }
-            if (mediumSongs.isNotEmpty()) allCategories.add("Medium (3-5 min)")
-            
-            val longSongs = songs.filter { it.duration > 5 * 60 * 1000 }
-            if (longSongs.isNotEmpty()) allCategories.add("Long (> 5 min)")
-        }
+        // Removed the genre.size < 3 condition to always show duration filters if applicable
+        val shortSongs = songs.filter { it.duration < 3 * 60 * 1000 }
+        if (shortSongs.isNotEmpty()) allCategories.add("Short (< 3 min)")
+        
+        val mediumSongs = songs.filter { it.duration in (3 * 60 * 1000)..(5 * 60 * 1000) }
+        if (mediumSongs.isNotEmpty()) allCategories.add("Medium (3-5 min)")
+        
+        val longSongs = songs.filter { it.duration > 5 * 60 * 1000 }
+        if (longSongs.isNotEmpty()) allCategories.add("Long (> 5 min)")
         
         allCategories
     }
@@ -1118,6 +1117,7 @@ fun SingleCardSongsContent(
                 song.duration > 2 * 60 * 1000 && song.duration < 6 * 60 * 1000
             }
             else -> songs.filter { song ->
+                // This handles genre filtering
                 song.genre?.equals(selectedCategory, ignoreCase = true) == true
             }
         }
@@ -1601,7 +1601,7 @@ fun SongsTab(
         // Extract actual music genres from songs
         val genres = songs.mapNotNull { song ->
             song.genre?.takeIf { it.isNotBlank() && it.lowercase() != "unknown" }
-        }.distinct()
+        }.distinct().sorted()
         
         // Add genres first (these are the primary categories)
         allCategories.addAll(genres)
@@ -1639,17 +1639,15 @@ fun SongsTab(
         }
         if (favoritesSongs.isNotEmpty()) allCategories.add("Favorites")
         
-        // Add duration-based categories only if they have songs and not too many genres
-        if (genres.size < 3) {
-            val shortSongs = songs.filter { it.duration < 3 * 60 * 1000 }
-            if (shortSongs.isNotEmpty()) allCategories.add("Short (< 3 min)")
-            
-            val mediumSongs = songs.filter { it.duration in (3 * 60 * 1000)..(5 * 60 * 1000) }
-            if (mediumSongs.isNotEmpty()) allCategories.add("Medium (3-5 min)")
-            
-            val longSongs = songs.filter { it.duration > 5 * 60 * 1000 }
-            if (longSongs.isNotEmpty()) allCategories.add("Long (> 5 min)")
-        }
+        // Add duration-based categories only if they have songs
+        val shortSongs = songs.filter { it.duration < 3 * 60 * 1000 }
+        if (shortSongs.isNotEmpty()) allCategories.add("Short (< 3 min)")
+        
+        val mediumSongs = songs.filter { it.duration in (3 * 60 * 1000)..(5 * 60 * 1000) }
+        if (mediumSongs.isNotEmpty()) allCategories.add("Medium (3-5 min)")
+        
+        val longSongs = songs.filter { it.duration > 5 * 60 * 1000 }
+        if (longSongs.isNotEmpty()) allCategories.add("Long (> 5 min)")
         
         allCategories
     }
