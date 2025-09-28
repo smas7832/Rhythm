@@ -995,10 +995,10 @@ private fun ModernWelcomeSection(
             Row(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(16.dp), // Reduced padding
+                    .padding(18.dp), // Reduced padding
                 horizontalArrangement = Arrangement.spacedBy(8.dp) // Reduced spacing
             ) {
-                repeat(2) { // Reduced from 3 to 2 decorative elements
+                repeat(3) { // Reduced from 3 to 2 decorative elements
                     Text(
                         text = timeBasedTheme.third,
                         style = MaterialTheme.typography.titleLarge, // Reduced from headlineSmall
@@ -1015,7 +1015,7 @@ private fun ModernWelcomeSection(
                 // Main greeting
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(bottom = 8.dp) // Reduced spacing
+                    modifier = Modifier.padding(bottom = 0.dp) // Reduced spacing
                 ) {
                     val infiniteTransition = rememberInfiniteTransition(label = "emoji_pulse")
                     val emojiScale by infiniteTransition.animateFloat(
@@ -1042,16 +1042,16 @@ private fun ModernWelcomeSection(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = greeting,
-                            style = MaterialTheme.typography.headlineSmall,
+                            style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
 
                         Text(
-                            text = personalizedMessage,
-                            style = MaterialTheme.typography.bodySmall,
+                            text = timeBasedQuote,
+                            style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
-                            modifier = Modifier.padding(top = 2.dp) // Reduced spacing
+                            modifier = Modifier.padding(top = 5.dp) // Reduced spacing
                         )
                     }
 
@@ -1075,45 +1075,45 @@ private fun ModernWelcomeSection(
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-
-                // Quote section with Material 3 Expressive design
-                Surface(
-                    color = MaterialTheme.colorScheme.primary,
-                    shape = RoundedCornerShape(24.dp), // More rounded
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp), // Reduced padding
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Surface(
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f),
-                            modifier = Modifier.size(32.dp) // Reduced size
-                        ) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier.fillMaxSize()
-                            ) {
-                                Text(
-                                    text = "💭",
-                                    style = MaterialTheme.typography.bodyLarge // Reduced size
-                                )
-                            }
-                        }
-                        
-                        Spacer(modifier = Modifier.width(12.dp)) // Reduced spacing
-                        
-                        Text(
-                            text = timeBasedQuote,
-                            style = MaterialTheme.typography.bodyMedium, // Larger text for readability
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.inverseOnSurface,
-                            lineHeight = 22.sp, // Better line height
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
+//
+//                // Quote section with Material 3 Expressive design
+//                Surface(
+//                    color = MaterialTheme.colorScheme.primary,
+//                    shape = RoundedCornerShape(24.dp), // More rounded
+//                    modifier = Modifier.fillMaxWidth()
+//                ) {
+//                    Row(
+//                        modifier = Modifier.padding(16.dp), // Reduced padding
+//                        verticalAlignment = Alignment.CenterVertically
+//                    ) {
+//                        Surface(
+//                            shape = CircleShape,
+//                            color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f),
+//                            modifier = Modifier.size(32.dp) // Reduced size
+//                        ) {
+//                            Box(
+//                                contentAlignment = Alignment.Center,
+//                                modifier = Modifier.fillMaxSize()
+//                            ) {
+//                                Text(
+//                                    text = "💭",
+//                                    style = MaterialTheme.typography.bodyLarge // Reduced size
+//                                )
+//                            }
+//                        }
+//
+//                        Spacer(modifier = Modifier.width(12.dp)) // Reduced spacing
+//
+//                        Text(
+//                            text = timeBasedQuote,
+//                            style = MaterialTheme.typography.bodyMedium, // Larger text for readability
+//                            fontWeight = FontWeight.Medium,
+//                            color = MaterialTheme.colorScheme.inverseOnSurface,
+//                            lineHeight = 22.sp, // Better line height
+//                            modifier = Modifier.weight(1f)
+//                        )
+//                    }
+//                }
             }
         }
     }
@@ -2515,7 +2515,7 @@ private fun ModernRecommendedSection(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
-                    modifier = Modifier.padding(20.dp)
+                    modifier = Modifier.padding(25.dp)
                 ) {
                     recommendedSongs.forEachIndexed { index, song ->
                         RecommendedSongItem(
