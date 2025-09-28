@@ -1030,25 +1030,25 @@ fun SingleCardSongsContent(
     // Define categories based on song properties - only show working filters
     val categories = remember(songs) {
         val allCategories = mutableListOf("All")
-        
-        // Extract actual music genres from songs
+
+        // Extract actual music genres from songs (only non-empty, non-null genres)
         val genres = songs.mapNotNull { song ->
-            song.genre?.takeIf { it.isNotBlank() && it.lowercase() != "unknown" }
-        }.distinct().sorted() // Sort genres alphabetically
-        
+            song.genre?.takeIf { it.isNotBlank() }
+        }.distinct().sorted()
+
         // Add genres first (these are the primary categories)
         allCategories.addAll(genres)
-        
+
         // Add song type based categories only if they have songs
         val losslessSongs = songs.filter { song ->
             song.uri.toString().let { uri ->
-                uri.contains(".flac", ignoreCase = true) || 
+                uri.contains(".flac", ignoreCase = true) ||
                 uri.contains(".alac", ignoreCase = true) ||
                 uri.contains(".wav", ignoreCase = true)
             }
         }
         if (losslessSongs.isNotEmpty()) allCategories.add("Lossless")
-        
+
         val highQualitySongs = songs.filter { song ->
             song.uri.toString().let { uri ->
                 uri.contains(".m4a", ignoreCase = true) ||
@@ -1056,7 +1056,7 @@ fun SingleCardSongsContent(
             }
         }
         if (highQualitySongs.isNotEmpty()) allCategories.add("High Quality")
-        
+
         val standardSongs = songs.filter { song ->
             song.uri.toString().let { uri ->
                 uri.contains(".mp3", ignoreCase = true) ||
@@ -1065,24 +1065,23 @@ fun SingleCardSongsContent(
             }
         }
         if (standardSongs.isNotEmpty()) allCategories.add("Standard")
-        
+
         // Favorites - songs in sweet spot duration range
         val favoritesSongs = songs.filter { song ->
             song.duration > 2 * 60 * 1000 && song.duration < 6 * 60 * 1000
         }
         if (favoritesSongs.isNotEmpty()) allCategories.add("Favorites")
-        
-        // Add duration-based categories only if they have songs and not too many genres
-        // Removed the genre.size < 3 condition to always show duration filters if applicable
+
+        // Add duration-based categories only if they have songs
         val shortSongs = songs.filter { it.duration < 3 * 60 * 1000 }
         if (shortSongs.isNotEmpty()) allCategories.add("Short (< 3 min)")
-        
+
         val mediumSongs = songs.filter { it.duration in (3 * 60 * 1000)..(5 * 60 * 1000) }
         if (mediumSongs.isNotEmpty()) allCategories.add("Medium (3-5 min)")
-        
+
         val longSongs = songs.filter { it.duration > 5 * 60 * 1000 }
         if (longSongs.isNotEmpty()) allCategories.add("Long (> 5 min)")
-        
+
         allCategories
     }
     
@@ -1662,37 +1661,51 @@ fun SongsTab(
             "Lossless" -> songs.filter { song ->
                 // Filter for high-quality audio files (FLAC, ALAC, etc.)
                 song.uri.toString().let { uri ->
-                    uri.contains(".flac", ignoreCase = true) || 
-                    uri.contains(".alac", ignoreCase = true) ||
-                    uri.contains(".wav", ignoreCase = true)
+                    uri.contains(".flac", ignoreCase = true) ||
+                            uri.contains(".alac", ignoreCase = true) ||
+                            uri.contains(".wav", ignoreCase = true)
                 }
             }
+
             "High Quality" -> songs.filter { song ->
                 // Filter for high bitrate files (320kbps+ MP3, high quality M4A, etc.)
                 song.uri.toString().let { uri ->
                     uri.contains(".m4a", ignoreCase = true) ||
-                    (uri.contains(".mp3", ignoreCase = true) && song.duration > 0) // Proxy for quality
+                            (uri.contains(
+                                ".mp3",
+                                ignoreCase = true
+                            ) && song.duration > 0) // Proxy for quality
                 }
             }
+
             "Standard" -> songs.filter { song ->
                 // Filter for standard quality files
                 song.uri.toString().let { uri ->
                     uri.contains(".mp3", ignoreCase = true) ||
-                    uri.contains(".aac", ignoreCase = true) ||
-                    uri.contains(".ogg", ignoreCase = true)
+                            uri.contains(".aac", ignoreCase = true) ||
+                            uri.contains(".ogg", ignoreCase = true)
                 }
             }
+
             "Recently Added" -> songs.filter { song ->
                 // Filter songs added in the last 30 days (using a simple heuristic)
                 // Note: This is a simplified approach, in real apps you'd store dateAdded
                 System.currentTimeMillis() - song.duration < 30L * 24 * 60 * 60 * 1000 // Placeholder logic
             }
+
             "Favorites" -> songs.filter { song ->
                 // Filter for songs that might be favorites (longer duration as proxy for preference)
                 song.duration > 2 * 60 * 1000 && song.duration < 6 * 60 * 1000 // Sweet spot for popular songs
             }
+
+            "Unknown Genre" -> songs.filter { song ->
+                song.genre.isNullOrBlank() || song.genre.lowercase() == "unknown"
+            }
+
             else -> songs.filter { song ->
-                song.genre?.equals(selectedCategory, ignoreCase = true) == true
+                // This handles genre filtering - check both song.genre and extended info
+                val songGenre = song.genre?.trim()?.takeIf { it.isNotBlank() }
+                songGenre?.equals(selectedCategory, ignoreCase = true) == true
             }
         }
     }

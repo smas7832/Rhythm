@@ -159,7 +159,8 @@ class MusicRepository(private val context: Context) {
             MediaStore.Audio.Media.TRACK,
             MediaStore.Audio.Media.YEAR,
             MediaStore.Audio.Media.DATE_ADDED,
-            MediaStore.Audio.Media.SIZE
+            MediaStore.Audio.Media.SIZE,
+            MediaStore.Audio.Media.GENRE
         )
 
         // Improved selection to filter out very short files and invalid entries
@@ -199,7 +200,8 @@ class MusicRepository(private val context: Context) {
                         track = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK),
                         year = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.YEAR),
                         dateAdded = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED),
-                        size = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
+                        size = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE),
+                        genre = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.GENRE)
                     )
                 } catch (e: IllegalArgumentException) {
                     Log.e(TAG, "Required column not found in MediaStore", e)
@@ -248,7 +250,8 @@ class MusicRepository(private val context: Context) {
         val track: Int,
         val year: Int,
         val dateAdded: Int,
-        val size: Int
+        val size: Int,
+        val genre: Int
     )
     
     private fun createSongFromCursor(cursor: android.database.Cursor, indices: ColumnIndices): Song? {
@@ -263,13 +266,14 @@ class MusicRepository(private val context: Context) {
             val year = cursor.getInt(indices.year)
             val dateAdded = cursor.getLong(indices.dateAdded) * 1000L
             val size = cursor.getLong(indices.size)
-            
+            val genreId = cursor.getString(indices.genre)?.trim()
+
             // Skip files that are too small (likely invalid)
             if (size < 1024) { // Less than 1KB
                 Log.d(TAG, "Skipping file too small: $title ($size bytes)")
                 return null
             }
-            
+
             // Skip files with empty titles
             if (title.isBlank() || title.equals("<unknown>", ignoreCase = true)) {
                 Log.d(TAG, "Skipping file with invalid title: $title")
@@ -297,10 +301,264 @@ class MusicRepository(private val context: Context) {
                 artworkUri = albumArtUri,
                 trackNumber = track,
                 year = year,
-                dateAdded = dateAdded
+                dateAdded = dateAdded,
+                genre = null // Genre will be detected in background
             )
         } catch (e: Exception) {
             Log.w(TAG, "Error creating song from cursor", e)
+            null
+        }
+    }
+
+    /**
+     * Enhanced genre detection with multiple fallback methods
+     * @param context The application context
+     * @param songUri The URI of the song file
+     * @param songId The song ID for MediaStore queries
+     * @return The detected genre name, or null if not found
+     */
+    private fun getGenreForSong(context: Context, songUri: Uri, songId: Int): String? {
+        // Method 1: Try MediaStore.Audio.Media.GENRE column (may contain genre ID or name)
+        try {
+            val genreFromMediaStoreColumn = getGenreFromMediaStoreColumn(songId)
+            if (!genreFromMediaStoreColumn.isNullOrBlank()) {
+                Log.d(TAG, "Found genre from MediaStore column: $genreFromMediaStoreColumn for song ID: $songId")
+                return genreFromMediaStoreColumn
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to get genre from MediaStore column", e)
+        }
+
+        // Method 2: Try MediaStore.Audio.Genres table lookup
+        try {
+            val genreFromGenresTable = getGenreNameFromMediaStore(context.contentResolver, songId)
+            if (!genreFromGenresTable.isNullOrBlank()) {
+                Log.d(TAG, "Found genre from Genres table: $genreFromGenresTable for song ID: $songId")
+                return genreFromGenresTable
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to get genre from Genres table", e)
+        }
+
+        // Method 3: Try MediaMetadataRetriever
+        try {
+            val genreFromRetriever = getGenreFromMediaMetadataRetriever(songUri)
+            if (!genreFromRetriever.isNullOrBlank()) {
+                Log.d(TAG, "Found genre from MediaMetadataRetriever: $genreFromRetriever for song URI: $songUri")
+                return genreFromRetriever
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to get genre from MediaMetadataRetriever", e)
+        }
+
+        // Method 4: Try to infer genre from file path or filename patterns
+        try {
+            val genreFromPath = inferGenreFromPath(songUri)
+            if (!genreFromPath.isNullOrBlank()) {
+                Log.d(TAG, "Inferred genre from path: $genreFromPath for song URI: $songUri")
+                return genreFromPath
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to infer genre from path", e)
+        }
+
+        Log.d(TAG, "No genre found for song ID: $songId, URI: $songUri")
+        return null
+    }
+
+    /**
+     * Gets genre directly from MediaStore.Audio.Media.GENRE column
+     * This column may contain either a genre ID or genre name depending on Android version
+     */
+    private fun getGenreFromMediaStoreColumn(songId: Int): String? {
+        return try {
+            val projection = arrayOf(MediaStore.Audio.Media.GENRE)
+            val selection = "${MediaStore.Audio.Media._ID} = ?"
+            val selectionArgs = arrayOf(songId.toString())
+
+            context.contentResolver.query(
+                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                projection,
+                selection,
+                selectionArgs,
+                null
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val genreIndex = cursor.getColumnIndex(MediaStore.Audio.Media.GENRE)
+                    if (genreIndex != -1) {
+                        val genreValue = cursor.getString(genreIndex)?.trim()
+                        if (!genreValue.isNullOrBlank()) {
+                            // Check if it's a numeric genre ID or a genre name
+                            val genreId = genreValue.toLongOrNull()
+                            if (genreId != null && genreId > 0) {
+                                // It's a genre ID, try to convert it to name
+                                return getGenreNameFromId(context.contentResolver, genreId)
+                            } else {
+                                // It's already a genre name
+                                return genreValue
+                            }
+                        }
+                    }
+                }
+            }
+            null
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting genre from MediaStore column", e)
+            null
+        }
+    }
+
+    /**
+     * Converts a genre ID to genre name using the Genres table
+     */
+    private fun getGenreNameFromId(contentResolver: android.content.ContentResolver, genreId: Long): String? {
+        return try {
+            val projection = arrayOf(MediaStore.Audio.Genres.NAME)
+            val selection = "${MediaStore.Audio.Genres._ID} = ?"
+            val selectionArgs = arrayOf(genreId.toString())
+
+            contentResolver.query(
+                MediaStore.Audio.Genres.EXTERNAL_CONTENT_URI,
+                projection,
+                selection,
+                selectionArgs,
+                null
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val nameIndex = cursor.getColumnIndex(MediaStore.Audio.Genres.NAME)
+                    if (nameIndex != -1) {
+                        return cursor.getString(nameIndex)?.trim()
+                    }
+                }
+            }
+            null
+        } catch (e: Exception) {
+            Log.e(TAG, "Error converting genre ID to name", e)
+            null
+        }
+    }
+
+    /**
+     * Gets genre from MediaMetadataRetriever
+     */
+    private fun getGenreFromMediaMetadataRetriever(songUri: Uri): String? {
+        val retriever = android.media.MediaMetadataRetriever()
+        return try {
+            retriever.setDataSource(context, songUri)
+            val genre = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_GENRE)
+            genre?.trim()?.takeIf { it.isNotBlank() }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting genre from MediaMetadataRetriever", e)
+            null
+        } finally {
+            try {
+                retriever.release()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error releasing MediaMetadataRetriever", e)
+            }
+        }
+    }
+
+    /**
+     * Attempts to infer genre from file path or filename patterns
+     */
+    private fun inferGenreFromPath(songUri: Uri): String? {
+        return try {
+            val path = songUri.toString().lowercase()
+
+            // Common genre patterns in file paths
+            when {
+                path.contains("rock") -> "Rock"
+                path.contains("pop") -> "Pop"
+                path.contains("hip.hop") || path.contains("hiphop") || path.contains("rap") -> "Hip Hop"
+                path.contains("jazz") -> "Jazz"
+                path.contains("classical") || path.contains("classic") -> "Classical"
+                path.contains("electronic") || path.contains("electro") || path.contains("edm") -> "Electronic"
+                path.contains("country") -> "Country"
+                path.contains("blues") -> "Blues"
+                path.contains("reggae") -> "Reggae"
+                path.contains("folk") -> "Folk"
+                path.contains("metal") -> "Metal"
+                path.contains("punk") -> "Punk"
+                path.contains("indie") -> "Indie"
+                path.contains("alternative") -> "Alternative"
+                path.contains("r&b") || path.contains("rnb") -> "R&B"
+                path.contains("soul") -> "Soul"
+                path.contains("funk") -> "Funk"
+                path.contains("disco") -> "Disco"
+                path.contains("dance") -> "Dance"
+                path.contains("house") -> "House"
+                path.contains("techno") -> "Techno"
+                path.contains("trance") -> "Trance"
+                path.contains("ambient") -> "Ambient"
+                path.contains("soundtrack") || path.contains("ost") -> "Soundtrack"
+                path.contains("instrumental") -> "Instrumental"
+                path.contains("vocal") -> "Vocal"
+                path.contains("christmas") || path.contains("holiday") -> "Holiday"
+                path.contains("world") -> "World"
+                path.contains("latin") -> "Latin"
+                path.contains("african") -> "African"
+                path.contains("asian") -> "Asian"
+                else -> null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error inferring genre from path", e)
+            null
+        }
+    }
+
+    /**
+     * Gets the genre name from MediaStore.Audio.Genres table using the song ID
+     * @param contentResolver The ContentResolver to use for queries
+     * @param songId The song ID to look up genre for
+     * @return The genre name, or null if not found
+     */
+    private fun getGenreNameFromMediaStore(contentResolver: android.content.ContentResolver, songId: Int): String? {
+        return try {
+            // First get the genre ID from the audio_genres_map table
+            val genreIdProjection = arrayOf(android.provider.MediaStore.Audio.Genres.Members.GENRE_ID)
+            val genreIdCursor = contentResolver.query(
+                android.provider.MediaStore.Audio.Genres.getContentUriForAudioId("external", songId),
+                genreIdProjection,
+                null,
+                null,
+                null
+            )
+
+            genreIdCursor?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val genreIdIndex = cursor.getColumnIndex(android.provider.MediaStore.Audio.Genres.Members.GENRE_ID)
+                    if (genreIdIndex != -1) {
+                        val genreId = cursor.getLong(genreIdIndex)
+
+                        // Now get the genre name from the genres table
+                        val genreNameProjection = arrayOf(android.provider.MediaStore.Audio.Genres.NAME)
+                        val genreNameCursor = contentResolver.query(
+                            android.provider.MediaStore.Audio.Genres.EXTERNAL_CONTENT_URI,
+                            genreNameProjection,
+                            "${android.provider.MediaStore.Audio.Genres._ID} = ?",
+                            arrayOf(genreId.toString()),
+                            null
+                        )
+
+                        genreNameCursor?.use { nameCursor ->
+                            if (nameCursor.moveToFirst()) {
+                                val nameIndex = nameCursor.getColumnIndex(android.provider.MediaStore.Audio.Genres.NAME)
+                                if (nameIndex != -1) {
+                                    val genreName = nameCursor.getString(nameIndex)
+                                    Log.d(TAG, "Found genre name: $genreName for song ID: $songId")
+                                    return genreName
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Log.d(TAG, "No genre found for song ID: $songId")
+            null
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting genre name from MediaStore", e)
             null
         }
     }
@@ -1466,26 +1724,26 @@ class MusicRepository(private val context: Context) {
      */
     private fun findBestAlbumMatch(albums: List<DeezerAlbum>, originalTitle: String, originalArtist: String): DeezerAlbum? {
         if (albums.isEmpty()) return null
-        
+
         val lowerTitle = originalTitle.lowercase().trim()
         val lowerArtist = originalArtist.lowercase().trim()
-        
+
         // First, try exact match (case insensitive) for both title and artist
         albums.find { album ->
-            album.title.lowercase().trim() == lowerTitle && 
+            album.title.lowercase().trim() == lowerTitle &&
             (album.artist?.name?.lowercase()?.trim() == lowerArtist || lowerArtist.contains(album.artist?.name?.lowercase()?.trim() ?: ""))
         }?.let { return it }
-        
+
         // Second, try exact title match with fuzzy artist match
         albums.find { album ->
             album.title.lowercase().trim() == lowerTitle
         }?.let { return it }
-        
+
         // Third, try contains match for title
         albums.find { album ->
             album.title.lowercase().contains(lowerTitle) || lowerTitle.contains(album.title.lowercase())
         }?.let { return it }
-        
+
         // Fourth, try word-by-word matching for title
         val titleWords = lowerTitle.split(Regex("\\s+")).filter { it.isNotEmpty() }
         if (titleWords.isNotEmpty()) {
@@ -1493,15 +1751,89 @@ class MusicRepository(private val context: Context) {
                 val albumWords = album.title.lowercase().split(Regex("\\s+"))
                 titleWords.any { titleWord ->
                     albumWords.any { albumWord ->
-                        titleWord == albumWord || 
-                        titleWord.startsWith(albumWord) || 
+                        titleWord == albumWord ||
+                        titleWord.startsWith(albumWord) ||
                         albumWord.startsWith(titleWord)
                     }
                 }
             }?.let { return it }
         }
-        
+
         // Finally, return the first result with the most tracks (most complete album)
         return albums.maxByOrNull { it.nbTracks }
+    }
+
+    /**
+     * Detects genres for songs in background after initial app load
+     * This method processes songs in batches to avoid blocking the UI
+     * @param songs List of songs to detect genres for
+     * @param onProgress Callback to report progress (current, total)
+     * @param onComplete Callback when genre detection is complete
+     */
+    suspend fun detectGenresInBackground(
+        songs: List<Song>,
+        onProgress: ((Int, Int) -> Unit)? = null,
+        onComplete: ((List<Song>) -> Unit)? = null
+    ) = withContext(Dispatchers.IO) {
+        val songsWithoutGenres = songs.filter { it.genre == null }
+        if (songsWithoutGenres.isEmpty()) {
+            Log.d(TAG, "All songs already have genres, skipping background detection")
+            onComplete?.invoke(songs)
+            return@withContext
+        }
+
+        Log.d(TAG, "Starting background genre detection for ${songsWithoutGenres.size} songs")
+        val updatedSongs = mutableListOf<Song>()
+        val batchSize = 50 // Process in smaller batches for better responsiveness
+        var processedCount = 0
+
+        songsWithoutGenres.chunked(batchSize).forEach { batch ->
+            val batchStartTime = System.currentTimeMillis()
+
+            batch.forEach { song ->
+                try {
+                    val songId = song.id.toLongOrNull() ?: return@forEach
+                    val contentUri = song.uri
+                    val genre = getGenreForSong(context, contentUri, songId.toInt())
+
+                    if (genre != null) {
+                        val updatedSong = song.copy(genre = genre)
+                        updatedSongs.add(updatedSong)
+                        Log.d(TAG, "Detected genre '$genre' for song: ${song.title}")
+                    } else {
+                        // Keep the original song if no genre was found
+                        updatedSongs.add(song)
+                    }
+
+                    processedCount++
+                    onProgress?.invoke(processedCount, songsWithoutGenres.size)
+
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error detecting genre for song ${song.title}", e)
+                    updatedSongs.add(song) // Keep original song on error
+                    processedCount++
+                    onProgress?.invoke(processedCount, songsWithoutGenres.size)
+                }
+            }
+
+            val batchEndTime = System.currentTimeMillis()
+            val batchDuration = batchEndTime - batchStartTime
+            Log.d(TAG, "Processed batch of ${batch.size} songs in ${batchDuration}ms")
+
+            // Yield control to allow other coroutines to run
+            yield()
+
+            // Small delay between batches to prevent overwhelming the system
+            if (batchDuration < 100) { // If batch processed quickly, add a small delay
+                delay(50)
+            }
+        }
+
+        val finalSongs = songs.map { originalSong ->
+            updatedSongs.find { it.id == originalSong.id } ?: originalSong
+        }
+
+        Log.d(TAG, "Background genre detection complete. Updated ${updatedSongs.size} songs with genres")
+        onComplete?.invoke(finalSongs)
     }
 }

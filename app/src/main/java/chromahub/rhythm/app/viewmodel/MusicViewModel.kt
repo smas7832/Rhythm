@@ -543,6 +543,36 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 Log.e(TAG, "Error fetching artwork from internet", e)
             }
         }
+
+        // Start background genre detection after a short delay to allow UI to settle
+        viewModelScope.launch {
+            try {
+                delay(2000) // Wait 2 seconds after app load before starting genre detection
+                detectGenresInBackground()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error starting background genre detection", e)
+            }
+        }
+    }
+
+    /**
+     * Detects genres for songs in background and updates the UI dynamically
+     */
+    private suspend fun detectGenresInBackground() {
+        Log.d(TAG, "Starting background genre detection for ${songs.value.size} songs")
+
+        repository.detectGenresInBackground(
+            songs = songs.value,
+            onProgress = { current, total ->
+                // Optional: Could emit progress updates to UI if needed
+                Log.d(TAG, "Genre detection progress: $current/$total")
+            },
+            onComplete = { updatedSongs ->
+                // Update the songs state with the new genre information
+                _songs.value = updatedSongs
+                Log.d(TAG, "Background genre detection completed, updated ${updatedSongs.count { it.genre != null }} songs with genres")
+            }
+        )
     }
     
     private fun startListeningTimeTracking() {

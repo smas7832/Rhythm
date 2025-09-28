@@ -59,7 +59,8 @@ data class ExtendedSongInfo(
     val year: Int = 0,
     val mimeType: String = "",
     val channels: String = "Unknown",
-    val hasLyrics: Boolean = false
+    val hasLyrics: Boolean = false,
+    val genre: String = "" // Add genre field
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -573,9 +574,10 @@ private fun MetadataGridSection(
             add(MetadataItem("Year", yearValue.toString(), Icons.Rounded.DateRange))
         }
         
-        // Genre
-        if (!song.genre.isNullOrEmpty()) {
-            add(MetadataItem("Genre", song.genre, Icons.Rounded.Category))
+        // Genre (prefer song data, fallback to extended info)
+        val genreValue = if (!song.genre.isNullOrEmpty()) song.genre else extendedInfo?.genre
+        if (!genreValue.isNullOrEmpty()) {
+            add(MetadataItem("Genre", genreValue.trim(), Icons.Rounded.Category))
         }
         
         extendedInfo?.let { info ->
