@@ -353,7 +353,11 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         TITLE_ASC,
         TITLE_DESC,
         ARTIST_ASC,
-        ARTIST_DESC
+        ARTIST_DESC,
+        DATE_ADDED_ASC,
+        DATE_ADDED_DESC,
+        DATE_MODIFIED_ASC,
+        DATE_MODIFIED_DESC
     }
     
     enum class SleepAction {
@@ -2470,7 +2474,11 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 SortOrder.TITLE_ASC -> SortOrder.TITLE_DESC
                 SortOrder.TITLE_DESC -> SortOrder.ARTIST_ASC
                 SortOrder.ARTIST_ASC -> SortOrder.ARTIST_DESC
-                SortOrder.ARTIST_DESC -> SortOrder.TITLE_ASC
+                SortOrder.ARTIST_DESC -> SortOrder.DATE_ADDED_ASC
+                SortOrder.DATE_ADDED_ASC -> SortOrder.DATE_ADDED_DESC
+                SortOrder.DATE_ADDED_DESC -> SortOrder.DATE_MODIFIED_ASC
+                SortOrder.DATE_MODIFIED_ASC -> SortOrder.DATE_MODIFIED_DESC
+                SortOrder.DATE_MODIFIED_DESC -> SortOrder.TITLE_ASC
             }
             
             // Sort songs based on current sort order
@@ -2479,6 +2487,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 SortOrder.TITLE_DESC -> _songs.value.sortedByDescending { it.title }
                 SortOrder.ARTIST_ASC -> _songs.value.sortedBy { it.artist }
                 SortOrder.ARTIST_DESC -> _songs.value.sortedByDescending { it.artist }
+                SortOrder.DATE_ADDED_ASC -> _songs.value.sortedBy { it.dateAdded }
+                SortOrder.DATE_ADDED_DESC -> _songs.value.sortedByDescending { it.dateAdded }
+                SortOrder.DATE_MODIFIED_ASC -> _songs.value.sortedBy { it.dateAdded } // Using dateAdded as a proxy for dateModified for songs
+                SortOrder.DATE_MODIFIED_DESC -> _songs.value.sortedByDescending { it.dateAdded } // Using dateAdded as a proxy for dateModified for songs
             }
             
             // Sort albums based on current sort order
@@ -2487,6 +2499,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 SortOrder.TITLE_DESC -> _albums.value.sortedByDescending { it.title }
                 SortOrder.ARTIST_ASC -> _albums.value.sortedBy { it.artist }
                 SortOrder.ARTIST_DESC -> _albums.value.sortedByDescending { it.artist }
+                SortOrder.DATE_ADDED_ASC -> _albums.value.sortedBy { it.id.toLongOrNull() ?: 0L } // Placeholder for date added
+                SortOrder.DATE_ADDED_DESC -> _albums.value.sortedByDescending { it.id.toLongOrNull() ?: 0L } // Placeholder for date added
+                SortOrder.DATE_MODIFIED_ASC -> _albums.value.sortedBy { it.dateModified }
+                SortOrder.DATE_MODIFIED_DESC -> _albums.value.sortedByDescending { it.dateModified }
             }
             
             // Sort playlists by name, keeping the default playlists at the top
@@ -2501,10 +2517,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }.thenBy { 
                     // Then sort by name according to current sort order
-                    if (_sortOrder.value == SortOrder.TITLE_ASC || _sortOrder.value == SortOrder.ARTIST_ASC) {
-                        it.name
-                    } else {
-                        it.name.reversed()
+                    when (_sortOrder.value) {
+                        SortOrder.TITLE_ASC, SortOrder.ARTIST_ASC, SortOrder.DATE_ADDED_ASC, SortOrder.DATE_MODIFIED_ASC -> it.name
+                        SortOrder.TITLE_DESC, SortOrder.ARTIST_DESC, SortOrder.DATE_ADDED_DESC, SortOrder.DATE_MODIFIED_DESC -> it.name.reversed()
                     }
                 }
             )
@@ -2525,6 +2540,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                     SortOrder.TITLE_DESC -> _songs.value.sortedByDescending { it.title }
                     SortOrder.ARTIST_ASC -> _songs.value.sortedBy { it.artist }
                     SortOrder.ARTIST_DESC -> _songs.value.sortedByDescending { it.artist }
+                    SortOrder.DATE_ADDED_ASC -> _songs.value.sortedBy { it.dateAdded }
+                    SortOrder.DATE_ADDED_DESC -> _songs.value.sortedByDescending { it.dateAdded }
+                    SortOrder.DATE_MODIFIED_ASC -> _songs.value.sortedBy { it.dateAdded } // Using dateAdded as a proxy for dateModified for songs
+                    SortOrder.DATE_MODIFIED_DESC -> _songs.value.sortedByDescending { it.dateAdded } // Using dateAdded as a proxy for dateModified for songs
                 }
                 
                 // Sort albums based on new sort order
@@ -2533,6 +2552,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                     SortOrder.TITLE_DESC -> _albums.value.sortedByDescending { it.title }
                     SortOrder.ARTIST_ASC -> _albums.value.sortedBy { it.artist }
                     SortOrder.ARTIST_DESC -> _albums.value.sortedByDescending { it.artist }
+                    SortOrder.DATE_ADDED_ASC -> _albums.value.sortedBy { it.id.toLongOrNull() ?: 0L } // Placeholder for date added
+                    SortOrder.DATE_ADDED_DESC -> _albums.value.sortedByDescending { it.id.toLongOrNull() ?: 0L } // Placeholder for date added
+                    SortOrder.DATE_MODIFIED_ASC -> _albums.value.sortedBy { it.dateModified }
+                    SortOrder.DATE_MODIFIED_DESC -> _albums.value.sortedByDescending { it.dateModified }
                 }
                 
                 // Sort playlists by name, keeping the default playlists at the top
@@ -2547,10 +2570,14 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     }.thenBy { 
                         // Then sort by name according to current sort order
-                        if (newSortOrder == SortOrder.TITLE_ASC || newSortOrder == SortOrder.ARTIST_ASC) {
-                            it.name
-                        } else {
-                            it.name.reversed()
+                        when (newSortOrder) {
+                            SortOrder.TITLE_ASC, SortOrder.ARTIST_ASC -> it.name
+                            SortOrder.TITLE_DESC, SortOrder.ARTIST_DESC -> it.name.reversed()
+                            SortOrder.DATE_ADDED_ASC -> it.dateCreated
+                            SortOrder.DATE_ADDED_DESC -> -it.dateCreated // Descending
+                            SortOrder.DATE_MODIFIED_ASC -> it.dateModified
+                            SortOrder.DATE_MODIFIED_DESC -> -it.dateModified // Descending
+                            else -> it.name // Default for other sort orders
                         }
                     }
                 )

@@ -8,6 +8,8 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.automirrored.rounded.*
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.collectAsState
@@ -572,10 +574,10 @@ fun LibraryScreen(
 
                             // Sort order text
                             val sortText = when (sortOrder) {
-                                MusicViewModel.SortOrder.TITLE_ASC -> "Title A-Z"
-                                MusicViewModel.SortOrder.TITLE_DESC -> "Title Z-A"
-                                MusicViewModel.SortOrder.ARTIST_ASC -> "Artist A-Z"
-                                MusicViewModel.SortOrder.ARTIST_DESC -> "Artist Z-A"
+                                MusicViewModel.SortOrder.TITLE_ASC, MusicViewModel.SortOrder.TITLE_DESC -> "Title"
+                                MusicViewModel.SortOrder.ARTIST_ASC, MusicViewModel.SortOrder.ARTIST_DESC -> "Artist"
+                                MusicViewModel.SortOrder.DATE_ADDED_ASC, MusicViewModel.SortOrder.DATE_ADDED_DESC -> "Date Added"
+                                MusicViewModel.SortOrder.DATE_MODIFIED_ASC, MusicViewModel.SortOrder.DATE_MODIFIED_DESC -> "Date Modified"
                             }
 
                             Text(
@@ -586,9 +588,14 @@ fun LibraryScreen(
                             
                             Spacer(modifier = Modifier.width(4.dp))
                             
+                            val sortArrowIcon = when (sortOrder) {
+                                MusicViewModel.SortOrder.TITLE_ASC, MusicViewModel.SortOrder.ARTIST_ASC, MusicViewModel.SortOrder.DATE_ADDED_ASC, MusicViewModel.SortOrder.DATE_MODIFIED_ASC -> Icons.Default.ArrowUpward
+                                MusicViewModel.SortOrder.TITLE_DESC, MusicViewModel.SortOrder.ARTIST_DESC, MusicViewModel.SortOrder.DATE_ADDED_DESC, MusicViewModel.SortOrder.DATE_MODIFIED_DESC -> Icons.Default.ArrowDownward
+                            }
+                            
                             Icon(
-                                imageVector = if (showSortMenu) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                                contentDescription = null,
+                                imageVector = sortArrowIcon,
+                                contentDescription = if (sortOrder.name.endsWith("_ASC")) "Ascending" else "Descending",
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -615,31 +622,52 @@ fun LibraryScreen(
                                         text = { 
                                             Text(
                                                 text = when (order) {
-                                                    MusicViewModel.SortOrder.TITLE_ASC -> "Title A-Z"
-                                                    MusicViewModel.SortOrder.TITLE_DESC -> "Title Z-A"
-                                                    MusicViewModel.SortOrder.ARTIST_ASC -> "Artist A-Z"
-                                                    MusicViewModel.SortOrder.ARTIST_DESC -> "Artist Z-A"
+                                                    MusicViewModel.SortOrder.TITLE_ASC, MusicViewModel.SortOrder.TITLE_DESC -> "Title"
+                                                    MusicViewModel.SortOrder.ARTIST_ASC, MusicViewModel.SortOrder.ARTIST_DESC -> "Artist"
+                                                    MusicViewModel.SortOrder.DATE_ADDED_ASC, MusicViewModel.SortOrder.DATE_ADDED_DESC -> "Date Added"
+                                                    MusicViewModel.SortOrder.DATE_MODIFIED_ASC, MusicViewModel.SortOrder.DATE_MODIFIED_DESC -> "Date Modified"
                                                 },
                                                 style = MaterialTheme.typography.bodyMedium,
                                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                                color = if (isSelected) 
-                                                    MaterialTheme.colorScheme.onPrimaryContainer 
-                                                else 
+                                                color = if (isSelected)
+                                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                                else
                                                     MaterialTheme.colorScheme.onSurface
-                                            ) 
+                                            )
                                         },
                                         leadingIcon = {
                                             Icon(
                                                 imageVector = when (order) {
                                                     MusicViewModel.SortOrder.TITLE_ASC, MusicViewModel.SortOrder.TITLE_DESC -> Icons.Filled.SortByAlpha
                                                     MusicViewModel.SortOrder.ARTIST_ASC, MusicViewModel.SortOrder.ARTIST_DESC -> Icons.Filled.Person
+                                                    MusicViewModel.SortOrder.DATE_ADDED_ASC, MusicViewModel.SortOrder.DATE_ADDED_DESC -> Icons.Filled.DateRange
+                                                    MusicViewModel.SortOrder.DATE_MODIFIED_ASC, MusicViewModel.SortOrder.DATE_MODIFIED_DESC -> Icons.Filled.EditCalendar
                                                 },
                                                 contentDescription = null,
-                                                tint = if (isSelected) 
-                                                    MaterialTheme.colorScheme.onPrimaryContainer 
-                                                else 
+                                                tint = if (isSelected)
+                                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                                else
                                                     MaterialTheme.colorScheme.onSurfaceVariant
                                             )
+                                        },
+                                        trailingIcon = {
+                                            when (order) {
+                                                MusicViewModel.SortOrder.TITLE_ASC, MusicViewModel.SortOrder.ARTIST_ASC, MusicViewModel.SortOrder.DATE_ADDED_ASC, MusicViewModel.SortOrder.DATE_MODIFIED_ASC -> {
+                                                    Icon(
+                                                        imageVector = Icons.Default.ArrowUpward,
+                                                        contentDescription = "Ascending",
+                                                        tint = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                }
+                                                MusicViewModel.SortOrder.TITLE_DESC, MusicViewModel.SortOrder.ARTIST_DESC, MusicViewModel.SortOrder.DATE_ADDED_DESC, MusicViewModel.SortOrder.DATE_MODIFIED_DESC -> {
+                                                    Icon(
+                                                        imageVector = Icons.Default.ArrowDownward,
+                                                        contentDescription = "Descending",
+                                                        tint = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                }
+                                                else -> {}
+                                            }
                                         },
                                         onClick = {
                                             HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
