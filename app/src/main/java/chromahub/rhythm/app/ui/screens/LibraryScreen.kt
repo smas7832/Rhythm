@@ -21,6 +21,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -156,11 +157,13 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.material.icons.rounded.ArrowCircleDown
+import androidx.compose.material.icons.rounded.ArrowCircleUp
 import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.ui.components.M3FourColorCircularLoader
 
 
-enum class LibraryTab { SONGS, PLAYLISTS, ALBUMS, ARTISTS }
+enum class LibraryTab { SONGS, PLAYLISTS, ALBUMS, ARTISTS, EXPLORER }
 
 @Composable
 fun LibraryScreen(
@@ -197,7 +200,7 @@ fun LibraryScreen(
 ) {
     val context = LocalContext.current
     val appSettings = remember { AppSettings.getInstance(context) }
-    val tabs = listOf("Songs", "Playlists", "Albums", "Artists")
+    val tabs = listOf("Songs", "Playlists", "Albums", "Artists", "Explorer")
     var selectedTabIndex by remember { mutableStateOf(initialTab.ordinal) }
     val pagerState = rememberPagerState(initialPage = selectedTabIndex) { tabs.size }
     val tabRowState = rememberLazyListState()
@@ -699,28 +702,7 @@ fun LibraryScreen(
                 modifier = Modifier.padding(horizontal = 8.dp) // Added padding
             )
         },
-        bottomBar = {},
-        floatingActionButton = {
-            if (selectedTabIndex == LibraryTab.PLAYLISTS.ordinal) {
-                PlaylistFabMenu(
-                    expanded = fabVisibility,
-                    onCreatePlaylist = {
-                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
-                        showCreatePlaylistDialog = true
-                    },
-                    onImportPlaylist = onImportPlaylistForFab,
-                    onExportPlaylists = if (onExportAllPlaylists != null) {
-                        {
-                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
-                            showBulkExportDialog = true
-                        }
-                    } else null,
-                    modifier = Modifier.padding(
-                        bottom = (LocalMiniPlayerPadding.current.calculateBottomPadding() * 0.5f) + 8.dp
-                    )
-                )
-            }
-        }
+        bottomBar = {}
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -795,6 +777,8 @@ fun LibraryScreen(
                                     LibraryTab.SONGS.ordinal -> RhythmIcons.Relax
                                     LibraryTab.PLAYLISTS.ordinal -> RhythmIcons.PlaylistFilled
                                     LibraryTab.ALBUMS.ordinal -> RhythmIcons.Music.Album
+                                    LibraryTab.ARTISTS.ordinal -> RhythmIcons.Artist
+                                    LibraryTab.EXPLORER.ordinal -> Icons.Default.Folder
                                     else -> RhythmIcons.Music.Song
                                 },
                                 contentDescription = null,
@@ -848,7 +832,10 @@ fun LibraryScreen(
                         LibraryTab.PLAYLISTS.ordinal -> SingleCardPlaylistsContent(
                             playlists = playlists,
                             onPlaylistClick = onPlaylistClick,
-                            haptics = haptics
+                            haptics = haptics,
+                            onCreatePlaylist = { showCreatePlaylistDialog = true },
+                            onImportPlaylist = { showImportDialog = true },
+                            onExportPlaylists = { showBulkExportDialog = true }
                         )
                         LibraryTab.ALBUMS.ordinal -> SingleCardAlbumsContent(
                             albums = albums,
@@ -866,6 +853,20 @@ fun LibraryScreen(
                             onArtistClick = { artist ->
                                 selectedArtist = artist
                                 showArtistBottomSheet = true
+                            },
+                            haptics = haptics
+                        )
+                        LibraryTab.EXPLORER.ordinal -> SingleCardExplorerContent(
+                            songs = songs,
+                            onSongClick = onSongClick,
+                            onAddToPlaylist = { song ->
+                                selectedSong = song
+                                showAddToPlaylistSheet = true
+                            },
+                            onAddToQueue = onAddToQueue,
+                            onShowSongInfo = { song ->
+                                selectedSong = song
+                                showSongInfoSheet = true
                             },
                             haptics = haptics
                         )
@@ -1296,11 +1297,14 @@ fun SingleCardSongsContent(
     }
 }
 
-@Composable 
+@Composable
 fun SingleCardPlaylistsContent(
     playlists: List<Playlist>,
     onPlaylistClick: (Playlist) -> Unit,
-    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback
+    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback,
+    onCreatePlaylist: (() -> Unit)? = null,
+    onImportPlaylist: (() -> Unit)? = null,
+    onExportPlaylists: (() -> Unit)? = null
 ) {
     if (playlists.isEmpty()) {
         EmptyState(
@@ -1372,6 +1376,117 @@ fun SingleCardPlaylistsContent(
                             shape = RoundedCornerShape(1.dp),
                             color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f)
                         ) {}
+                    }
+                }
+            }
+
+            // Custom ButtonGroup for playlist actions
+            if (onCreatePlaylist != null || onImportPlaylist != null || onExportPlaylists != null) {
+                stickyHeader {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+        if (onCreatePlaylist != null) {
+                            Surface(
+                                onClick = {
+//                                    HapticUtils.performHapticFeedback(LocalContext.current, haptics, HapticFeedbackType.TextHandleMove)
+                                    onCreatePlaylist()
+                                },
+                                shape = RoundedCornerShape(20.dp),
+                                color = MaterialTheme.colorScheme.tertiaryContainer,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = RhythmIcons.Add,
+                                        contentDescription = "Create playlist",
+                                        modifier = Modifier.size(20.dp),
+                                        tint = MaterialTheme.colorScheme.onTertiaryContainer
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        "Create",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                                    )
+                                }
+                            }
+                        }
+
+                        if (onImportPlaylist != null) {
+                            Surface(
+                                onClick = {
+//                                    HapticUtils.performHapticFeedback(LocalContext.current, haptics, HapticFeedbackType.TextHandleMove)
+                                    onImportPlaylist()
+                                },
+                                shape = RoundedCornerShape(20.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.ArrowCircleDown,
+                                        contentDescription = "Import playlist",
+                                        modifier = Modifier.size(20.dp),
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        "Import",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+                            }
+                        }
+
+                        if (onExportPlaylists != null) {
+                            Surface(
+                                onClick = {
+//                                    HapticUtils.performHapticFeedback(LocalContext.current, haptics, HapticFeedbackType.TextHandleMove)
+                                    onExportPlaylists()
+                                },
+                                shape = RoundedCornerShape(20.dp),
+                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.ArrowCircleUp,
+                                        contentDescription = "Export playlists",
+                                        modifier = Modifier.size(20.dp),
+                                        tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        "Export",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1581,14 +1696,15 @@ fun SingleCardAlbumsContent(
 }
 
 @Composable
+@Deprecated("Use SingleCardSongsContent instead")
 fun SongsTab(
     songs: List<Song>,
     onSongClick: (Song) -> Unit,
     onAddToPlaylist: (Song) -> Unit,
     onAddToQueue: (Song) -> Unit,
     onShowSongInfo: (Song) -> Unit,
-    onAddToBlacklist: (Song) -> Unit, // Add blacklist callback
-    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback // Add haptics parameter
+    onAddToBlacklist: (Song) -> Unit,
+    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback
 ) {
     val context = LocalContext.current
     var selectedCategory by remember { mutableStateOf("All") }
@@ -1891,10 +2007,11 @@ fun SongsTab(
 
 
 @Composable
+@Deprecated("Use SingleCardPlaylistsContent instead")
 fun PlaylistsTab(
     playlists: List<Playlist>,
     onPlaylistClick: (Playlist) -> Unit,
-    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback // Add haptics parameter
+    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback
 ) {
     if (playlists.isEmpty()) {
         EmptyState(
@@ -3568,6 +3685,313 @@ private fun ArtistListCard(
 }
 
 @Composable
+fun SingleCardExplorerContent(
+    songs: List<Song>,
+    onSongClick: (Song) -> Unit,
+    onAddToPlaylist: (Song) -> Unit,
+    onAddToQueue: (Song) -> Unit,
+    onShowSongInfo: (Song) -> Unit,
+    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback
+) {
+    // Group songs by directory/folder
+    val folderGroups = remember(songs) {
+        songs.groupBy { song ->
+            // Extract directory from URI - split by '/' and get parent directory name
+            val uriPath = song.uri.toString()
+            val pathSegments = uriPath.split("/")
+            if (pathSegments.size >= 2) {
+                // Get directory name (second to last segment, or last segment if no file name)
+                val directoryIndex = if (!uriPath.contains(".") || pathSegments.size == 2) {
+                    pathSegments.size - 2
+                } else {
+                    pathSegments.size - 2
+                }
+                pathSegments.getOrElse(directoryIndex) { "Root" }.takeIf { it.isNotEmpty() } ?: "Root"
+            } else {
+                "Root"
+            }
+        }.mapValues { (_, songsInFolder) ->
+            // Create folder name and song count
+            songsInFolder.first().uri.toString().let { uri ->
+                val segments = uri.split("/")
+                val folderName = if (segments.size >= 2) {
+                    segments[segments.size - 2].takeIf { it.isNotEmpty() } ?: "Music"
+                } else "Music"
+
+                folderName to songsInFolder
+            }
+        }.toList().sortedBy { (folderKey, _) -> folderKey }
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(
+            bottom = LocalMiniPlayerPadding.current.calculateBottomPadding() + 16.dp
+        ),
+        verticalArrangement = Arrangement.spacedBy(0.dp)
+    ) {
+        // Sticky Section Header for Explorer
+        stickyHeader {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 8.dp),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(20.dp)
+                ) {
+                    Surface(
+                        modifier = Modifier.size(48.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primary,
+                        shadowElevation = 0.dp
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.Folder,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    Column {
+                        Text(
+                            text = "File Explorer",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Text(
+                            text = "${folderGroups.size} folders • ${songs.size} tracks",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    Surface(
+                        modifier = Modifier
+                            .height(2.dp)
+                            .width(60.dp),
+                        shape = RoundedCornerShape(1.dp),
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f)
+                    ) {}
+                }
+            }
+        }
+
+        // Folder Items
+        items(
+            items = folderGroups,
+            key = { it.first }
+        ) { (folderKey, folderData) ->
+            val (folderName, songsInFolder) = folderData
+            AnimateIn {
+                FolderItem(
+                    folderName = folderName,
+                    songCount = songsInFolder.size,
+                    haptics = haptics
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FolderItem(
+    folderName: String,
+    songCount: Int,
+    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Folder icon with enhanced styling
+            Surface(
+                modifier = Modifier.size(68.dp),
+                shape = RoundedCornerShape(18.dp),
+                tonalElevation = 0.dp,
+                color = MaterialTheme.colorScheme.tertiaryContainer
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Folder,
+                        contentDescription = "Folder",
+                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(18.dp))
+
+            // Folder info
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = folderName,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = RhythmIcons.MusicNote,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(16.dp)
+                    )
+
+                    Spacer(modifier = Modifier.width(6.dp))
+
+                    Text(
+                        text = "$songCount ${if (songCount == 1) "track" else "tracks"}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // Forward arrow
+            Surface(
+                modifier = Modifier.size(44.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                        contentDescription = "Open folder",
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlaylistFabMenuContent(
+    onCreatePlaylist: () -> Unit,
+    onImportPlaylist: (() -> Unit)?,
+    onExportPlaylists: (() -> Unit)?,
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    Column(
+        modifier = Modifier
+            .widthIn(max = 200.dp)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalAlignment = Alignment.End
+    ) {
+        // Export playlists item
+        if (onExportPlaylists != null) {
+            FloatingActionButton(
+                onClick = {
+//                    HapticUtils.performHapticFeedback(context, LocalHapticFeedback.current, HapticFeedbackType.TextHandleMove)
+                    scope.launch {
+                        onExportPlaylists()
+                    }
+                },
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.FileUpload,
+                    contentDescription = "Export playlists",
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+
+        // Import playlist item
+        if (onImportPlaylist != null) {
+            FloatingActionButton(
+                onClick = {
+//                    HapticUtils.performHapticFeedback(context, LocalHapticFeedback.current, HapticFeedbackType.TextHandleMove)
+                    scope.launch {
+                        onImportPlaylist()
+                    }
+                },
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(
+                    imageVector = RhythmIcons.Actions.Download,
+                    contentDescription = "Import playlist",
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+
+        // Create playlist item (always shown)
+        FloatingActionButton(
+            onClick = {
+//                HapticUtils.performHapticFeedback(context, LocalHapticFeedback.current, HapticFeedbackType.TextHandleMove)
+                scope.launch {
+                    onCreatePlaylist()
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            modifier = Modifier.size(48.dp)
+        ) {
+            Icon(
+                imageVector = RhythmIcons.Add,
+                contentDescription = "Create playlist",
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
+@Composable
 private fun PlaylistFabMenu(
     expanded: Boolean,
     onCreatePlaylist: () -> Unit,
@@ -3577,152 +4001,188 @@ private fun PlaylistFabMenu(
 ) {
     val context = LocalContext.current
     var isExpanded by remember { mutableStateOf(false) }
-    
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.End,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+    val scope = rememberCoroutineScope()
+    val miniPlayerPadding = LocalMiniPlayerPadding.current
+
+    // Animate FAB expansion
+    val fabScale by animateFloatAsState(
+        targetValue = if (isExpanded) 1.1f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "fabScale"
+    )
+
+    Box(
+        modifier = modifier.fillMaxSize(),
+        contentAlignment = Alignment.BottomEnd
     ) {
-        // Mini FABs that appear when expanded
-        androidx.compose.animation.AnimatedVisibility(
-            visible = isExpanded,
-            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.slideInVertically(
-                initialOffsetY = { it / 2 }
-            ),
-            exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.slideOutVertically(
-                targetOffsetY = { it / 2 }
-            )
+        // FAB Menu Items
+        AnimatedVisibility(
+            visible = isExpanded && onExportPlaylists != null,
+            enter = fadeIn(animationSpec = tween(300, delayMillis = 0)) +
+                   slideInHorizontally(
+                       animationSpec = tween(300, delayMillis = 0),
+                       initialOffsetX = { it / 2 }
+                   ),
+            exit = fadeOut(animationSpec = tween(200, delayMillis = 0)) +
+                  slideOutHorizontally(
+                      animationSpec = tween(200, delayMillis = 0),
+                      targetOffsetX = { it / 2 }
+                  )
         ) {
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Export FAB
-                if (onExportPlaylists != null) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.surface,
-                            shape = RoundedCornerShape(8.dp),
-                            shadowElevation = 4.dp,
-                            modifier = Modifier.padding(4.dp)
-                        ) {
-                            Text(
-                                text = "Export playlists",
-                                style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                            )
-                        }
-                        
-                        SmallFloatingActionButton(
-                            onClick = {
-                                onExportPlaylists()
-                                isExpanded = false
-                            },
-                            containerColor = MaterialTheme.colorScheme.secondary,
-                            contentColor = MaterialTheme.colorScheme.onSecondary
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.FileUpload,
-                                contentDescription = "Export playlists"
-                            )
-                        }
+            FabMenuItem(
+                text = "Export playlists",
+                icon = Icons.Default.FileUpload,
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                onClick = {
+                    scope.launch {
+                        onExportPlaylists?.invoke()
+                        isExpanded = false
                     }
-                }
-                
-                // Import FAB
-                if (onImportPlaylist != null) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.surface,
-                            shape = RoundedCornerShape(8.dp),
-                            shadowElevation = 4.dp,
-                            modifier = Modifier.padding(4.dp)
-                        ) {
-                            Text(
-                                text = "Import playlist",
-                                style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                            )
-                        }
-                        
-                        SmallFloatingActionButton(
-                            onClick = {
-                                onImportPlaylist()
-                                isExpanded = false
-                            },
-                            containerColor = MaterialTheme.colorScheme.tertiary,
-                            contentColor = MaterialTheme.colorScheme.onTertiary
-                        ) {
-                            Icon(
-                                imageVector = RhythmIcons.Actions.Download,
-                                contentDescription = "Import playlist"
-                            )
-                        }
-                    }
-                }
-                
-                // Create FAB
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.surface,
-                        shape = RoundedCornerShape(8.dp),
-                        shadowElevation = 4.dp,
-                        modifier = Modifier.padding(4.dp)
-                    ) {
-                        Text(
-                            text = "New playlist",
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                        )
-                    }
-                    
-                    SmallFloatingActionButton(
-                        onClick = {
-                            onCreatePlaylist()
-                            isExpanded = false
-                        },
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    ) {
-                        Icon(
-                            imageVector = RhythmIcons.Add,
-                            contentDescription = "Create playlist"
-                        )
-                    }
-                }
-            }
+                },
+                modifier = Modifier.padding(bottom = 160.dp, end = 16.dp)
+            )
         }
-        
-        // Main FAB
-        ExtendedFloatingActionButton(
-            onClick = { isExpanded = !isExpanded },
-            icon = {
-                Icon(
-                    imageVector = if (isExpanded) Icons.Default.Close else RhythmIcons.Add,
-                    contentDescription = if (isExpanded) "Close menu" else "Open menu",
-                    modifier = Modifier.graphicsLayer {
-                        rotationZ = if (isExpanded) 0f else 0f
+
+        AnimatedVisibility(
+            visible = isExpanded && onImportPlaylist != null,
+            enter = fadeIn(animationSpec = tween(300, delayMillis = 150)) +
+                   slideInHorizontally(
+                       animationSpec = tween(300, delayMillis = 150),
+                       initialOffsetX = { it / 2 }
+                   ),
+            exit = fadeOut(animationSpec = tween(200, delayMillis = 100)) +
+                  slideOutHorizontally(
+                      animationSpec = tween(200, delayMillis = 100),
+                      targetOffsetX = { it / 2 }
+                  )
+        ) {
+            FabMenuItem(
+                text = "Import playlist",
+                icon = RhythmIcons.Actions.Download,
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                onClick = {
+                    scope.launch {
+                        onImportPlaylist?.invoke()
+                        isExpanded = false
                     }
-                )
-            },
-            text = { 
-                Text(
-                    text = if (isExpanded) "Close" else "Playlists",
-                    maxLines = 1
-                ) 
+                },
+                modifier = Modifier.padding(bottom = 100.dp, end = 16.dp)
+            )
+        }
+
+        AnimatedVisibility(
+            visible = isExpanded,
+            enter = fadeIn(animationSpec = tween(300, delayMillis = 300)) +
+                   slideInHorizontally(
+                       animationSpec = tween(300, delayMillis = 300),
+                       initialOffsetX = { it / 2 }
+                   ),
+            exit = fadeOut(animationSpec = tween(200, delayMillis = 200)) +
+                  slideOutHorizontally(
+                      animationSpec = tween(200, delayMillis = 200),
+                      targetOffsetX = { it / 2 }
+                  )
+        ) {
+            FabMenuItem(
+                text = "New playlist",
+                icon = RhythmIcons.Add,
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                onClick = {
+                    scope.launch {
+                        onCreatePlaylist()
+                        isExpanded = false
+                    }
+                },
+                modifier = Modifier.padding(bottom = 40.dp, end = 16.dp)
+            )
+        }
+
+        // Main FAB
+        FloatingActionButton(
+            onClick = {
+//                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                isExpanded = !isExpanded
             },
             containerColor = MaterialTheme.colorScheme.primaryContainer,
             contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            expanded = expanded && !isExpanded
-        )
+            modifier = Modifier
+                .padding(bottom = miniPlayerPadding.calculateBottomPadding() + 16.dp, end = 16.dp)
+                .graphicsLayer {
+                    scaleX = fabScale
+                    scaleY = fabScale
+                }
+        ) {
+            Icon(
+                imageVector = if (isExpanded) Icons.Default.Close else RhythmIcons.Add,
+                contentDescription = if (isExpanded) "Close FAB menu" else "Open FAB menu",
+                modifier = Modifier
+                    .size(24.dp)
+                    .graphicsLayer {
+                        rotationZ = if (isExpanded) 45f else 0f
+                    }
+            )
+        }
+    }
+}
+
+@Composable
+private fun FabMenuItem(
+    text: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    containerColor: Color,
+    contentColor: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
+
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Label
+        Surface(
+            color = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            shape = RoundedCornerShape(12.dp),
+            shadowElevation = 8.dp,
+            tonalElevation = 2.dp
+        ) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                fontWeight = FontWeight.Medium
+            )
+        }
+
+        // FAB
+        FloatingActionButton(
+            onClick = {
+                HapticUtils.performHapticFeedback(
+                    context,
+                    haptics,
+                    HapticFeedbackType.LongPress
+                )
+                onClick()
+            },
+            containerColor = containerColor,
+            contentColor = contentColor,
+            modifier = Modifier.size(48.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = text,
+                modifier = Modifier.size(20.dp)
+            )
+        }
     }
 }
