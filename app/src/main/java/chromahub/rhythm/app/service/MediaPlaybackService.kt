@@ -169,17 +169,19 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "Service created")
-        
+
         // Create notification channel first (required for Android 8.0+)
         createNotificationChannel()
-        
+
         // Start foreground immediately to avoid ANR
-        startForeground()
-        
+        startForeground("Rhythm Music", "Starting service...")
+
         // Initialize settings manager (fast operation)
+        updateForegroundNotification("Rhythm Music", "Loading settings...")
         appSettings = AppSettings.getInstance(applicationContext)
-        
+
         // Register BroadcastReceiver for favorite changes
+        updateForegroundNotification("Rhythm Music", "Setting up components...")
         val filter = IntentFilter("chromahub.rhythm.app.action.FAVORITE_CHANGED")
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(favoriteChangeReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
@@ -189,21 +191,28 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
 
         try {
             // Initialize core components on main thread (required for media service)
+            updateForegroundNotification("Rhythm Music", "Initializing player...")
             initializePlayer()
+
+            updateForegroundNotification("Rhythm Music", "Creating playback controls...")
             createCustomCommands()
-            
+
             // Create the media session (required synchronously)
+            updateForegroundNotification("Rhythm Music", "Setting up media session...")
             mediaSession = createMediaSession()
-            
+
             // Initialize controller asynchronously to avoid blocking
+            updateForegroundNotification("Rhythm Music", "Initializing media controller...")
             createController()
-            
+
             // Observe notification preference changes
+            updateForegroundNotification("Rhythm Music", "Service ready")
             observeNotificationSettings()
-            
+
             Log.d(TAG, "Service initialized successfully")
         } catch (e: Exception) {
             Log.e(TAG, "Error initializing service", e)
+            updateForegroundNotification("Rhythm Music", "Initialization failed")
         }
     }
     
@@ -223,17 +232,31 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
         }
     }
     
-    private fun startForeground() {
+    private fun startForeground(title: String = "Rhythm Music", content: String = "Initializing music service...") {
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Rhythm Music")
-            .setContentText("Initializing music service...")
+            .setContentTitle(title)
+            .setContentText(content)
             .setSmallIcon(chromahub.rhythm.app.R.drawable.ic_notification)
             .setOngoing(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .build()
-            
+
         startForeground(NOTIFICATION_ID, notification)
-        Log.d(TAG, "Started foreground service")
+        Log.d(TAG, "Started foreground service: $title - $content")
+    }
+
+    private fun updateForegroundNotification(title: String, content: String) {
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle(title)
+            .setContentText(content)
+            .setSmallIcon(chromahub.rhythm.app.R.drawable.ic_notification)
+            .setOngoing(true)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .build()
+
+        notificationManager.notify(NOTIFICATION_ID, notification)
+        Log.d(TAG, "Updated foreground notification: $title - $content")
     }
     
     private fun observeNotificationSettings() {

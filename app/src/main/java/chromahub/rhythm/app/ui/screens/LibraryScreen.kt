@@ -3,6 +3,8 @@ package chromahub.rhythm.app.ui.screens
 
 import android.widget.Toast
 import android.os.Environment
+import androidx.documentfile.provider.DocumentFile
+import java.io.File
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -12,6 +14,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import android.Manifest
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import kotlin.collections.sortedBy
 import kotlin.collections.mutableListOf
@@ -55,6 +58,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.*
+import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -165,6 +171,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -272,6 +280,8 @@ fun LibraryScreen(
         }
     }
     
+
+
     // Update selectedTabIndex when pager settles on a new page (handles swiping)
     LaunchedEffect(pagerState.currentPage, pagerState.isScrollInProgress) {
         if (!pagerState.isScrollInProgress && selectedTabIndex != pagerState.currentPage) {
@@ -496,7 +506,7 @@ fun LibraryScreen(
                                     }
                             ) {
                                 Icon(
-                                    imageVector = if (albumViewType == AlbumViewType.LIST) Icons.Default.GridView else Icons.Default.ViewList,
+                                    imageVector = if (albumViewType == AlbumViewType.LIST) Icons.Default.GridView else Icons.AutoMirrored.Rounded.ViewList,
                                     contentDescription = if (albumViewType == AlbumViewType.LIST) "Switch to Grid View" else "Switch to List View",
                                     modifier = Modifier.size(20.dp)
                                 )
@@ -534,7 +544,7 @@ fun LibraryScreen(
                                     }
                             ) {
                                 Icon(
-                                    imageVector = if (artistViewType == ArtistViewType.LIST) Icons.Default.GridView else Icons.Default.ViewList,
+                                    imageVector = if (artistViewType == ArtistViewType.LIST) Icons.Default.GridView else Icons.AutoMirrored.Rounded.ViewList,
                                     contentDescription = if (artistViewType == ArtistViewType.LIST) "Switch to Grid View" else "Switch to List View",
                                     modifier = Modifier.size(20.dp)
                                 )
@@ -580,7 +590,7 @@ fun LibraryScreen(
                             }
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Sort,
+                                imageVector = Icons.AutoMirrored.Rounded.Sort,
                                 contentDescription = null,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -3708,6 +3718,10 @@ fun SingleCardExplorerContent(
     val context = LocalContext.current
     val activity = context as Activity
 
+    // Handle back gesture to go level up - currentPath is defined inside SingleCardExplorerContent, this code may be in wrong scope
+    // Removing duplicated back handler that references undefined currentPath
+    // Code should be inside the composable where currentPath is defined
+
     // Check storage permission based on Android version
     val hasStoragePermission = remember {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -3733,6 +3747,7 @@ fun SingleCardExplorerContent(
 
     var showPermissionDialog by remember { mutableStateOf(false) }
     var currentPath by remember { mutableStateOf<String?>(null) }
+    var isLoadingDirectory by remember { mutableStateOf(false) }
 
     // Handle permission result in a LaunchedEffect
     LaunchedEffect(hasStoragePermission) {
@@ -3884,19 +3899,74 @@ fun SingleCardExplorerContent(
         setOf("mp3", "flac", "m4a", "aac", "ogg", "wav", "wma", "aiff", "opus")
     }
 
-    // Get items in current directory (or root directories if no current path)
-    val currentItems = remember(currentPath, songs) {
-        if (currentPath == null) {
-            // Show all unique directories at root level, or device storage roots
-            getRootDirectories(songs).ifEmpty {
-                // If no directories from songs, show device storage options
-                getStorageRoots()
-            }
-        } else {
-            // Show directories and audio files in current directory
-            getDirectoryContents(currentPath!!, songs, audioExtensions)
+    // Directory items state - loaded asynchronously to prevent ANR
+    var currentItems by remember { mutableStateOf<List<ExplorerItem>>(emptyList()) }
+    var hasAttemptedRetry by remember { mutableStateOf(false) }
+
+    // Breadcrumb scroll state
+    val breadcrumbScrollState = rememberLazyListState()
+
+    // Handle back gesture to go level up
+    if (currentPath != null) {
+        BackHandler {
+            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+            currentPath = getParentPath(currentPath!!)
         }
-    }.sortedBy { it.name.lowercase() }
+    }
+
+    // Cache for directory contents to improve performance
+    val directoryCache = remember { mutableMapOf<String?, List<ExplorerItem>>() }
+
+    // Refresh trigger state
+    var refreshTrigger by remember { mutableStateOf(false) }
+
+    // Load directory contents asynchronously with caching
+    LaunchedEffect(currentPath, refreshTrigger) {
+        val cacheKey = currentPath
+
+        // For refreshes, always reload from disk regardless of cache
+        val forceReload = refreshTrigger
+
+        if (!forceReload && directoryCache.containsKey(cacheKey)) {
+            currentItems = directoryCache[cacheKey] ?: emptyList()
+            isLoadingDirectory = false
+            return@LaunchedEffect // Exit if already cached and not forcing refresh
+        }
+
+        if (currentPath == null) {
+            // Show device storage roots (fast operation, no need for background)
+            val storageItems = getStorageRoots()
+            currentItems = storageItems
+            directoryCache[cacheKey] = storageItems
+            isLoadingDirectory = false
+        } else {
+            // Load directory contents asynchronously
+            isLoadingDirectory = true
+            try {
+                val items = withContext(Dispatchers.IO) {
+                    getDirectoryContentsOptimized(currentPath!!, audioExtensions)
+                }
+                val sortedItems = items.sortedBy { it.name.lowercase() }
+                currentItems = sortedItems
+                // Update cache with new results (only if not refreshing)
+                if (!forceReload) {
+                    if (directoryCache.size >= 20) {
+                        directoryCache.remove(directoryCache.keys.first())
+                    }
+                    directoryCache[cacheKey] = sortedItems
+                }
+            } catch (e: Exception) {
+                // Handle errors gracefully - show empty state
+                currentItems = emptyList()
+            } finally {
+                isLoadingDirectory = false
+                // Reset refresh trigger
+                if (forceReload) {
+                    refreshTrigger = false
+                }
+            }
+        }
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -3942,15 +4012,19 @@ fun SingleCardExplorerContent(
 
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Your Files",
+                                text = "Explore",
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                             Text(
                                 text = if (currentPath == null) "${currentItems.size} locations" else "${currentItems.size} items",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
 
@@ -3958,17 +4032,23 @@ fun SingleCardExplorerContent(
 
                         // Back button if not at root
                         if (currentPath != null) {
-                            IconButton(
+                            Surface(
                                 onClick = {
                                     HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                                     currentPath = getParentPath(currentPath!!)
-                                }
+                                },
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(44.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.ArrowBack,
-                                    contentDescription = "Go back",
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                                        contentDescription = "Go back",
+                                        tint = MaterialTheme.colorScheme.onPrimary,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -3985,43 +4065,241 @@ fun SingleCardExplorerContent(
                             onGoHome = {
                                 HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                                 currentPath = null
-                            }
+                            },
+                            scrollState = breadcrumbScrollState
                         )
                     }
                 }
             }
         }
 
-        // Explorer Items
-        items(
-            items = currentItems,
-            key = { it.path + it.name + it.type }
-        ) { item ->
-            AnimateIn {
-                ExplorerItemCard(
-                    item = item,
-                    onItemClick = {
-                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                // Loading indicator for directory content
+                if (isLoadingDirectory) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                // Loading indicator
+                                M3FourColorCircularLoader(
+                                    modifier = Modifier.size(48.dp)
+                                )
 
-                        when (item.type) {
-                            ExplorerItemType.STORAGE, ExplorerItemType.FOLDER -> {
-                                // Navigate into directory
-                                currentPath = item.path
-                            }
-                            ExplorerItemType.FILE -> {
-                                // Play the song directly
-                                item.song?.let { song -> onSongClick(song) }
+                                // Loading text
+                                Text(
+                                    text = "Loading directory...",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
-                    },
-                    onSongClick = onSongClick,
-                    onAddToPlaylist = onAddToPlaylist,
-                    onAddToQueue = onAddToQueue,
-                    onShowSongInfo = onShowSongInfo,
-                    haptics = haptics
-                )
-            }
-        }
+                    }
+                }
+
+                // Explorer Items - only show when not loading
+                if (!isLoadingDirectory) {
+                    items(
+                        items = currentItems,
+                        key = { it.path + it.name + it.type }
+                    ) { item ->
+                        AnimateIn {
+                            ExplorerItemCard(
+                                item = item,
+                                onItemClick = {
+                                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+
+                                    when (item.type) {
+                                        ExplorerItemType.STORAGE, ExplorerItemType.FOLDER -> {
+                                            // Navigate into directory
+                                            currentPath = item.path
+                                        }
+                                        ExplorerItemType.FILE -> {
+                                            // Play the song directly
+                                            item.song?.let { song -> onSongClick(song) }
+                                        }
+                                    }
+                                },
+                                onSongClick = onSongClick,
+                                onAddToPlaylist = onAddToPlaylist,
+                                onAddToQueue = onAddToQueue,
+                                onShowSongInfo = onShowSongInfo,
+                                haptics = haptics
+                            )
+                        }
+                    }
+                }
+
+                // Empty state - show when no items and not loading, with single retry option
+                if (currentItems.isEmpty() && !isLoadingDirectory) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 64.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(20.dp)
+                            ) {
+                                // Empty state illustration with multiple elements
+                                Box(
+                                    modifier = Modifier.size(120.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    // Background circle
+                                    Surface(
+                                        modifier = Modifier.fillMaxSize(),
+                                        shape = CircleShape,
+                                        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                        shadowElevation = 0.dp
+                                    ) {}
+
+                                    // Main empty folder icon
+                                    Icon(
+                                        imageVector = Icons.Default.FolderOff,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                        modifier = Modifier.size(48.dp)
+                                    )
+
+                                    // Subtle secondary icons
+                                    Icon(
+                                        imageVector = Icons.Default.MusicNote,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f),
+                                        modifier = Modifier
+                                            .size(24.dp)
+                                            .align(Alignment.TopEnd)
+                                            .offset(x = 16.dp, y = (-8).dp)
+                                    )
+
+                                    Icon(
+                                        imageVector = Icons.Default.LibraryMusic,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f),
+                                        modifier = Modifier
+                                            .size(20.dp)
+                                            .align(Alignment.BottomStart)
+                                            .offset(x = (-12).dp, y = 12.dp)
+                                    )
+                                }
+
+                                // Main message
+                                Text(
+                                    text = if (currentPath == null) "No storage found" else "Empty folder",
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    textAlign = TextAlign.Center
+                                )
+
+                                // Secondary description
+                                Text(
+                                    text = if (currentPath == null)
+                                        "Connect storage devices or check permissions to explore your music files"
+                                    else
+                                        "This folder doesn't contain any audio files",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                    lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.3
+                                )
+
+                                // Action buttons
+                                Column(
+                                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                                    horizontalAlignment = Alignment.Start
+                                ) {
+                                    // First row: Refresh/Retry button
+                                    if (!hasAttemptedRetry) {
+                                        FilledTonalButton(
+                                            onClick = {
+                                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                                hasAttemptedRetry = true
+                                                // Clear cache and trigger a clean refresh without changing the path
+                                                directoryCache.clear()
+                                                refreshTrigger = !refreshTrigger
+                                            },
+                                            shape = RoundedCornerShape(12.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Refresh,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = "Refresh",
+                                                style = MaterialTheme.typography.labelLarge,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+                                    }
+
+                                    // Second row: Permission info (only after retry attempted)
+                                    if (hasAttemptedRetry) {
+                                        Surface(
+                                            color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                            shape = RoundedCornerShape(12.dp),
+                                            tonalElevation = 0.dp
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Info,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                                Text(
+                                                    text = "Check storage permissions if files don't appear",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    // Third row: Go back button if we're not at root
+                                    if (currentPath != null) {
+                                        OutlinedButton(
+                                            onClick = {
+                                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                                currentPath = getParentPath(currentPath!!)
+                                            },
+                                            shape = RoundedCornerShape(12.dp),
+                                            border = BorderStroke(
+                                                1.dp,
+                                                MaterialTheme.colorScheme.outline
+                                            )
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = "Go Back",
+                                                style = MaterialTheme.typography.labelMedium
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
     }
 }
 
@@ -4044,7 +4322,13 @@ fun getStorageRoots(): List<ExplorerItem> {
         }
 
         // Get external storage directories (SD cards, etc.)
-        val externalDirs = ContextCompat.getExternalFilesDirs(android.app.Application().applicationContext, null)
+        // Use a modern alternative to getExternalFilesDirs
+        val externalDirs = try {
+            @Suppress("DEPRECATION")
+            ContextCompat.getExternalFilesDirs(android.app.Application().applicationContext, null)
+        } catch (e: Exception) {
+            emptyArray<File>()
+        }
         externalDirs.forEachIndexed { index, dir ->
             if (dir != null && dir.exists()) {
                 val path = dir.absolutePath
@@ -4174,73 +4458,164 @@ fun getAudioFileCountSongsInDirectory(
 // Helper function to get directory contents (subdirectories and audio files)
 fun getDirectoryContents(
     directoryPath: String,
-    songs: List<Song>,
     audioExtensions: Set<String>
 ): List<ExplorerItem> {
     val items = mutableListOf<ExplorerItem>()
-    val subdirectories = mutableSetOf<String>()
-    val audioFilesInDirectory = mutableListOf<Song>()
 
-    // Find all songs in this directory and subdirectories
-    songs.forEach { song ->
-        try {
-            val songPath = android.net.Uri.parse(song.uri.toString()).path ?: ""
-            val normalizedSongPath = songPath.replace("//", "/")
-            val normalizedDirPath = directoryPath.replace("//", "/")
+    try {
+        val directory = File(directoryPath)
+        if (!directory.exists() || !directory.canRead()) {
+            return items
+        }
 
-            // Song is in this directory or subdirectory
-            if (normalizedSongPath.startsWith(normalizedDirPath) && normalizedSongPath != normalizedDirPath) {
-                val relativePath = normalizedSongPath.removePrefix(normalizedDirPath).removePrefix("/")
-                val firstPathSegment = relativePath.split("/").first()
-
-                // Check if it's directly in this directory (no more path separators)
-                if (!relativePath.contains("/")) {
-                    // It's an audio file in this directory
-                    audioFilesInDirectory.add(song)
-                } else {
-                    // It's in a subdirectory
-                    subdirectories.add(firstPathSegment)
+        val files = directory.listFiles()
+        files?.forEach { file ->
+            if (file.isDirectory) {
+                // Do a shallow count (first level only) instead of recursive to improve performance
+                val audioCount = countAudioFilesInDirectoryShallow(file, audioExtensions)
+                if (audioCount > 0 || file.list()?.isNotEmpty() == true) { // Show directories that have files or subdirectories
+                    items.add(ExplorerItem(
+                        name = file.name,
+                        path = file.absolutePath,
+                        isDirectory = true,
+                        itemCount = audioCount,
+                        type = ExplorerItemType.FOLDER,
+                        song = null
+                    ))
+                }
+            } else if (file.isFile) {
+                val extension = file.extension.lowercase()
+                if (extension in audioExtensions) {
+                    // Create a Song object from the file path
+                    val uri = android.net.Uri.fromFile(file)
+                    val song = createSongFromUri(uri, file)
+                    items.add(ExplorerItem(
+                        name = file.nameWithoutExtension,
+                        path = uri.toString(),
+                        isDirectory = false,
+                        itemCount = 1,
+                        type = ExplorerItemType.FILE,
+                        song = song
+                    ))
                 }
             }
-        } catch (e: Exception) {
-            // Skip this song if there's an error parsing its path
         }
-    }
-
-    // Add subdirectories
-    subdirectories.forEach { subDirName ->
-        val subDirPath = "$directoryPath/$subDirName"
-        val audioCountInSubDir = getAudioFileCountSongsInDirectory(songs, subDirPath, audioExtensions)
-
-        items.add(ExplorerItem(
-            name = subDirName,
-            path = subDirPath,
-            isDirectory = true,
-            itemCount = audioCountInSubDir,
-            type = ExplorerItemType.FOLDER,
-            song = null
-        ))
-    }
-
-    // Add audio files in this directory
-    audioFilesInDirectory.forEach { song ->
-        val fileName = try {
-            android.net.Uri.parse(song.uri.toString()).lastPathSegment?.substringAfterLast('/') ?: song.title
-        } catch (e: Exception) {
-            song.title
-        }
-
-        items.add(ExplorerItem(
-            name = fileName,
-            path = song.uri.toString(),
-            isDirectory = false,
-            itemCount = 1,
-            type = ExplorerItemType.FILE,
-            song = song
-        ))
+    } catch (e: Exception) {
+        // Handle permission or access errors gracefully
+        e.printStackTrace()
     }
 
     return items
+}
+
+// Optimized version for better performance - avoids excessive filesystem operations
+fun getDirectoryContentsOptimized(directoryPath: String, audioExtensions: Set<String>): List<ExplorerItem> {
+    val items = mutableListOf<ExplorerItem>()
+
+    try {
+        val directory = File(directoryPath)
+        if (!directory.exists() || !directory.canRead()) {
+            return items
+        }
+
+        val files = directory.listFiles()
+        files?.forEach { file ->
+            if (file.isDirectory) {
+                // Use shallow count only (much faster) for better performance
+                val audioCount = countAudioFilesInDirectoryShallow(file, audioExtensions)
+                if (audioCount > 0 || file.list()?.isNotEmpty() == true) {
+                    items.add(ExplorerItem(
+                        name = file.name,
+                        path = file.absolutePath,
+                        isDirectory = true,
+                        itemCount = audioCount,
+                        type = ExplorerItemType.FOLDER,
+                        song = null
+                    ))
+                }
+            } else if (file.isFile) {
+                val extension = file.extension.lowercase()
+                if (extension in audioExtensions) {
+                    // Create a Song object from the file path
+                    val uri = android.net.Uri.fromFile(file)
+                    val song = createSongFromUri(uri, file)
+                    items.add(ExplorerItem(
+                        name = file.nameWithoutExtension,
+                        path = uri.toString(),
+                        isDirectory = false,
+                        itemCount = 1,
+                        type = ExplorerItemType.FILE,
+                        song = song
+                    ))
+                }
+            }
+        }
+    } catch (e: Exception) {
+        // Handle permission or access errors gracefully
+    }
+
+    return items
+}
+
+// Helper function to create Song from URI and File
+fun createSongFromUri(uri: android.net.Uri, file: File): Song {
+    return Song(
+        id = uri.toString(),
+        title = file.nameWithoutExtension,
+        artist = "Unknown",
+        album = "Unknown",
+        duration = 0, // We could potentially read this from the file metadata
+        uri = uri,
+        artworkUri = null,
+        genre = null,
+        year = 0,
+        trackNumber = 0
+    )
+}
+
+// Helper function to count audio files in a directory recursively
+fun countAudioFilesInDirectory(directory: File, audioExtensions: Set<String>): Int {
+    var count = 0
+
+    try {
+        val files = directory.listFiles()
+        files?.forEach { file ->
+            if (file.isDirectory) {
+                count += countAudioFilesInDirectory(file, audioExtensions)
+            } else if (file.isFile) {
+                val extension = file.extension.lowercase()
+                if (extension in audioExtensions) {
+                    count++
+                }
+            }
+        }
+    } catch (e: Exception) {
+        // Handle permission errors
+    }
+
+    return count
+}
+
+// Helper function to count audio files in a directory (shallow - first level only)
+fun countAudioFilesInDirectoryShallow(directory: File, audioExtensions: Set<String>): Int {
+    var count = 0
+
+    try {
+        val files = directory.listFiles()
+        files?.forEach { file ->
+            if (file.isFile) {
+                val extension = file.extension.lowercase()
+                if (extension in audioExtensions) {
+                    count++
+                }
+            }
+            // Don't recurse into subdirectories for performance
+        }
+    } catch (e: Exception) {
+        // Handle permission errors
+    }
+
+    return count
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -4571,13 +4946,23 @@ fun ExplorerBreadcrumb(
     path: String,
     onNavigateTo: (String) -> Unit,
     onGoHome: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    scrollState: LazyListState = rememberLazyListState()
 ) {
     val context = LocalContext.current
     val pathSegments = path.split("/").filter { it.isNotEmpty() }
 
+    // Auto-scroll to the active breadcrumb (last segment)
+    LaunchedEffect(pathSegments) {
+        if (pathSegments.isNotEmpty()) {
+            val lastIndex = (pathSegments.size * 2) + 1 // Account for chevrons and segments
+            scrollState.animateScrollToItem(lastIndex.coerceAtLeast(0))
+        }
+    }
+
     // Add animations to path chips
     LazyRow(
+        state = scrollState,
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -4594,7 +4979,7 @@ fun ExplorerBreadcrumb(
             Surface(
                 onClick = onGoHome,
                 shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.primaryContainer,
+                color = MaterialTheme.colorScheme.surface,
                 modifier = Modifier
                     .height(36.dp)
                     .graphicsLayer {
@@ -4660,7 +5045,6 @@ fun ExplorerBreadcrumb(
                         1.5.dp,
                         MaterialTheme.colorScheme.tertiary.copy(alpha = 0.3f)
                     ) else null,
-                    shadowElevation = if (isLastSegment) 4.dp else 0.dp,
                     modifier = Modifier
                         .height(36.dp)
                         .graphicsLayer {

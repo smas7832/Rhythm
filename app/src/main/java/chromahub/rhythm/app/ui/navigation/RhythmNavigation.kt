@@ -1108,6 +1108,33 @@ fun RhythmNavigation(
                                 durationMillis = 200
                             )
                         )
+                    },
+                    popExitTransition = {
+                        slideOutVertically(
+                            targetOffsetY = { it / 2 },
+                            animationSpec = tween(
+                                durationMillis = 250,
+                                easing = EaseInOutQuart
+                            )
+                        ) + fadeOut(
+                            animationSpec = tween(
+                                durationMillis = 200
+                            )
+                        )
+                    },
+                    popEnterTransition = {
+                        slideInVertically(
+                            initialOffsetY = { it / 3 },
+                            animationSpec = tween(
+                                durationMillis = 350,
+                                easing = EaseOutQuint
+                            )
+                        ) + fadeIn(
+                            animationSpec = tween(
+                                durationMillis = 300,
+                                easing = EaseOutQuint
+                            )
+                        )
                     }
                 ) {
                     val showAddToPlaylistSheet = remember { mutableStateOf(false) }
