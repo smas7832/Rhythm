@@ -68,6 +68,8 @@ import androidx.compose.material.icons.rounded.Info // Added Info icon
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.filled.PlaylistPlay // New import for PlaylistPlay filled icon
 import androidx.compose.material.icons.automirrored.rounded.Chat // For Telegram support group
+import androidx.compose.material.icons.rounded.PushPin // Added PushPin import
+import androidx.compose.material.icons.outlined.PushPin // Added PushPin outlined import
 
 /**
  * Material Design 3 icons for the Rhythm app
@@ -160,6 +162,8 @@ object RhythmIcons {
         val Sort = Icons.AutoMirrored.Rounded.Sort
         val Update = Icons.Rounded.SystemUpdate // Added Update icon
         val Info = Icons.Rounded.Info // Added Info icon
+        val Pushpin = Icons.Rounded.PushPin // Added PushPin icon
+        val PinOutline = Icons.Outlined.PushPin // Added PushPin outline icon
     }
     
     /**
@@ -245,6 +249,8 @@ object RhythmIcons {
     val AppsGrid = Actions.Apps
     val Refresh = Actions.Refresh
     val Telegram = Icons.AutoMirrored.Rounded.Chat // Added Telegram icon
+    val Pushpin = Actions.Pushpin // Added Pushpin icon
+    val PinOutline = Actions.PinOutline // Added PinOutline icon
     
     // Location
     val Location = Devices.LocationOutlined

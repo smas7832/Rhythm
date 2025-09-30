@@ -890,7 +890,8 @@ fun LibraryScreen(
                                 selectedSong = song
                                 showSongInfoSheet = true
                             },
-                            haptics = haptics
+                            haptics = haptics,
+                            appSettings = appSettings
                         )
                     }
                 }
@@ -2558,8 +2559,8 @@ fun PlaylistItem(
         },
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp),
-        shape = RoundedCornerShape(20.dp),
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
         shadowElevation = 0.dp
@@ -2567,13 +2568,13 @@ fun PlaylistItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp),
+                .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Enhanced playlist artwork with proper playlist icon
+            // Playlist artwork - reduced size from 68.dp to 56.dp
             Surface(
-                modifier = Modifier.size(68.dp),
-                shape = RoundedCornerShape(25.dp),
+                modifier = Modifier.size(56.dp),
+                shape = RoundedCornerShape(20.dp),
                 tonalElevation = 0.dp,
                 color = MaterialTheme.colorScheme.primaryContainer
             ) {
@@ -2581,7 +2582,7 @@ fun PlaylistItem(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(
-                            if (playlist.artworkUri != null) Color.Transparent 
+                            if (playlist.artworkUri != null) Color.Transparent
                             else MaterialTheme.colorScheme.primaryContainer
                         ),
                     contentAlignment = Alignment.Center
@@ -2593,59 +2594,60 @@ fun PlaylistItem(
                             modifier = Modifier.fillMaxSize()
                         )
                     } else {
-                        // Use proper playlist icon from RhythmIcons
+                        // Playlist icon - reduced size from 44.dp to 36.dp
                         Icon(
-                            imageVector = RhythmIcons.PlaylistFilled, // Using the proper playlist icon
+                            imageVector = RhythmIcons.PlaylistFilled,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(44.dp)
+                            modifier = Modifier.size(36.dp)
                         )
                     }
                 }
             }
-            
-            Spacer(modifier = Modifier.width(18.dp))
-            
-            // Enhanced playlist info
+
+            Spacer(modifier = Modifier.width(14.dp)) // Reduced spacing
+
+            // Playlist info
             Column(
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
                     text = playlist.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleSmall, // Smaller text
+                    fontWeight = FontWeight.SemiBold, // SemiBold instead of Bold
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                
-                Spacer(modifier = Modifier.height(6.dp))
-                
+
+                Spacer(modifier = Modifier.height(2.dp)) // Smaller spacing
+
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // Music note icon - slightly smaller
                     Icon(
                         imageVector = RhythmIcons.MusicNote,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(14.dp)
                     )
-                    
-                    Spacer(modifier = Modifier.width(6.dp))
-                    
+
+                    Spacer(modifier = Modifier.width(4.dp))
+
                     Text(
                         text = "${playlist.songs.size} ${if (playlist.songs.size == 1) "song" else "songs"}",
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodySmall, // Smaller text
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    
+
                     if (playlist.songs.isNotEmpty()) {
                         Text(
                             text = " • ",
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        
+
                         val totalDurationMs = playlist.songs.sumOf { it.duration }
                         val totalMinutes = (totalDurationMs / (1000 * 60)).toInt()
                         val durationText = if (totalMinutes >= 60) {
@@ -2655,19 +2657,19 @@ fun PlaylistItem(
                         } else {
                             "${totalMinutes}m"
                         }
-                        
+
                         Text(
                             text = durationText,
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MaterialTheme.typography.bodySmall, // Smaller text
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
             }
-            
-            // Forward arrow with enhanced styling
+
+            // Forward arrow - slightly smaller
             Surface(
-                modifier = Modifier.size(44.dp),
+                modifier = Modifier.size(38.dp),
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
             ) {
@@ -2678,7 +2680,7 @@ fun PlaylistItem(
                         imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
                         contentDescription = "Open playlist",
                         tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
@@ -3713,7 +3715,8 @@ fun SingleCardExplorerContent(
     onAddToPlaylist: (Song) -> Unit,
     onAddToQueue: (Song) -> Unit,
     onShowSongInfo: (Song) -> Unit,
-    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback
+    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback,
+    appSettings: AppSettings
 ) {
     val context = LocalContext.current
     val activity = context as Activity
@@ -3902,6 +3905,9 @@ fun SingleCardExplorerContent(
     // Directory items state - loaded asynchronously to prevent ANR
     var currentItems by remember { mutableStateOf<List<ExplorerItem>>(emptyList()) }
     var hasAttemptedRetry by remember { mutableStateOf(false) }
+
+    // Pinned folders state
+    val pinnedFolders by appSettings.pinnedFolders.collectAsState()
 
     // Breadcrumb scroll state
     val breadcrumbScrollState = rememberLazyListState()
@@ -4102,8 +4108,161 @@ fun SingleCardExplorerContent(
                     }
                 }
 
-                // Explorer Items - only show when not loading
-                if (!isLoadingDirectory) {
+                // Storage Locations - Show at root level
+                if (currentPath == null && currentItems.any { it.type == ExplorerItemType.STORAGE }) {
+                    // Filter only storage items
+                    val storageItems = currentItems.filter { it.type == ExplorerItemType.STORAGE }
+
+                    // Header for storage locations
+                    item {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Storage,
+                                    contentDescription = "Storage",
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Storage Locations",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
+                        }
+                    }
+
+                    // Storage items
+                    items(
+                        items = storageItems,
+                        key = { "storage_" + it.path }
+                    ) { item ->
+                        AnimateIn {
+                            ExplorerItemCard(
+                                item = item,
+                                onItemClick = {
+                                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                    currentPath = item.path
+                                },
+                                onSongClick = onSongClick,
+                                onAddToPlaylist = onAddToPlaylist,
+                                onAddToQueue = onAddToQueue,
+                                onShowSongInfo = onShowSongInfo,
+                                haptics = haptics,
+                                isPinned = false, // Storages can't be pinned
+                                onPinToggle = null // No pin toggle for storages
+                            )
+                        }
+                    }
+                }
+
+                // Pinned Folders - only show when at root and have pinned folders
+                if (currentPath == null && pinnedFolders.isNotEmpty()) {
+                    // Filter pinned folders that exist
+                    val existingPinnedFolders = pinnedFolders.filter { pinnedPath ->
+                        try {
+                            val file = File(pinnedPath)
+                            file.exists() && file.isDirectory && file.canRead()
+                        } catch (e: Exception) {
+                            false
+                        }
+                    }
+
+                    if (existingPinnedFolders.isNotEmpty()) {
+                        // Create ExplorerItem for each pinned folder
+                        val pinnedFolderItems = existingPinnedFolders.map { folderPath ->
+                            val folderName = File(folderPath).name
+                            val itemCount = countAudioFilesInDirectoryShallow(File(folderPath), audioExtensions)
+                            ExplorerItem(
+                                name = folderName,
+                                path = folderPath,
+                                isDirectory = true,
+                                itemCount = itemCount,
+                                type = ExplorerItemType.FOLDER,
+                                song = null
+                            )
+                        }
+
+                        // Header for pinned folders
+                        item {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                                ),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = RhythmIcons.Pushpin,
+                                        contentDescription = "Pinned",
+                                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Pinned Folders",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                                    )
+                                }
+                            }
+                        }
+
+                        // Pinned folder items
+                        items(
+                            items = pinnedFolderItems,
+                            key = { "pinned_" + it.path }
+                        ) { item ->
+                            AnimateIn {
+                                ExplorerItemCard(
+                                    item = item,
+                                    onItemClick = {
+                                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                        currentPath = item.path
+                                    },
+                                    onSongClick = onSongClick,
+                                    onAddToPlaylist = onAddToPlaylist,
+                                    onAddToQueue = onAddToQueue,
+                                    onShowSongInfo = onShowSongInfo,
+                                    haptics = haptics,
+                                    isPinned = true,
+                                    onPinToggle = {
+                                        appSettings.removeFolderFromPinned(item.path)
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Explorer Items - only show when not loading and not at root level
+                if (!isLoadingDirectory && currentPath != null) {
                     items(
                         items = currentItems,
                         key = { it.path + it.name + it.type }
@@ -4129,7 +4288,17 @@ fun SingleCardExplorerContent(
                                 onAddToPlaylist = onAddToPlaylist,
                                 onAddToQueue = onAddToQueue,
                                 onShowSongInfo = onShowSongInfo,
-                                haptics = haptics
+                                haptics = haptics,
+                                isPinned = pinnedFolders.contains(item.path),
+                                onPinToggle = if (item.type == ExplorerItemType.FOLDER) {
+                                    {
+                                        if (pinnedFolders.contains(item.path)) {
+                                            appSettings.removeFolderFromPinned(item.path)
+                                        } else {
+                                            appSettings.addFolderToPinned(item.path)
+                                        }
+                                    }
+                                } else null
                             )
                         }
                     }
@@ -5113,7 +5282,9 @@ fun ExplorerItemCard(
     onAddToQueue: (Song) -> Unit,
     onShowSongInfo: (Song) -> Unit,
     haptics: androidx.compose.ui.hapticfeedback.HapticFeedback,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isPinned: Boolean = false,
+    onPinToggle: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
 
@@ -5204,8 +5375,8 @@ fun ExplorerItemCard(
                 onClick = onItemClick,
                 modifier = modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 6.dp),
-                shape = RoundedCornerShape(20.dp),
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surface
                 ),
@@ -5214,13 +5385,13 @@ fun ExplorerItemCard(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(20.dp),
+                        .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Folder icon
+                    // Folder icon - reduced size from 68.dp to 56.dp
                     Surface(
-                        modifier = Modifier.size(68.dp),
-                        shape = RoundedCornerShape(18.dp),
+                        modifier = Modifier.size(56.dp),
+                        shape = RoundedCornerShape(16.dp),
                         color = MaterialTheme.colorScheme.tertiaryContainer,
                         shadowElevation = 0.dp
                     ) {
@@ -5229,47 +5400,93 @@ fun ExplorerItemCard(
                                 imageVector = Icons.Default.Folder,
                                 contentDescription = "Folder",
                                 tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                                modifier = Modifier.size(36.dp)
+                                modifier = Modifier.size(28.dp) // Reduced proportionally
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.width(18.dp))
+                    Spacer(modifier = Modifier.width(14.dp))
 
                     // Folder info
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = item.name,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = item.name,
+                                style = MaterialTheme.typography.titleSmall, // Smaller text to fit reduced height
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
 
-                        Spacer(modifier = Modifier.height(6.dp))
+            // Pin indicator for pinned folders - smaller and more prominent
+                            if (isPinned) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.tertiary,
+                                    modifier = Modifier.size(14.dp) // Smaller size
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = RhythmIcons.Pushpin,
+                                            contentDescription = "Pinned",
+                                            tint = MaterialTheme.colorScheme.onTertiary,
+                                            modifier = Modifier.size(8.dp) // Smaller icon
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(2.dp))
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 imageVector = RhythmIcons.MusicNote,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(14.dp) // Slightly smaller
                             )
 
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
 
                             Text(
                                 text = "${item.itemCount} ${if (item.itemCount == 1) "track" else "tracks"}",
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = MaterialTheme.typography.bodySmall, // Smaller text
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
 
-                    // Forward arrow
+                    // Pin button (only show for folders in root directory)
+                    if (onPinToggle != null) {
+                        FilledTonalIconButton(
+                            onClick = {
+                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                onPinToggle()
+                            },
+                            modifier = Modifier.size(32.dp), // Smaller button
+                            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                containerColor = if (isPinned) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
+                                contentColor = if (isPinned) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        ) {
+                            Icon(
+                                imageVector = if (isPinned) RhythmIcons.Pushpin else RhythmIcons.PinOutline,
+                                contentDescription = if (isPinned) "Unpin folder" else "Pin folder",
+                                modifier = Modifier.size(16.dp) // Smaller icon
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(6.dp))
+                    }
+
+                    // Forward arrow - slightly smaller
                     Surface(
-                        modifier = Modifier.size(44.dp),
+                        modifier = Modifier.size(38.dp),
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
                     ) {
@@ -5278,7 +5495,7 @@ fun ExplorerItemCard(
                                 imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
                                 contentDescription = "Open folder",
                                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.size(22.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                     }

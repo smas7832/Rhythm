@@ -151,6 +151,9 @@ class AppSettings private constructor(context: Context) {
         
         // Whitelisted Folders
         private const val KEY_WHITELISTED_FOLDERS = "whitelisted_folders"
+
+        // Pinned Folders (Explorer)
+        private const val KEY_PINNED_FOLDERS = "pinned_folders"
         
         // Backup and Restore
         private const val KEY_LAST_BACKUP_TIMESTAMP = "last_backup_timestamp"
@@ -554,7 +557,22 @@ class AppSettings private constructor(context: Context) {
         }
     )
     val whitelistedFolders: StateFlow<List<String>> = _whitelistedFolders.asStateFlow()
-    
+
+    // Pinned Folders (Explorer)
+    private val _pinnedFolders = MutableStateFlow<List<String>>(
+        try {
+            val json = prefs.getString(KEY_PINNED_FOLDERS, null)
+            if (json != null) {
+                Gson().fromJson(json, object : TypeToken<List<String>>() {}.type)
+            } else {
+                emptyList()
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    )
+    val pinnedFolders: StateFlow<List<String>> = _pinnedFolders.asStateFlow()
+
     // Backup and Restore Settings
     private val _lastBackupTimestamp = MutableStateFlow(safeLong(KEY_LAST_BACKUP_TIMESTAMP, 0L))
     val lastBackupTimestamp: StateFlow<Long> = _lastBackupTimestamp.asStateFlow()
@@ -1136,6 +1154,35 @@ class AppSettings private constructor(context: Context) {
         prefs.edit().remove(KEY_WHITELISTED_FOLDERS).apply()
         _whitelistedFolders.value = emptyList()
     }
+
+    // Pinned Folders Methods (Explorer)
+    fun addFolderToPinned(folderPath: String) {
+        val currentList = _pinnedFolders.value.toMutableList()
+        if (!currentList.contains(folderPath)) {
+            currentList.add(folderPath)
+            val json = Gson().toJson(currentList)
+            prefs.edit().putString(KEY_PINNED_FOLDERS, json).apply()
+            _pinnedFolders.value = currentList
+        }
+    }
+
+    fun removeFolderFromPinned(folderPath: String) {
+        val currentList = _pinnedFolders.value.toMutableList()
+        if (currentList.remove(folderPath)) {
+            val json = Gson().toJson(currentList)
+            prefs.edit().putString(KEY_PINNED_FOLDERS, json).apply()
+            _pinnedFolders.value = currentList
+        }
+    }
+
+    fun isFolderPinned(folderPath: String): Boolean {
+        return _pinnedFolders.value.contains(folderPath)
+    }
+
+    fun clearPinnedFolders() {
+        prefs.edit().remove(KEY_PINNED_FOLDERS).apply()
+        _pinnedFolders.value = emptyList()
+    }
     
     // Helper method to check if a song would be filtered by current whitelist rules
     fun isEffectivelyWhitelisted(songId: String, songPath: String?): Boolean {
@@ -1568,5 +1615,11 @@ class AppSettings private constructor(context: Context) {
         _sleepTimerActive.value = prefs.getBoolean(KEY_SLEEP_TIMER_ACTIVE, false)
         _sleepTimerRemainingSeconds.value = prefs.getLong(KEY_SLEEP_TIMER_REMAINING_SECONDS, 0L)
         _sleepTimerAction.value = prefs.getString(KEY_SLEEP_TIMER_ACTION, "FADE_OUT") ?: "FADE_OUT"
+
+        // Pinned Folders
+        _pinnedFolders.value = try {
+            val json = prefs.getString(KEY_PINNED_FOLDERS, null)
+            if (json != null) Gson().fromJson(json, object : TypeToken<List<String>>() {}.type) else emptyList()
+        } catch (e: Exception) { emptyList() }
     }
 }
