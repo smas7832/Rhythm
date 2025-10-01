@@ -1,127 +1,110 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    
-    <!-- Background gradient circle - Enhanced like splash -->
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+
+
+
+    <!-- Headphone Arc (Top) - Scaled for splash -->
     <path
-        android:pathData="M54,54m-50,0a50,50 0,1 1,100 0a50,50 0,1 1,-100 0">
+        android:pathData="M60,96C60,63 76,41 100,41C124,41 140,63 140,96"
+        android:strokeColor="#7C4DFF"
+        android:strokeWidth="10"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+
+    <!-- Headphone padding/cushion -->
+    <!-- <path
+        android:pathData="M88,33C90,29 95,27 100,27C105,27 110,29 112,33"
+        android:strokeColor="#B3FFFFFF"
+        android:strokeWidth="4.5"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" /> -->
+
+    <!-- Left Headphone Ear Cup - Scaled -->
+    <path
+        android:pathData="M52,86C40,86 35,93 35,103L35,129C35,139 40,146 52,146C64,146 69,139 69,129L69,103C69,93 64,86 52,86Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="35"
+                android:startY="86"
+                android:endX="69"
+                android:endY="146"
+                android:startColor="#7C4DFF"
+                android:endColor="#3700B3" />
+        </aapt:attr>
+    </path>
+
+    <!-- Right Headphone Ear Cup - Scaled -->
+    <path
+        android:pathData="M148,86C136,86 131,93 131,103L131,129C131,139 136,146 148,146C160,146 165,139 165,129L165,103C165,93 160,86 148,86Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="131"
+                android:startY="86"
+                android:endX="165"
+                android:endY="146"
+                android:startColor="#7C4DFF"
+                android:endColor="#3700B3" />
+        </aapt:attr>
+    </path>
+
+    <!-- Left Ear Cup Inner Detail -->
+    <path
+        android:pathData="M52,95C45,95 42,99 42,103L42,129C42,133 45,137 52,137C59,137 62,133 62,129L62,103C62,99 59,95 52,95Z"
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.6" />
+
+    <!-- Right Ear Cup Inner Detail -->
+    <path
+        android:pathData="M148,95C141,95 138,99 138,103L138,129C138,133 141,137 148,137C155,137 158,133 158,129L158,103C158,99 155,95 148,95Z"
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.6" />
+
+    <!-- Central Play Button Circle - Larger for splash -->
+    <path
+        android:pathData="M100,111m-32,0a32,32 0,1 1,64 0a32,32 0,1 1,-64 0">
         <aapt:attr name="android:fillColor">
             <gradient
                 android:type="radial"
-                android:centerX="54"
-                android:centerY="54"
-                android:gradientRadius="50"
+                android:centerX="100"
+                android:centerY="111"
+                android:gradientRadius="32"
                 android:startColor="#7C4DFF"
                 android:centerColor="#6C3DFF"
                 android:endColor="#3700B3" />
         </aapt:attr>
     </path>
-    
-    <!-- Subtle overlay gradient for depth -->
+
+    <!-- Play Button Shadow -->
+    <!-- <path
+        android:pathData="M100,103m-32,0a32,32 0,1 1,64 0a32,32 0,1 1,-64 0"
+        android:fillColor="#000000"
+        android:fillAlpha="0.08" /> -->
+
+    <!-- Play Triangle - Larger and centered -->
     <path
-        android:pathData="M54,54m-50,0a50,50 0,1 1,100 0a50,50 0,1 1,-100 0">
-        <aapt:attr name="android:fillColor">
-            <gradient
-                android:type="linear"
-                android:startX="4"
-                android:startY="4"
-                android:endX="104"
-                android:endY="104"
-                android:startColor="#7C4DFF"
-                android:centerColor="#00000000"
-                android:endColor="#3700B3" />
-        </aapt:attr>
-    </path>
-    
-    <!-- Headphone Arc (Top) - Moved down to match foreground/splash positioning -->
-    <path
-        android:pathData="M32,56C32,38 41,26 54,26C67,26 76,38 76,56"
+        android:pathData="M85,89C85,86 87,84 90,86L125,106C128,108 128,114 125,116L90,136C87,138 85,136 85,133Z"
+        android:fillColor="#FFFFFF" />
+
+    <!-- Sound waves emanating from headphones -->
+    <!-- <path
+        android:pathData="M175,80C185,95 190,105 190,115C190,125 185,135 175,150"
         android:strokeColor="#F2FFFFFF"
-        android:strokeWidth="6"
+        android:strokeWidth="4"
         android:strokeLineCap="round"
         android:fillColor="#00000000" />
-    
-    <!-- Headphone padding/cushion -->
-    <!-- <path
-        android:pathData="M48,18C49,16 52,15 54,15C56,15 59,16 60,18"
-        android:strokeColor="#B3FFFFFF"
-        android:strokeWidth="2.5"
+
+    <path
+        android:pathData="M25,80C15,95 10,105 10,115C10,125 15,135 25,150"
+        android:strokeColor="#F2FFFFFF"
+        android:strokeWidth="4"
         android:strokeLineCap="round"
         android:fillColor="#00000000" /> -->
-    
-    <!-- Left Headphone Ear Cup - Enhanced with multi-stop gradient -->
-    <path
-        android:pathData="M28,50C23,50 20,54 20,60L20,70C20,76 23,80 28,80C33,80 36,76 36,70L36,60C36,54 33,50 28,50Z">
-        <aapt:attr name="android:fillColor">
-            <gradient
-                android:type="linear"
-                android:startX="20"
-                android:startY="50"
-                android:endX="36"
-                android:endY="80"
-                android:startColor="#FFFFFF"
-                android:centerColor="#F8F8F8"
-                android:endColor="#F0F0F0" />
-        </aapt:attr>
-    </path>
-    
-    <!-- Right Headphone Ear Cup - Enhanced with multi-stop gradient -->
-    <path
-        android:pathData="M80,50C75,50 72,54 72,60L72,70C72,76 75,80 80,80C85,80 88,76 88,70L88,60C88,54 85,50 80,50Z">
-        <aapt:attr name="android:fillColor">
-            <gradient
-                android:type="linear"
-                android:startX="72"
-                android:startY="50"
-                android:endX="88"
-                android:endY="80"
-                android:startColor="#FFFFFF"
-                android:centerColor="#F8F8F8"
-                android:endColor="#F0F0F0" />
-        </aapt:attr>
-    </path>
-    
-    <!-- Left Ear Cup Inner Detail -->
-    <path
-        android:pathData="M28,55C25,55 23,57 23,60L23,70C23,73 25,75 28,75C31,75 33,73 33,70L33,60C33,57 31,55 28,55Z"
-        android:fillColor="#7C4DFF"
-        android:fillAlpha="0.6" />
-    
-    <!-- Right Ear Cup Inner Detail -->
-    <path
-        android:pathData="M80,55C77,55 75,57 75,60L75,70C75,73 77,75 80,75C83,75 85,73 85,70L85,60C85,57 83,55 80,55Z"
-        android:fillColor="#7C4DFF"
-        android:fillAlpha="0.6" />
-    
-    <!-- Central Play Button Circle - Enhanced with multi-stop gradient -->
-    <path
-        android:pathData="M54,65m-20,0a20,20 0,1 1,40 0a20,20 0,1 1,-40 0">
-        <aapt:attr name="android:fillColor">
-            <gradient
-                android:type="radial"
-                android:centerX="54"
-                android:centerY="65"
-                android:gradientRadius="20"
-                android:startColor="#FFFFFF"
-                android:centerColor="#FAFAFA"
-                android:endColor="#F0F0F0" />
-        </aapt:attr>
-    </path>
-    
-    <!-- Play Button Shadow for depth -->
-    <path
-        android:pathData="M54,67m-20,0a20,20 0,1 1,40 0a20,20 0,1 1,-40 0"
-        android:fillColor="#000000"
-        android:fillAlpha="0.08" />
-    
-    <!-- Play Triangle - Moved down to match button positioning -->
-    <path
-        android:pathData="M47,55C47,53 48.5,52 50,53L68,63C69.5,64 69.5,66 68,67L50,77C48.5,78 47,77 47,75Z"
-        android:fillColor="#7C4DFF" />
-    
 
 </vector> 

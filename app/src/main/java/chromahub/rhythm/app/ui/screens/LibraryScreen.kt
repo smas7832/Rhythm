@@ -61,6 +61,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.*
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -177,6 +178,7 @@ import kotlinx.coroutines.Dispatchers
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.material.icons.rounded.ArrowCircleDown
 import androidx.compose.material.icons.rounded.ArrowCircleUp
@@ -221,8 +223,29 @@ fun LibraryScreen(
 ) {
     val context = LocalContext.current
     val appSettings = remember { AppSettings.getInstance(context) }
-    val tabs = listOf("Songs", "Playlists", "Albums", "Artists", "Explorer")
-    var selectedTabIndex by remember { mutableStateOf(initialTab.ordinal) }
+    val tabOrder by appSettings.libraryTabOrder.collectAsState()
+    
+    // Map tab IDs to display names
+    val tabs = remember(tabOrder) {
+        tabOrder.map { tabId ->
+            when (tabId) {
+                "SONGS" -> "Songs"
+                "PLAYLISTS" -> "Playlists"
+                "ALBUMS" -> "Albums"
+                "ARTISTS" -> "Artists"
+                "EXPLORER" -> "Explorer"
+                else -> tabId
+            }
+        }
+    }
+    
+    // Find initial tab index based on the reordered tabs
+    val initialTabIndex = remember(tabOrder, initialTab) {
+        val tabId = initialTab.name
+        tabOrder.indexOf(tabId).takeIf { it >= 0 } ?: 0
+    }
+    
+    var selectedTabIndex by remember { mutableStateOf(initialTabIndex) }
     val pagerState = rememberPagerState(initialPage = selectedTabIndex) { tabs.size }
     val tabRowState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -477,8 +500,8 @@ fun LibraryScreen(
                 },
                 actions = {
                     // Tab-specific actions moved from section headers
-                    when (selectedTabIndex) {
-                        LibraryTab.ALBUMS.ordinal -> {
+                    when (tabOrder.getOrNull(selectedTabIndex)) {
+                        "ALBUMS" -> {
                             // Enhanced Album view toggle
                             val albumViewType by appSettings.albumViewType.collectAsState()
                             
@@ -516,7 +539,7 @@ fun LibraryScreen(
                             Spacer(modifier = Modifier.width(8.dp))
                         }
                         
-                        LibraryTab.ARTISTS.ordinal -> {
+                        "ARTISTS" -> {
                             // Enhanced Artist view toggle  
                             val artistViewType by appSettings.artistViewType.collectAsState()
                             
@@ -558,7 +581,8 @@ fun LibraryScreen(
                     }
                     
                     // Sort dropdown like AlbumBottomSheet (only show for Songs and Albums)
-                    if (selectedTabIndex == LibraryTab.SONGS.ordinal || selectedTabIndex == LibraryTab.ALBUMS.ordinal) {
+                    val currentTabId = tabOrder.getOrNull(selectedTabIndex)
+                    if (currentTabId == "SONGS" || currentTabId == "ALBUMS") {
                         var showSortMenu by remember { mutableStateOf(false) }
                         var pendingSortOrder by remember { mutableStateOf<MusicViewModel.SortOrder?>(null) }
                         
@@ -725,7 +749,8 @@ fun LibraryScreen(
                 modifier = Modifier.padding(horizontal = 8.dp) // Added padding
             )
         },
-        bottomBar = {}
+        bottomBar = {},
+        floatingActionButton = { }
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -796,12 +821,12 @@ fun LibraryScreen(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Icon(
-                                imageVector = when (index) {
-                                    LibraryTab.SONGS.ordinal -> RhythmIcons.Relax
-                                    LibraryTab.PLAYLISTS.ordinal -> RhythmIcons.PlaylistFilled
-                                    LibraryTab.ALBUMS.ordinal -> RhythmIcons.Music.Album
-                                    LibraryTab.ARTISTS.ordinal -> RhythmIcons.Artist
-                                    LibraryTab.EXPLORER.ordinal -> Icons.Default.Folder
+                                imageVector = when (tabOrder.getOrNull(index)) {
+                                    "SONGS" -> RhythmIcons.Relax
+                                    "PLAYLISTS" -> RhythmIcons.PlaylistFilled
+                                    "ALBUMS" -> RhythmIcons.Music.Album
+                                    "ARTISTS" -> RhythmIcons.Artist
+                                    "EXPLORER" -> Icons.Default.Folder
                                     else -> RhythmIcons.Music.Song
                                 },
                                 contentDescription = null,
@@ -834,8 +859,9 @@ fun LibraryScreen(
                         .fillMaxSize()
                         .padding(top = 16.dp)
                 ) { page ->
-                    when (page) {
-                        LibraryTab.SONGS.ordinal -> SingleCardSongsContent(
+                    // Dynamically show tab content based on tab order
+                    when (tabOrder.getOrNull(page)) {
+                        "SONGS" -> SingleCardSongsContent(
                             songs = songs,
                             onSongClick = onSongClick,
                             onAddToPlaylist = { song ->
@@ -850,9 +876,11 @@ fun LibraryScreen(
                             onAddToBlacklist = { song ->
                                 appSettings.addToBlacklist(song.id)
                             },
+                            onPlayQueue = onPlayQueue,
+                            onShuffleQueue = onShuffleQueue,
                             haptics = haptics
                         )
-                        LibraryTab.PLAYLISTS.ordinal -> SingleCardPlaylistsContent(
+                        "PLAYLISTS" -> SingleCardPlaylistsContent(
                             playlists = playlists,
                             onPlaylistClick = onPlaylistClick,
                             haptics = haptics,
@@ -860,7 +888,7 @@ fun LibraryScreen(
                             onImportPlaylist = { showImportDialog = true },
                             onExportPlaylists = { showBulkExportDialog = true }
                         )
-                        LibraryTab.ALBUMS.ordinal -> SingleCardAlbumsContent(
+                        "ALBUMS" -> SingleCardAlbumsContent(
                             albums = albums,
                             onAlbumClick = onAlbumClick,
                             onSongClick = onSongClick,
@@ -871,7 +899,7 @@ fun LibraryScreen(
                             haptics = haptics,
                             appSettings = appSettings
                         )
-                        LibraryTab.ARTISTS.ordinal -> SingleCardArtistsContent(
+                        "ARTISTS" -> SingleCardArtistsContent(
                             artists = artists,
                             onArtistClick = { artist ->
                                 selectedArtist = artist
@@ -879,7 +907,7 @@ fun LibraryScreen(
                             },
                             haptics = haptics
                         )
-                        LibraryTab.EXPLORER.ordinal -> SingleCardExplorerContent(
+                        "EXPLORER" -> SingleCardExplorerContent(
                             songs = songs,
                             onSongClick = onSongClick,
                             onAddToPlaylist = { song ->
@@ -891,6 +919,8 @@ fun LibraryScreen(
                                 selectedSong = song
                                 showSongInfoSheet = true
                             },
+                            onPlayQueue = onPlayQueue,
+                            onShuffleQueue = onShuffleQueue,
                             haptics = haptics,
                             appSettings = appSettings
                         )
@@ -1047,6 +1077,8 @@ fun SingleCardSongsContent(
     onAddToQueue: (Song) -> Unit,
     onShowSongInfo: (Song) -> Unit,
     onAddToBlacklist: (Song) -> Unit,
+    onPlayQueue: (List<Song>) -> Unit = { _ -> },
+    onShuffleQueue: (List<Song>) -> Unit = { _ -> },
     haptics: androidx.compose.ui.hapticfeedback.HapticFeedback
 ) {
     val context = LocalContext.current
@@ -1153,13 +1185,14 @@ fun SingleCardSongsContent(
             icon = RhythmIcons.Music.Song
         )
     } else {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                bottom = LocalMiniPlayerPadding.current.calculateBottomPadding() + 16.dp
-            ),
-            verticalArrangement = Arrangement.spacedBy(0.dp)
-        ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    bottom = LocalMiniPlayerPadding.current.calculateBottomPadding() + 80.dp + 16.dp
+                ),
+                verticalArrangement = Arrangement.spacedBy(0.dp)
+            ) {
             // Sticky Section Header
             stickyHeader {
                 Card(
@@ -1318,6 +1351,22 @@ fun SingleCardSongsContent(
                 }
             }
         }
+        
+        // Sticky Bottom Action Buttons
+        Card(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .offset(y = (-LocalMiniPlayerPadding.current.calculateBottomPadding())),
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainer
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        ) {
+            // Play All and Shuffle buttons removed
+        }
+        }
     }
 }
 
@@ -1400,117 +1449,6 @@ fun SingleCardPlaylistsContent(
                             shape = RoundedCornerShape(1.dp),
                             color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f)
                         ) {}
-                    }
-                }
-            }
-
-            // Custom ButtonGroup for playlist actions
-            if (onCreatePlaylist != null || onImportPlaylist != null || onExportPlaylists != null) {
-                stickyHeader {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-        if (onCreatePlaylist != null) {
-                            Surface(
-                                onClick = {
-//                                    HapticUtils.performHapticFeedback(LocalContext.current, haptics, HapticFeedbackType.TextHandleMove)
-                                    onCreatePlaylist()
-                                },
-                                shape = RoundedCornerShape(20.dp),
-                                color = MaterialTheme.colorScheme.tertiaryContainer,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                                    horizontalArrangement = Arrangement.Center,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = RhythmIcons.Add,
-                                        contentDescription = "Create playlist",
-                                        modifier = Modifier.size(20.dp),
-                                        tint = MaterialTheme.colorScheme.onTertiaryContainer
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        "Create",
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = MaterialTheme.colorScheme.onTertiaryContainer
-                                    )
-                                }
-                            }
-                        }
-
-                        if (onImportPlaylist != null) {
-                            Surface(
-                                onClick = {
-//                                    HapticUtils.performHapticFeedback(LocalContext.current, haptics, HapticFeedbackType.TextHandleMove)
-                                    onImportPlaylist()
-                                },
-                                shape = RoundedCornerShape(20.dp),
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                                    horizontalArrangement = Arrangement.Center,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.ArrowCircleDown,
-                                        contentDescription = "Import playlist",
-                                        modifier = Modifier.size(20.dp),
-                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        "Import",
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                }
-                            }
-                        }
-
-                        if (onExportPlaylists != null) {
-                            Surface(
-                                onClick = {
-//                                    HapticUtils.performHapticFeedback(LocalContext.current, haptics, HapticFeedbackType.TextHandleMove)
-                                    onExportPlaylists()
-                                },
-                                shape = RoundedCornerShape(20.dp),
-                                color = MaterialTheme.colorScheme.secondaryContainer,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                                    horizontalArrangement = Arrangement.Center,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.ArrowCircleUp,
-                                        contentDescription = "Export playlists",
-                                        modifier = Modifier.size(20.dp),
-                                        tint = MaterialTheme.colorScheme.onSecondaryContainer
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        "Export",
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                                    )
-                                }
-                            }
-                        }
                     }
                 }
             }
@@ -3716,6 +3654,8 @@ fun SingleCardExplorerContent(
     onAddToPlaylist: (Song) -> Unit,
     onAddToQueue: (Song) -> Unit,
     onShowSongInfo: (Song) -> Unit,
+    onPlayQueue: (List<Song>) -> Unit,
+    onShuffleQueue: (List<Song>) -> Unit,
     haptics: androidx.compose.ui.hapticfeedback.HapticFeedback,
     appSettings: AppSettings
 ) {
@@ -3905,7 +3845,6 @@ fun SingleCardExplorerContent(
 
     // Directory items state - loaded asynchronously to prevent ANR
     var currentItems by remember { mutableStateOf<List<ExplorerItem>>(emptyList()) }
-    var hasAttemptedRetry by remember { mutableStateOf(false) }
 
     // Pinned folders state
     val pinnedFolders by appSettings.pinnedFolders.collectAsState()
@@ -3923,23 +3862,17 @@ fun SingleCardExplorerContent(
 
     // Cache for directory contents to improve performance
     val directoryCache = remember { mutableMapOf<String?, List<ExplorerItem>>() }
+    
+    // Debounce key to prevent rapid recompositions causing ANR
+    var debounceJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
 
-    // Refresh trigger state
-    var refreshTrigger by remember { mutableStateOf(false) }
-
-    // Load directory contents asynchronously with caching
-    LaunchedEffect(currentPath, refreshTrigger) {
+    // Load directory contents asynchronously with caching and debouncing
+    LaunchedEffect(currentPath) {
+        // Cancel any pending load operation
+        debounceJob?.cancel()
+        
         val cacheKey = currentPath
-
-        // For refreshes, always reload from disk regardless of cache
-        val forceReload = refreshTrigger
-
-        if (!forceReload && directoryCache.containsKey(cacheKey)) {
-            currentItems = directoryCache[cacheKey] ?: emptyList()
-            isLoadingDirectory = false
-            return@LaunchedEffect // Exit if already cached and not forcing refresh
-        }
-
+        
         if (currentPath == null) {
             // Show device storage roots (fast operation, no need for background)
             val storageItems = getStorageRoots()
@@ -3947,29 +3880,33 @@ fun SingleCardExplorerContent(
             directoryCache[cacheKey] = storageItems
             isLoadingDirectory = false
         } else {
-            // Load directory contents asynchronously
-            isLoadingDirectory = true
-            try {
-                val items = withContext(Dispatchers.IO) {
-                    getDirectoryContentsOptimized(currentPath!!, audioExtensions, songs, context)
-                }
-                val sortedItems = items.sortedBy { it.name.lowercase() }
-                currentItems = sortedItems
-                // Update cache with new results (only if not refreshing)
-                if (!forceReload) {
-                    if (directoryCache.size >= 20) {
-                        directoryCache.remove(directoryCache.keys.first())
-                    }
-                    directoryCache[cacheKey] = sortedItems
-                }
-            } catch (e: Exception) {
-                // Handle errors gracefully - show empty state
-                currentItems = emptyList()
-            } finally {
+            // Check cache first to avoid unnecessary reloads
+            val cached = directoryCache[cacheKey]
+            if (cached != null && cached.isNotEmpty()) {
+                currentItems = cached
                 isLoadingDirectory = false
-                // Reset refresh trigger
-                if (forceReload) {
-                    refreshTrigger = false
+            } else {
+                // Debounce rapid navigation with 150ms delay
+                debounceJob = launch {
+                    kotlinx.coroutines.delay(150)
+                    isLoadingDirectory = true
+                    try {
+                        val items = withContext(Dispatchers.IO) {
+                            getDirectoryContentsOptimized(currentPath!!, audioExtensions, songs, context)
+                        }
+                        val sortedItems = items.sortedBy { it.name.lowercase() }
+                        currentItems = sortedItems
+                        // Update cache with new results
+                        if (directoryCache.size >= 20) {
+                            directoryCache.remove(directoryCache.keys.first())
+                        }
+                        directoryCache[cacheKey] = sortedItems
+                    } catch (e: Exception) {
+                        // Handle errors gracefully - show empty state
+                        currentItems = emptyList()
+                    } finally {
+                        isLoadingDirectory = false
+                    }
                 }
             }
         }
@@ -4387,45 +4324,44 @@ fun SingleCardExplorerContent(
                                     verticalArrangement = Arrangement.spacedBy(12.dp),
                                     horizontalAlignment = Alignment.Start
                                 ) {
-                                    // First row: Refresh/Retry button
-                                    if (!hasAttemptedRetry) {
-                                        FilledTonalButton(
-                                            onClick = {
-                                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
-                                                hasAttemptedRetry = true
-                                                // Clear cache and trigger a clean refresh without changing the path
-                                                directoryCache.clear()
-                                                refreshTrigger = !refreshTrigger
-                                            },
-                                            shape = RoundedCornerShape(12.dp)
+                                    // Refresh button
+                                    // FilledTonalButton(
+                                    //     onClick = {
+                                    //         HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                    //         // Clear cache and reload directory
+                                    //         directoryCache.clear()
+                                    //         // Trigger reload by setting path to itself
+                                    //         val temp = currentPath
+                                    //         currentPath = null
+                                    //         currentPath = temp
+                                    //     },
+                                    //     shape = RoundedCornerShape(12.dp)
+                                    // ) {
+                                    //     Icon(
+                                    //         imageVector = Icons.Default.Refresh,
+                                    //         contentDescription = null,
+                                    //         modifier = Modifier.size(18.dp)
+                                    //     )
+                                    //     Spacer(modifier = Modifier.width(8.dp))
+                                    //     Text(
+                                    //         text = "Refresh",
+                                    //         style = MaterialTheme.typography.labelLarge,
+                                    //         fontWeight = FontWeight.Medium
+                                    //     )
+                                    // }
+
+                                    // Permission info
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                        shape = RoundedCornerShape(12.dp),
+                                        tonalElevation = 0.dp
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                                         ) {
                                             Icon(
-                                                imageVector = Icons.Default.Refresh,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(
-                                                text = "Refresh",
-                                                style = MaterialTheme.typography.labelLarge,
-                                                fontWeight = FontWeight.Medium
-                                            )
-                                        }
-                                    }
-
-                                    // Second row: Permission info (only after retry attempted)
-                                    if (hasAttemptedRetry) {
-                                        Surface(
-                                            color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                                            shape = RoundedCornerShape(12.dp),
-                                            tonalElevation = 0.dp
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                            ) {
-                                                Icon(
                                                     imageVector = Icons.Default.Info,
                                                     contentDescription = null,
                                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -4470,8 +4406,7 @@ fun SingleCardExplorerContent(
                         }
                     }
                 }
-    }
-}
+        }
 
 // Helper function to get device storage roots
 fun getStorageRoots(): List<ExplorerItem> {
@@ -5016,8 +4951,9 @@ private fun PlaylistFabMenu(
                   )
         ) {
             FabMenuItem(
-                text = "Export playlists",
+                label = "Export playlists",
                 icon = Icons.Default.FileUpload,
+                contentDescription = "Export playlists",
                 containerColor = MaterialTheme.colorScheme.secondaryContainer,
                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                 onClick = {
@@ -5026,6 +4962,7 @@ private fun PlaylistFabMenu(
                         isExpanded = false
                     }
                 },
+                animationDelay = 0,
                 modifier = Modifier.padding(bottom = 160.dp, end = 16.dp)
             )
         }
@@ -5044,8 +4981,9 @@ private fun PlaylistFabMenu(
                   )
         ) {
             FabMenuItem(
-                text = "Import playlist",
+                label = "Import playlist",
                 icon = RhythmIcons.Actions.Download,
+                contentDescription = "Import playlist",
                 containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                 contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                 onClick = {
@@ -5054,6 +4992,7 @@ private fun PlaylistFabMenu(
                         isExpanded = false
                     }
                 },
+                animationDelay = 50,
                 modifier = Modifier.padding(bottom = 100.dp, end = 16.dp)
             )
         }
@@ -5072,8 +5011,9 @@ private fun PlaylistFabMenu(
                   )
         ) {
             FabMenuItem(
-                text = "New playlist",
+                label = "New playlist",
                 icon = RhythmIcons.Add,
+                contentDescription = "Create new playlist",
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 onClick = {
@@ -5082,6 +5022,7 @@ private fun PlaylistFabMenu(
                         isExpanded = false
                     }
                 },
+                animationDelay = 100,
                 modifier = Modifier.padding(bottom = 40.dp, end = 16.dp)
             )
         }
@@ -5123,6 +5064,7 @@ fun ExplorerBreadcrumb(
     scrollState: LazyListState = rememberLazyListState()
 ) {
     val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
     val pathSegments = path.split("/").filter { it.isNotEmpty() }
 
     // Auto-scroll to the active breadcrumb (last segment)
@@ -5150,7 +5092,10 @@ fun ExplorerBreadcrumb(
             )
 
             Surface(
-                onClick = onGoHome,
+                onClick = {
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                    onGoHome()
+                },
                 shape = RoundedCornerShape(16.dp),
                 color = MaterialTheme.colorScheme.surface,
                 modifier = Modifier
@@ -5211,7 +5156,10 @@ fun ExplorerBreadcrumb(
                 )
 
                 Surface(
-                    onClick = { onNavigateTo(currentPath) },
+                    onClick = {
+                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                        onNavigateTo(currentPath)
+                    },
                     shape = RoundedCornerShape(18.dp),
                     color = chipBackgroundColor,
                     border = if (isLastSegment) BorderStroke(
@@ -5295,7 +5243,10 @@ fun ExplorerItemCard(
     when (item.type) {
         ExplorerItemType.STORAGE -> {
             Card(
-                onClick = onItemClick,
+                onClick = {
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                    onItemClick()
+                },
                 modifier = modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 6.dp),
@@ -5376,7 +5327,10 @@ fun ExplorerItemCard(
 
         ExplorerItemType.FOLDER -> {
             Card(
-                onClick = onItemClick,
+                onClick = {
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                    onItemClick()
+                },
                 modifier = modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp),
@@ -5527,55 +5481,84 @@ fun ExplorerItemCard(
 
 @Composable
 private fun FabMenuItem(
-    text: String,
+    label: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String,
     containerColor: Color,
     contentColor: Color,
     onClick: () -> Unit,
+    animationDelay: Int = 0,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    val haptics = LocalHapticFeedback.current
+    // Animated scale and alpha for staggered entrance
+    val animatedScale by animateFloatAsState(
+        targetValue = 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "menuItemScale_$label"
+    )
+    
+    val animatedAlpha by animateFloatAsState(
+        targetValue = 1f,
+        animationSpec = tween(
+            durationMillis = 300,
+            delayMillis = animationDelay
+        ),
+        label = "menuItemAlpha_$label"
+    )
 
     Row(
-        modifier = modifier,
+        modifier = modifier
+            .graphicsLayer {
+                scaleX = animatedScale
+                scaleY = animatedScale
+                alpha = animatedAlpha
+            },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Label
-        Surface(
-            color = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.onSurface,
-            shape = RoundedCornerShape(12.dp),
-            shadowElevation = 8.dp,
-            tonalElevation = 2.dp
+        // Enhanced label with elevation and modern styling
+        androidx.compose.animation.AnimatedVisibility(
+            visible = true,
+            enter = slideInHorizontally(
+                initialOffsetX = { it / 2 },
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium
+                )
+            ) + fadeIn(animationSpec = tween(300, delayMillis = animationDelay))
         ) {
-            Text(
-                text = text,
-                style = MaterialTheme.typography.labelLarge,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                fontWeight = FontWeight.Medium
-            )
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                shape = RoundedCornerShape(16.dp),
+                shadowElevation = 4.dp,
+                tonalElevation = 3.dp,
+                modifier = Modifier
+                    .padding(end = 4.dp)
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
         }
 
-        // FAB
-        FloatingActionButton(
-            onClick = {
-                HapticUtils.performHapticFeedback(
-                    context,
-                    haptics,
-                    HapticFeedbackType.LongPress
-                )
-                onClick()
-            },
+        // Enhanced mini-FAB with better sizing
+        SmallFloatingActionButton(
+            onClick = onClick,
             containerColor = containerColor,
             contentColor = contentColor,
-            modifier = Modifier.size(48.dp)
+            modifier = Modifier.size(56.dp)
         ) {
             Icon(
                 imageVector = icon,
-                contentDescription = text,
-                modifier = Modifier.size(20.dp)
+                contentDescription = contentDescription,
+                modifier = Modifier.size(24.dp)
             )
         }
     }
