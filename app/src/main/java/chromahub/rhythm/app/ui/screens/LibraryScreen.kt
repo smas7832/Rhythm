@@ -3,6 +3,7 @@ package chromahub.rhythm.app.ui.screens
 
 import android.widget.Toast
 import android.os.Environment
+import android.provider.MediaStore
 import androidx.documentfile.provider.DocumentFile
 import java.io.File
 import androidx.compose.foundation.layout.WindowInsets
@@ -3950,7 +3951,7 @@ fun SingleCardExplorerContent(
             isLoadingDirectory = true
             try {
                 val items = withContext(Dispatchers.IO) {
-                    getDirectoryContentsOptimized(currentPath!!, audioExtensions)
+                    getDirectoryContentsOptimized(currentPath!!, audioExtensions, songs, context)
                 }
                 val sortedItems = items.sortedBy { it.name.lowercase() }
                 currentItems = sortedItems
@@ -4624,61 +4625,9 @@ fun getAudioFileCountSongsInDirectory(
     }
 }
 
-// Helper function to get directory contents (subdirectories and audio files)
-fun getDirectoryContents(
-    directoryPath: String,
-    audioExtensions: Set<String>
-): List<ExplorerItem> {
-    val items = mutableListOf<ExplorerItem>()
-
-    try {
-        val directory = File(directoryPath)
-        if (!directory.exists() || !directory.canRead()) {
-            return items
-        }
-
-        val files = directory.listFiles()
-        files?.forEach { file ->
-            if (file.isDirectory) {
-                // Do a shallow count (first level only) instead of recursive to improve performance
-                val audioCount = countAudioFilesInDirectoryShallow(file, audioExtensions)
-                if (audioCount > 0 || file.list()?.isNotEmpty() == true) { // Show directories that have files or subdirectories
-                    items.add(ExplorerItem(
-                        name = file.name,
-                        path = file.absolutePath,
-                        isDirectory = true,
-                        itemCount = audioCount,
-                        type = ExplorerItemType.FOLDER,
-                        song = null
-                    ))
-                }
-            } else if (file.isFile) {
-                val extension = file.extension.lowercase()
-                if (extension in audioExtensions) {
-                    // Create a Song object from the file path
-                    val uri = android.net.Uri.fromFile(file)
-                    val song = createSongFromUri(uri, file)
-                    items.add(ExplorerItem(
-                        name = file.nameWithoutExtension,
-                        path = uri.toString(),
-                        isDirectory = false,
-                        itemCount = 1,
-                        type = ExplorerItemType.FILE,
-                        song = song
-                    ))
-                }
-            }
-        }
-    } catch (e: Exception) {
-        // Handle permission or access errors gracefully
-        e.printStackTrace()
-    }
-
-    return items
-}
-
 // Optimized version for better performance - avoids excessive filesystem operations
-fun getDirectoryContentsOptimized(directoryPath: String, audioExtensions: Set<String>): List<ExplorerItem> {
+// Now filters by MediaStore to show only indexed files with proper metadata
+fun getDirectoryContentsOptimized(directoryPath: String, audioExtensions: Set<String>, songs: List<Song>, context: android.content.Context): List<ExplorerItem> {
     val items = mutableListOf<ExplorerItem>()
 
     try {
@@ -4686,12 +4635,16 @@ fun getDirectoryContentsOptimized(directoryPath: String, audioExtensions: Set<St
         if (!directory.exists() || !directory.canRead()) {
             return items
         }
+
+        // Build a map of file paths to songs for quick lookup
+        val songsByPath = buildSongPathMap(songs, context)
 
         val files = directory.listFiles()
         files?.forEach { file ->
             if (file.isDirectory) {
                 // Use shallow count only (much faster) for better performance
-                val audioCount = countAudioFilesInDirectoryShallow(file, audioExtensions)
+                // Count only files that are in MediaStore
+                val audioCount = countMediaStoreAudioFilesInDirectoryShallow(file, songsByPath)
                 if (audioCount > 0 || file.list()?.isNotEmpty() == true) {
                     items.add(ExplorerItem(
                         name = file.name,
@@ -4705,17 +4658,18 @@ fun getDirectoryContentsOptimized(directoryPath: String, audioExtensions: Set<St
             } else if (file.isFile) {
                 val extension = file.extension.lowercase()
                 if (extension in audioExtensions) {
-                    // Create a Song object from the file path
-                    val uri = android.net.Uri.fromFile(file)
-                    val song = createSongFromUri(uri, file)
-                    items.add(ExplorerItem(
-                        name = file.nameWithoutExtension,
-                        path = uri.toString(),
-                        isDirectory = false,
-                        itemCount = 1,
-                        type = ExplorerItemType.FILE,
-                        song = song
-                    ))
+                    // Only show files that exist in MediaStore
+                    val song = songsByPath[file.absolutePath]
+                    if (song != null) {
+                        items.add(ExplorerItem(
+                            name = song.title, // Use actual metadata title instead of filename
+                            path = file.absolutePath,
+                            isDirectory = false,
+                            itemCount = 1,
+                            type = ExplorerItemType.FILE,
+                            song = song
+                        ))
+                    }
                 }
             }
         }
@@ -4726,20 +4680,48 @@ fun getDirectoryContentsOptimized(directoryPath: String, audioExtensions: Set<St
     return items
 }
 
-// Helper function to create Song from URI and File
-fun createSongFromUri(uri: android.net.Uri, file: File): Song {
-    return Song(
-        id = uri.toString(),
-        title = file.nameWithoutExtension,
-        artist = "Unknown",
-        album = "Unknown",
-        duration = 0, // We could potentially read this from the file metadata
-        uri = uri,
-        artworkUri = null,
-        genre = null,
-        year = 0,
-        trackNumber = 0
-    )
+// Helper function to build a map of file paths to songs from MediaStore
+fun buildSongPathMap(songs: List<Song>, context: android.content.Context): Map<String, Song> {
+    val pathMap = mutableMapOf<String, Song>()
+    
+    songs.forEach { song ->
+        try {
+            // Try to get the actual file path from the content URI
+            val path = getFilePathFromUri(song.uri, context)
+            if (path != null && path.isNotEmpty()) {
+                pathMap[path] = song
+            }
+        } catch (e: Exception) {
+            // Skip songs that can't be mapped to file paths
+        }
+    }
+    
+    return pathMap
+}
+
+// Helper function to get file path from MediaStore content URI
+fun getFilePathFromUri(uri: android.net.Uri, context: android.content.Context): String? {
+    return try {
+        // MediaStore content URIs are in format: content://media/external/audio/media/{id}
+        // We need to query MediaStore to get the actual file path
+        val projection = arrayOf(android.provider.MediaStore.Audio.Media.DATA)
+        val cursor = context.contentResolver.query(
+            uri,
+            projection,
+            null,
+            null,
+            null
+        )
+        
+        cursor?.use {
+            if (it.moveToFirst()) {
+                val columnIndex = it.getColumnIndexOrThrow(android.provider.MediaStore.Audio.Media.DATA)
+                it.getString(columnIndex)
+            } else null
+        }
+    } catch (e: Exception) {
+        null
+    }
 }
 
 // Helper function to count audio files in a directory recursively
@@ -4775,6 +4757,28 @@ fun countAudioFilesInDirectoryShallow(directory: File, audioExtensions: Set<Stri
             if (file.isFile) {
                 val extension = file.extension.lowercase()
                 if (extension in audioExtensions) {
+                    count++
+                }
+            }
+            // Don't recurse into subdirectories for performance
+        }
+    } catch (e: Exception) {
+        // Handle permission errors
+    }
+
+    return count
+}
+
+// Helper function to count MediaStore audio files in a directory (shallow - first level only)
+fun countMediaStoreAudioFilesInDirectoryShallow(directory: File, songsByPath: Map<String, Song>): Int {
+    var count = 0
+
+    try {
+        val files = directory.listFiles()
+        files?.forEach { file ->
+            if (file.isFile) {
+                // Only count files that exist in MediaStore
+                if (songsByPath.containsKey(file.absolutePath)) {
                     count++
                 }
             }
