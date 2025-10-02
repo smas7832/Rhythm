@@ -34,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import chromahub.rhythm.app.data.AppSettings
+import chromahub.rhythm.app.ui.theme.getFontPreviewStyle
 import chromahub.rhythm.app.util.HapticUtils
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -148,20 +149,52 @@ fun ThemeCustomizationBottomSheet(
                 tertiaryColor = Color(0xFF9E9E9E)
             ),
             ColorSchemeOption(
-                name = "Sunset",
-                displayName = "Sunset",
-                description = "Warm oranges and reds that evoke a beautiful sunset",
-                primaryColor = Color(0xFFFF6F00),
-                secondaryColor = Color(0xFFFF5722),
-                tertiaryColor = Color(0xFFE65100)
-            ),
-            ColorSchemeOption(
                 name = "Lavender",
                 displayName = "Lavender",
                 description = "Calming purple and lavender tones for relaxation",
                 primaryColor = Color(0xFF7C4DFF),
                 secondaryColor = Color(0xFF9575CD),
                 tertiaryColor = Color(0xFFBA68C8)
+            ),
+            ColorSchemeOption(
+                name = "Ocean",
+                displayName = "Deep Ocean",
+                description = "Deep blues and aquamarines for oceanic serenity",
+                primaryColor = Color(0xFF006064),
+                secondaryColor = Color(0xFF00838F),
+                tertiaryColor = Color(0xFF00ACC1)
+            ),
+            ColorSchemeOption(
+                name = "Aurora",
+                displayName = "Northern Lights",
+                description = "Vibrant greens and blues inspired by the aurora borealis",
+                primaryColor = Color(0xFF00C853),
+                secondaryColor = Color(0xFF00E676),
+                tertiaryColor = Color(0xFF69F0AE)
+            ),
+            ColorSchemeOption(
+                name = "Amber",
+                displayName = "Golden Amber",
+                description = "Rich amber and gold tones for a luxurious feel",
+                primaryColor = Color(0xFFFF6F00),
+                secondaryColor = Color(0xFFFF8F00),
+                tertiaryColor = Color(0xFFFFC107)
+            ),
+            ColorSchemeOption(
+                name = "Crimson",
+                displayName = "Deep Crimson",
+                description = "Bold burgundy and crimson shades for drama",
+                primaryColor = Color(0xFFB71C1C),
+                secondaryColor = Color(0xFFC62828),
+                tertiaryColor = Color(0xFFD32F2F)
+            ),
+            ColorSchemeOption(
+                name = "Emerald",
+                displayName = "Emerald Dream",
+                description = "Fresh emerald greens with natural forest hues",
+                primaryColor = Color(0xFF2E7D32),
+                secondaryColor = Color(0xFF388E3C),
+                tertiaryColor = Color(0xFF4CAF50)
             ),
             ColorSchemeOption(
                 name = "Mint",
@@ -201,7 +234,32 @@ fun ThemeCustomizationBottomSheet(
                 name = "Quicksand",
                 displayName = "Quicksand",
                 description = "Rounded font with a softer, friendlier appearance"
-            )
+            ),
+            // FontOption(
+            //     name = "Classic",
+            //     displayName = "Classic Serif",
+            //     description = "Traditional serif typeface, perfect for formal content"
+            // ),
+            // FontOption(
+            //     name = "Casual",
+            //     displayName = "Casual Sans",
+            //     description = "Relaxed sans-serif font for a friendly, approachable feel"
+            // ),
+            // FontOption(
+            //     name = "Modern",
+            //     displayName = "Modern",
+            //     description = "Contemporary typeface with clean, geometric shapes"
+            // ),
+            // FontOption(
+            //     name = "Typewriter",
+            //     displayName = "Typewriter",
+            //     description = "Classic typewriter-inspired monospace font"
+            // ),
+            // FontOption(
+            //     name = "Playful",
+            //     displayName = "Playful",
+            //     description = "Fun and creative typeface with rounded characters"
+            // )
         )
     }
 
@@ -621,10 +679,10 @@ private fun FontCard(
             ) {
                 Text(
                     text = "The quick brown fox jumps over the lazy dog",
-                    style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp),
-                    color = if (isSelected) 
-                        MaterialTheme.colorScheme.onPrimaryContainer 
-                    else 
+                    style = getFontPreviewStyle(option.name),
+                    color = if (isSelected)
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    else
                         MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(16.dp)
                 )

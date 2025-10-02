@@ -132,9 +132,14 @@ val Typography = Typography(
 fun getTypographyForFont(fontName: String): Typography {
     val fontFamily = when (fontName) {
         "Slate" -> FontFamily.Serif        // Serif font - more formal/traditional appearance
+        "Classic" -> FontFamily.Serif      // Traditional serif typeface
         "Inter" -> FontFamily.SansSerif    // Clean sans-serif font - modern, readable
+        "Casual" -> FontFamily.SansSerif   // Relaxed sans-serif font
+        "Modern" -> FontFamily.SansSerif   // Contemporary typeface
         "JetBrains" -> FontFamily.Monospace // Monospace font - technical/developer appearance
+        "Typewriter" -> FontFamily.Monospace // Classic typewriter-inspired monospace font
         "Quicksand" -> FontFamily.Cursive  // Rounded font - softer, friendlier appearance
+        "Playful" -> FontFamily.Cursive    // Fun and creative typeface
         "System" -> FontFamily.Default     // Default system font
         else -> FontFamily.Default
     }
@@ -254,5 +259,33 @@ fun getTypographyForFont(fontName: String): Typography {
             lineHeight = 16.sp,
             letterSpacing = 0.5.sp
         )
+    )
+}
+
+/**
+ * Get text style for font preview in theme customization
+ * Returns a TextStyle with the specific font family for previewing fonts
+ */
+fun getFontPreviewStyle(fontName: String): TextStyle {
+    val fontFamily = when (fontName) {
+        "Slate" -> FontFamily.Serif
+        "Classic" -> FontFamily.Serif
+        "Inter" -> FontFamily.SansSerif
+        "Casual" -> FontFamily.SansSerif
+        "Modern" -> FontFamily.SansSerif
+        "JetBrains" -> FontFamily.Monospace
+        "Typewriter" -> FontFamily.Monospace
+        "Quicksand" -> FontFamily.Cursive
+        "Playful" -> FontFamily.Cursive
+        "System" -> FontFamily.Default
+        else -> FontFamily.Default
+    }
+
+    return TextStyle(
+        fontFamily = fontFamily,
+        fontWeight = FontWeight.Normal,
+        fontSize = 16.sp,
+        lineHeight = 24.sp,
+        letterSpacing = 0.5.sp
     )
 }
