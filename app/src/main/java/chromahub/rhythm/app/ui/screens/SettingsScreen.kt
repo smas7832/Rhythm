@@ -390,19 +390,19 @@ fun SettingsScreen(
         listOf(
             // Display & Theme
             SearchableSettingItem(
-                "Use system theme",
+                "Use System Theme",
                 "Follow system dark/light theme setting automatically",
                 "Display & Theme",
                 listOf("system", "theme", "dark", "light", "automatic")
             ),
             SearchableSettingItem(
-                "Dynamic colors",
+                "Dynamic Colors",
                 "Use wallpaper-based colors (Android 12+)",
                 "Display & Theme",
                 listOf("dynamic", "colors", "wallpaper", "material you")
             ),
             SearchableSettingItem(
-                "Dark mode",
+                "Dark Mode",
                 "Enable dark theme",
                 "Display & Theme",
                 listOf("dark", "mode", "theme", "night")
@@ -410,7 +410,7 @@ fun SettingsScreen(
 
             // User Interface & Controls
             SearchableSettingItem(
-                "Haptic feedback",
+                "Haptic Feedback",
                 "Vibrate when tapping buttons and interacting with the interface",
                 "User Interface & Controls",
                 listOf("haptic", "vibrate", "feedback", "touch")
@@ -418,7 +418,7 @@ fun SettingsScreen(
 
             // Audio & Playback
             SearchableSettingItem(
-                "Sleep timer",
+                "Sleep Timer",
                 "Auto-pause playback after a set duration",
                 "Audio & Playback",
                 listOf("sleep", "timer", "auto-pause", "duration")
@@ -456,31 +456,31 @@ fun SettingsScreen(
 
             // Library
             SearchableSettingItem(
-                "Scan folder",
+                "Scan Folder",
                 "Add music folders to library",
                 "Library & Content Display",
                 listOf("scan", "folder", "music", "library", "add")
             ),
             SearchableSettingItem(
-                "Sort order",
+                "Sort Order",
                 "Change library sorting",
                 "Library & Content Display",
                 listOf("sort", "order", "alphabetical", "date")
             ),
             SearchableSettingItem(
-                "Tab order",
+                "Tab Order",
                 "Customize library tabs",
                 "Library & Content Display",
                 listOf("tab", "order", "library", "customize", "reorder")
             ),
             SearchableSettingItem(
-                "Show files",
+                "Show Files",
                 "Display all audio files",
                 "Library & Content Display",
                 listOf("files", "show", "display", "explorer")
             ),
             SearchableSettingItem(
-                "Playlist management",
+                "Playlist Management",
                 "Manage playlists",
                 "Library & Content Display",
                 listOf("playlist", "manage", "organize")
@@ -488,13 +488,13 @@ fun SettingsScreen(
 
             // Updates & API
             SearchableSettingItem(
-                "Check for updates",
+                "Check for Updates",
                 "Check for app updates",
-                "Updates & API",
+                "App Updates",
                 listOf("update", "check", "version", "new")
             ),
             SearchableSettingItem(
-                "API settings",
+                "API Settings",
                 "Configure API endpoints",
                 "Updates & API",
                 listOf("api", "endpoint", "server", "configure")
@@ -502,19 +502,19 @@ fun SettingsScreen(
 
             // Storage & Cache
             SearchableSettingItem(
-                "Cache size",
+                "Cache Size",
                 "Set maximum cache size",
                 "Storage & Cache",
                 listOf("cache", "size", "storage", "limit")
             ),
             SearchableSettingItem(
-                "Clear cache",
+                "Clear Cache",
                 "Delete cached data",
                 "Storage & Cache",
                 listOf("clear", "cache", "delete", "clean")
             ),
             SearchableSettingItem(
-                "Backup & restore",
+                "Backup & Restore",
                 "Backup app data",
                 "Storage & Cache",
                 listOf("backup", "restore", "export", "import", "data")
@@ -522,13 +522,13 @@ fun SettingsScreen(
 
             // Advanced
             SearchableSettingItem(
-                "Crash logs",
+                "Crash Logs",
                 "View crash history",
                 "Advanced",
                 listOf("crash", "log", "error", "debug")
             ),
             SearchableSettingItem(
-                "Reset settings",
+                "Reset Settings",
                 "Restore default settings",
                 "Advanced",
                 listOf("reset", "default", "restore", "clear")
@@ -1050,7 +1050,7 @@ fun SettingsScreen(
                     }
                 }
             }
-            
+
 
             // Regular settings content (only show when not searching or search is empty)
             if (searchQuery.isEmpty()) {
@@ -1062,7 +1062,7 @@ fun SettingsScreen(
                     )
 
                     SettingsToggleItem(
-                        title = "Use system theme",
+                        title = "Use System Theme",
                         description = "Follow system dark/light theme setting automatically",
                         icon = Icons.Filled.Settings,
                         checked = useSystemTheme,
@@ -1072,7 +1072,7 @@ fun SettingsScreen(
                     )
 
                     SettingsToggleItem(
-                        title = "Dynamic colors",
+                        title = "Dynamic Colors",
                         description = "Use wallpaper-based colors (Android 12+)",
                         icon = Icons.Filled.Palette,
                         checked = useDynamicColors,
@@ -1087,7 +1087,7 @@ fun SettingsScreen(
                         exit = fadeOut() + shrinkVertically()
                     ) {
                         SettingsToggleItem(
-                            title = "Dark mode",
+                            title = "Dark Mode",
                             description = "Enable dark theme",
                             icon = Icons.Filled.DarkMode,
                             checked = darkMode,
@@ -1118,7 +1118,7 @@ fun SettingsScreen(
 
                     val hapticFeedbackEnabled by appSettings.hapticFeedbackEnabled.collectAsState()
                     SettingsToggleItem(
-                        title = "Haptic feedback",
+                        title = "Haptic Feedback",
                         description = "Vibrate when tapping buttons and interacting with the interface",
                         icon = Icons.Filled.TouchApp,
                         checked = hapticFeedbackEnabled,
@@ -1137,7 +1137,7 @@ fun SettingsScreen(
 
                     val useSystemVolume by appSettings.useSystemVolume.collectAsState()
                     SettingsToggleItem(
-                        title = "System volume control",
+                        title = "System Volume Control",
                         description = "Use device volume controls for music playback",
                         icon = RhythmIcons.Player.VolumeUp,
                         checked = useSystemVolume,
@@ -1211,7 +1211,7 @@ fun SettingsScreen(
                     // )
 
                     SettingsToggleItem(
-                        title = "Show lyrics",
+                        title = "Show Lyrics",
                         description = "Display lyrics when available",
                         icon = Icons.Filled.Lyrics,
                         checked = showLyrics,
@@ -1226,7 +1226,7 @@ fun SettingsScreen(
                         exit = fadeOut() + shrinkVertically()
                     ) {
                         SettingsToggleItem(
-                            title = "Online lyrics only",
+                            title = "Online Lyrics Only",
                             description = "Only show lyrics when connected to the internet",
                             icon = Icons.Filled.Cloud,
                             checked = showOnlineOnlyLyrics,
@@ -1343,7 +1343,7 @@ fun SettingsScreen(
                     val defaultPlaylists = playlists.filter { it.isDefault }
 
                     SettingsChipItem(
-                        title = "Manage playlists",
+                        title = "Manage Playlists",
                         description = "Create, import, export and organize playlists",
                         primaryChipText = "${userPlaylists.size} custom",
                         secondaryChipText = "${defaultPlaylists.size} default",
@@ -1380,7 +1380,7 @@ fun SettingsScreen(
                     } else ""
 
                     SettingsChipItem(
-                        title = "Library tab order",
+                        title = "Library Tab Order",
                         description = "Reorder tabs to customize library",
                         primaryChipText = tabNames.getOrNull(0) ?: "Songs",
                         secondaryChipText = secondaryTabText,
@@ -1435,7 +1435,7 @@ fun SettingsScreen(
 
                     // Cache Management - consolidated into one item
                     SettingsChipItem(
-                        title = "Manage cache",
+                        title = "Manage Cache",
                         description = "Control cache size, automatic clearing, and manual cleanup",
                         primaryChipText = "${
                             String.format(
