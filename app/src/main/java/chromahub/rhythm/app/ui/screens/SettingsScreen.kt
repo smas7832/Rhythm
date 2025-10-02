@@ -227,6 +227,7 @@ fun SettingsScreen(
     var showPlaylistManagementBottomSheet by remember { mutableStateOf(false) } // New state for playlist management
     var showCreatePlaylistDialog by remember { mutableStateOf(false) } // New state for create playlist dialog
     var showLibraryTabOrderBottomSheet by remember { mutableStateOf(false) } // New state for library tab order
+    var showThemeCustomizationBottomSheet by remember { mutableStateOf(false) } // New state for theme customization
 
     val updaterViewModel: AppUpdaterViewModel = viewModel()
     val currentAppVersion by updaterViewModel.currentVersion.collectAsState()
@@ -247,7 +248,8 @@ fun SettingsScreen(
                 showMediaScanBottomSheet || showBackupRestoreBottomSheet ||
                 showCacheManagementBottomSheet || showEqualizerBottomSheet ||
                 showPlaylistManagementBottomSheet || showLibraryTabOrderBottomSheet ||
-                showSleepTimerBottomSheet || showCrossfadeDurationDialog
+                showSleepTimerBottomSheet || showCrossfadeDurationDialog ||
+                showThemeCustomizationBottomSheet
     ) {
         when {
             showApiBottomSheet -> showApiBottomSheet = false
@@ -258,6 +260,7 @@ fun SettingsScreen(
             showEqualizerBottomSheet -> showEqualizerBottomSheet = false
             showPlaylistManagementBottomSheet -> showPlaylistManagementBottomSheet = false
             showLibraryTabOrderBottomSheet -> showLibraryTabOrderBottomSheet = false
+            showThemeCustomizationBottomSheet -> showThemeCustomizationBottomSheet = false
             showSleepTimerBottomSheet -> showSleepTimerBottomSheet = false
             showCrossfadeDurationDialog -> showCrossfadeDurationDialog = false
         }
@@ -365,6 +368,13 @@ fun SettingsScreen(
             onDismiss = { showLibraryTabOrderBottomSheet = false },
             appSettings = appSettings,
             haptics = haptics
+        )
+    }
+
+    if (showThemeCustomizationBottomSheet) {
+        ThemeCustomizationBottomSheet(
+            onDismiss = { showThemeCustomizationBottomSheet = false },
+            appSettings = appSettings
         )
     }
 
@@ -1086,6 +1096,15 @@ fun SettingsScreen(
                             }
                         )
                     }
+
+//                    Spacer(modifier = Modifier.height(8.dp))
+
+                    SettingsClickableItem(
+                        title = "Theme Customization",
+                        description = "Customize colors and fonts",
+                        icon = Icons.Filled.Palette,
+                        onClick = { showThemeCustomizationBottomSheet = true }
+                    )
 
                     SettingsDivider()
                 }

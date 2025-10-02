@@ -55,6 +55,8 @@ class AppSettings private constructor(context: Context) {
         private const val KEY_USE_SYSTEM_THEME = "use_system_theme"
         private const val KEY_DARK_MODE = "dark_mode"
         private const val KEY_USE_DYNAMIC_COLORS = "use_dynamic_colors"
+        private const val KEY_CUSTOM_COLOR_SCHEME = "custom_color_scheme"
+        private const val KEY_CUSTOM_FONT = "custom_font"
         
         // Library Settings
         private const val KEY_ALBUM_VIEW_TYPE = "album_view_type"
@@ -214,6 +216,12 @@ class AppSettings private constructor(context: Context) {
     
     private val _useDynamicColors = MutableStateFlow(prefs.getBoolean(KEY_USE_DYNAMIC_COLORS, false))
     val useDynamicColors: StateFlow<Boolean> = _useDynamicColors.asStateFlow()
+    
+    private val _customColorScheme = MutableStateFlow(prefs.getString(KEY_CUSTOM_COLOR_SCHEME, "Default") ?: "Default")
+    val customColorScheme: StateFlow<String> = _customColorScheme.asStateFlow()
+    
+    private val _customFont = MutableStateFlow(prefs.getString(KEY_CUSTOM_FONT, "System") ?: "System")
+    val customFont: StateFlow<String> = _customFont.asStateFlow()
     
     // Library Settings
     private val _albumViewType = MutableStateFlow(
@@ -655,6 +663,16 @@ class AppSettings private constructor(context: Context) {
     fun setUseDynamicColors(use: Boolean) {
         prefs.edit().putBoolean(KEY_USE_DYNAMIC_COLORS, use).apply()
         _useDynamicColors.value = use
+    }
+    
+    fun setCustomColorScheme(scheme: String) {
+        prefs.edit().putString(KEY_CUSTOM_COLOR_SCHEME, scheme).apply()
+        _customColorScheme.value = scheme
+    }
+    
+    fun setCustomFont(font: String) {
+        prefs.edit().putString(KEY_CUSTOM_FONT, font).apply()
+        _customFont.value = font
     }
     
     // Library Settings Methods
@@ -1525,6 +1543,8 @@ class AppSettings private constructor(context: Context) {
         _useSystemTheme.value = prefs.getBoolean(KEY_USE_SYSTEM_THEME, true)
         _darkMode.value = prefs.getBoolean(KEY_DARK_MODE, true)
         _useDynamicColors.value = prefs.getBoolean(KEY_USE_DYNAMIC_COLORS, false)
+        _customColorScheme.value = prefs.getString(KEY_CUSTOM_COLOR_SCHEME, "Default") ?: "Default"
+        _customFont.value = prefs.getString(KEY_CUSTOM_FONT, "System") ?: "System"
         
         // Library Settings
         _albumViewType.value = AlbumViewType.valueOf(prefs.getString(KEY_ALBUM_VIEW_TYPE, AlbumViewType.GRID.name) ?: AlbumViewType.GRID.name)
