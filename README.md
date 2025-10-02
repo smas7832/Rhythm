@@ -1,19 +1,24 @@
+
 <div align="center">
 
-### A Revolutionary Material You Music Player for Android
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/icon.png">
+  <source media="(prefers-color-scheme: light)" srcset="assets/icon.png">
+  <img src="assets/icon_full.png" alt="Rhythm Music Player" width="180" style="border-radius: 24px; margin: 20px 0;">
+</picture>
 
-<img src="fastlane\metadata\android\en-US\images\icon_full.png" alt="Rhythm Banner" width="50%" style="border-radius: 16px; margin: 5px 0;"/>
+### **Project Rhythm**
 
-<div style="display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin: 24px 0;">
+*Experience music like never before with stunning Material You design, intelligent features, and seamless performance*
+
+---
+
+<div align="center">
 
 [![Platform](https://img.shields.io/badge/Platform-Android-34A853?style=for-the-badge&logo=android&logoColor=white&labelColor=1a73e8)](https://android.com)
 [![API Level](https://img.shields.io/badge/API-26%2B-4285f4?style=for-the-badge&logo=android&logoColor=white)](https://android-arsenal.com/api?level=26)
 [![Kotlin](https://img.shields.io/badge/Kotlin-100%25-7c4dff?style=for-the-badge&logo=kotlin&logoColor=white)](https://kotlinlang.org/)
 [![License](https://img.shields.io/badge/License-MIT-ff6f00?style=for-the-badge&logo=open-source-initiative&logoColor=white)](LICENSE)
-
-</div>
-
-<div style="display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin: 16px 0;">
 
 [![Release](https://img.shields.io/github/v/release/cromaguy/Rhythm?style=for-the-badge&logo=github&color=673ab7&logoColor=white)](https://github.com/cromaguy/Rhythm/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/cromaguy/Rhythm/total?style=for-the-badge&logo=download&color=00bcd4&logoColor=white)](https://github.com/cromaguy/Rhythm/releases)
@@ -21,44 +26,74 @@
 
 </div>
 
-**Experience music with stunning Material You design, intelligent features, and seamless performance**
+---
+
+<div align="center">
+
+### 🌐 **[Visit Our Website](https://rhythmweb.vercel.app/)** | 📥 **[Download Latest Release](https://github.com/cromaguy/Rhythm/releases/latest)** | 💬 **[Join Telegram Community](https://t.me/RhythmSupport)**
+
+</div>
 
 ---
 
 </div>
 
-## ✨ What Makes Rhythm Special
+## 📖 **Table of Contents**
+
+<details open>
+<summary>Click to expand</summary>
+
+- [✨ What Makes Rhythm Special](#-what-makes-rhythm-special)
+- [📱 Screenshots](#-screenshots)
+- [🚀 Download & Install](#-download--install)
+- [🛠 Technology Stack](#-technology-stack)
+- [📦 Open Source Libraries](#-open-source-libraries)
+- [🤝 Contributing](#-contributing)
+- [🏆 Credits & Acknowledgments](#-credits--acknowledgments)
+- [📄 License](#-license)
+
+</details>
+
+---
+
+## ✨ **What Makes Rhythm Special**
+
+Rhythm is not just another music player - it's a complete audio experience designed with passion and attention to detail. Here's what sets us apart:
 
 <table>
 <tr>
-<td width="50%">
+<td width="50%" valign="top">
 
 ### 🎨 **Material You Excellence**
-- **Dynamic Theming** from your wallpaper colors
-- **Adaptive UI** that flows with your system theme
-- **Smooth Animations** with physics-based motion
-- **Responsive Design** for every screen size
+- ✨ **Dynamic Theming** - Colors extracted from your wallpaper (Android 12+)
+- 🌓 **Adaptive UI** - Seamless light/dark mode transitions
+- 🎭 **Physics-based Animations** - Smooth, natural motion throughout
+- 📐 **Responsive Design** - Perfect on phones, tablets, and foldables
+- 🎨 **Custom Color Schemes** - Personalize your experience
 
-### 🎵 **Professional Audio**
-- **ExoPlayer Engine** for studio-quality playback
-- **Gapless Transitions** between your favorite tracks
-- **Smart Audio Focus** handling calls and notifications
-- **High-Quality Support** for FLAC, ALAC, and more
+### 🎵 **Professional Audio Engine**
+- 🎧 **Media3 ExoPlayer** - Studio-quality audio playback
+- 🔊 **Gapless Playback** - Perfect transitions between tracks
+- 📻 **Smart Audio Focus** - Handles calls and notifications elegantly
+- 🎼 **Format Support** - FLAC, ALAC, MP3, AAC, OGG, WAV, and more
+- 🔉 **Volume Control** - Independent app volume or system integration
 
 </td>
-<td width="50%">
+<td width="50%" valign="top">
 
 ### 🧠 **Intelligent Features**
-- **Real-time Lyrics** with perfect synchronization
-- **Smart Search** across your entire library
-- **Advanced Shuffle** with multiple algorithms
-- **Auto-Resume** exactly where you left off
+- 🎤 **Synchronized Lyrics** - Real-time lyrics with LRCLib integration
+- 🔍 **Smart Search** - Lightning-fast fuzzy search across your library
+- 🎲 **Advanced Shuffle** - True random, artist-aware, and weighted algorithms
+- 💾 **Auto-Resume** - Picks up exactly where you left off
+- 📊 **Rich Metadata** - Beautiful album art and comprehensive tag support
 
 ### 🌐 **Connected Experience**
-- **LRCLib Integration** for synced lyrics
-- **Auto-Updates** via GitHub releases
-- **Rich Metadata** with high-quality artwork
-- **Canvas Integration** for cool experience
+- 🌍 **LRCLib Integration** - Community-driven synced lyrics
+- 🔄 **Auto-Updates** - Stay up-to-date via GitHub releases
+- 🎨 **Spotify Canvas** - Dynamic visual experience for your music
+- 🖼️ **Online Artwork** - Fetch high-quality album art from Deezer
+- 📱 **Telegram Support** - Join our active community
 
 </td>
 </tr>
@@ -111,43 +146,50 @@
 
 ---
 
-## 🚀 Download & Install
+## 🚀 **Download & Install**
 
 <div align="center">
 
 ### 📦 **Get Rhythm Now**
 
-<div style="display: flex; justify-content: center; gap: 16px; margin: 24px 0;">
-
-[![Download APK](https://img.shields.io/github/v/release/cromaguy/Rhythm?style=for-the-badge&logo=github&color=9c27b0)](https://github.com/cromaguy/Rhythm/releases/latest)
+[![Download APK](https://img.shields.io/github/v/release/cromaguy/Rhythm?style=for-the-badge&logo=github&color=9c27b0&label=Download%20APK)](https://github.com/cromaguy/Rhythm/releases/latest)
 [![IzzyOnDroid](https://img.shields.io/endpoint?url=https://apt.izzysoft.de/fdroid/api/v1/shield/chromahub.rhythm.app&style=for-the-badge&logo=f-droid&label=IzzyOnDroid&color=3f51b5)](https://apt.izzysoft.de/fdroid/index/apk/chromahub.rhythm.app)
 
-</div>
-
-**System Requirements:** Android 7.1+ (API 26) • 2GB RAM • 50MB Storage
+**System Requirements:** Android 8.0+ (API 26) • 2GB RAM • 50MB Storage
 
 </div>
+
+---
 
 ### 🛠 **Installation Methods**
 
 <table>
 <tr>
-<td width="50%">
+<td width="50%" valign="top">
 
-#### 📱 **Direct APK**
-1. Visit our [Releases](https://github.com/cromaguy/Rhythm/releases) page
-2. Download the latest APK file
-3. Enable "Install from unknown sources" in settings
-4. Install and enjoy!
+#### 📱 **Direct APK Installation**
+1. 📥 Visit our [Releases](https://github.com/cromaguy/Rhythm/releases) page
+2. 💾 Download the latest `Rhythm-vX.X.X-release.apk` file
+3. ⚙️ Enable "Install from unknown sources" in your device settings
+4. 📲 Open the downloaded APK and install
+5. 🎉 Launch Rhythm and enjoy your music!
+
+> **Note:** The APK is signed with our official keystore for security
 
 </td>
-<td width="50%">
+<td width="50%" valign="top">
 
-#### 🔒 **F-Droid (IzzyOnDroid)**
-1. Add repository: `https://apt.izzysoft.de/fdroid/repo`
-2. Search for "Rhythm Music Player"
-3. Install through your F-Droid client
-4. Automatic updates included!
+#### 🔒 **F-Droid (IzzyOnDroid Repository)**
+1. 📱 Install [F-Droid](https://f-droid.org/) if you haven't already
+2. ➕ Add IzzyOnDroid repository:
+   ```
+   https://apt.izzysoft.de/fdroid/repo
+   ```
+3. 🔍 Search for "Rhythm" in F-Droid
+4. 📥 Install directly from the app
+5. 🔄 Enjoy automatic updates!
+
+> **Recommended for privacy-conscious users**
 
 </td>
 </tr>
@@ -155,168 +197,386 @@
 
 ---
 
-## 🎯 Core Features
-
-### 🎨 **Material You Design**
-Rhythm embraces Google's latest Material You design philosophy, creating a personalized experience that adapts to your unique style and preferences.
-
-- **🌈 Dynamic Colors**: Automatically extracts colors from your wallpaper (Android 12+)
-- **🌙 Adaptive Themes**: Seamlessly switches between light and dark modes
-- **✨ Fluid Animations**: Physics-based spring animations throughout the interface
-- **📱 Responsive Layouts**: Optimized for phones, tablets, and foldable devices
-
-### 🎵 **Professional Audio Engine**
-
-Built on Google's ExoPlayer with Media3 framework for industry-standard audio performance.
-
-- **🎧 Gapless Playback**: Perfect transitions between tracks
-- **🎚️ Audio Focus**: Smart handling of calls, notifications, and other audio
-- **📊 High-Quality Audio**: Full support for FLAC, ALAC, and high-bitrate files
-- **🔊 Volume Control**: System media volume or independent app volume
-
-### 📚 **Intelligent Library Management**
-
-Your music collection, organized and accessible like never before.
-
-- **⚡ Lightning-Fast Indexing**: Advanced metadata extraction from ID3 tags
-- **🔍 Smart Search**: Real-time search with fuzzy matching
-- **📊 Multiple Views**: Grid and list layouts for songs, albums, artists, playlists
-- **🎼 Playlist Power**: Create, edit, reorder with intuitive drag-and-drop
-
-### 🎤 **Synchronized Lyrics**
-
-Experience your music with perfectly timed lyrics that enhance every song.
-
-- **🎵 Real-Time Sync**: Lyrics highlight in perfect time with the music
-- **🌐 LRCLib Integration**: Community-driven lyrics database
-- **💾 Smart Caching**: Offline lyrics for your favorite songs
-- **📱 Beautiful Display**: Elegant typography with smooth scrolling
-
-### 🔄 **Smart Playback**
-
-Advanced playback features that learn and adapt to your listening habits.
-
-- **🎲 Intelligent Shuffle**: Multiple algorithms including true random and artist-aware
-- **🔁 Flexible Repeat**: Track, playlist, or queue repeat modes
-- **📋 Queue Management**: Full control over your listening queue
-- **💾 Resume Anywhere**: Picks up exactly where you left off
-
----
-
-## 🛠 Technology Stack
+## 🛠 **Technology Stack**
 
 <div align="center">
-<table>
-<tr>
-<td align="center" width="25%">
-<img src="https://img.shields.io/badge/Jetpack%20Compose-4285f4?style=for-the-badge&logo=jetpack-compose&logoColor=white"/>
-<br/><sub><b>Modern UI Toolkit</b></sub>
-</td>
-<td align="center" width="25%">
-<img src="https://img.shields.io/badge/Material%203-673ab7?style=for-the-badge&logo=material-design&logoColor=white"/>
-<br/><sub><b>Design System</b></sub>
-</td>
-<td align="center" width="25%">
-<img src="https://img.shields.io/badge/ExoPlayer-ff5722?style=for-the-badge&logo=google&logoColor=white"/>
-<br/><sub><b>Audio Engine</b></sub>
-</td>
-<td align="center" width="25%">
-<img src="https://img.shields.io/badge/Kotlin-7c4dff?style=for-the-badge&logo=kotlin&logoColor=white"/>
-<br/><sub><b>Programming Language</b></sub>
-</td>
-</tr>
-</table>
+
+| **Category** | **Technology** | **Purpose** |
+|:---:|:---:|:---|
+| 🎨 **UI Framework** | **Jetpack Compose** | Modern declarative UI toolkit for Android |
+| 🎭 **Design System** | **Material 3** | Latest Material Design components and theming |
+| 🎵 **Audio Engine** | **Media3 ExoPlayer** | Professional-grade media playback |
+| 💻 **Language** | **Kotlin 100%** | Modern, safe, and concise programming |
+| 🏗️ **Architecture** | **MVVM + Clean** | Separation of concerns and testability |
+| ⚡ **Async** | **Coroutines & Flow** | Reactive and efficient asynchronous programming |
+| 🔄 **State Management** | **StateFlow** | Reactive UI state management |
+| 🧭 **Navigation** | **Navigation Compose** | Type-safe navigation between screens |
+| 🖼️ **Image Loading** | **Coil** | Efficient image loading and caching |
+| 🌐 **Networking** | **Retrofit + OkHttp** | Type-safe HTTP client |
+| 📦 **Serialization** | **Gson** | JSON parsing and serialization |
+| 🎨 **Color Extraction** | **Palette** | Dynamic color extraction from images |
+| 👆 **Permissions** | **Accompanist** | Compose utilities for runtime permissions |
+| 🔧 **Build System** | **Gradle KTS** | Kotlin-based build configuration |
+
 </div>
 
-### 🏗 **Architecture**
-- **MVVM Pattern** with Clean Architecture principles
-- **Coroutines & Flow** for reactive programming
-- **StateFlow** for UI state management
-- **Dependency Injection** with modern patterns
+### 🏗 **Architecture & Design Patterns**
 
-### 🌐 **Integrations**
-- **LRCLib** - Free community lyrics service
-- **Deezer API** - Artist images and album artwork
-- **GitHub API** - Automatic updates and releases
-- **YouTube Music API** - Fallback artwork sources
-- **Spotify Canvas API** - Dynamic canvas experience
+```
+app/
+├── 📱 ui/
+│   ├── screens/          # Composable screens (Home, Player, Library, etc.)
+│   ├── components/       # Reusable UI components
+│   ├── navigation/       # Navigation graph and routes
+│   └── theme/            # Material 3 theming and colors
+├── 🎵 domain/
+│   ├── models/           # Data models (Song, Album, Artist, Playlist)
+│   ├── repository/       # Repository interfaces
+│   └── usecases/         # Business logic use cases
+├── 💾 data/
+│   ├── local/            # Local data sources (MediaStore, Room)
+│   ├── remote/           # Remote data sources (APIs)
+│   └── repository/       # Repository implementations
+├── 🎼 services/
+│   ├── MusicService      # Background music playback service
+│   └── MediaNotification # Media notification handling
+└── 🔧 utils/             # Utility classes and helpers
+```
+
+**Key Patterns:**
+- ✅ **MVVM (Model-View-ViewModel)** - Clear separation of UI and business logic
+- ✅ **Repository Pattern** - Abstract data sources
+- ✅ **Use Case Pattern** - Encapsulate business logic
+- ✅ **Dependency Injection** - Loose coupling and testability
+- ✅ **Observer Pattern** - Reactive data flow with Flow and StateFlow
+- ✅ **State Hoisting** - Compose best practices for state management
+
+### 🌐 **External Integrations**
+
+| **Service** | **Purpose** | **License** |
+|:---|:---|:---:|
+| **LRCLib** | Community-driven synced lyrics database | Free |
+| **Deezer API** | High-quality album artwork and artist images | Free |
+| **Spotify Canvas API** | Dynamic visual experience for tracks | Community |
+| **GitHub API** | Automatic update checking and releases | Free |
+| **YouTube Music API** | Fallback for missing metadata and artwork | Community |
+
 ---
 
 
-## 🤝 Contributing
+## 📦 **Open Source Libraries**
 
-We believe great software is built by great communities. Here's how you can contribute to making Rhythm even better:
+Rhythm is built on the shoulders of giants. We use the following open source libraries:
+
+<details>
+<summary><b>Click to view all dependencies</b></summary>
+
+| **Library** | **Purpose** | **License** |
+|:---|:---|:---:|
+| **[Jetpack Compose](https://developer.android.com/jetpack/compose)** | Modern UI toolkit for Android | Apache 2.0 |
+| **[Material 3](https://m3.material.io/)** | Material Design components | Apache 2.0 |
+| **[Media3 ExoPlayer](https://github.com/androidx/media)** | Media playback library | Apache 2.0 |
+| **[Kotlin Coroutines](https://github.com/Kotlin/kotlinx.coroutines)** | Asynchronous programming | Apache 2.0 |
+| **[Kotlin Flow](https://kotlinlang.org/docs/flow.html)** | Reactive streams | Apache 2.0 |
+| **[AndroidX Navigation](https://developer.android.com/guide/navigation)** | Navigation components | Apache 2.0 |
+| **[Coil](https://coil-kt.github.io/coil/)** | Image loading library | Apache 2.0 |
+| **[Retrofit](https://square.github.io/retrofit/)** | Type-safe HTTP client | Apache 2.0 |
+| **[OkHttp](https://square.github.io/okhttp/)** | HTTP client | Apache 2.0 |
+| **[Gson](https://github.com/google/gson)** | JSON serialization | Apache 2.0 |
+| **[Accompanist Permissions](https://google.github.io/accompanist/permissions/)** | Permission handling | Apache 2.0 |
+| **[AndroidX Palette](https://developer.android.com/jetpack/androidx/releases/palette)** | Color extraction | Apache 2.0 |
+| **[AndroidX Core KTX](https://developer.android.com/kotlin/ktx)** | Kotlin extensions | Apache 2.0 |
+| **[AndroidX Lifecycle](https://developer.android.com/topic/libraries/architecture/lifecycle)** | Lifecycle management | Apache 2.0 |
+| **[Material Icons Extended](https://developer.android.com/jetpack/compose/graphics/images/material)** | Comprehensive icon set | Apache 2.0 |
+
+</details>
+
+**All libraries are licensed under Apache License 2.0**, which permits use, reproduction, and distribution with proper attribution.
+
+### 🙏 **Special Thanks**
+
+We're grateful to:
+- **Google** - Android platform, Jetpack libraries, Material Design
+- **JetBrains** - Kotlin programming language
+- **Square** - Retrofit and OkHttp libraries
+- **Coil** - Excellent image loading solution
+- **Open Source Community** - For continuous inspiration and support
+
+---
+
+## 🤝 **Contributing**
+
+We believe great software is built by great communities! Here's how you can help make Rhythm even better:
 
 ### 🐛 **Report Issues**
-Found a bug? Help us fix it by providing detailed information in our [Issue Tracker](https://github.com/cromaguy/Rhythm/issues).
+
+Found a bug? Help us squash it!
+
+1. 🔍 Check if the issue already exists in our [Issue Tracker](https://github.com/cromaguy/Rhythm/issues)
+2. 📝 Create a new issue with:
+   - Clear title and description
+   - Steps to reproduce
+   - Expected vs actual behavior
+   - Device info (Android version, device model)
+   - Screenshots/logs if applicable
+3. 🏷️ Add appropriate labels
 
 ### 💡 **Suggest Features**
-Have ideas for new features? We'd love to hear them! Check existing suggestions first, then share your thoughts.
+
+Have an idea? We'd love to hear it!
+
+1. 💭 Check existing [Feature Requests](https://github.com/cromaguy/Rhythm/issues?q=is%3Aissue+is%3Aopen+label%3Aenhancement)
+2. 📋 Create a new feature request with:
+   - Clear use case
+   - Expected behavior
+   - Why it would benefit users
+   - Optional: UI mockups or references
+3. 💬 Discuss with the community
 
 ### 👨‍💻 **Code Contributions**
-Ready to contribute code? Here's how to get started:
 
-1. **Fork** the repository to your GitHub account
-2. **Clone** your fork locally
-3. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
-4. **Make** your changes following our coding standards
-5. **Test** thoroughly on different devices
-6. **Commit** with clear, descriptive messages
-7. **Push** to your branch (`git push origin feature/amazing-feature`)
-8. **Open** a Pull Request with a detailed description
+Ready to contribute code? Awesome! Follow these steps:
 
-### 📋 **Development Guidelines**
-- Follow [Kotlin coding conventions](https://kotlinlang.org/docs/coding-conventions.html)
-- Use Jetpack Compose best practices
-- Maintain Material 3 design consistency
-- Write unit tests for new features
-- Update documentation as needed
+```bash
+# 1. Fork the repository
+# Click "Fork" button on GitHub
+
+# 2. Clone your fork
+git clone https://github.com/YOUR_USERNAME/Rhythm.git
+cd Rhythm
+
+# 3. Create a feature branch
+git checkout -b feature/amazing-feature
+
+# 4. Make your changes
+# Follow our coding standards (see below)
+
+# 5. Test your changes
+./gradlew test
+# Test on actual device/emulator
+
+# 6. Commit with clear messages
+git commit -m "feat: add amazing feature"
+# Use conventional commits format
+
+# 7. Push to your fork
+git push origin feature/amazing-feature
+
+# 8. Create a Pull Request
+# Go to GitHub and click "New Pull Request"
+# Provide detailed description of changes
+```
+
+### 📋 **Coding Standards**
+
+- ✅ Follow [Kotlin coding conventions](https://kotlinlang.org/docs/coding-conventions.html)
+- ✅ Use **Jetpack Compose** best practices
+- ✅ Maintain **Material 3** design consistency
+- ✅ Write **clean, readable code** with meaningful names
+- ✅ Add **comments** for complex logic
+- ✅ Write **unit tests** for new features
+- ✅ Update **documentation** as needed
+- ✅ Keep **dependencies** up to date
+- ✅ Use **StateFlow** for reactive state management
+- ✅ Follow **MVVM** architecture pattern
+
+### 🎨 **UI/UX Contributions**
+
+Design skills? Help improve our UI/UX!
+
+- Create mockups for new features
+- Suggest improvements to existing screens
+- Design new icons or assets
+- Improve accessibility features
+- Enhance animations and transitions
+
+### 📝 **Documentation**
+
+Help others understand Rhythm better:
+
+- Improve README documentation
+- Write tutorials or guides
+- Translate to other languages
+- Create video tutorials
+- Document APIs and functions
+
+### 💬 **Community Support**
+
+Help fellow users:
+
+- Answer questions in [Discussions](https://github.com/cromaguy/Rhythm/discussions)
+- Join our [Telegram group](https://t.me/RhythmSupport)
+- Share your experience
+- Help with testing beta releases
 
 ---
 
-## 🏆 Credits & Acknowledgments
-
-<div align="center">
+## 🏆 **Credits & Acknowledgments**
 
 ### 👨‍💻 **Core Team**
 
-**[Anjishnu Nandi](https://github.com/cromaguy)** - *Lead Developer & Project Architect*
-<br/>*Bringing vision to reality with code and design*
+<table>
+<tr>
+<td align="center" width="100%">
+<a href="https://github.com/cromaguy">
+<img src="https://github.com/cromaguy.png" width="100px;" alt="Anjishnu Nandi"/><br />
+<sub><b>Anjishnu Nandi</b></sub>
+</a><br />
+<sub>Lead Developer & Project Architect</sub><br />
+<sub>Core development, UI/UX design, architecture planning</sub>
+</td>
+</tr>
+</table>
 
+### 🌟 **Community Contributors**
 
+We're grateful to these amazing individuals who have contributed to making Rhythm better:
 
-### 🌟 **Special Thanks**
+<table>
+<tr>
+<td align="center" width="20%">
+<a href="https://github.com/IzzySoft">
+<img src="https://github.com/IzzySoft.png" width="80px;" alt="Izzy"/><br />
+<sub><b>Izzy</b></sub>
+</a><br />
+<sub>IzzyOnDroid</sub>
+</td>
+<td align="center" width="20%">
+<a href="https://github.com/mardous">
+<img src="https://github.com/mardous.png" width="80px;" alt="Christian"/><br />
+<sub><b>Christian</b></sub>
+</a><br />
+<sub>Collaboration</sub>
+</td>
+<td align="center" width="20%">
+<a href="https://github.com/Paxsenix0">
+<img src="https://github.com/Paxsenix0.png" width="80px;" alt="Alex"/><br />
+<sub><b>Alex</b></sub>
+</a><br />
+<sub>Canvas API</sub>
+</td>
+<td align="center" width="20%">
+<a href="https://github.com/smas7832">
+<img src="https://github.com/smas7832.png" width="80px;" alt="DJ SMAS"/><br />
+<sub><b>DJ SMAS</b></sub>
+</a><br />
+<sub>UI/UX Feedback</sub>
+</td>
+<td align="center" width="20%">
+<a href="https://github.com/Zaxx69">
+<img src="https://github.com/Zaxx69.png" width="80px;" alt="Zaxx_69"/><br />
+<sub><b>Zaxx_69</b></sub>
+</a><br />
+<sub>Beta Testing</sub>
+</td>
+</tr>
+</table>
 
-**Google Material Design Team** • **Android Open Source Project** • **Jetpack Compose Team** • **Open Source Community**
+### 💖 **Special Thanks**
 
+- **Team ChromaHub** - Passionate developers creating innovative mobile experiences
+- **Google Material Design Team** - For the beautiful Material You design system
+- **Android Open Source Project** - For the amazing Android platform
+- **Jetpack Compose Team** - For revolutionizing Android UI development
+- **Open Source Community** - For continuous inspiration, libraries, and support
+- **All Beta Testers** - For invaluable feedback and bug reports
+- **Our Users** - For choosing Rhythm and making it better with your feedback
 
+---
 
-## 📄 License
-
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for complete details.
+## 📄 **License**
 
 ```
-MIT License - Copyright (c) 2024 Team ChromaHub
+MIT License
+
+Copyright (c) 2024 Team ChromaHub
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```
+
+**TL;DR:** You can freely use, modify, and distribute this software. See [LICENSE](LICENSE) file for complete details.
+
+---
+
+## 🔗 **Links & Resources**
 
 <div align="center">
 
-
-
-# 🎵 Ready to Transform Your Music Experience? 🎵
-
-<div style="margin: 32px 0;">
-
-[![Download Now](https://img.shields.io/badge/📱%20Download%20Now-Get%20Latest%20APK-4caf50?style=for-the-badge&logoColor=white)](https://github.com/cromaguy/Rhythm/releases/latest)
-[![Star on GitHub](https://img.shields.io/badge/⭐%20Star%20on%20GitHub-Show%20Support-ffc107?style=for-the-badge&logoColor=white)](https://github.com/cromaguy/Rhythm)
-[![Join Community](https://img.shields.io/badge/💬%20Join%20Community-Get%20Help-673ab7?style=for-the-badge&logoColor=white)](https://github.com/cromaguy/Rhythm/discussions)
+| Resource | Link |
+|:---|:---:|
+| 🌐 **Official Website** | [rhythmweb.vercel.app](https://rhythmweb.vercel.app/) |
+| 📥 **Latest Release** | [Download APK](https://github.com/cromaguy/Rhythm/releases/latest) |
+| 🐙 **GitHub Repository** | [cromaguy/Rhythm](https://github.com/cromaguy/Rhythm) |
+| 📱 **IzzyOnDroid** | [F-Droid Repo](https://apt.izzysoft.de/fdroid/index/apk/chromahub.rhythm.app) |
+| 💬 **Telegram Support** | [Join Group](https://t.me/RhythmSupport) |
+| 🐛 **Issue Tracker** | [Report Bug](https://github.com/cromaguy/Rhythm/issues) |
+| 💡 **Discussions** | [Community Forum](https://github.com/cromaguy/Rhythm/discussions) |
+| ⭐ **Star on GitHub** | [Show Support](https://github.com/cromaguy/Rhythm/stargazers) |
 
 </div>
 
-<img src="https://img.shields.io/badge/Built%20with%20❤️%20and%20Kotlin-by%20Team%20ChromaHub-ff6f00?style=for-the-badge" alt="Made with Love"/>
+---
 
-<br/><br/>
+## 📊 **Project Stats**
 
-<sub>Crafted with passion by **[Anjishnu Nandi](https://github.com/cromaguy)**</sub>
+<div align="center">
+
+![GitHub all releases](https://img.shields.io/github/downloads/cromaguy/Rhythm/total?style=for-the-badge&logo=download&color=00bcd4)
+![GitHub stars](https://img.shields.io/github/stars/cromaguy/Rhythm?style=for-the-badge&logo=star&color=ffc107)
+![GitHub forks](https://img.shields.io/github/forks/cromaguy/Rhythm?style=for-the-badge&logo=fork&color=4caf50)
+![GitHub issues](https://img.shields.io/github/issues/cromaguy/Rhythm?style=for-the-badge&logo=issue&color=f44336)
+![GitHub pull requests](https://img.shields.io/github/issues-pr/cromaguy/Rhythm?style=for-the-badge&logo=pullrequest&color=673ab7)
+![GitHub last commit](https://img.shields.io/github/last-commit/cromaguy/Rhythm?style=for-the-badge&logo=git&color=ff9800)
+![GitHub repo size](https://img.shields.io/github/repo-size/cromaguy/Rhythm?style=for-the-badge&logo=storage&color=9c27b0)
+![GitHub license](https://img.shields.io/github/license/cromaguy/Rhythm?style=for-the-badge&logo=license&color=ff6f00)
+
+</div>
+
+---
+
+<div align="center">
+
+## 🎵 **Ready to Transform Your Music Experience?** 🎵
+
+<br>
+
+[![Download Now](https://img.shields.io/badge/📱_Download_Now-Get_Latest_APK-4caf50?style=for-the-badge&logoColor=white)](https://github.com/cromaguy/Rhythm/releases/latest)
+[![Visit Website](https://img.shields.io/badge/🌐_Visit_Website-Learn_More-2196f3?style=for-the-badge&logoColor=white)](https://rhythmweb.vercel.app/)
+[![Star on GitHub](https://img.shields.io/badge/⭐_Star_on_GitHub-Show_Support-ffc107?style=for-the-badge&logoColor=white)](https://github.com/cromaguy/Rhythm)
+[![Join Community](https://img.shields.io/badge/💬_Join_Telegram-Get_Help-0088cc?style=for-the-badge&logoColor=white)](https://t.me/RhythmSupport)
+
+<br><br>
+
+### ✨ **Made with ❤️ by Team ChromaHub** ✨
+
+<br>
+
+<img src="https://img.shields.io/badge/Crafted_with_passion_by-Anjishnu_Nandi-ff6f00?style=for-the-badge" alt="Made with Love"/>
+
+<br><br>
+
+---
+
+<sub>⭐ If you like Rhythm, don't forget to star the repository! ⭐</sub>
+
+<br>
+
+<sub>© 2024 Team ChromaHub. All rights reserved. Licensed under MIT License.</sub>
 
 </div>
