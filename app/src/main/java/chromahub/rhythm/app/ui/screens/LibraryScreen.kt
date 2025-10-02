@@ -304,14 +304,14 @@ fun LibraryScreen(
 
     // Handle FAB menu item clicks - close menu after action
     val onCreatePlaylistFromFab: () -> Unit = {
-        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
         showCreatePlaylistDialog = true
         showPlaylistFabMenu = false
     }
 
     val onImportPlaylistFromFab: (() -> Unit)? = if (onImportPlaylist != null) {
         {
-            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
             showImportDialog = true
             showPlaylistFabMenu = false
         }
@@ -319,7 +319,7 @@ fun LibraryScreen(
 
     val onExportPlaylistsFromFab: (() -> Unit)? = if (onExportAllPlaylists != null) {
         {
-            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
             showBulkExportDialog = true
             showPlaylistFabMenu = false
         }
@@ -328,14 +328,14 @@ fun LibraryScreen(
     // Lambda to pass to PlaylistFabMenu for import
     val onImportPlaylistForFab: (() -> Unit)? = if (onImportPlaylist != null) {
         {
-            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
             showImportDialog = true
         }
     } else null
 
     // Lambda to pass to PlaylistFabMenu for manage
     val onManagePlaylists: (() -> Unit) = {
-        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
         showPlaylistManagementSheet = true
     }
 
@@ -520,7 +520,7 @@ fun LibraryScreen(
                     // Refresh button on far left
                     FilledIconButton(
                         onClick = {
-                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                             onRefreshClick()
                         },
                         colors = IconButtonDefaults.filledIconButtonColors(
@@ -569,7 +569,7 @@ fun LibraryScreen(
                             
                             FilledTonalIconButton(
                                 onClick = {
-                                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                                     val newViewType = if (albumViewType == AlbumViewType.LIST) AlbumViewType.GRID else AlbumViewType.LIST
                                     appSettings.setAlbumViewType(newViewType)
                                 },
@@ -607,7 +607,7 @@ fun LibraryScreen(
                             
                             FilledTonalIconButton(
                                 onClick = {
-                                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                                     val newViewType = if (artistViewType == ArtistViewType.LIST) ArtistViewType.GRID else ArtistViewType.LIST
                                     appSettings.setArtistViewType(newViewType)
                                 },
@@ -656,7 +656,7 @@ fun LibraryScreen(
                         
                         FilledTonalButton(
                             onClick = {
-                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                                 showSortMenu = true
                             },
                             colors = ButtonDefaults.filledTonalButtonColors(
@@ -775,7 +775,7 @@ fun LibraryScreen(
                                             }
                                         },
                                         onClick = {
-                                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                                             pendingSortOrder = order
                                             showSortMenu = false
                                             // Set the specific sort order instead of cycling
@@ -1120,6 +1120,7 @@ fun LibraryScreen(
             },
             confirmButton = {
                 Button(onClick = {
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                     showImportResultDialog = false
                     importResult = null
                     AppRestarter.restartApp(context)
@@ -1128,7 +1129,11 @@ fun LibraryScreen(
                 }
             },
             dismissButton = {
-                Button(onClick = { showImportResultDialog = false; importResult = null }) {
+                Button(onClick = {
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                    showImportResultDialog = false
+                    importResult = null
+                }) {
                     Text("Later")
                 }
             }
@@ -2221,6 +2226,7 @@ fun AlbumsTab(
                     // View type toggle button
                     FilledIconButton(
                         onClick = {
+                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                             val newViewType = if (albumViewType == AlbumViewType.LIST) AlbumViewType.GRID else AlbumViewType.LIST
                             appSettings.setAlbumViewType(newViewType)
                         },
@@ -2365,7 +2371,7 @@ fun LibrarySongItem(
             Row {
                 FilledIconButton(
                     onClick = {
-                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                         onAddToQueue()
                     },
                     modifier = Modifier.size(36.dp),
@@ -2404,7 +2410,7 @@ fun LibrarySongItem(
                 DropdownMenu(
                     expanded = showDropdown,
                     onDismissRequest = {
-                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                         showDropdown = false
                     },
                     modifier = Modifier
@@ -2816,7 +2822,7 @@ fun LibraryAlbumItem(
             // Enhanced play button
             FilledIconButton(
                 onClick = {
-                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                     onPlayClick()
                 },
                 colors = IconButtonDefaults.filledIconButtonColors(
@@ -3109,7 +3115,7 @@ fun AlbumGridItem(
             ) {
                 FilledIconButton(
                     onClick = {
-                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                         onPlayClick()
                     },
                     colors = IconButtonDefaults.filledIconButtonColors(
@@ -3195,11 +3201,11 @@ fun SingleCardArtistsContent(
                         ArtistGridCard(
                             artist = artist,
                             onClick = {
-                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                                 onArtistClick(artist)
                             },
                             onPlayClick = {
-                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                                 viewModel.playArtist(artist)
                             }
                         )
@@ -3240,11 +3246,11 @@ fun SingleCardArtistsContent(
                         ArtistListCard(
                             artist = artist,
                             onClick = {
-                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                                 onArtistClick(artist)
                             },
                             onPlayClick = {
-                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                                 viewModel.playArtist(artist)
                             }
                         )
@@ -3281,7 +3287,7 @@ fun SingleCardArtistsContent(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                                 currentSortOption = sortOption
                                 showSortOptions = false
                             }
@@ -3922,7 +3928,7 @@ fun SingleCardExplorerContent(
     // Handle back gesture to go level up
     if (currentPath != null) {
         BackHandler {
-            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
             currentPath = getParentPath(currentPath!!)
         }
     }
@@ -4045,7 +4051,7 @@ fun SingleCardExplorerContent(
                         if (currentPath != null) {
                             Surface(
                                 onClick = {
-                                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                                     currentPath = getParentPath(currentPath!!)
                                 },
                                 shape = CircleShape,
@@ -4070,11 +4076,11 @@ fun SingleCardExplorerContent(
                         ExplorerBreadcrumb(
                             path = currentPath!!,
                             onNavigateTo = { newPath ->
-                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                                 currentPath = newPath
                             },
                             onGoHome = {
-                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                                 currentPath = null
                             },
                             scrollState = breadcrumbScrollState
@@ -4162,7 +4168,7 @@ fun SingleCardExplorerContent(
                             ExplorerItemCard(
                                 item = item,
                                 onItemClick = {
-                                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                                     currentPath = item.path
                                 },
                                 onSongClick = onSongClick,
@@ -4248,7 +4254,7 @@ fun SingleCardExplorerContent(
                                 ExplorerItemCard(
                                     item = item,
                                     onItemClick = {
-                                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                                         currentPath = item.path
                                     },
                                     onSongClick = onSongClick,
@@ -4276,7 +4282,7 @@ fun SingleCardExplorerContent(
                             ExplorerItemCard(
                                 item = item,
                                 onItemClick = {
-                                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
 
                                     when (item.type) {
                                         ExplorerItemType.STORAGE, ExplorerItemType.FOLDER -> {
@@ -4394,7 +4400,7 @@ fun SingleCardExplorerContent(
                                     // Refresh button
                                     // FilledTonalButton(
                                     //     onClick = {
-                                    //         HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                    //         HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                                     //         // Clear cache and reload directory
                                     //         directoryCache.clear()
                                     //         // Trigger reload by setting path to itself
@@ -4447,7 +4453,7 @@ fun SingleCardExplorerContent(
                                     if (currentPath != null) {
                                         OutlinedButton(
                                             onClick = {
-                                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                                                 currentPath = getParentPath(currentPath!!)
                                             },
                                             shape = RoundedCornerShape(12.dp),
@@ -4918,7 +4924,7 @@ private fun PlaylistFabMenuContent(
         if (onExportPlaylists != null) {
             FloatingActionButton(
                 onClick = {
-                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                     scope.launch {
                         onExportPlaylists()
                     }
@@ -4939,7 +4945,7 @@ private fun PlaylistFabMenuContent(
         if (onImportPlaylist != null) {
             FloatingActionButton(
                 onClick = {
-                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                     scope.launch {
                         onImportPlaylist()
                     }
@@ -4959,7 +4965,7 @@ private fun PlaylistFabMenuContent(
         // Create playlist item (always shown)
         FloatingActionButton(
             onClick = {
-                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                 scope.launch {
                     onCreatePlaylist()
                 }
@@ -5028,6 +5034,7 @@ private fun PlaylistFabMenu(
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 onClick = {
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                     scope.launch {
                         onExportPlaylists?.invoke()
                         isExpanded = false
@@ -5062,6 +5069,7 @@ private fun PlaylistFabMenu(
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 onClick = {
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                     scope.launch {
                         onImportPlaylist?.invoke()
                         isExpanded = false
@@ -5096,6 +5104,7 @@ private fun PlaylistFabMenu(
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 onClick = {
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                     scope.launch {
                         onCreatePlaylist()
                         isExpanded = false
@@ -5119,7 +5128,7 @@ private fun PlaylistFabMenu(
 
         FloatingActionButton(
             onClick = {
-                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                 isExpanded = !isExpanded
             },
             containerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -5183,7 +5192,7 @@ fun ExplorerBreadcrumb(
 
             Surface(
                 onClick = {
-                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                     onGoHome()
                 },
                 shape = RoundedCornerShape(16.dp),
@@ -5247,7 +5256,7 @@ fun ExplorerBreadcrumb(
 
                 Surface(
                     onClick = {
-                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                         onNavigateTo(currentPath)
                     },
                     shape = RoundedCornerShape(18.dp),
@@ -5334,7 +5343,7 @@ fun ExplorerItemCard(
         ExplorerItemType.STORAGE -> {
             Card(
                 onClick = {
-                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                     onItemClick()
                 },
                 modifier = modifier
@@ -5418,7 +5427,7 @@ fun ExplorerItemCard(
         ExplorerItemType.FOLDER -> {
             Card(
                 onClick = {
-                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                     onItemClick()
                 },
                 modifier = modifier
@@ -5513,7 +5522,7 @@ fun ExplorerItemCard(
                     if (onPinToggle != null) {
                         FilledTonalIconButton(
                             onClick = {
-                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                                 onPinToggle()
                             },
                             modifier = Modifier.size(32.dp), // Smaller button
@@ -5613,7 +5622,7 @@ private fun FabMenuItem(
 
     Card(
         onClick = {
-            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
             isPressed = true
             onClick()
             // Reset pressed state after animation
