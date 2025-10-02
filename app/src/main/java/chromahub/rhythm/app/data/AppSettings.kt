@@ -61,6 +61,7 @@ class AppSettings private constructor(context: Context) {
         private const val KEY_ARTIST_VIEW_TYPE = "artist_view_type"
         private const val KEY_ALBUM_SORT_ORDER = "album_sort_order"
         private const val KEY_ARTIST_COLLABORATION_MODE = "artist_collaboration_mode"
+        private const val KEY_LIBRARY_TAB_ORDER = "library_tab_order"
         
         // Audio Device Settings
         private const val KEY_LAST_AUDIO_DEVICE = "last_audio_device"
@@ -232,6 +233,17 @@ class AppSettings private constructor(context: Context) {
     // Artist Collaboration Mode
     private val _artistCollaborationMode = MutableStateFlow(prefs.getBoolean(KEY_ARTIST_COLLABORATION_MODE, false))
     val artistCollaborationMode: StateFlow<Boolean> = _artistCollaborationMode.asStateFlow()
+    
+    // Library Tab Order
+    private val defaultTabOrder = listOf("SONGS", "PLAYLISTS", "ALBUMS", "ARTISTS", "EXPLORER")
+    private val _libraryTabOrder = MutableStateFlow(
+        prefs.getString(KEY_LIBRARY_TAB_ORDER, null)
+            ?.split(",")
+            ?.filter { it.isNotBlank() }
+            ?.takeIf { it.isNotEmpty() }
+            ?: defaultTabOrder
+    )
+    val libraryTabOrder: StateFlow<List<String>> = _libraryTabOrder.asStateFlow()
     
     // Audio Device Settings
     private val _lastAudioDevice = MutableStateFlow(prefs.getString(KEY_LAST_AUDIO_DEVICE, null))
@@ -664,6 +676,17 @@ class AppSettings private constructor(context: Context) {
     fun setArtistCollaborationMode(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_ARTIST_COLLABORATION_MODE, enabled).apply()
         _artistCollaborationMode.value = enabled
+    }
+    
+    fun setLibraryTabOrder(tabOrder: List<String>) {
+        val orderString = tabOrder.joinToString(",")
+        prefs.edit().putString(KEY_LIBRARY_TAB_ORDER, orderString).apply()
+        _libraryTabOrder.value = tabOrder
+    }
+    
+    fun resetLibraryTabOrder() {
+        prefs.edit().remove(KEY_LIBRARY_TAB_ORDER).apply()
+        _libraryTabOrder.value = defaultTabOrder
     }
     
     // Audio Device Settings Methods
