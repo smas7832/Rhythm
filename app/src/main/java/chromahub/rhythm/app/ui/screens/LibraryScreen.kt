@@ -149,6 +149,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.AwaitPointerEventScope
 import chromahub.rhythm.app.data.Album
 import chromahub.rhythm.app.data.Artist
 import chromahub.rhythm.app.data.Playlist
@@ -165,6 +168,7 @@ import chromahub.rhythm.app.ui.components.PlaylistImportDialog
 import chromahub.rhythm.app.ui.components.PlaylistOperationProgressDialog
 import chromahub.rhythm.app.ui.components.PlaylistOperationResultDialog
 import chromahub.rhythm.app.ui.screens.SongInfoBottomSheet
+import chromahub.rhythm.app.ui.screens.PlaylistManagementBottomSheet
 import chromahub.rhythm.app.util.ImageUtils
 import chromahub.rhythm.app.util.M3ImageUtils
 import chromahub.rhythm.app.util.HapticUtils
@@ -289,6 +293,38 @@ fun LibraryScreen(
         }
     }
 
+    // FAB menu state
+    var showPlaylistFabMenu by remember { mutableStateOf(false) }
+    var showPlaylistManagementSheet by remember { mutableStateOf(false) }
+
+    // Function to close FAB menu from other places
+    val closeFabMenu = {
+        showPlaylistFabMenu = false
+    }
+
+    // Handle FAB menu item clicks - close menu after action
+    val onCreatePlaylistFromFab: () -> Unit = {
+        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+        showCreatePlaylistDialog = true
+        showPlaylistFabMenu = false
+    }
+
+    val onImportPlaylistFromFab: (() -> Unit)? = if (onImportPlaylist != null) {
+        {
+            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+            showImportDialog = true
+            showPlaylistFabMenu = false
+        }
+    } else null
+
+    val onExportPlaylistsFromFab: (() -> Unit)? = if (onExportAllPlaylists != null) {
+        {
+            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+            showBulkExportDialog = true
+            showPlaylistFabMenu = false
+        }
+    } else null
+
     // Lambda to pass to PlaylistFabMenu for import
     val onImportPlaylistForFab: (() -> Unit)? = if (onImportPlaylist != null) {
         {
@@ -296,6 +332,12 @@ fun LibraryScreen(
             showImportDialog = true
         }
     } else null
+
+    // Lambda to pass to PlaylistFabMenu for manage
+    val onManagePlaylists: (() -> Unit) = {
+        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+        showPlaylistManagementSheet = true
+    }
 
     // Sync tabs with pager - only animate when tab button is clicked
     LaunchedEffect(selectedTabIndex) {
@@ -454,6 +496,19 @@ fun LibraryScreen(
             onPlayerClick = onPlayerClick,
             sheetState = artistBottomSheetState,
             haptics = haptics
+        )
+    }
+
+    // Playlist Management bottom sheet
+    if (showPlaylistManagementSheet) {
+        PlaylistManagementBottomSheet(
+            onDismiss = { showPlaylistManagementSheet = false },
+            playlists = playlists,
+            musicViewModel = musicViewModel,
+            onCreatePlaylist = { showCreatePlaylistDialog = true },
+            onDeletePlaylist = { playlist ->
+//                musicViewModel.deletePlaylist(playlist)
+            }
         )
     }
 
@@ -750,7 +805,19 @@ fun LibraryScreen(
             )
         },
         bottomBar = {},
-        floatingActionButton = { }
+        floatingActionButton = {
+            // Only show FAB on playlists tab
+            if (tabOrder.getOrNull(selectedTabIndex) == "PLAYLISTS") {
+                PlaylistFabMenu(
+                    expanded = showPlaylistFabMenu,
+                    onCreatePlaylist = onCreatePlaylistFromFab,
+                    onImportPlaylist = onImportPlaylistFromFab,
+                onExportPlaylists = onExportPlaylistsFromFab,
+//                    onManagePlaylists = onManagePlaylists
+                    haptics = haptics // Pass haptics to PlaylistFabMenu
+                )
+            }
+        }
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -4835,6 +4902,7 @@ private fun PlaylistFabMenuContent(
     onCreatePlaylist: () -> Unit,
     onImportPlaylist: (() -> Unit)?,
     onExportPlaylists: (() -> Unit)?,
+    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback // Added haptics parameter
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -4850,7 +4918,7 @@ private fun PlaylistFabMenuContent(
         if (onExportPlaylists != null) {
             FloatingActionButton(
                 onClick = {
-//                    HapticUtils.performHapticFeedback(context, LocalHapticFeedback.current, HapticFeedbackType.TextHandleMove)
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                     scope.launch {
                         onExportPlaylists()
                     }
@@ -4871,7 +4939,7 @@ private fun PlaylistFabMenuContent(
         if (onImportPlaylist != null) {
             FloatingActionButton(
                 onClick = {
-//                    HapticUtils.performHapticFeedback(context, LocalHapticFeedback.current, HapticFeedbackType.TextHandleMove)
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                     scope.launch {
                         onImportPlaylist()
                     }
@@ -4891,7 +4959,7 @@ private fun PlaylistFabMenuContent(
         // Create playlist item (always shown)
         FloatingActionButton(
             onClick = {
-//                HapticUtils.performHapticFeedback(context, LocalHapticFeedback.current, HapticFeedbackType.TextHandleMove)
+                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                 scope.launch {
                     onCreatePlaylist()
                 }
@@ -4915,7 +4983,8 @@ private fun PlaylistFabMenu(
     onCreatePlaylist: () -> Unit,
     onImportPlaylist: (() -> Unit)?,
     onExportPlaylists: (() -> Unit)?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback // Added haptics parameter
 ) {
     val context = LocalContext.current
     var isExpanded by remember { mutableStateOf(false) }
@@ -4936,6 +5005,8 @@ private fun PlaylistFabMenu(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.BottomEnd
     ) {
+        val miniPlayerPadding = LocalMiniPlayerPadding.current
+
         // FAB Menu Items
         AnimatedVisibility(
             visible = isExpanded && onExportPlaylists != null,
@@ -4954,8 +5025,8 @@ private fun PlaylistFabMenu(
                 label = "Export playlists",
                 icon = Icons.Default.FileUpload,
                 contentDescription = "Export playlists",
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
                 onClick = {
                     scope.launch {
                         onExportPlaylists?.invoke()
@@ -4963,7 +5034,11 @@ private fun PlaylistFabMenu(
                     }
                 },
                 animationDelay = 0,
-                modifier = Modifier.padding(bottom = 160.dp, end = 16.dp)
+                haptics = haptics, // Pass haptics
+                modifier = Modifier.padding(
+                    bottom = miniPlayerPadding.calculateBottomPadding() + 160.dp,
+                    end = 16.dp
+                )
             )
         }
 
@@ -4984,8 +5059,8 @@ private fun PlaylistFabMenu(
                 label = "Import playlist",
                 icon = RhythmIcons.Actions.Download,
                 contentDescription = "Import playlist",
-                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
                 onClick = {
                     scope.launch {
                         onImportPlaylist?.invoke()
@@ -4993,7 +5068,11 @@ private fun PlaylistFabMenu(
                     }
                 },
                 animationDelay = 50,
-                modifier = Modifier.padding(bottom = 100.dp, end = 16.dp)
+                haptics = haptics, // Pass haptics
+                modifier = Modifier.padding(
+                    bottom = miniPlayerPadding.calculateBottomPadding() + 100.dp,
+                    end = 16.dp
+                )
             )
         }
 
@@ -5014,8 +5093,8 @@ private fun PlaylistFabMenu(
                 label = "New playlist",
                 icon = RhythmIcons.Add,
                 contentDescription = "Create new playlist",
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
                 onClick = {
                     scope.launch {
                         onCreatePlaylist()
@@ -5023,24 +5102,35 @@ private fun PlaylistFabMenu(
                     }
                 },
                 animationDelay = 100,
-                modifier = Modifier.padding(bottom = 40.dp, end = 16.dp)
+                haptics = haptics, // Pass haptics
+                modifier = Modifier.padding(
+                    bottom = miniPlayerPadding.calculateBottomPadding() + 40.dp,
+                    end = 16.dp
+                )
             )
         }
 
-        // Main FAB
+        // Main FAB with simple rotation animation
+        val fabRotation by animateFloatAsState(
+            targetValue = if (isExpanded) 180f else 0f,
+            animationSpec = tween(durationMillis = 300),
+            label = "fabRotation"
+        )
+
         FloatingActionButton(
             onClick = {
-//                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                 isExpanded = !isExpanded
             },
             containerColor = MaterialTheme.colorScheme.primaryContainer,
             contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            elevation = FloatingActionButtonDefaults.elevation(
+                defaultElevation = 6.dp,
+                pressedElevation = 12.dp
+            ),
             modifier = Modifier
-                .padding(bottom = miniPlayerPadding.calculateBottomPadding() + 16.dp, end = 16.dp)
-                .graphicsLayer {
-                    scaleX = fabScale
-                    scaleY = fabScale
-                }
+                .padding(bottom = (LocalMiniPlayerPadding.current.calculateBottomPadding() * 0.5f) + 8.dp)
+                .size(56.dp)
         ) {
             Icon(
                 imageVector = if (isExpanded) Icons.Default.Close else RhythmIcons.Add,
@@ -5048,7 +5138,7 @@ private fun PlaylistFabMenu(
                 modifier = Modifier
                     .size(24.dp)
                     .graphicsLayer {
-                        rotationZ = if (isExpanded) 45f else 0f
+                        rotationZ = fabRotation
                     }
             )
         }
@@ -5484,81 +5574,95 @@ private fun FabMenuItem(
     label: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     contentDescription: String,
-    containerColor: Color,
-    contentColor: Color,
+    containerColor: Color, // Added containerColor
+    contentColor: Color,   // Added contentColor
     onClick: () -> Unit,
     animationDelay: Int = 0,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback // Added haptics parameter
 ) {
-    // Animated scale and alpha for staggered entrance
-    val animatedScale by animateFloatAsState(
+    val context = LocalContext.current
+    var isPressed by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope() // Define scope here
+
+    // Tap animation state
+    val pressedScale by animateFloatAsState(
+        targetValue = if (isPressed) 0.95f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioHighBouncy, stiffness = Spring.StiffnessHigh),
+        label = "pressedScale_$label"
+    )
+
+    // Staggered entrance animation
+    val entranceScale by animateFloatAsState(
         targetValue = 1f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessMedium
         ),
-        label = "menuItemScale_$label"
+        label = "entranceScale_$label"
     )
-    
-    val animatedAlpha by animateFloatAsState(
+
+    val entranceAlpha by animateFloatAsState(
         targetValue = 1f,
         animationSpec = tween(
             durationMillis = 300,
             delayMillis = animationDelay
         ),
-        label = "menuItemAlpha_$label"
+        label = "entranceAlpha_$label"
     )
 
-    Row(
+    Card(
+        onClick = {
+            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+            isPressed = true
+            onClick()
+            // Reset pressed state after animation
+            scope.launch { // Use the local scope
+                kotlinx.coroutines.delay(100)
+                isPressed = false
+            }
+        },
+        shape = RoundedCornerShape(50.dp), // Pill shape
+        colors = CardDefaults.cardColors( // Use CardDefaults.cardColors
+            containerColor = containerColor,
+            contentColor = contentColor
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 4.dp,
+            pressedElevation = 8.dp
+        ),
         modifier = modifier
             .graphicsLayer {
-                scaleX = animatedScale
-                scaleY = animatedScale
-                alpha = animatedAlpha
-            },
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // Enhanced label with elevation and modern styling
-        androidx.compose.animation.AnimatedVisibility(
-            visible = true,
-            enter = slideInHorizontally(
-                initialOffsetX = { it / 2 },
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessMedium
-                )
-            ) + fadeIn(animationSpec = tween(300, delayMillis = animationDelay))
-        ) {
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                shape = RoundedCornerShape(16.dp),
-                shadowElevation = 4.dp,
-                tonalElevation = 3.dp,
-                modifier = Modifier
-                    .padding(end = 4.dp)
-            ) {
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                    fontWeight = FontWeight.SemiBold
+                scaleX = entranceScale * pressedScale
+                scaleY = entranceScale * pressedScale
+                alpha = entranceAlpha
+            }
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onPress = {
+                        isPressed = true
+                        awaitRelease()
+                        isPressed = false
+                    }
                 )
             }
-        }
-
-        // Enhanced mini-FAB with better sizing
-        SmallFloatingActionButton(
-            onClick = onClick,
-            containerColor = containerColor,
-            contentColor = contentColor,
-            modifier = Modifier.size(56.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 20.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = contentDescription,
                 modifier = Modifier.size(24.dp)
+            )
+
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold
             )
         }
     }
