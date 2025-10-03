@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+import chromahub.rhythm.app.utils.FontLoader
 
 private val DarkColorScheme = darkColorScheme(
     primary = PrimaryDark,
@@ -1026,6 +1027,131 @@ fun getCustomColorScheme(schemeName: String, darkTheme: Boolean): androidx.compo
     }
 }
 
+/**
+ * Create a color scheme from extracted album art colors
+ */
+fun getAlbumArtColorScheme(colorsJson: String, darkTheme: Boolean): androidx.compose.material3.ColorScheme {
+    val extractedColors = chromahub.rhythm.app.util.ColorExtractor.jsonToColors(colorsJson)
+    
+    // Fallback to default if parsing fails
+    if (extractedColors == null) {
+        return if (darkTheme) DarkColorScheme else LightColorScheme
+    }
+    
+    // The extracted colors already contain proper Material 3 color roles
+    // We just need to convert them to Compose Color and adjust for dark/light theme
+    
+    return if (darkTheme) {
+        // For dark theme, we need to invert/adjust the extracted light theme colors
+        val primary = Color(extractedColors.primary)
+        val secondary = Color(extractedColors.secondary)
+        val tertiary = Color(extractedColors.tertiary)
+        
+        darkColorScheme(
+            primary = primary, // Use full color for dark theme
+            onPrimary = Color(extractedColors.onPrimary),
+            // Create darker container colors for dark theme
+            primaryContainer = primary.copy(alpha = 1f).let { 
+                Color(android.graphics.Color.HSVToColor(FloatArray(3).apply {
+                    android.graphics.Color.colorToHSV(it.toArgb(), this)
+                    this[2] *= 0.4f // Darken to 40% brightness
+                }))
+            },
+            onPrimaryContainer = Color(extractedColors.onPrimary),
+            
+            secondary = secondary,
+            onSecondary = Color(extractedColors.onSecondary),
+            secondaryContainer = secondary.copy(alpha = 1f).let {
+                Color(android.graphics.Color.HSVToColor(FloatArray(3).apply {
+                    android.graphics.Color.colorToHSV(it.toArgb(), this)
+                    this[2] *= 0.4f
+                }))
+            },
+            onSecondaryContainer = Color(extractedColors.onSecondary),
+            
+            tertiary = tertiary,
+            onTertiary = Color(extractedColors.onTertiary),
+            tertiaryContainer = tertiary.copy(alpha = 1f).let {
+                Color(android.graphics.Color.HSVToColor(FloatArray(3).apply {
+                    android.graphics.Color.colorToHSV(it.toArgb(), this)
+                    this[2] *= 0.4f
+                }))
+            },
+            onTertiaryContainer = Color(extractedColors.onTertiary),
+            
+            // Use app's standard dark background and surfaces for consistency
+            background = BackgroundDark,
+            onBackground = OnBackgroundDark,
+            surface = SurfaceDark,
+            onSurface = OnSurfaceDark,
+            surfaceVariant = SurfaceVariantDark,
+            onSurfaceVariant = OnSurfaceVariantDark,
+            surfaceContainerLowest = SurfaceContainerLowestDark,
+            surfaceContainerLow = SurfaceContainerLowDark,
+            surfaceContainer = SurfaceContainerDark,
+            surfaceContainerHigh = SurfaceContainerHighDark,
+            surfaceContainerHighest = SurfaceContainerHighestDark,
+            
+            error = ErrorDark,
+            onError = OnErrorDark,
+            errorContainer = ErrorContainerDark,
+            onErrorContainer = OnErrorContainerDark,
+            
+            outline = OutlineDark,
+            outlineVariant = OutlineVariantDark,
+            scrim = Color.Black,
+            inverseSurface = InverseSurfaceDark,
+            inverseOnSurface = InverseOnSurfaceDark,
+            inversePrimary = InversePrimaryDark
+        )
+    } else {
+        // For light theme, use extracted colors directly
+        lightColorScheme(
+            primary = Color(extractedColors.primary),
+            onPrimary = Color(extractedColors.onPrimary),
+            primaryContainer = Color(extractedColors.primaryContainer),
+            onPrimaryContainer = Color(extractedColors.onPrimaryContainer),
+            
+            secondary = Color(extractedColors.secondary),
+            onSecondary = Color(extractedColors.onSecondary),
+            secondaryContainer = Color(extractedColors.secondaryContainer),
+            onSecondaryContainer = Color(extractedColors.onSecondaryContainer),
+            
+            tertiary = Color(extractedColors.tertiary),
+            onTertiary = Color(extractedColors.onTertiary),
+            tertiaryContainer = Color(extractedColors.tertiaryContainer),
+            onTertiaryContainer = Color(extractedColors.onTertiaryContainer),
+            
+            // Use extracted surface colors for light theme
+            surface = Color(extractedColors.surface),
+            onSurface = Color(extractedColors.onSurface),
+            surfaceVariant = Color(extractedColors.surfaceVariant),
+            onSurfaceVariant = Color(extractedColors.onSurfaceVariant),
+            background = Color(extractedColors.surface).copy(alpha = 0.98f),
+            onBackground = Color(extractedColors.onSurface),
+            
+            // Use app's standard surface containers for consistency
+            surfaceContainerLowest = SurfaceContainerLowestLight,
+            surfaceContainerLow = SurfaceContainerLowLight,
+            surfaceContainer = SurfaceContainerLight,
+            surfaceContainerHigh = SurfaceContainerHighLight,
+            surfaceContainerHighest = SurfaceContainerHighestLight,
+            
+            error = ErrorLight,
+            onError = OnErrorLight,
+            errorContainer = ErrorContainerLight,
+            onErrorContainer = OnErrorContainerLight,
+            
+            outline = OutlineLight,
+            outlineVariant = OutlineVariantLight,
+            scrim = Color.Black,
+            inverseSurface = InverseSurfaceLight,
+            inverseOnSurface = InverseOnSurfaceLight,
+            inversePrimary = InversePrimaryLight
+        )
+    }
+}
+
 @Composable
 fun RhythmTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -1033,19 +1159,47 @@ fun RhythmTheme(
     dynamicColor: Boolean = false, // Set to false to use our expressive theme
     customColorScheme: String = "Default",
     customFont: String = "System",
+    fontSource: String = "SYSTEM",
+    customFontPath: String? = null,
+    colorSource: String = "CUSTOM",
+    extractedAlbumColorsJson: String? = null,
     content: @Composable () -> Unit
 ) {
+    val context = LocalContext.current
+    
     val colorScheme = when {
+        // Album art colors take highest priority when available
+        colorSource == "ALBUM_ART" && extractedAlbumColorsJson != null -> {
+            getAlbumArtColorScheme(extractedAlbumColorsJson, darkTheme)
+        }
+        // Dynamic Material You colors
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
+        // Custom preset color schemes
         customColorScheme != "Default" -> getCustomColorScheme(customColorScheme, darkTheme)
+        // Default Rhythm color scheme
         darkTheme -> DarkColorScheme
         else -> LightColorScheme
     }
     
-    val typography = getTypographyForFont(customFont)
+    // Load typography based on font source
+    val typography = when (fontSource) {
+        "CUSTOM" -> {
+            // Try to load custom font
+            val customFontFamily = FontLoader.loadCustomFont(context, customFontPath)
+            if (customFontFamily != null) {
+                getTypographyWithCustomFont(customFontFamily)
+            } else {
+                // Fall back to system font if custom font fails to load
+                getTypographyForFont(customFont)
+            }
+        }
+        else -> {
+            // Use system fonts
+            getTypographyForFont(customFont)
+        }
+    }
     
     val view = LocalView.current
     if (!view.isInEditMode) {

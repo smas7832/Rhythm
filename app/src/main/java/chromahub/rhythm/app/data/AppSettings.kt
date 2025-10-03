@@ -57,6 +57,11 @@ class AppSettings private constructor(context: Context) {
         private const val KEY_USE_DYNAMIC_COLORS = "use_dynamic_colors"
         private const val KEY_CUSTOM_COLOR_SCHEME = "custom_color_scheme"
         private const val KEY_CUSTOM_FONT = "custom_font"
+        private const val KEY_COLOR_SOURCE = "color_source" // ALBUM_ART, MONET, or CUSTOM
+        private const val KEY_EXTRACTED_ALBUM_COLORS = "extracted_album_colors" // JSON string with color values
+        private const val KEY_FONT_SOURCE = "font_source" // SYSTEM or CUSTOM
+        private const val KEY_CUSTOM_FONT_PATH = "custom_font_path" // Path to imported font file
+        private const val KEY_CUSTOM_FONT_FAMILY = "custom_font_family" // Display name of custom font
         
         // Library Settings
         private const val KEY_ALBUM_VIEW_TYPE = "album_view_type"
@@ -222,6 +227,21 @@ class AppSettings private constructor(context: Context) {
     
     private val _customFont = MutableStateFlow(prefs.getString(KEY_CUSTOM_FONT, "System") ?: "System")
     val customFont: StateFlow<String> = _customFont.asStateFlow()
+    
+    private val _colorSource = MutableStateFlow(prefs.getString(KEY_COLOR_SOURCE, "CUSTOM") ?: "CUSTOM")
+    val colorSource: StateFlow<String> = _colorSource.asStateFlow()
+    
+    private val _extractedAlbumColors = MutableStateFlow(prefs.getString(KEY_EXTRACTED_ALBUM_COLORS, null))
+    val extractedAlbumColors: StateFlow<String?> = _extractedAlbumColors.asStateFlow()
+    
+    private val _fontSource = MutableStateFlow(prefs.getString(KEY_FONT_SOURCE, "SYSTEM") ?: "SYSTEM")
+    val fontSource: StateFlow<String> = _fontSource.asStateFlow()
+    
+    private val _customFontPath = MutableStateFlow(prefs.getString(KEY_CUSTOM_FONT_PATH, null))
+    val customFontPath: StateFlow<String?> = _customFontPath.asStateFlow()
+    
+    private val _customFontFamily = MutableStateFlow(prefs.getString(KEY_CUSTOM_FONT_FAMILY, "System") ?: "System")
+    val customFontFamily: StateFlow<String> = _customFontFamily.asStateFlow()
     
     // Library Settings
     private val _albumViewType = MutableStateFlow(
@@ -673,6 +693,31 @@ class AppSettings private constructor(context: Context) {
     fun setCustomFont(font: String) {
         prefs.edit().putString(KEY_CUSTOM_FONT, font).apply()
         _customFont.value = font
+    }
+    
+    fun setColorSource(source: String) {
+        prefs.edit().putString(KEY_COLOR_SOURCE, source).apply()
+        _colorSource.value = source
+    }
+    
+    fun setExtractedAlbumColors(colorsJson: String?) {
+        prefs.edit().putString(KEY_EXTRACTED_ALBUM_COLORS, colorsJson).apply()
+        _extractedAlbumColors.value = colorsJson
+    }
+    
+    fun setFontSource(source: String) {
+        prefs.edit().putString(KEY_FONT_SOURCE, source).apply()
+        _fontSource.value = source
+    }
+    
+    fun setCustomFontPath(path: String?) {
+        prefs.edit().putString(KEY_CUSTOM_FONT_PATH, path).apply()
+        _customFontPath.value = path
+    }
+    
+    fun setCustomFontFamily(family: String) {
+        prefs.edit().putString(KEY_CUSTOM_FONT_FAMILY, family).apply()
+        _customFontFamily.value = family
     }
     
     // Library Settings Methods

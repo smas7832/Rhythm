@@ -1,6 +1,10 @@
 @file:OptIn(ExperimentalMaterial3Api::class)
 package chromahub.rhythm.app.ui.screens
 
+import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Spring
@@ -48,12 +52,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import chromahub.rhythm.app.utils.FontLoader
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.content.Context
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import chromahub.rhythm.app.data.AppSettings
 import chromahub.rhythm.app.ui.theme.getFontPreviewStyle
+import chromahub.rhythm.app.ui.theme.getCustomFontPreviewStyle
 import chromahub.rhythm.app.util.HapticUtils
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -79,6 +85,11 @@ enum class ColorSource(val displayName: String, val description: String, val ico
     CUSTOM("Custom Scheme", "Choose from predefined color schemes", Icons.Filled.Palette)
 }
 
+enum class FontSource(val displayName: String, val description: String, val icon: ImageVector) {
+    SYSTEM("System Font", "Use the device's default font", Icons.Filled.PhoneAndroid),
+    CUSTOM("Custom Font", "Import and use a custom font file", Icons.Filled.FontDownload)
+}
+
 @Composable
 fun ThemeCustomizationBottomSheet(
     onDismiss: () -> Unit,
@@ -89,22 +100,77 @@ fun ThemeCustomizationBottomSheet(
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
     
+    // Font file picker launcher
+    val fontPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            // Copy font to internal storage
+            val fontPath = FontLoader.copyFontToInternalStorage(context, it)
+            if (fontPath != null) {
+                // Validate that the font can be loaded
+                val testFont = FontLoader.loadCustomFont(context, fontPath)
+                if (testFont != null) {
+                    // Save to settings
+                    appSettings.setCustomFontPath(fontPath)
+                    appSettings.setFontSource("CUSTOM")
+                    
+                    // Extract and save font name
+                    val fontName = FontLoader.getFontFileName(fontPath) ?: "Custom Font"
+                    appSettings.setCustomFontFamily(fontName)
+                    
+                    // Show success feedback
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                    Toast.makeText(context, "Font imported successfully", Toast.LENGTH_SHORT).show()
+                } else {
+                    // Font file copied but can't be loaded
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.Reject)
+                    Toast.makeText(context, "Invalid font file format", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                // Failed to copy font file
+                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.Reject)
+                Toast.makeText(context, "Failed to import font file", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+    
     // Theme states
     val currentColorScheme by appSettings.customColorScheme.collectAsState()
     val currentFont by appSettings.customFont.collectAsState()
     val useDynamicColors by appSettings.useDynamicColors.collectAsState()
     val useSystemTheme by appSettings.useSystemTheme.collectAsState()
     val darkMode by appSettings.darkMode.collectAsState()
+    val colorSource by appSettings.colorSource.collectAsState()
+    val extractedAlbumColors by appSettings.extractedAlbumColors.collectAsState()
     
     // Tab state - now 3 tabs: Overview, Colors, Fonts
     var selectedTab by remember { mutableStateOf(0) }
     
-    // Color source state
-    var selectedColorSource by remember { 
+    // Color source state - initialize based on saved setting
+    var selectedColorSource by remember(colorSource) { 
         mutableStateOf(
-            when {
-                useDynamicColors -> ColorSource.MONET
+            when (colorSource) {
+                "ALBUM_ART" -> ColorSource.ALBUM_ART
+                "MONET" -> ColorSource.MONET
+                "CUSTOM" -> ColorSource.CUSTOM
                 else -> ColorSource.CUSTOM
+            }
+        )
+    }
+    
+    // Font states
+    val fontSource by appSettings.fontSource.collectAsState()
+    val customFontPath by appSettings.customFontPath.collectAsState()
+    val customFontFamily by appSettings.customFontFamily.collectAsState()
+    
+    // Font source state - initialize based on saved setting
+    var selectedFontSource by remember(fontSource) {
+        mutableStateOf(
+            when (fontSource) {
+                "CUSTOM" -> FontSource.CUSTOM
+                "SYSTEM" -> FontSource.SYSTEM
+                else -> FontSource.SYSTEM
             }
         )
     }
@@ -140,13 +206,33 @@ fun ThemeCustomizationBottomSheet(
         when (selectedColorSource) {
             ColorSource.MONET -> {
                 appSettings.setUseDynamicColors(true)
+                appSettings.setColorSource("MONET")
             }
             ColorSource.ALBUM_ART -> {
                 appSettings.setUseDynamicColors(false)
-                // Album art colors will be handled by the player
+                appSettings.setColorSource("ALBUM_ART")
+                // Colors will be extracted automatically when songs play in MusicViewModel
+                // Force immediate extraction if a song is currently playing
+                // Note: The actual extraction happens in MusicViewModel when media transitions
             }
             ColorSource.CUSTOM -> {
                 appSettings.setUseDynamicColors(false)
+                appSettings.setColorSource("CUSTOM")
+            }
+        }
+    }
+    
+    // Handle font source changes
+    LaunchedEffect(selectedFontSource) {
+        when (selectedFontSource) {
+            FontSource.SYSTEM -> {
+                appSettings.setFontSource("SYSTEM")
+                appSettings.setCustomFont("System")
+            }
+            FontSource.CUSTOM -> {
+                appSettings.setFontSource("CUSTOM")
+                // Custom font path should already be set via import
+                // The font will be loaded from customFontPath when applied
             }
         }
     }
@@ -451,10 +537,24 @@ fun ThemeCustomizationBottomSheet(
                         useSystemTheme = useSystemTheme,
                         darkMode = darkMode,
                         selectedColorSource = selectedColorSource,
+                        selectedFontSource = selectedFontSource,
                         onDynamicColorsChange = { appSettings.setUseDynamicColors(it) },
                         onSystemThemeChange = { appSettings.setUseSystemTheme(it) },
                         onDarkModeChange = { appSettings.setDarkMode(it) },
                         onColorSourceChange = { source -> selectedColorSource = source },
+                        onFontSourceChange = { source -> 
+                            selectedFontSource = source
+                            appSettings.setFontSource(source.name)
+                            // Clear system font selection when switching to CUSTOM
+                            if (source == FontSource.CUSTOM && customFontPath != null) {
+                                // Custom font is active, don't change system font setting
+                            } else if (source == FontSource.SYSTEM) {
+                                // Reset to system font if no custom font was previously selected
+                                if (customFontPath == null) {
+                                    appSettings.setCustomFont("System")
+                                }
+                            }
+                        },
                         context = context,
                         haptics = haptics
                     )
@@ -470,10 +570,24 @@ fun ThemeCustomizationBottomSheet(
                     2 -> FontContent(
                         fontOptions = fontOptions,
                         currentFont = currentFont,
+                        selectedFontSource = selectedFontSource,
+                        customFontPath = customFontPath,
+                        customFontFamily = customFontFamily,
                         onFontSelected = { font ->
                             HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                             appSettings.setCustomFont(font)
-                        }
+                            // When selecting a system font, switch to SYSTEM source
+                            if (selectedFontSource != FontSource.SYSTEM) {
+                                appSettings.setFontSource("SYSTEM")
+                            }
+                        },
+                        onImportFont = {
+                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                            // Launch font file picker for TTF/OTF files
+                            fontPickerLauncher.launch("font/*")
+                        },
+                        context = context,
+                        haptics = haptics
                     )
                 }
             }
@@ -663,17 +777,152 @@ private fun ColorSchemeCard(
 private fun FontContent(
     fontOptions: List<FontOption>,
     currentFont: String,
-    onFontSelected: (String) -> Unit
+    selectedFontSource: FontSource,
+    customFontPath: String?,
+    customFontFamily: String?,
+    onFontSelected: (String) -> Unit,
+    onImportFont: () -> Unit,
+    context: Context,
+    haptics: HapticFeedback
 ) {
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
+        // Custom Font Import Section (only show when CUSTOM is selected)
+        if (selectedFontSource == FontSource.CUSTOM) {
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                    ),
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.FontDownload,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                modifier = Modifier.size(32.dp)
+                            )
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        text = if (customFontPath != null) "Custom Font Active" else "Import Custom Font",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                                    )
+                                    if (customFontPath != null) {
+                                        Icon(
+                                            imageVector = Icons.Filled.CheckCircle,
+                                            contentDescription = "Active",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+                                if (customFontPath != null && customFontFamily != null) {
+                                    Text(
+                                        text = customFontFamily,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f),
+                                        modifier = Modifier.padding(top = 2.dp)
+                                    )
+                                }
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        FilledTonalButton(
+                            onClick = onImportFont,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = MaterialTheme.colorScheme.surface,
+                                contentColor = MaterialTheme.colorScheme.onSurface
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Upload,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (customFontPath != null) "Change Font File" else "Import TTF/OTF Font",
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        // Show preview if custom font is loaded
+                        if (customFontPath != null) {
+                            val customFont = remember(customFontPath) {
+                                FontLoader.loadCustomFont(context, customFontPath)
+                            }
+                            
+                            if (customFont != null) {
+                                Text(
+                                    text = "The quick brown fox jumps over the lazy dog",
+                                    style = getCustomFontPreviewStyle(customFont),
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
+                        }
+                        
+                        Text(
+                            text = "Import a .ttf or .otf font file to use throughout the app",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+            }
+        }
+        
+        // Info text when custom font is active
+        if (selectedFontSource == FontSource.CUSTOM && customFontPath != null) {
+            item {
+                Text(
+                    text = "System fonts are disabled while custom font is active. Switch to System font source in the Overview tab to use these fonts.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                )
+            }
+        }
+        
         items(fontOptions) { option ->
             FontCard(
                 option = option,
-                isSelected = currentFont == option.name,
-                onSelect = { onFontSelected(option.name) }
+                isSelected = currentFont == option.name && selectedFontSource == FontSource.SYSTEM,
+                isEnabled = selectedFontSource == FontSource.SYSTEM,
+                onSelect = { 
+                    if (selectedFontSource == FontSource.SYSTEM) {
+                        onFontSelected(option.name)
+                    }
+                }
             )
         }
         
@@ -685,9 +934,87 @@ private fun FontContent(
 }
 
 @Composable
+private fun FontSourceCard(
+    source: FontSource,
+    isSelected: Boolean,
+    onSelect: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val containerColor by animateColorAsState(
+        targetValue = if (isSelected) 
+            MaterialTheme.colorScheme.primaryContainer 
+        else 
+            MaterialTheme.colorScheme.surfaceContainerHigh,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "font_source_container"
+    )
+    
+    val borderColor by animateColorAsState(
+        targetValue = if (isSelected) 
+            MaterialTheme.colorScheme.primary 
+        else 
+            Color.Transparent,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "font_source_border"
+    )
+
+    Card(
+        onClick = onSelect,
+        colors = CardDefaults.cardColors(containerColor = containerColor),
+        shape = RoundedCornerShape(20.dp),
+        border = androidx.compose.foundation.BorderStroke(2.dp, borderColor),
+        modifier = modifier
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = source.icon,
+                contentDescription = null,
+                tint = if (isSelected) 
+                    MaterialTheme.colorScheme.primary 
+                else 
+                    MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(32.dp)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = source.displayName,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                color = if (isSelected) 
+                    MaterialTheme.colorScheme.onPrimaryContainer 
+                else 
+                    MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center
+            )
+            if (isSelected) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Icon(
+                    imageVector = Icons.Filled.CheckCircle,
+                    contentDescription = "Selected",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun FontCard(
     option: FontOption,
     isSelected: Boolean,
+    isEnabled: Boolean = true,
     onSelect: () -> Unit
 ) {
     val containerColor by animateColorAsState(
@@ -715,13 +1042,17 @@ private fun FontCard(
     )
 
     Card(
-        onClick = onSelect,
+        onClick = { if (isEnabled) onSelect() },
         colors = CardDefaults.cardColors(
             containerColor = containerColor
         ),
         shape = RoundedCornerShape(20.dp),
         border = androidx.compose.foundation.BorderStroke(2.dp, borderColor),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                alpha = if (isEnabled) 1f else 0.5f
+            }
     ) {
         Column(
             modifier = Modifier
@@ -860,10 +1191,12 @@ private fun OverviewContent(
     useSystemTheme: Boolean,
     darkMode: Boolean,
     selectedColorSource: ColorSource,
+    selectedFontSource: FontSource,
     onDynamicColorsChange: (Boolean) -> Unit,
     onSystemThemeChange: (Boolean) -> Unit,
     onDarkModeChange: (Boolean) -> Unit,
     onColorSourceChange: (ColorSource) -> Unit,
+    onFontSourceChange: (FontSource) -> Unit,
     context: Context,
     haptics: HapticFeedback
 ) {
@@ -890,6 +1223,34 @@ private fun OverviewContent(
                             HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                             onColorSourceChange(source)
                         }
+                    )
+                }
+            }
+        }
+        
+        // Font Source Selection
+        item {
+            Text(
+                text = "Font Source",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(bottom = 8.dp, top = 8.dp)
+            )
+            
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                FontSource.entries.forEach { source ->
+                    FontSourceCard(
+                        source = source,
+                        isSelected = selectedFontSource == source,
+                        onSelect = {
+                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                            onFontSourceChange(source)
+                        },
+                        modifier = Modifier.weight(1f)
                     )
                 }
             }

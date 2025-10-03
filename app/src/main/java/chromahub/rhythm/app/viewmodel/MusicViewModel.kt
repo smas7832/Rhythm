@@ -1194,6 +1194,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                     // Fetch lyrics for the new song
                     fetchLyricsForCurrentSong()
                     
+                    // Extract colors from album art if enabled
+                    extractColorsFromAlbumArt(song)
+                    
                     // Force a duration update
                     mediaController?.let { controller ->
                         _duration.value = controller.duration
@@ -1531,6 +1534,59 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 updateListeningStats(song)
             } catch (e: Exception) {
                 Log.e(TAG, "Error updating recently played", e)
+            }
+        }
+    }
+    
+    /**
+     * Extract colors from album artwork and update theme if color source is set to ALBUM_ART
+     */
+    private fun extractColorsFromAlbumArt(song: Song) {
+        // Only extract if color source is set to ALBUM_ART
+        if (appSettings.colorSource.value != "ALBUM_ART") {
+            return
+        }
+        
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val artworkUri = song.artworkUri
+                if (artworkUri == null) {
+                    Log.d(TAG, "No artwork URI for song: ${song.title}")
+                    return@launch
+                }
+                
+                // Load bitmap from URI
+                val context = getApplication<Application>().applicationContext
+                val bitmap = try {
+                    val inputStream = context.contentResolver.openInputStream(artworkUri)
+                    android.graphics.BitmapFactory.decodeStream(inputStream)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to load bitmap from URI: $artworkUri", e)
+                    null
+                }
+                
+                if (bitmap == null) {
+                    Log.d(TAG, "Could not decode bitmap for song: ${song.title}")
+                    return@launch
+                }
+                
+                // Extract colors using ColorExtractor utility
+                val extractedColors = chromahub.rhythm.app.util.ColorExtractor.extractColorsFromBitmap(bitmap)
+                
+                if (extractedColors != null) {
+                    // Convert to JSON and save to settings
+                    val colorsJson = chromahub.rhythm.app.util.ColorExtractor.colorsToJson(extractedColors)
+                    appSettings.setExtractedAlbumColors(colorsJson)
+                    Log.d(TAG, "Successfully extracted and saved colors from: ${song.title}")
+                } else {
+                    Log.w(TAG, "Failed to extract colors from: ${song.title}")
+                }
+                
+                // Clean up bitmap
+                bitmap.recycle()
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Error extracting colors from album art", e)
             }
         }
     }

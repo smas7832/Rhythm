@@ -167,6 +167,10 @@ class MainActivity : ComponentActivity() {
             val useDynamicColors by themeViewModel.useDynamicColors.collectAsState()
             val customColorScheme by appSettings.customColorScheme.collectAsState()
             val customFont by appSettings.customFont.collectAsState()
+            val fontSource by appSettings.fontSource.collectAsState()
+            val customFontPath by appSettings.customFontPath.collectAsState()
+            val colorSource by appSettings.colorSource.collectAsState()
+            val extractedAlbumColors by appSettings.extractedAlbumColors.collectAsState()
             
             // Determine the theme based on settings
             val isDarkTheme = if (useSystemTheme) {
@@ -182,7 +186,11 @@ class MainActivity : ComponentActivity() {
                 // Use dynamic colors (Monet) when system theme is enabled
                 dynamicColor = useDynamicColors && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
                 customColorScheme = customColorScheme,
-                customFont = customFont
+                customFont = customFont,
+                fontSource = fontSource,
+                customFontPath = customFontPath,
+                colorSource = colorSource,
+                extractedAlbumColorsJson = extractedAlbumColors
             ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),

@@ -130,7 +130,23 @@ val Typography = Typography(
  * Uses Android system fonts that are guaranteed to be available and distinguishable
  */
 fun getTypographyForFont(fontName: String): Typography {
-    val fontFamily = when (fontName) {
+    val fontFamily = getFontFamilyByName(fontName)
+    return createTypographyWithFontFamily(fontFamily)
+}
+
+/**
+ * Get typography with a custom FontFamily
+ * Allows using externally loaded fonts (e.g., from TTF/OTF files)
+ */
+fun getTypographyWithCustomFont(customFontFamily: FontFamily?): Typography {
+    return createTypographyWithFontFamily(customFontFamily ?: FontFamily.Default)
+}
+
+/**
+ * Get FontFamily by name string
+ */
+private fun getFontFamilyByName(fontName: String): FontFamily {
+    return when (fontName) {
         "Slate" -> FontFamily.Serif        // Serif font - more formal/traditional appearance
         "Classic" -> FontFamily.Serif      // Traditional serif typeface
         "Inter" -> FontFamily.SansSerif    // Clean sans-serif font - modern, readable
@@ -143,7 +159,12 @@ fun getTypographyForFont(fontName: String): Typography {
         "System" -> FontFamily.Default     // Default system font
         else -> FontFamily.Default
     }
-    
+}
+
+/**
+ * Creates Typography with the given FontFamily
+ */
+private fun createTypographyWithFontFamily(fontFamily: FontFamily): Typography {
     return Typography(
         // Display styles
         displayLarge = TextStyle(
@@ -267,22 +288,23 @@ fun getTypographyForFont(fontName: String): Typography {
  * Returns a TextStyle with the specific font family for previewing fonts
  */
 fun getFontPreviewStyle(fontName: String): TextStyle {
-    val fontFamily = when (fontName) {
-        "Slate" -> FontFamily.Serif
-        "Classic" -> FontFamily.Serif
-        "Inter" -> FontFamily.SansSerif
-        "Casual" -> FontFamily.SansSerif
-        "Modern" -> FontFamily.SansSerif
-        "JetBrains" -> FontFamily.Monospace
-        "Typewriter" -> FontFamily.Monospace
-        "Quicksand" -> FontFamily.Cursive
-        "Playful" -> FontFamily.Cursive
-        "System" -> FontFamily.Default
-        else -> FontFamily.Default
-    }
-
+    val fontFamily = getFontFamilyByName(fontName)
     return TextStyle(
         fontFamily = fontFamily,
+        fontWeight = FontWeight.Normal,
+        fontSize = 16.sp,
+        lineHeight = 24.sp,
+        letterSpacing = 0.5.sp
+    )
+}
+
+/**
+ * Get text style for custom font preview
+ * Returns a TextStyle with the custom font family
+ */
+fun getCustomFontPreviewStyle(customFontFamily: FontFamily?): TextStyle {
+    return TextStyle(
+        fontFamily = customFontFamily ?: FontFamily.Default,
         fontWeight = FontWeight.Normal,
         fontSize = 16.sp,
         lineHeight = 24.sp,
