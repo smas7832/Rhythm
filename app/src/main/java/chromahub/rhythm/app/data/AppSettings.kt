@@ -1373,6 +1373,24 @@ class AppSettings private constructor(context: Context) {
                 backupData["blacklisted_folders_data"] = blacklistedFoldersJson
             }
             
+            // Include whitelisted songs and folders
+            val whitelistedSongsJson = prefs.getString(KEY_WHITELISTED_SONGS, null)
+            val whitelistedFoldersJson = prefs.getString(KEY_WHITELISTED_FOLDERS, null)
+            
+            if (whitelistedSongsJson != null) {
+                backupData["whitelisted_songs_data"] = whitelistedSongsJson
+            }
+            
+            if (whitelistedFoldersJson != null) {
+                backupData["whitelisted_folders_data"] = whitelistedFoldersJson
+            }
+            
+            // Include pinned folders
+            val pinnedFoldersJson = prefs.getString(KEY_PINNED_FOLDERS, null)
+            if (pinnedFoldersJson != null) {
+                backupData["pinned_folders_data"] = pinnedFoldersJson
+            }
+            
         } catch (e: Exception) {
             Log.e("AppSettings", "Error including playlist data in backup", e)
         }
@@ -1454,6 +1472,26 @@ class AppSettings private constructor(context: Context) {
                 if (blacklistedFoldersData != null) {
                     editor.putString(KEY_BLACKLISTED_FOLDERS, blacklistedFoldersData)
                     Log.d("AppSettings", "Restored blacklisted folders data")
+                }
+                
+                // Restore whitelisted songs and folders
+                val whitelistedSongsData = backupData["whitelisted_songs_data"] as? String
+                if (whitelistedSongsData != null) {
+                    editor.putString(KEY_WHITELISTED_SONGS, whitelistedSongsData)
+                    Log.d("AppSettings", "Restored whitelisted songs data")
+                }
+                
+                val whitelistedFoldersData = backupData["whitelisted_folders_data"] as? String
+                if (whitelistedFoldersData != null) {
+                    editor.putString(KEY_WHITELISTED_FOLDERS, whitelistedFoldersData)
+                    Log.d("AppSettings", "Restored whitelisted folders data")
+                }
+                
+                // Restore pinned folders
+                val pinnedFoldersData = backupData["pinned_folders_data"] as? String
+                if (pinnedFoldersData != null) {
+                    editor.putString(KEY_PINNED_FOLDERS, pinnedFoldersData)
+                    Log.d("AppSettings", "Restored pinned folders data")
                 }
             } else {
                 Log.d("AppSettings", "Backup version $backupVersion - using preferences-based restoration")
