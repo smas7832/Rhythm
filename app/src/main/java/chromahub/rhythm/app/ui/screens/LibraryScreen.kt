@@ -1424,23 +1424,27 @@ fun SingleCardSongsContent(
             }
         }
         
-        // Sticky Bottom Action Buttons
-        Card(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .offset(y = (-LocalMiniPlayerPadding.current.calculateBottomPadding())),
-            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainer
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-        ) {
-            // Play All and Shuffle buttons removed
-        }
-        }
+        // Bottom Floating Button Group
+        if (filteredSongs.isNotEmpty()) {
+            BottomFloatingButtonGroup(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = (LocalMiniPlayerPadding.current.calculateBottomPadding() * 0.5f) + 8.dp),
+                onPlayAll = {
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                    onPlayQueue(filteredSongs)
+                },
+                onShuffle = {
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                    onShuffleQueue(filteredSongs)
+                },
+                haptics = haptics
+            )
+
+        }}
     }
-}
+    }
+
 
 @Composable
 fun SingleCardPlaylistsContent(
@@ -3971,15 +3975,22 @@ fun SingleCardExplorerContent(
         }
     }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            bottom = LocalMiniPlayerPadding.current.calculateBottomPadding() + 16.dp
-        ),
-        verticalArrangement = Arrangement.spacedBy(0.dp)
-    ) {
-        // Sticky Section Header for Explorer with breadcrumb navigation
-        stickyHeader {
+    // Get current folder songs for play all/shuffle buttons
+    val currentFolderSongs = remember(currentItems) {
+        currentItems.filter { it.type == ExplorerItemType.FILE && it.song != null }
+            .mapNotNull { it.song }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                bottom = LocalMiniPlayerPadding.current.calculateBottomPadding() + 80.dp + 16.dp
+            ),
+            verticalArrangement = Arrangement.spacedBy(0.dp)
+        ) {
+            // Sticky Section Header for Explorer with breadcrumb navigation
+            stickyHeader {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -4465,7 +4476,26 @@ fun SingleCardExplorerContent(
                         }
                     }
                 }
+        
+        // Bottom Floating Button Group - only show when there are songs in current folder
+        if (currentFolderSongs.isNotEmpty() && currentPath != null) {
+            BottomFloatingButtonGroup(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = (LocalMiniPlayerPadding.current.calculateBottomPadding() * 0.5f) + 8.dp),
+                onPlayAll = {
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                    onPlayQueue(currentFolderSongs)
+                },
+                onShuffle = {
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                    onShuffleQueue(currentFolderSongs)
+                },
+                haptics = haptics
+            )
         }
+    }
+}
 
 // Helper function to get device storage roots
 fun getStorageRoots(): List<ExplorerItem> {
@@ -5659,6 +5689,74 @@ private fun FabMenuItem(
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.SemiBold
             )
+        }
+    }
+}
+
+// Bottom Floating Button Group Component
+@Composable
+fun BottomFloatingButtonGroup(
+    modifier: Modifier = Modifier,
+    onPlayAll: () -> Unit,
+    onShuffle: () -> Unit,
+    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback
+) {
+    val context = LocalContext.current
+    
+    Card(
+        modifier = modifier
+            .padding(horizontal = 20.dp),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Play All Button
+            Button(
+                onClick = onPlayAll,
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ),
+                contentPadding = PaddingValues(vertical = 14.dp)
+            ) {
+                Icon(
+                    imageVector = RhythmIcons.Play,
+                    contentDescription = "Play all",
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Play All",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            
+            // Shuffle Button
+            FilledIconButton(
+                onClick = onShuffle,
+                modifier = Modifier.size(52.dp),
+                colors = IconButtonDefaults.filledIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            ) {
+                Icon(
+                    imageVector = RhythmIcons.Shuffle,
+                    contentDescription = "Shuffle",
+                    modifier = Modifier.size(24.dp)
+                )
+            }
         }
     }
 }
