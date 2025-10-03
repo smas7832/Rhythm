@@ -227,7 +227,12 @@ fun ThemeCustomizationBottomSheet(
         when (selectedFontSource) {
             FontSource.SYSTEM -> {
                 appSettings.setFontSource("SYSTEM")
-                appSettings.setCustomFont("System")
+                // Only set to System if no custom font is configured
+                // This prevents resetting to System font when reopening the sheet
+                val fontPath = customFontPath // Store in local variable to avoid smart cast issue
+                if (fontPath == null || fontPath.isEmpty()) {
+                    appSettings.setCustomFont("System")
+                }
             }
             FontSource.CUSTOM -> {
                 appSettings.setFontSource("CUSTOM")
@@ -997,14 +1002,20 @@ private fun FontSourceCard(
                     MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center
             )
-            if (isSelected) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Icon(
-                    imageVector = Icons.Filled.CheckCircle,
-                    contentDescription = "Selected",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(16.dp)
-                )
+            // Always reserve space for checkmark to maintain consistent card height
+            Spacer(modifier = Modifier.height(4.dp))
+            Box(
+                modifier = Modifier.size(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isSelected) {
+                    Icon(
+                        imageVector = Icons.Filled.CheckCircle,
+                        contentDescription = "Selected",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
             }
         }
     }

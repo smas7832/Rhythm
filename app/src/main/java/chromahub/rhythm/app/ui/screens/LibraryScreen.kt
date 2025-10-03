@@ -928,8 +928,22 @@ fun LibraryScreen(
                 ) { page ->
                     // Dynamically show tab content based on tab order
                     when (tabOrder.getOrNull(page)) {
-                        "SONGS" -> SingleCardSongsContent(
-                            songs = songs,
+                        "SONGS" -> {
+                            // Sort songs according to current sort order
+                            val sortedSongs = remember(songs, sortOrder) {
+                                when (sortOrder) {
+                                    MusicViewModel.SortOrder.TITLE_ASC -> songs.sortedBy { it.title.lowercase() }
+                                    MusicViewModel.SortOrder.TITLE_DESC -> songs.sortedByDescending { it.title.lowercase() }
+                                    MusicViewModel.SortOrder.ARTIST_ASC -> songs.sortedBy { it.artist.lowercase() }
+                                    MusicViewModel.SortOrder.ARTIST_DESC -> songs.sortedByDescending { it.artist.lowercase() }
+                                    MusicViewModel.SortOrder.DATE_ADDED_ASC -> songs.sortedBy { it.dateAdded }
+                                    MusicViewModel.SortOrder.DATE_ADDED_DESC -> songs.sortedByDescending { it.dateAdded }
+                                    MusicViewModel.SortOrder.DATE_MODIFIED_ASC -> songs.sortedBy { it.dateAdded } // Song doesn't have dateModified, use dateAdded
+                                    MusicViewModel.SortOrder.DATE_MODIFIED_DESC -> songs.sortedByDescending { it.dateAdded } // Song doesn't have dateModified, use dateAdded
+                                }
+                            }
+                            SingleCardSongsContent(
+                            songs = sortedSongs,
                             onSongClick = onSongClick,
                             onAddToPlaylist = { song ->
                                 selectedSong = song
@@ -947,6 +961,7 @@ fun LibraryScreen(
                             onShuffleQueue = onShuffleQueue,
                             haptics = haptics
                         )
+                        }
                         "PLAYLISTS" -> SingleCardPlaylistsContent(
                             playlists = playlists,
                             onPlaylistClick = onPlaylistClick,
@@ -1155,7 +1170,7 @@ fun SingleCardSongsContent(
 ) {
     val context = LocalContext.current
     var selectedCategory by remember { mutableStateOf("All") }
-    
+
     // Define categories based on song properties - only show working filters
     val categories = remember(songs) {
         val allCategories = mutableListOf("All")
@@ -1172,8 +1187,8 @@ fun SingleCardSongsContent(
         val losslessSongs = songs.filter { song ->
             song.uri.toString().let { uri ->
                 uri.contains(".flac", ignoreCase = true) ||
-                uri.contains(".alac", ignoreCase = true) ||
-                uri.contains(".wav", ignoreCase = true)
+                        uri.contains(".alac", ignoreCase = true) ||
+                        uri.contains(".wav", ignoreCase = true)
             }
         }
         if (losslessSongs.isNotEmpty()) allCategories.add("Lossless")
@@ -1181,7 +1196,7 @@ fun SingleCardSongsContent(
         val highQualitySongs = songs.filter { song ->
             song.uri.toString().let { uri ->
                 uri.contains(".m4a", ignoreCase = true) ||
-                (uri.contains(".mp3", ignoreCase = true) && song.duration > 0)
+                        (uri.contains(".mp3", ignoreCase = true) && song.duration > 0)
             }
         }
         if (highQualitySongs.isNotEmpty()) allCategories.add("High Quality")
@@ -1189,8 +1204,8 @@ fun SingleCardSongsContent(
         val standardSongs = songs.filter { song ->
             song.uri.toString().let { uri ->
                 uri.contains(".mp3", ignoreCase = true) ||
-                uri.contains(".aac", ignoreCase = true) ||
-                uri.contains(".ogg", ignoreCase = true)
+                        uri.contains(".aac", ignoreCase = true) ||
+                        uri.contains(".ogg", ignoreCase = true)
             }
         }
         if (standardSongs.isNotEmpty()) allCategories.add("Standard")
@@ -1213,7 +1228,7 @@ fun SingleCardSongsContent(
 
         allCategories
     }
-    
+
     // Filter songs based on selected category
     val filteredSongs = remember(songs, selectedCategory) {
         when (selectedCategory) {
@@ -1223,34 +1238,38 @@ fun SingleCardSongsContent(
             "Long (> 5 min)" -> songs.filter { it.duration > 5 * 60 * 1000 }
             "Lossless" -> songs.filter { song ->
                 song.uri.toString().let { uri ->
-                    uri.contains(".flac", ignoreCase = true) || 
-                    uri.contains(".alac", ignoreCase = true) ||
-                    uri.contains(".wav", ignoreCase = true)
+                    uri.contains(".flac", ignoreCase = true) ||
+                            uri.contains(".alac", ignoreCase = true) ||
+                            uri.contains(".wav", ignoreCase = true)
                 }
             }
+
             "High Quality" -> songs.filter { song ->
                 song.uri.toString().let { uri ->
                     uri.contains(".m4a", ignoreCase = true) ||
-                    (uri.contains(".mp3", ignoreCase = true) && song.duration > 0)
+                            (uri.contains(".mp3", ignoreCase = true) && song.duration > 0)
                 }
             }
+
             "Standard" -> songs.filter { song ->
                 song.uri.toString().let { uri ->
                     uri.contains(".mp3", ignoreCase = true) ||
-                    uri.contains(".aac", ignoreCase = true) ||
-                    uri.contains(".ogg", ignoreCase = true)
+                            uri.contains(".aac", ignoreCase = true) ||
+                            uri.contains(".ogg", ignoreCase = true)
                 }
             }
+
             "Favorites" -> songs.filter { song ->
                 song.duration > 2 * 60 * 1000 && song.duration < 6 * 60 * 1000
             }
+
             else -> songs.filter { song ->
                 // This handles genre filtering
                 song.genre?.equals(selectedCategory, ignoreCase = true) == true
             }
         }
     }
-    
+
     if (songs.isEmpty()) {
         EmptyState(
             message = "No songs yet",
@@ -1265,186 +1284,241 @@ fun SingleCardSongsContent(
                 ),
                 verticalArrangement = Arrangement.spacedBy(0.dp)
             ) {
-            // Sticky Section Header
-            stickyHeader {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 8.dp),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
-                    ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(20.dp)
-                    ) {
-                        Surface(
-                            modifier = Modifier.size(48.dp),
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primary,
-                            shadowElevation = 0.dp
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = RhythmIcons.Relax,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimary,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.width(16.dp))
-
-                        Column {
-                            Text(
-                                text = "Your Music",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                            Text(
-                                text = "${filteredSongs.size} of ${songs.size} tracks",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.weight(1f))
-
-                        Surface(
-                            modifier = Modifier
-                                .height(2.dp)
-                                .width(60.dp),
-                            shape = RoundedCornerShape(1.dp),
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f)
-                        ) {}
-                    }
-                }
-            }
-
-            // Sticky Filter Chips
-            if (categories.size > 1) {
+                // Sticky Section Header
                 stickyHeader {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.surfaceContainer
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 8.dp),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            contentPadding = PaddingValues(horizontal = 28.dp, vertical = 8.dp),
-                            modifier = Modifier.fillMaxWidth()
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(20.dp)
                         ) {
-                            items(categories) { category ->
-                                val isSelected = selectedCategory == category
+                            Surface(
+                                modifier = Modifier.size(48.dp),
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primary,
+                                shadowElevation = 0.dp
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = RhythmIcons.Relax,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimary,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                            }
 
-                                val containerColor by animateColorAsState(
-                                    targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerLow,
-                                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
-                                    label = "chipContainerColor"
-                                )
-                                val labelColor by animateColorAsState(
-                                    targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
-                                    label = "chipLabelColor"
-                                )
-                                val borderColor by animateColorAsState(
-                                    targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.6f),
-                                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
-                                    label = "chipBorderColor"
-                                )
-                                val borderWidth by animateDpAsState(
-                                    targetValue = if (isSelected) 2.dp else 1.dp,
-                                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
-                                    label = "chipBorderWidth"
-                                )
-                                val scale by animateFloatAsState(
-                                    targetValue = if (isSelected) 1.05f else 1f,
-                                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
-                                    label = "chipScale"
-                                )
+                            Spacer(modifier = Modifier.width(16.dp))
 
-                                FilterChip(
-                                    onClick = {
-                                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
-                                        selectedCategory = category
-                                    },
-                                    label = {
-                                        Text(
-                                            text = category,
-                                            style = MaterialTheme.typography.labelMedium,
-                                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
-                                        )
-                                    },
-                                    selected = isSelected,
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = containerColor,
-                                        selectedLabelColor = labelColor,
-                                        containerColor = containerColor,
-                                        labelColor = labelColor
-                                    ),
-                                    border = FilterChipDefaults.filterChipBorder(
-                                        enabled = true,
+                            Column {
+                                Text(
+                                    text = "Your Music",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                                Text(
+                                    text = "${filteredSongs.size} of ${songs.size} tracks",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.weight(1f))
+
+                            Surface(
+                                modifier = Modifier
+                                    .height(2.dp)
+                                    .width(60.dp),
+                                shape = RoundedCornerShape(1.dp),
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f)
+                            ) {}
+                        }
+                    }
+                }
+
+                // Sticky Filter Chips
+                if (categories.size > 1) {
+                    stickyHeader {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.surfaceContainer
+                        ) {
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                contentPadding = PaddingValues(horizontal = 28.dp, vertical = 8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                items(categories) { category ->
+                                    val isSelected = selectedCategory == category
+
+                                    val containerColor by animateColorAsState(
+                                        targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerLow,
+                                        animationSpec = spring(
+                                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                                            stiffness = Spring.StiffnessLow
+                                        ),
+                                        label = "chipContainerColor"
+                                    )
+                                    val labelColor by animateColorAsState(
+                                        targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                                        animationSpec = spring(
+                                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                                            stiffness = Spring.StiffnessLow
+                                        ),
+                                        label = "chipLabelColor"
+                                    )
+                                    val borderColor by animateColorAsState(
+                                        targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(
+                                            alpha = 0.6f
+                                        ),
+                                        animationSpec = spring(
+                                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                                            stiffness = Spring.StiffnessLow
+                                        ),
+                                        label = "chipBorderColor"
+                                    )
+                                    val borderWidth by animateDpAsState(
+                                        targetValue = if (isSelected) 2.dp else 1.dp,
+                                        animationSpec = spring(
+                                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                                            stiffness = Spring.StiffnessLow
+                                        ),
+                                        label = "chipBorderWidth"
+                                    )
+                                    val scale by animateFloatAsState(
+                                        targetValue = if (isSelected) 1.05f else 1f,
+                                        animationSpec = spring(
+                                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                                            stiffness = Spring.StiffnessLow
+                                        ),
+                                        label = "chipScale"
+                                    )
+
+                                    FilterChip(
+                                        onClick = {
+                                            HapticUtils.performHapticFeedback(
+                                                context,
+                                                haptics,
+                                                HapticFeedbackType.LongPress
+                                            )
+                                            selectedCategory = category
+                                        },
+                                        label = {
+                                            Text(
+                                                text = category,
+                                                style = MaterialTheme.typography.labelMedium,
+                                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                                            )
+                                        },
                                         selected = isSelected,
-                                        borderColor = borderColor,
-                                        selectedBorderColor = borderColor,
-                                        borderWidth = borderWidth
-                                    ),
-                                    shape = RoundedCornerShape(50.dp),
-                                    modifier = Modifier.graphicsLayer {
-                                        scaleX = scale
-                                        scaleY = scale
-                                    }
-                                )
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = containerColor,
+                                            selectedLabelColor = labelColor,
+                                            containerColor = containerColor,
+                                            labelColor = labelColor
+                                        ),
+                                        border = FilterChipDefaults.filterChipBorder(
+                                            enabled = true,
+                                            selected = isSelected,
+                                            borderColor = borderColor,
+                                            selectedBorderColor = borderColor,
+                                            borderWidth = borderWidth
+                                        ),
+                                        shape = RoundedCornerShape(50.dp),
+                                        modifier = Modifier.graphicsLayer {
+                                            scaleX = scale
+                                            scaleY = scale
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            // Songs Items
-            items(
-                items = filteredSongs,
-                key = { it.id }
-            ) { song ->
-                AnimateIn {
-                    LibrarySongItem(
-                        song = song,
-                        onClick = { onSongClick(song) },
-                        onMoreClick = { onAddToPlaylist(song) },
-                        onAddToQueue = { onAddToQueue(song) },
-                        onShowSongInfo = { onShowSongInfo(song) },
-                        onAddToBlacklist = { onAddToBlacklist(song) },
-                        haptics = haptics
-                    )
+                // Songs Items
+                items(
+                    items = filteredSongs,
+                    key = { it.id }
+                ) { song ->
+                    AnimateIn {
+                        LibrarySongItem(
+                            song = song,
+                            onClick = { onSongClick(song) },
+                            onMoreClick = { onAddToPlaylist(song) },
+                            onAddToQueue = { onAddToQueue(song) },
+                            onShowSongInfo = { onShowSongInfo(song) },
+                            onAddToBlacklist = { onAddToBlacklist(song) },
+                            haptics = haptics
+                        )
+                    }
                 }
             }
-        }
-        
-        // Bottom Floating Button Group
-        if (filteredSongs.isNotEmpty()) {
-            BottomFloatingButtonGroup(
+
+            // Bottom Floating Button Group with animations
+            AnimatedVisibility(
+                visible = filteredSongs.isNotEmpty(),
+                enter = slideInVertically(
+                    initialOffsetY = { it },
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessMedium
+                    )
+                ) + fadeIn(
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessMedium
+                    )
+                ),
+                exit = slideOutVertically(
+                    targetOffsetY = { it },
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessMedium
+                    )
+                ) + fadeOut(
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessMedium
+                    )
+                ),
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = (LocalMiniPlayerPadding.current.calculateBottomPadding() * 0.5f) + 8.dp),
-                onPlayAll = {
-                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
-                    onPlayQueue(filteredSongs)
-                },
-                onShuffle = {
-                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
-                    onShuffleQueue(filteredSongs)
-                },
-                haptics = haptics
-            )
-
-        }}
+            ) {
+                BottomFloatingButtonGroup(
+                    modifier = Modifier
+                        .padding(bottom = (LocalMiniPlayerPadding.current.calculateBottomPadding() * 0.5f) + 8.dp),
+                    onPlayAll = {
+                        HapticUtils.performHapticFeedback(
+                            context,
+                            haptics,
+                            HapticFeedbackType.LongPress
+                        )
+                        onPlayQueue(filteredSongs)
+                    },
+                    onShuffle = {
+                        HapticUtils.performHapticFeedback(
+                            context,
+                            haptics,
+                            HapticFeedbackType.LongPress
+                        )
+                        onShuffleQueue(filteredSongs)
+                    },
+                    haptics = haptics
+                )
+            }
+        }
     }
-    }
-
+}
 
 @Composable
 fun SingleCardPlaylistsContent(
@@ -4477,11 +4551,38 @@ fun SingleCardExplorerContent(
                     }
                 }
         
-        // Bottom Floating Button Group - only show when there are songs in current folder
-        if (currentFolderSongs.isNotEmpty() && currentPath != null) {
+        // Bottom Floating Button Group - only show when there are songs in current folder with animations
+        AnimatedVisibility(
+            visible = currentFolderSongs.isNotEmpty() && currentPath != null,
+            enter = slideInVertically(
+                initialOffsetY = { it },
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium
+                )
+            ) + fadeIn(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium
+                )
+            ),
+            exit = slideOutVertically(
+                targetOffsetY = { it },
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium
+                )
+            ) + fadeOut(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium
+                )
+            ),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+        ) {
             BottomFloatingButtonGroup(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
                     .padding(bottom = (LocalMiniPlayerPadding.current.calculateBottomPadding() * 0.5f) + 8.dp),
                 onPlayAll = {
                     HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)

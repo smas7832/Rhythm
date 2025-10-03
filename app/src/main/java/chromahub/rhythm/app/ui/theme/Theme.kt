@@ -1050,11 +1050,12 @@ fun getAlbumArtColorScheme(colorsJson: String, darkTheme: Boolean): androidx.com
         darkColorScheme(
             primary = primary, // Use full color for dark theme
             onPrimary = Color(extractedColors.onPrimary),
-            // Create darker container colors for dark theme
+            // Create darker container colors for dark theme with better brightness and saturation
             primaryContainer = primary.copy(alpha = 1f).let { 
                 Color(android.graphics.Color.HSVToColor(FloatArray(3).apply {
                     android.graphics.Color.colorToHSV(it.toArgb(), this)
-                    this[2] *= 0.4f // Darken to 40% brightness
+                    this[1] = (this[1] * 0.85f).coerceAtLeast(0.4f) // Maintain more saturation (85% of original, min 40%)
+                    this[2] *= 0.55f // Increase brightness from 40% to 55% for better visibility
                 }))
             },
             onPrimaryContainer = Color(extractedColors.onPrimary),
@@ -1064,7 +1065,8 @@ fun getAlbumArtColorScheme(colorsJson: String, darkTheme: Boolean): androidx.com
             secondaryContainer = secondary.copy(alpha = 1f).let {
                 Color(android.graphics.Color.HSVToColor(FloatArray(3).apply {
                     android.graphics.Color.colorToHSV(it.toArgb(), this)
-                    this[2] *= 0.4f
+                    this[1] = (this[1] * 0.85f).coerceAtLeast(0.4f)
+                    this[2] *= 0.55f
                 }))
             },
             onSecondaryContainer = Color(extractedColors.onSecondary),
@@ -1074,7 +1076,8 @@ fun getAlbumArtColorScheme(colorsJson: String, darkTheme: Boolean): androidx.com
             tertiaryContainer = tertiary.copy(alpha = 1f).let {
                 Color(android.graphics.Color.HSVToColor(FloatArray(3).apply {
                     android.graphics.Color.colorToHSV(it.toArgb(), this)
-                    this[2] *= 0.4f
+                    this[1] = (this[1] * 0.85f).coerceAtLeast(0.4f)
+                    this[2] *= 0.55f
                 }))
             },
             onTertiaryContainer = Color(extractedColors.onTertiary),

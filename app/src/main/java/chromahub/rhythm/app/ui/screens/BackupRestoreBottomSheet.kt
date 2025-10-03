@@ -673,8 +673,12 @@ fun BackupRestoreBottomSheet(
                             listOf(
                                 "All app settings and preferences",
                                 "Your playlists and favorite songs",  
-                                "Blacklisted songs and folders",
-                                "Theme and audio preferences",
+                                "Blacklisted/whitelisted songs and folders",
+                                "Pinned folders and library customization",
+                                "Theme settings (colors, fonts, extracted album art colors)",
+                                "Audio preferences (equalizer, crossfade, etc.)",
+                                "API settings and integrations",
+                                "Recently played history and statistics",
                                 "Restore requires app restart to take full effect"
                             ).forEach { info ->
                                 CompactInfoItem(
@@ -739,8 +743,11 @@ fun BackupRestoreBottomSheet(
                 Text("Your complete Rhythm backup has been created including:\n\n" +
                      "• All app settings and preferences\n" +
                      "• Your playlists and favorite songs\n" +
-                     "• Blacklisted songs and folders\n" +
-                     "• Theme and audio preferences\n\n" +
+                     "• Blacklisted/whitelisted songs and folders\n" +
+                     "• Pinned folders and library customization\n" +
+                     "• Theme settings (colors, fonts, album art colors)\n" +
+                     "• Audio preferences and API settings\n" +
+                     "• Recently played history and statistics\n\n" +
                      "The backup has been saved and copied to your clipboard for easy sharing.")
             },
             confirmButton = {
