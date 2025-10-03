@@ -60,10 +60,6 @@
 
 Rhythm is not just another music player - it's a complete audio experience designed with passion and attention to detail. Here's what sets us apart:
 
-<table>
-<tr>
-<td width="50%" valign="top">
-
 ### 🎨 **Material You Excellence**
 - ✨ **Dynamic Theming** - Colors extracted from your wallpaper (Android 12+)
 - 🌓 **Adaptive UI** - Seamless light/dark mode transitions
@@ -78,9 +74,6 @@ Rhythm is not just another music player - it's a complete audio experience desig
 - 🎼 **Format Support** - FLAC, ALAC, MP3, AAC, OGG, WAV, and more
 - 🔉 **Volume Control** - Independent app volume or system integration
 
-</td>
-<td width="50%" valign="top">
-
 ### 🧠 **Intelligent Features**
 - 🎤 **Synchronized Lyrics** - Real-time lyrics with LRCLib integration
 - 🔍 **Smart Search** - Lightning-fast fuzzy search across your library
@@ -94,10 +87,6 @@ Rhythm is not just another music player - it's a complete audio experience desig
 - 🎨 **Spotify Canvas** - Dynamic visual experience for your music
 - 🖼️ **Online Artwork** - Fetch high-quality album art from Deezer
 - 📱 **Telegram Support** - Join our active community
-
-</td>
-</tr>
-</table>
 
 ---
 
@@ -163,10 +152,6 @@ Rhythm is not just another music player - it's a complete audio experience desig
 
 ### 🛠 **Installation Methods**
 
-<table>
-<tr>
-<td width="50%" valign="top">
-
 #### 📱 **Direct APK Installation**
 1. 📥 Visit our [Releases](https://github.com/cromaguy/Rhythm/releases) page
 2. 💾 Download the latest `Rhythm-vX.X.X-release.apk` file
@@ -176,24 +161,14 @@ Rhythm is not just another music player - it's a complete audio experience desig
 
 > **Note:** The APK is signed with our official keystore for security
 
-</td>
-<td width="50%" valign="top">
-
 #### 🔒 **F-Droid (IzzyOnDroid Repository)**
 1. 📱 Install [F-Droid](https://f-droid.org/) if you haven't already
-2. ➕ Add IzzyOnDroid repository:
-   ```
-   https://apt.izzysoft.de/fdroid/repo
-   ```
+2. ➕ Add IzzyOnDroid repository: `https://apt.izzysoft.de/fdroid/repo`
 3. 🔍 Search for "Rhythm" in F-Droid
 4. 📥 Install directly from the app
 5. 🔄 Enjoy automatic updates!
 
 > **Recommended for privacy-conscious users**
-
-</td>
-</tr>
-</table>
 
 ---
 
@@ -253,13 +228,11 @@ app/
 
 ### 🌐 **External Integrations**
 
-| **Service** | **Purpose** | **License** |
-|:---|:---|:---:|
-| **LRCLib** | Community-driven synced lyrics database | Free |
-| **Deezer API** | High-quality album artwork and artist images | Free |
-| **Spotify Canvas API** | Dynamic visual experience for tracks | Community |
-| **GitHub API** | Automatic update checking and releases | Free |
-| **YouTube Music API** | Fallback for missing metadata and artwork | Community |
+- **LRCLib** - Community-driven synced lyrics database (Free)
+- **Deezer API** - High-quality album artwork and artist images (Free)
+- **Spotify Canvas API** - Dynamic visual experience for tracks (Community)
+- **GitHub API** - Automatic update checking and releases (Free)
+- **YouTube Music API** - Fallback for missing metadata and artwork (Community)
 
 ---
 
@@ -423,7 +396,7 @@ Help fellow users:
 <sub><b>Anjishnu Nandi</b></sub>
 </a><br />
 <sub>Lead Developer & Project Architect</sub><br />
-<sub>Core development, UI/UX design, architecture planning</sub>
+<sub>Core development, UI/UX design, Head of Team ChromaHub</sub>
 </td>
 </tr>
 </table>
@@ -432,49 +405,13 @@ Help fellow users:
 
 We're grateful to these amazing individuals who have contributed to making Rhythm better:
 
-<table>
-<tr>
-<td align="center" width="20%">
-<a href="https://github.com/IzzySoft">
-<img src="https://github.com/IzzySoft.png" width="80px;" alt="Izzy"/><br />
-<sub><b>Izzy</b></sub>
-</a><br />
-<sub>IzzyOnDroid</sub>
-</td>
-<td align="center" width="20%">
-<a href="https://github.com/mardous">
-<img src="https://github.com/mardous.png" width="80px;" alt="Christian"/><br />
-<sub><b>Christian</b></sub>
-</a><br />
-<sub>Collaboration</sub>
-</td>
-<td align="center" width="20%">
-<a href="https://github.com/Paxsenix0">
-<img src="https://github.com/Paxsenix0.png" width="80px;" alt="Alex"/><br />
-<sub><b>Alex</b></sub>
-</a><br />
-<sub>Canvas API</sub>
-</td>
-<td align="center" width="20%">
-<a href="https://github.com/smas7832">
-<img src="https://github.com/smas7832.png" width="80px;" alt="DJ SMAS"/><br />
-<sub><b>DJ SMAS</b></sub>
-</a><br />
-<sub>UI/UX Feedback</sub>
-</td>
-<td align="center" width="20%">
-<a href="https://github.com/Zaxx69">
-<img src="https://github.com/Zaxx69.png" width="80px;" alt="Zaxx_69"/><br />
-<sub><b>Zaxx_69</b></sub>
-</a><br />
-<sub>Beta Testing</sub>
-</td>
-</tr>
-</table>
+- **[Izzy](https://github.com/IzzySoft)** - Manages updates on IzzyOnDroid
+- **[Christian](https://github.com/mardous)** - Collaboration & Project Booming's Lead Dev
+- **[Alex](https://github.com/Paxsenix0)** - Spotify Canvas API Integration
+- **[DJ SMAS](https://github.com/smas7832)** - UI/UX Feedback & Suggestions
 
 ### 💖 **Special Thanks**
 
-- **Team ChromaHub** - Passionate developers creating innovative mobile experiences
 - **Google Material Design Team** - For the beautiful Material You design system
 - **Android Open Source Project** - For the amazing Android platform
 - **Jetpack Compose Team** - For revolutionizing Android UI development
@@ -563,7 +500,7 @@ SOFTWARE.
 
 <br><br>
 
-### ✨ **Made with ❤️ by Team ChromaHub** ✨
+### ✨ **Made with ❤️ by Anjishnu Nandi** ✨
 
 <br>
 
@@ -577,6 +514,6 @@ SOFTWARE.
 
 <br>
 
-<sub>© 2024 Team ChromaHub. All rights reserved. Licensed under MIT License.</sub>
+<sub>© 2025 Team ChromaHub. All rights reserved. Licensed under MIT License.</sub>
 
 </div>
