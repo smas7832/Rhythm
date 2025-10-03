@@ -1061,47 +1061,14 @@ fun SettingsScreen(
                         isHighlighted = highlightedSection == "Display & Theme"
                     )
 
-                    SettingsToggleItem(
-                        title = "Use System Theme",
-                        description = "Follow system dark/light theme setting automatically",
-                        icon = Icons.Filled.Settings,
-                        checked = useSystemTheme,
-                        onCheckedChange = {
-                            appSettings.setUseSystemTheme(it)
-                        }
-                    )
-
-                    SettingsToggleItem(
-                        title = "Dynamic Colors",
-                        description = "Use wallpaper-based colors (Android 12+)",
-                        icon = Icons.Filled.Palette,
-                        checked = useDynamicColors,
-                        onCheckedChange = {
-                            appSettings.setUseDynamicColors(it)
-                        }
-                    )
-
-                    AnimatedVisibility(
-                        visible = !useSystemTheme,
-                        enter = fadeIn() + expandVertically(),
-                        exit = fadeOut() + shrinkVertically()
-                    ) {
-                        SettingsToggleItem(
-                            title = "Dark Mode",
-                            description = "Enable dark theme",
-                            icon = Icons.Filled.DarkMode,
-                            checked = darkMode,
-                            onCheckedChange = {
-                                appSettings.setDarkMode(it)
-                            }
-                        )
-                    }
-
-//                    Spacer(modifier = Modifier.height(8.dp))
+                    // Theme settings moved to Theme Customization Bottom Sheet
+                    // All theme customization including system theme, dynamic colors,
+                    // dark mode, color schemes, and fonts are now accessible through
+                    // the unified Theme Customization interface below
 
                     SettingsClickableItem(
                         title = "Theme Customization",
-                        description = "Customize colors and fonts",
+                        description = "Customize theme mode, colors, and fonts",
                         icon = Icons.Filled.Palette,
                         onClick = { showThemeCustomizationBottomSheet = true }
                     )

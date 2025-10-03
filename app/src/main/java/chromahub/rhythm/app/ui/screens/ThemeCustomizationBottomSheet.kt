@@ -2,37 +2,56 @@
 package chromahub.rhythm.app.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.content.Context
+import androidx.compose.ui.hapticfeedback.HapticFeedback
 import chromahub.rhythm.app.data.AppSettings
 import chromahub.rhythm.app.ui.theme.getFontPreviewStyle
 import chromahub.rhythm.app.util.HapticUtils
@@ -54,6 +73,12 @@ data class FontOption(
     val description: String
 )
 
+enum class ColorSource(val displayName: String, val description: String, val icon: ImageVector) {
+    ALBUM_ART("Album Art", "Extract colors from currently playing album artwork", Icons.Filled.Album),
+    MONET("System Colors", "Use Material You colors from your wallpaper", Icons.Filled.Wallpaper),
+    CUSTOM("Custom Scheme", "Choose from predefined color schemes", Icons.Filled.Palette)
+}
+
 @Composable
 fun ThemeCustomizationBottomSheet(
     onDismiss: () -> Unit,
@@ -67,9 +92,22 @@ fun ThemeCustomizationBottomSheet(
     // Theme states
     val currentColorScheme by appSettings.customColorScheme.collectAsState()
     val currentFont by appSettings.customFont.collectAsState()
+    val useDynamicColors by appSettings.useDynamicColors.collectAsState()
+    val useSystemTheme by appSettings.useSystemTheme.collectAsState()
+    val darkMode by appSettings.darkMode.collectAsState()
     
-    // Tab state
+    // Tab state - now 3 tabs: Overview, Colors, Fonts
     var selectedTab by remember { mutableStateOf(0) }
+    
+    // Color source state
+    var selectedColorSource by remember { 
+        mutableStateOf(
+            when {
+                useDynamicColors -> ColorSource.MONET
+                else -> ColorSource.CUSTOM
+            }
+        )
+    }
 
     // Animation states
     var showContent by remember { mutableStateOf(false) }
@@ -95,6 +133,22 @@ fun ThemeCustomizationBottomSheet(
     LaunchedEffect(Unit) {
         delay(100)
         showContent = true
+    }
+    
+    // Handle color source changes
+    LaunchedEffect(selectedColorSource) {
+        when (selectedColorSource) {
+            ColorSource.MONET -> {
+                appSettings.setUseDynamicColors(true)
+            }
+            ColorSource.ALBUM_ART -> {
+                appSettings.setUseDynamicColors(false)
+                // Album art colors will be handled by the player
+            }
+            ColorSource.CUSTOM -> {
+                appSettings.setUseDynamicColors(false)
+            }
+        }
     }
     
     // Color scheme options
@@ -333,66 +387,49 @@ fun ThemeCustomizationBottomSheet(
                         }
                     }
 
-                    // Tabs
-                    TabRow(
-                        selectedTabIndex = selectedTab,
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                        contentColor = MaterialTheme.colorScheme.primary,
-                        indicator = { tabPositions ->
-                            TabRowDefaults.SecondaryIndicator(
-                                Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                                color = MaterialTheme.colorScheme.primary,
-                                height = 3.dp
-                            )
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(16.dp))
+                    // Tabs - Modern pill-style tab row
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        shape = RoundedCornerShape(20.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Tab(
-                            selected = selectedTab == 0,
-                            onClick = {
-                                selectedTab = 0
-                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
-                            },
-                            text = {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.ColorLens,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Colors")
-                                }
-                            },
-                            modifier = Modifier.height(56.dp)
-                        )
-                        Tab(
-                            selected = selectedTab == 1,
-                            onClick = {
-                                selectedTab = 1
-                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
-                            },
-                            text = {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.TextFields,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Fonts")
-                                }
-                            },
-                            modifier = Modifier.height(56.dp)
-                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            TabButton(
+                                selected = selectedTab == 0,
+                                onClick = {
+                                    selectedTab = 0
+                                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                },
+                                icon = Icons.Filled.Settings,
+                                text = "Overview",
+                                modifier = Modifier.weight(1f)
+                            )
+                            TabButton(
+                                selected = selectedTab == 1,
+                                onClick = {
+                                    selectedTab = 1
+                                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                },
+                                icon = Icons.Filled.Palette,
+                                text = "Colors",
+                                modifier = Modifier.weight(1f)
+                            )
+                            TabButton(
+                                selected = selectedTab == 2,
+                                onClick = {
+                                    selectedTab = 2
+                                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                },
+                                icon = Icons.Filled.TextFields,
+                                text = "Fonts",
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(20.dp))
@@ -401,7 +438,7 @@ fun ThemeCustomizationBottomSheet(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Content
+            // Content with animated transitions
             Box(
                 modifier = Modifier.graphicsLayer {
                     alpha = contentAlpha
@@ -409,15 +446,28 @@ fun ThemeCustomizationBottomSheet(
                 }
             ) {
                 when (selectedTab) {
-                    0 -> ColorSchemeContent(
+                    0 -> OverviewContent(
+                        useDynamicColors = useDynamicColors,
+                        useSystemTheme = useSystemTheme,
+                        darkMode = darkMode,
+                        selectedColorSource = selectedColorSource,
+                        onDynamicColorsChange = { appSettings.setUseDynamicColors(it) },
+                        onSystemThemeChange = { appSettings.setUseSystemTheme(it) },
+                        onDarkModeChange = { appSettings.setDarkMode(it) },
+                        onColorSourceChange = { source -> selectedColorSource = source },
+                        context = context,
+                        haptics = haptics
+                    )
+                    1 -> ColorSchemeContent(
                         colorSchemeOptions = colorSchemeOptions,
                         currentScheme = currentColorScheme,
+                        selectedColorSource = selectedColorSource,
                         onSchemeSelected = { scheme ->
                             HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                             appSettings.setCustomColorScheme(scheme)
                         }
                     )
-                    1 -> FontContent(
+                    2 -> FontContent(
                         fontOptions = fontOptions,
                         currentFont = currentFont,
                         onFontSelected = { font ->
@@ -435,16 +485,55 @@ fun ThemeCustomizationBottomSheet(
 private fun ColorSchemeContent(
     colorSchemeOptions: List<ColorSchemeOption>,
     currentScheme: String,
+    selectedColorSource: ColorSource,
     onSchemeSelected: (String) -> Unit
 ) {
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
+        // Show message if not using custom color source
+        if (selectedColorSource != ColorSource.CUSTOM) {
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                    ),
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Info,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = if (selectedColorSource == ColorSource.ALBUM_ART) {
+                                "Colors are extracted from album artwork. Custom schemes are disabled."
+                            } else {
+                                "Using Material You system colors. Custom schemes are disabled."
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
+                }
+            }
+        }
+        
         items(colorSchemeOptions) { option ->
             ColorSchemeCard(
                 option = option,
                 isSelected = currentScheme == option.name,
+                isEnabled = selectedColorSource == ColorSource.CUSTOM,
                 onSelect = { onSchemeSelected(option.name) }
             )
         }
@@ -460,13 +549,16 @@ private fun ColorSchemeContent(
 private fun ColorSchemeCard(
     option: ColorSchemeOption,
     isSelected: Boolean,
+    isEnabled: Boolean = true,
     onSelect: () -> Unit
 ) {
     val containerColor by animateColorAsState(
-        targetValue = if (isSelected) 
+        targetValue = if (isSelected && isEnabled) 
             MaterialTheme.colorScheme.primaryContainer 
-        else 
-            MaterialTheme.colorScheme.surfaceContainerHigh,
+        else if (isEnabled)
+            MaterialTheme.colorScheme.surfaceContainerHigh
+        else
+            MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f),
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessLow
@@ -475,7 +567,7 @@ private fun ColorSchemeCard(
     )
     
     val borderColor by animateColorAsState(
-        targetValue = if (isSelected) 
+        targetValue = if (isSelected && isEnabled) 
             MaterialTheme.colorScheme.primary 
         else 
             Color.Transparent,
@@ -487,7 +579,8 @@ private fun ColorSchemeCard(
     )
 
     Card(
-        onClick = onSelect,
+        onClick = { if (isEnabled) onSelect() },
+        enabled = isEnabled,
         colors = CardDefaults.cardColors(
             containerColor = containerColor
         ),
@@ -534,23 +627,27 @@ private fun ColorSchemeCard(
                     text = option.displayName,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = if (isSelected) 
+                    color = if (isSelected && isEnabled) 
                         MaterialTheme.colorScheme.onPrimaryContainer 
-                    else 
+                    else if (isEnabled)
                         MaterialTheme.colorScheme.onSurface
+                    else
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = option.description,
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (isSelected) 
+                    color = if (isSelected && isEnabled) 
                         MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                    else 
+                    else if (isEnabled)
                         MaterialTheme.colorScheme.onSurfaceVariant
+                    else
+                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
                 )
             }
             
-            if (isSelected) {
+            if (isSelected && isEnabled) {
                 Icon(
                     imageVector = Icons.Filled.CheckCircle,
                     contentDescription = "Selected",
@@ -687,6 +784,324 @@ private fun FontCard(
                     modifier = Modifier.padding(16.dp)
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun TabButton(
+    selected: Boolean,
+    onClick: () -> Unit,
+    icon: ImageVector,
+    text: String,
+    modifier: Modifier = Modifier
+) {
+    val backgroundColor by animateColorAsState(
+        targetValue = if (selected) 
+            MaterialTheme.colorScheme.primaryContainer
+        else 
+            Color.Transparent,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        )
+    )
+    
+    val contentColor by animateColorAsState(
+        targetValue = if (selected)
+            MaterialTheme.colorScheme.onPrimaryContainer
+        else
+            MaterialTheme.colorScheme.onSurfaceVariant,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        )
+    )
+    
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(16.dp),
+        color = backgroundColor,
+        modifier = modifier.height(48.dp)
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 12.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = contentColor,
+                modifier = Modifier.size(18.dp)
+            )
+            AnimatedVisibility(
+                visible = selected,
+                enter = expandHorizontally() + fadeIn(),
+                exit = shrinkHorizontally() + fadeOut()
+            ) {
+                Row {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = text,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = contentColor,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OverviewContent(
+    useDynamicColors: Boolean,
+    useSystemTheme: Boolean,
+    darkMode: Boolean,
+    selectedColorSource: ColorSource,
+    onDynamicColorsChange: (Boolean) -> Unit,
+    onSystemThemeChange: (Boolean) -> Unit,
+    onDarkModeChange: (Boolean) -> Unit,
+    onColorSourceChange: (ColorSource) -> Unit,
+    context: Context,
+    haptics: HapticFeedback
+) {
+    LazyColumn(
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        // Color Source Selection
+        item {
+            Text(
+                text = "Color Source",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                ColorSource.entries.forEach { source ->
+                    ColorSourceCard(
+                        colorSource = source,
+                        isSelected = selectedColorSource == source,
+                        onSelect = {
+                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                            onColorSourceChange(source)
+                        }
+                    )
+                }
+            }
+        }
+        
+        // Theme Mode Settings
+        item {
+            Text(
+                text = "Theme Mode",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(bottom = 8.dp, top = 8.dp)
+            )
+            
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                // System Theme Toggle
+                ThemeSettingCard(
+                    icon = Icons.Outlined.Brightness4,
+                    title = "Follow System Theme",
+                    description = "Automatically switch between light and dark mode based on system settings",
+                    checked = useSystemTheme,
+                    onCheckedChange = {
+                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                        onSystemThemeChange(it)
+                    }
+                )
+                
+                // Dark Mode Toggle (only shown if not using system theme)
+                AnimatedVisibility(
+                    visible = !useSystemTheme,
+                    enter = expandVertically() + fadeIn(),
+                    exit = shrinkVertically() + fadeOut()
+                ) {
+                    ThemeSettingCard(
+                        icon = Icons.Outlined.DarkMode,
+                        title = "Dark Mode",
+                        description = "Use dark theme for better viewing in low light",
+                        checked = darkMode,
+                        onCheckedChange = {
+                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                            onDarkModeChange(it)
+                        }
+                    )
+                }
+            }
+        }
+        
+        // Bottom padding
+        item {
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+    }
+}
+
+@Composable
+private fun ColorSourceCard(
+    colorSource: ColorSource,
+    isSelected: Boolean,
+    onSelect: () -> Unit
+) {
+    val containerColor by animateColorAsState(
+        targetValue = if (isSelected) 
+            MaterialTheme.colorScheme.primaryContainer 
+        else 
+            MaterialTheme.colorScheme.surfaceContainerHigh,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        )
+    )
+    
+    val borderColor by animateColorAsState(
+        targetValue = if (isSelected) 
+            MaterialTheme.colorScheme.primary 
+        else 
+            Color.Transparent,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        )
+    )
+    
+    Card(
+        onClick = onSelect,
+        colors = CardDefaults.cardColors(containerColor = containerColor),
+        shape = RoundedCornerShape(20.dp),
+        border = androidx.compose.foundation.BorderStroke(2.dp, borderColor),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = if (isSelected) 
+                    MaterialTheme.colorScheme.primary
+                else
+                    MaterialTheme.colorScheme.surfaceVariant,
+                modifier = Modifier.size(48.dp)
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Icon(
+                        imageVector = colorSource.icon,
+                        contentDescription = null,
+                        tint = if (isSelected)
+                            MaterialTheme.colorScheme.onPrimary
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = colorSource.displayName,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (isSelected) 
+                        MaterialTheme.colorScheme.onPrimaryContainer 
+                    else 
+                        MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = colorSource.description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (isSelected) 
+                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                    else 
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
+            if (isSelected) {
+                Icon(
+                    imageVector = Icons.Filled.CheckCircle,
+                    contentDescription = "Selected",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ThemeSettingCard(
+    icon: ImageVector,
+    title: String,
+    description: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+        ),
+        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+            )
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
+            Spacer(modifier = Modifier.width(12.dp))
+            
+            Switch(
+                checked = checked,
+                onCheckedChange = onCheckedChange,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = MaterialTheme.colorScheme.primary,
+                    checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                    uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            )
         }
     }
 }
