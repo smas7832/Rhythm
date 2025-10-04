@@ -9,7 +9,7 @@
 
 ### **Project Rhythm**
 
-*Experience music like never before with stunning Material You design, intelligent features, and seamless performance*
+*Your Music, Your Rhythm*
 
 ---
 
@@ -426,7 +426,7 @@ We're grateful to these amazing individuals who have contributed to making Rhyth
 ```
 MIT License
 
-Copyright (c) 2024 Team ChromaHub
+Copyright (c) 2025 Team ChromaHub
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -500,7 +500,7 @@ SOFTWARE.
 
 <br><br>
 
-### ✨ **Made with ❤️ by Anjishnu Nandi** ✨
+### ✨ **Made with ❤️ by Team ChromaHub** ✨
 
 <br>
 
