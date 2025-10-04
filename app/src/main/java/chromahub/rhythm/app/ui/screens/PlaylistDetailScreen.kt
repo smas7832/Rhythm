@@ -416,7 +416,7 @@ fun PlaylistDetailScreen(
         bottomBar = {},
         floatingActionButton = {
             FloatingActionButton(
-                modifier = Modifier.padding(bottom = (LocalMiniPlayerPadding.current.calculateBottomPadding() * 0.5f) + 8.dp),
+                modifier = Modifier.padding(bottom = 16.dp), // Simple fixed spacing
                 onClick = {
                     HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                     onAddSongsToPlaylist()
@@ -728,7 +728,7 @@ fun PlaylistDetailScreen(
                     }
                 }
                 item { // Extra bottom space for mini player
-                    Spacer(modifier = Modifier.height(LocalMiniPlayerPadding.current.calculateBottomPadding() + 16.dp))
+                    Spacer(modifier = Modifier.height(16.dp)) // Simple spacing
                 }
             }
         }

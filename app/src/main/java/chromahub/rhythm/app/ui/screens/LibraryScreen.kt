@@ -1280,7 +1280,7 @@ fun SingleCardSongsContent(
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(
-                    bottom = LocalMiniPlayerPadding.current.calculateBottomPadding() + 80.dp + 16.dp
+                    bottom = 96.dp // Space for floating button group (avoid overlap)
                 ),
                 verticalArrangement = Arrangement.spacedBy(0.dp)
             ) {
@@ -1496,7 +1496,7 @@ fun SingleCardSongsContent(
             ) {
                 BottomFloatingButtonGroup(
                     modifier = Modifier
-                        .padding(bottom = (LocalMiniPlayerPadding.current.calculateBottomPadding() * 0.5f) + 8.dp),
+                        .padding(bottom = 16.dp), // Simple fixed spacing from bottom
                     onPlayAll = {
                         HapticUtils.performHapticFeedback(
                             context,
@@ -1538,7 +1538,7 @@ fun SingleCardPlaylistsContent(
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
-                bottom = LocalMiniPlayerPadding.current.calculateBottomPadding() + 16.dp
+                bottom = 16.dp // Simple spacing - Scaffold handles rest
             ),
             verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
@@ -1644,7 +1644,7 @@ fun SingleCardAlbumsContent(
                 contentPadding = PaddingValues(
                     start = 16.dp,
                     end = 16.dp,
-                    bottom = LocalMiniPlayerPadding.current.calculateBottomPadding() + 16.dp
+                    bottom = 16.dp // Simple spacing - Scaffold handles rest
                 ),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -1725,7 +1725,7 @@ fun SingleCardAlbumsContent(
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(
-                    bottom = LocalMiniPlayerPadding.current.calculateBottomPadding() + 16.dp
+                    bottom = 16.dp // Simple spacing - Scaffold handles rest
                 ),
                 verticalArrangement = Arrangement.spacedBy(0.dp)
             ) {
@@ -2091,7 +2091,7 @@ fun SongsTab(
                 LazyColumn(
                     contentPadding = PaddingValues(
                         top = 8.dp, // Start below the sticky elements
-                        bottom = LocalMiniPlayerPadding.current.calculateBottomPadding() + 16.dp
+                        bottom = 16.dp // Simple spacing - Scaffold handles rest
                     ),
                     verticalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
@@ -2207,7 +2207,7 @@ fun PlaylistsTab(
                 LazyColumn(
                     contentPadding = PaddingValues(
                         top = 8.dp, // Start below the sticky elements
-                        bottom = LocalMiniPlayerPadding.current.calculateBottomPadding() + 16.dp
+                        bottom = 16.dp // Simple spacing - Scaffold handles rest
                     ),
                     verticalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
@@ -2355,7 +2355,7 @@ fun AlbumsTab(
                     LazyColumn(
                         contentPadding = PaddingValues(
                             top = 8.dp, // Start below the sticky elements
-                            bottom = LocalMiniPlayerPadding.current.calculateBottomPadding() + 16.dp
+                            bottom = 16.dp // Simple spacing - Scaffold handles rest
                         ),
                         verticalArrangement = Arrangement.spacedBy(0.dp)
                     ) {
@@ -3044,7 +3044,7 @@ fun AlbumsGrid(
             .padding(horizontal = 16.dp),
         contentPadding = PaddingValues(
             top = 8.dp,
-            bottom = LocalMiniPlayerPadding.current.calculateBottomPadding() + 16.dp
+            bottom = 16.dp // Simple spacing - Scaffold handles rest
         ),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -3243,7 +3243,7 @@ fun SingleCardArtistsContent(
                 start = 20.dp,
                 end = 20.dp,
                 top = 8.dp,
-                bottom = LocalMiniPlayerPadding.current.calculateBottomPadding() + 16.dp
+                bottom = 16.dp // Simple spacing - Scaffold handles rest
             ),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -3289,7 +3289,7 @@ fun SingleCardArtistsContent(
                 start = 20.dp,
                 end = 20.dp,
                 top = 8.dp,
-                bottom = LocalMiniPlayerPadding.current.calculateBottomPadding() + 16.dp
+                bottom = 16.dp // Simple spacing - Scaffold handles rest
             ),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -4059,7 +4059,7 @@ fun SingleCardExplorerContent(
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
-                bottom = LocalMiniPlayerPadding.current.calculateBottomPadding() + 80.dp + 16.dp
+                bottom = 96.dp // Space for floating buttons
             ),
             verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
@@ -4583,7 +4583,7 @@ fun SingleCardExplorerContent(
         ) {
             BottomFloatingButtonGroup(
                 modifier = Modifier
-                    .padding(bottom = (LocalMiniPlayerPadding.current.calculateBottomPadding() * 0.5f) + 8.dp),
+                    .padding(bottom = 16.dp), // Simple fixed spacing
                 onPlayAll = {
                     HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                     onPlayQueue(currentFolderSongs)
@@ -5255,7 +5255,7 @@ private fun PlaylistFabMenu(
                 pressedElevation = 12.dp
             ),
             modifier = Modifier
-                .padding(bottom = (LocalMiniPlayerPadding.current.calculateBottomPadding() * 0.5f) + 8.dp)
+                .padding(bottom = 16.dp) // Simple fixed spacing
                 .size(56.dp)
         ) {
             Icon(

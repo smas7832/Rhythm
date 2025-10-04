@@ -215,9 +215,6 @@ fun MiniPlayer(
         }
     }
 
-    // Use navigationBars padding to position the mini player correctly, with some extra space.
-    val bottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 8.dp
-
     Card(
         onClick = {
             if (!isDismissingPlayer) {
@@ -238,7 +235,7 @@ fun MiniPlayer(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
-            .padding(bottom = bottomPadding) // Use our calculated smart bottom padding
+            .padding(bottom = 8.dp) // Simple fixed spacing - system insets handled by parent
             .scale(scale * songBounceScale * initialAppearanceBounceScale) // Combined scale for all bounce effects
             .graphicsLayer { 
                 // Apply translation based on swipe gesture

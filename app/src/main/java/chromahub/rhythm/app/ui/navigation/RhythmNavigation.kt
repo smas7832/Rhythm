@@ -277,36 +277,23 @@ fun RhythmNavigation(
     val showMiniPlayer = currentSong != null && currentRoute != Screen.Player.route
     val showNavBar = currentRoute == Screen.Home.route || currentRoute.startsWith("library")
     
-    // Get navigation bar height for proper spacing calculations
-    val navigationBarHeight = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    
-    val miniPlayerPaddingValues = remember(showMiniPlayer, showNavBar, navigationBarHeight) {
-        PaddingValues(
-            bottom = when {
-                showMiniPlayer && showNavBar -> {
-                    // When both mini player and nav bar are shown - provide adequate spacing
-                    UiConstants.MiniPlayerHeight + UiConstants.NavBarHeight + 
-                    when {
-                        navigationBarHeight > 48.dp -> 20.dp // 3-button nav needs more space
-                        navigationBarHeight > 0.dp -> 16.dp  // Gesture nav with hint bar
-                        else -> 12.dp // Gesture nav without visible bar
-                    }
-                }
-                showMiniPlayer -> {
-                    // Only mini player shown - the mini player handles its own positioning
-                    UiConstants.MiniPlayerHeight + 8.dp // Just add small buffer for content
-                }
-                showNavBar -> {
-                    // Only nav bar shown
-                    UiConstants.NavBarHeight + when {
-                        navigationBarHeight > 48.dp -> 12.dp // 3-button nav
-                        navigationBarHeight > 0.dp -> 8.dp   // Gesture nav with hint
-                        else -> 8.dp // Gesture nav without hint
-                    }
-                }
-                else -> 0.dp
-            }
-        )
+    // Calculate content bottom padding based on visible UI elements
+    // System insets are handled separately via windowInsetsPadding on the bottomBar
+    val miniPlayerPaddingValues = remember(showMiniPlayer, showNavBar) {
+        var totalPadding = 0.dp
+        
+        // Add MiniPlayer height if visible
+        if (showMiniPlayer) {
+            totalPadding += UiConstants.MiniPlayerHeight + 16.dp // Card height + spacing
+        }
+        
+        // Add NavBar height if visible
+        if (showNavBar) {
+            totalPadding += UiConstants.NavBarHeight + 16.dp // NavBar height + spacing
+        }
+        
+        // Return padding values (system insets handled by bottomBar container)
+        PaddingValues(bottom = totalPadding)
     }
 
     val snackbarHostState = remember { SnackbarHostState() }
@@ -350,7 +337,12 @@ fun RhythmNavigation(
                 }
             },
             bottomBar = {
-                Column {
+                // Wrap entire bottom bar in Column with system insets handling
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .windowInsetsPadding(WindowInsets.navigationBars) // Handle system navigation bars once
+                ) {
                     // Global MiniPlayer (hidden on full player screen) with bounce entrance animation
                     AnimatedVisibility(
                         visible = currentSong != null && currentRoute != Screen.Player.route,
@@ -409,8 +401,8 @@ fun RhythmNavigation(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(
-                                    top = if (showMiniPlayer) 2.dp else 8.dp, // Minimal top padding when mini player is visible
-                                    bottom = if (navigationBarHeight > 48.dp) 4.dp else 8.dp // Account for different navigation types
+                                    top = if (showMiniPlayer) 2.dp else 8.dp,
+                                    bottom = 8.dp // Simple spacing - no system insets here
                                 )
                         ) {
                             Row(
