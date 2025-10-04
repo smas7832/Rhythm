@@ -5130,37 +5130,43 @@ private fun PlaylistFabMenu(
     ) {
         val miniPlayerPadding = LocalMiniPlayerPadding.current
 
-        // FAB Menu Items
+        // Calculate consistent spacing from main FAB (bottom = 50.dp, FAB size = 56.dp)
+        // Base position above main FAB: 50 + 56 + 16 = 122.dp
+        val fabBaseBottom = 50.dp + 56.dp + 16.dp
+        val menuItemHeight = 56.dp // Approximate FabMenuItem height
+        val spacing = 16.dp
+
+        // FAB Menu Items with corrected positioning
         AnimatedVisibility(
-            visible = isExpanded && onExportPlaylists != null,
-            enter = fadeIn(animationSpec = tween(300, delayMillis = 0)) +
+            visible = isExpanded,
+            enter = fadeIn(animationSpec = tween(300, delayMillis = 300)) +
                    slideInHorizontally(
-                       animationSpec = tween(300, delayMillis = 0),
+                       animationSpec = tween(300, delayMillis = 300),
                        initialOffsetX = { it / 2 }
                    ),
-            exit = fadeOut(animationSpec = tween(200, delayMillis = 0)) +
+            exit = fadeOut(animationSpec = tween(200, delayMillis = 200)) +
                   slideOutHorizontally(
-                      animationSpec = tween(200, delayMillis = 0),
+                      animationSpec = tween(200, delayMillis = 200),
                       targetOffsetX = { it / 2 }
                   )
         ) {
             FabMenuItem(
-                label = "Export playlists",
-                icon = Icons.Default.FileUpload,
-                contentDescription = "Export playlists",
+                label = "New playlist",
+                icon = RhythmIcons.Add,
+                contentDescription = "Create new playlist",
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 onClick = {
                     HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                     scope.launch {
-                        onExportPlaylists?.invoke()
+                        onCreatePlaylist()
                         isExpanded = false
                     }
                 },
-                animationDelay = 0,
+                animationDelay = 100,
                 haptics = haptics, // Pass haptics
                 modifier = Modifier.padding(
-                    bottom = miniPlayerPadding.calculateBottomPadding() + 160.dp,
+                    bottom = fabBaseBottom, // Directly above main FAB
                     end = 16.dp
                 )
             )
@@ -5195,42 +5201,42 @@ private fun PlaylistFabMenu(
                 animationDelay = 50,
                 haptics = haptics, // Pass haptics
                 modifier = Modifier.padding(
-                    bottom = miniPlayerPadding.calculateBottomPadding() + 100.dp,
+                    bottom = fabBaseBottom + menuItemHeight + spacing, // Above "New playlist"
                     end = 16.dp
                 )
             )
         }
 
         AnimatedVisibility(
-            visible = isExpanded,
-            enter = fadeIn(animationSpec = tween(300, delayMillis = 300)) +
+            visible = isExpanded && onExportPlaylists != null,
+            enter = fadeIn(animationSpec = tween(300, delayMillis = 0)) +
                    slideInHorizontally(
-                       animationSpec = tween(300, delayMillis = 300),
+                       animationSpec = tween(300, delayMillis = 0),
                        initialOffsetX = { it / 2 }
                    ),
-            exit = fadeOut(animationSpec = tween(200, delayMillis = 200)) +
+            exit = fadeOut(animationSpec = tween(200, delayMillis = 0)) +
                   slideOutHorizontally(
-                      animationSpec = tween(200, delayMillis = 200),
+                      animationSpec = tween(200, delayMillis = 0),
                       targetOffsetX = { it / 2 }
                   )
         ) {
             FabMenuItem(
-                label = "New playlist",
-                icon = RhythmIcons.Add,
-                contentDescription = "Create new playlist",
+                label = "Export playlists",
+                icon = Icons.Default.FileUpload,
+                contentDescription = "Export playlists",
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 onClick = {
                     HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                     scope.launch {
-                        onCreatePlaylist()
+                        onExportPlaylists?.invoke()
                         isExpanded = false
                     }
                 },
-                animationDelay = 100,
+                animationDelay = 0,
                 haptics = haptics, // Pass haptics
                 modifier = Modifier.padding(
-                    bottom = miniPlayerPadding.calculateBottomPadding() + 40.dp,
+                    bottom = fabBaseBottom + (menuItemHeight + spacing) * 2, // Above "Import playlist"
                     end = 16.dp
                 )
             )
@@ -5255,7 +5261,7 @@ private fun PlaylistFabMenu(
                 pressedElevation = 12.dp
             ),
             modifier = Modifier
-                .padding(bottom = 16.dp) // Simple fixed spacing
+                .padding(bottom = 50.dp) // Simple fixed spacing
                 .size(56.dp)
         ) {
             Icon(

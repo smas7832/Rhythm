@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.Arrangement
@@ -100,8 +101,11 @@ import kotlinx.coroutines.launch
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -110,6 +114,8 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -348,7 +354,7 @@ fun RhythmNavigation(
                         visible = currentSong != null && currentRoute != Screen.Player.route,
                         enter = slideInVertically(
                             initialOffsetY = { fullHeight -> fullHeight },
-                            animationSpec = spring(
+                                            animationSpec = spring(
                                 dampingRatio = Spring.DampingRatioMediumBouncy,
                                 stiffness = Spring.StiffnessLow
                             )
@@ -359,14 +365,14 @@ fun RhythmNavigation(
                             )
                         ),
                         exit = slideOutVertically(
-                            targetOffsetY = { fullHeight -> fullHeight },
+                            targetOffsetY = { fullHeight -> fullHeight / 2 },
                             animationSpec = spring(
-                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                dampingRatio = Spring.DampingRatioNoBouncy,
                                 stiffness = Spring.StiffnessLow
                             )
                         ) + fadeOut(
                             animationSpec = spring(
-                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                dampingRatio = Spring.DampingRatioNoBouncy,
                                 stiffness = Spring.StiffnessLow
                             )
                         )
@@ -378,38 +384,65 @@ fun RhythmNavigation(
                             onPlayPause = onPlayPause,
                             onPlayerClick = onPlayerClick,
                             onSkipNext = onSkipNext,
-                            onDismiss = { 
+                            onDismiss = {
                                 // Clear the current song to hide the mini player
                                 viewModel.clearCurrentSong()
-                            }
+                            },
                         )
                     }
 
-                    // Navigation bar shown only on specific routes
-                    if (showNavBar) {
-                        // Add subtle separator when mini player is visible for better visual separation
-                        if (showMiniPlayer) {
-                            HorizontalDivider(
-                                thickness = 1.dp,
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
-                                modifier = Modifier.padding(horizontal = 32.dp)
+                    // Navigation bar shown only on specific routes with spring animation
+                    AnimatedVisibility(
+                        visible = showNavBar,
+                        enter = slideInVertically(
+                            initialOffsetY = { fullHeight -> fullHeight / 2 },
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessLow
                             )
-                        }
+                        ) + fadeIn(
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessLow
+                            )
+                        ),
+                        exit = slideOutVertically(
+                            targetOffsetY = { fullHeight -> fullHeight / 2 },
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioNoBouncy,
+                                stiffness = Spring.StiffnessLow
+                            )
+                        ) + fadeOut(
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioNoBouncy,
+                                stiffness = Spring.StiffnessLow
+                            )
+                        )
+                    ) {
+                        Column {
+                            // // Add subtle separator when mini player is visible for better visual separation
+                            // if (showMiniPlayer) {
+                            //     HorizontalDivider(
+                            //         thickness = 1.dp,
+                            //         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
+                            //         modifier = Modifier.padding(horizontal = 32.dp)
+                            //     )
+                            // }
 
-                        // New outer Box to layer navigation bar and search icon
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(
-                                    top = if (showMiniPlayer) 2.dp else 8.dp,
-                                    bottom = 8.dp // Simple spacing - no system insets here
-                                )
-                        ) {
+                            // New outer Box to layer navigation bar and search icon
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(
+                                        top = if (showMiniPlayer) 2.dp else 8.dp,
+                                        bottom = 8.dp // Simple spacing - no system insets here
+                                    )
+                            )
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = 16.dp) // Overall horizontal padding for the row
-                                    .align(Alignment.BottomCenter), // Align the row to the bottom center of the outer Box
+                                    .align(Alignment.CenterHorizontally), // Align the row to the center horizontally within the Column
                                 verticalAlignment = Alignment.Bottom // Align items to the bottom of the row
                             ) {
                                 // Navigation bar Surface
@@ -446,20 +479,43 @@ fun RhythmNavigation(
 
                                             val (selectedIcon, unselectedIcon) = icons
 
-                                            // Animation values
+                                            // Enhanced animation values with spring physics
                                             val animatedScale by animateFloatAsState(
-                                                targetValue = if (isSelected) 1.1f else 1.0f,
+                                                targetValue = if (isSelected) 1.05f else 1.0f,
                                                 animationSpec = spring(
                                                     dampingRatio = Spring.DampingRatioMediumBouncy,
                                                     stiffness = Spring.StiffnessLow
                                                 ),
-                                                label = "scale"
+                                                label = "scale_$title"
                                             )
 
                                             val animatedAlpha by animateFloatAsState(
                                                 targetValue = if (isSelected) 1f else 0.7f,
+                                                animationSpec = spring(
+                                                    dampingRatio = Spring.DampingRatioNoBouncy,
+                                                    stiffness = Spring.StiffnessLow
+                                                ),
+                                                label = "alpha_$title"
+                                            )
+
+                                            // Background pill animation with spring
+                                            val pillWidth by animateDpAsState(
+                                                targetValue = if (isSelected) 120.dp else 0.dp,
+                                                animationSpec = spring(
+                                                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                    stiffness = Spring.StiffnessLow
+                                                ),
+                                                label = "pillWidth_$title"
+                                            )
+                                            
+                                            // Icon color animation
+                                            val iconColor by animateColorAsState(
+                                                targetValue = if (isSelected)
+                                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                                else
+                                                    MaterialTheme.colorScheme.onSurfaceVariant,
                                                 animationSpec = tween(300),
-                                                label = "alpha"
+                                                label = "iconColor_$title"
                                             )
 
                                             val haptic = LocalHapticFeedback.current
@@ -480,47 +536,79 @@ fun RhythmNavigation(
                                                     },
                                                 contentAlignment = Alignment.Center
                                             ) {
-                                                // Horizontal layout for icon and text
+                                                // Horizontal layout for icon and text with animated pill background
                                                 Row(
                                                     verticalAlignment = Alignment.CenterVertically,
                                                     horizontalArrangement = Arrangement.Center,
                                                     modifier = Modifier
-                                                        .then(
-                                                            if (isSelected) Modifier
-                                                                .clip(RoundedCornerShape(20.dp)) // Apply shape directly
-                                                                .background(MaterialTheme.colorScheme.primaryContainer) // Apply background directly
-                                                                .height(48.dp) // Fixed height for the pill
-                                                                .padding(horizontal = 18.dp) // Padding inside the pill
-                                                            else Modifier.padding(horizontal = 16.dp) // Original padding for unselected
-                                                        )
-                                                        .graphicsLayer { // Apply graphicsLayer after background/padding
+                                                        .graphicsLayer {
                                                             scaleX = animatedScale
                                                             scaleY = animatedScale
                                                             alpha = animatedAlpha
                                                         }
+                                                        .then(
+                                                            if (isSelected) Modifier
+                                                                .clip(RoundedCornerShape(20.dp))
+                                                                .background(MaterialTheme.colorScheme.primaryContainer)
+                                                                .height(48.dp)
+                                                                .widthIn(min = pillWidth) // Animated width
+                                                                .padding(horizontal = 18.dp)
+                                                            else Modifier.padding(horizontal = 16.dp)
+                                                        )
                                                 ) {
-                                                    Icon(
-                                                        imageVector = if (isSelected) selectedIcon else unselectedIcon,
-                                                        contentDescription = title,
-                                                        tint = if (isSelected)
-                                                            MaterialTheme.colorScheme.onPrimaryContainer
-                                                        else
-                                                            MaterialTheme.colorScheme.onSurfaceVariant,
-                                                        modifier = Modifier.size(24.dp)
-                                                    )
+                                                    // Animated icon with crossfade
+                                                    androidx.compose.animation.Crossfade(
+                                                        targetState = isSelected,
+                                                        animationSpec = spring(
+                                                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                            stiffness = Spring.StiffnessVeryLow
+                                                        ),
+                                                        label = "iconCrossfade_$title"
+                                                    ) { selected ->
+                                                        Icon(
+                                                            imageVector = if (selected) selectedIcon else unselectedIcon,
+                                                            contentDescription = title,
+                                                            tint = iconColor,
+                                                            modifier = Modifier.size(24.dp)
+                                                        )
+                                                    }
 
-                                                    Spacer(modifier = Modifier.width(8.dp))
-
-                                                    Text(
-                                                        text = title,
-                                                        style = MaterialTheme.typography.labelMedium,
-                                                        color = if (isSelected)
-                                                            MaterialTheme.colorScheme.onPrimaryContainer
-                                                        else
-                                                            MaterialTheme.colorScheme.onSurfaceVariant,
-                                                        maxLines = 1,
-                                                        overflow = TextOverflow.Ellipsis
-                                                    )
+                                                    AnimatedVisibility(
+                                                        visible = isSelected,
+                                                        enter = fadeIn(
+                                                            animationSpec = spring(
+                                                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                                stiffness = Spring.StiffnessMedium
+                                                            )
+                                                        ) + expandHorizontally(
+                                                            animationSpec = spring(
+                                                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                                stiffness = Spring.StiffnessLow
+                                                            )
+                                                        ),
+                                                        exit = fadeOut(
+                                                            animationSpec = spring(
+                                                                dampingRatio = Spring.DampingRatioNoBouncy,
+                                                                stiffness = Spring.StiffnessLow
+                                                            )
+                                                        ) + shrinkHorizontally(
+                                                            animationSpec = spring(
+                                                                dampingRatio = Spring.DampingRatioNoBouncy,
+                                                                stiffness = Spring.StiffnessLow
+                                                            )
+                                                        )
+                                                    ) {
+                                                        Row {
+                                                            Spacer(modifier = Modifier.width(8.dp))
+                                                            Text(
+                                                                text = title,
+                                                                style = MaterialTheme.typography.labelMedium,
+                                                                color = iconColor,
+                                                                maxLines = 1,
+                                                                overflow = TextOverflow.Ellipsis
+                                                            )
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }
@@ -556,9 +644,6 @@ fun RhythmNavigation(
                                 }
                             }
                         }
-
-                        // Add spacer that takes up the navigation bar height
-                        Spacer(modifier = Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
                     }
                 }
             }
