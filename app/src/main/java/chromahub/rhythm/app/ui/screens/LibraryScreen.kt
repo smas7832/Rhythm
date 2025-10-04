@@ -2643,6 +2643,14 @@ fun PlaylistItem(
     haptics: androidx.compose.ui.hapticfeedback.HapticFeedback // Add haptics parameter
 ) {
     val context = LocalContext.current
+    
+    // Get unique album arts from playlist songs (up to 4)
+    val albumArts = remember(playlist.songs) {
+        playlist.songs
+            .distinctBy { it.albumId }
+            .take(4)
+    }
+    
     Surface(
         onClick = {
             HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
@@ -2650,95 +2658,109 @@ fun PlaylistItem(
         },
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 4.dp),
-        shape = RoundedCornerShape(16.dp),
+            .padding(horizontal = 20.dp, vertical = 6.dp),
+        shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        tonalElevation = 0.dp,
+        tonalElevation = 2.dp,
         shadowElevation = 0.dp
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(18.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Playlist artwork - reduced size from 68.dp to 56.dp
+            // Stylish playlist artwork with collage
             Surface(
-                modifier = Modifier.size(56.dp),
-                shape = RoundedCornerShape(20.dp),
+                modifier = Modifier.size(72.dp),
+                shape = RoundedCornerShape(16.dp),
                 tonalElevation = 0.dp,
-                color = MaterialTheme.colorScheme.primaryContainer
+                color = MaterialTheme.colorScheme.primaryContainer,
+                shadowElevation = 0.dp
             ) {
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            if (playlist.artworkUri != null) Color.Transparent
-                            else MaterialTheme.colorScheme.primaryContainer
-                        ),
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
                     if (playlist.artworkUri != null) {
+                        // Use custom playlist artwork if available
                         M3ImageUtils.PlaylistImage(
                             imageUrl = playlist.artworkUri,
                             playlistName = playlist.name,
                             modifier = Modifier.fillMaxSize()
                         )
-                    } else {
-                        // Playlist icon - reduced size from 44.dp to 36.dp
-                        Icon(
-                            imageVector = RhythmIcons.PlaylistFilled,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(36.dp)
+                    } else if (albumArts.isNotEmpty()) {
+                        // Create collage from album arts
+                        PlaylistArtCollage(
+                            songs = albumArts,
+                            playlistName = playlist.name
                         )
+                    } else {
+                        // Fallback to playlist icon with solid background
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(MaterialTheme.colorScheme.primaryContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = RhythmIcons.PlaylistFilled,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(40.dp)
+                            )
+                        }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.width(14.dp)) // Reduced spacing
+            Spacer(modifier = Modifier.width(16.dp))
 
-            // Playlist info
+            // Playlist info with better typography
             Column(
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
                     text = playlist.name,
-                    style = MaterialTheme.typography.titleSmall, // Smaller text
-                    fontWeight = FontWeight.SemiBold, // SemiBold instead of Bold
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     color = MaterialTheme.colorScheme.onSurface
                 )
 
-                Spacer(modifier = Modifier.height(2.dp)) // Smaller spacing
+                Spacer(modifier = Modifier.height(4.dp))
 
                 Row(
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    // Music note icon - slightly smaller
-                    Icon(
-                        imageVector = RhythmIcons.MusicNote,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(14.dp)
-                    )
-
-                    Spacer(modifier = Modifier.width(4.dp))
-
-                    Text(
-                        text = "${playlist.songs.size} ${if (playlist.songs.size == 1) "song" else "songs"}",
-                        style = MaterialTheme.typography.bodySmall, // Smaller text
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    // Enhanced metadata display
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = RhythmIcons.MusicNote,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Text(
+                                text = "${playlist.songs.size}",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+                    }
 
                     if (playlist.songs.isNotEmpty()) {
-                        Text(
-                            text = " • ",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-
                         val totalDurationMs = playlist.songs.sumOf { it.duration }
                         val totalMinutes = (totalDurationMs / (1000 * 60)).toInt()
                         val durationText = if (totalMinutes >= 60) {
@@ -2749,20 +2771,39 @@ fun PlaylistItem(
                             "${totalMinutes}m"
                         }
 
-                        Text(
-                            text = durationText,
-                            style = MaterialTheme.typography.bodySmall, // Smaller text
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AccessTime,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Text(
+                                    text = durationText,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                            }
+                        }
                     }
                 }
             }
 
-            // Forward arrow - slightly smaller
+            // Stylish forward arrow with animation hint
             Surface(
-                modifier = Modifier.size(38.dp),
+                modifier = Modifier.size(40.dp),
                 shape = CircleShape,
-                color = MaterialTheme.colorScheme.primary
+                color = MaterialTheme.colorScheme.primary,
+                shadowElevation = 0.dp
             ) {
                 Box(
                     contentAlignment = Alignment.Center
@@ -2771,8 +2812,109 @@ fun PlaylistItem(
                         imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
                         contentDescription = "Open playlist",
                         tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(20.dp)
                     )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PlaylistArtCollage(
+    songs: List<Song>,
+    playlistName: String
+) {
+    when (songs.size) {
+        1 -> {
+            // Single album art
+            M3ImageUtils.AlbumArt(
+                imageUrl = songs[0].artworkUri,
+                albumName = songs[0].album,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+        2 -> {
+            // Two album arts side by side
+            Row(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                    M3ImageUtils.AlbumArt(
+                        imageUrl = songs[0].artworkUri,
+                        albumName = songs[0].album,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+                Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                    M3ImageUtils.AlbumArt(
+                        imageUrl = songs[1].artworkUri,
+                        albumName = songs[1].album,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            }
+        }
+        3 -> {
+            // Three album arts: one large on left, two stacked on right
+            Row(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                    M3ImageUtils.AlbumArt(
+                        imageUrl = songs[0].artworkUri,
+                        albumName = songs[0].album,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+                Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                    Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                        M3ImageUtils.AlbumArt(
+                            imageUrl = songs[1].artworkUri,
+                            albumName = songs[1].album,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                        M3ImageUtils.AlbumArt(
+                            imageUrl = songs[2].artworkUri,
+                            albumName = songs[2].album,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                }
+            }
+        }
+        else -> {
+            // Four album arts in a 2x2 grid
+            Column(modifier = Modifier.fillMaxSize()) {
+                Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                        M3ImageUtils.AlbumArt(
+                            imageUrl = songs[0].artworkUri,
+                            albumName = songs[0].album,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                        M3ImageUtils.AlbumArt(
+                            imageUrl = songs[1].artworkUri,
+                            albumName = songs[1].album,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                }
+                Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                        M3ImageUtils.AlbumArt(
+                            imageUrl = songs[2].artworkUri,
+                            albumName = songs[2].album,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                        M3ImageUtils.AlbumArt(
+                            imageUrl = songs[3].artworkUri,
+                            albumName = songs[3].album,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
                 }
             }
         }
@@ -3843,7 +3985,7 @@ fun SingleCardExplorerContent(
     }
 
     var showPermissionDialog by remember { mutableStateOf(false) }
-    var currentPath by remember { mutableStateOf<String?>(null) }
+    var currentPath by rememberSaveable { mutableStateOf<String?>(null) }
     var isLoadingDirectory by remember { mutableStateOf(false) }
 
     // Handle permission result in a LaunchedEffect
@@ -4065,35 +4207,51 @@ fun SingleCardExplorerContent(
         
         if (currentPath == null) {
             // Show device storage roots (fast operation, no need for background)
+            isLoadingDirectory = true
             val storageItems = getStorageRoots()
             currentItems = storageItems
             directoryCache[cacheKey] = storageItems
             isLoadingDirectory = false
         } else {
             // Check cache first to avoid unnecessary reloads
+            // Only use cache if it has items - never use cached empty results
             val cached = directoryCache[cacheKey]
             if (cached != null && cached.isNotEmpty()) {
-                currentItems = cached
+                // Use cached results immediately
                 isLoadingDirectory = false
+                currentItems = cached
             } else {
-                // Debounce rapid navigation with 150ms delay
+                // Set loading state FIRST before clearing items to ensure loading indicator shows
+                isLoadingDirectory = true
+                
+                // Clear current items after setting loading state
+                currentItems = emptyList()
+                
+                // Remove any cached empty result for this path
+                directoryCache.remove(cacheKey)
+                
+                // Load without debounce to make navigation feel more responsive
                 debounceJob = launch {
-                    kotlinx.coroutines.delay(150)
-                    isLoadingDirectory = true
                     try {
                         val items = withContext(Dispatchers.IO) {
                             getDirectoryContentsOptimized(currentPath!!, audioExtensions, songs, context)
                         }
                         val sortedItems = items.sortedBy { it.name.lowercase() }
+                        // Always update currentItems, even if empty (to show empty state)
                         currentItems = sortedItems
-                        // Update cache with new results
-                        if (directoryCache.size >= 20) {
-                            directoryCache.remove(directoryCache.keys.first())
+                        // Only cache non-empty results to force reload on next visit if directory was empty
+                        if (sortedItems.isNotEmpty()) {
+                            // Update cache with new results
+                            if (directoryCache.size >= 20) {
+                                // Remove oldest entry if cache is full
+                                directoryCache.remove(directoryCache.keys.first())
+                            }
+                            directoryCache[cacheKey] = sortedItems
                         }
-                        directoryCache[cacheKey] = sortedItems
                     } catch (e: Exception) {
                         // Handle errors gracefully - show empty state
                         currentItems = emptyList()
+                        // Don't cache errors/empty results so we retry on next navigation
                     } finally {
                         isLoadingDirectory = false
                     }
@@ -4611,24 +4769,24 @@ fun SingleCardExplorerContent(
                 initialOffsetY = { it },
                 animationSpec = spring(
                     dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessMedium
+                    stiffness = Spring.StiffnessMediumLow
                 )
             ) + fadeIn(
                 animationSpec = spring(
                     dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessMedium
+                    stiffness = Spring.StiffnessMediumLow
                 )
             ),
             exit = slideOutVertically(
                 targetOffsetY = { it },
                 animationSpec = spring(
                     dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessMedium
+                    stiffness = Spring.StiffnessMediumLow
                 )
             ) + fadeOut(
                 animationSpec = spring(
                     dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessMedium
+                    stiffness = Spring.StiffnessMediumLow
                 )
             ),
             modifier = Modifier
@@ -5310,11 +5468,11 @@ private fun PlaylistFabMenu(
             containerColor = MaterialTheme.colorScheme.primaryContainer,
             contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
             elevation = FloatingActionButtonDefaults.elevation(
-                defaultElevation = 6.dp,
+                defaultElevation = 0.dp,
                 pressedElevation = 12.dp
             ),
             modifier = Modifier
-                .padding(bottom = 50.dp) // Simple fixed spacing
+                .padding(bottom = 10.dp) // Simple fixed spacing
                 .size(56.dp)
         ) {
             Icon(
@@ -5813,7 +5971,7 @@ private fun FabMenuItem(
             contentColor = contentColor
         ),
         elevation = CardDefaults.cardElevation(
-            defaultElevation = 4.dp,
+            defaultElevation = 0.dp,
             pressedElevation = 8.dp
         ),
         modifier = modifier
@@ -5882,7 +6040,7 @@ fun BottomFloatingButtonGroup(
             Button(
                 onClick = onPlayAll,
                 modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(26.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary

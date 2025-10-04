@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.sp
 import chromahub.rhythm.app.R
 import chromahub.rhythm.app.viewmodel.MusicViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun SplashScreen(
@@ -54,28 +55,39 @@ fun SplashScreen(
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "splashAnimations")
     
-    // Simple logo and text animation
-    val logoScale by infiniteTransition.animateFloat(
-        initialValue = 0.95f,
-        targetValue = 1.05f,
+    // Subtle breathing animation for logo
+    val logoBreathing by infiniteTransition.animateFloat(
+        initialValue = 0.97f,
+        targetValue = 1.03f,
         animationSpec = infiniteRepeatable(
             animation = tween(
-                durationMillis = 2000,
+                durationMillis = 2500,
                 easing = androidx.compose.animation.core.EaseInOutSine
             ),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "logoScale"
+        label = "logoBreathing"
     )
 
-    // Animation state variables
-    var showContent by remember { mutableStateOf(false) }
-    var showLoadingDots by remember { mutableStateOf(false) }
+    // Animation state flags
+    var showLogo by remember { mutableStateOf(false) }
+    var showAppName by remember { mutableStateOf(false) }
+    var showTagline by remember { mutableStateOf(false) }
+    var showLoader by remember { mutableStateOf(false) }
     var exitSplash by remember { mutableStateOf(false) }
 
-    // Animatable for entrance and exit
-    val contentScale = remember { Animatable(0f) }
-    val contentAlpha = remember { Animatable(0f) }
+    // Animatable values for smooth animations
+    val logoAlpha = remember { Animatable(0f) }
+    val logoScaleAnim = remember { Animatable(0.5f) }
+    
+    val appNameOffsetX = remember { Animatable(-150f) } // Slides from left (behind logo)
+    val appNameAlpha = remember { Animatable(0f) }
+    
+    val taglineOffsetY = remember { Animatable(-80f) } // Slides down from behind
+    val taglineAlpha = remember { Animatable(0f) }
+    
+    val loaderAlpha = remember { Animatable(0f) }
+    
     val exitScale = remember { Animatable(1f) }
     val exitAlpha = remember { Animatable(1f) }
 
@@ -83,29 +95,84 @@ fun SplashScreen(
     val isInitialized by musicViewModel.isInitialized.collectAsState()
 
     LaunchedEffect(Unit) {
-        // Start entrance animation
-        delay(200)
-        showContent = true
-        contentScale.animateTo(1f, animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        ))
-        contentAlpha.animateTo(1f, animationSpec = tween(800))
+        delay(150)
         
-        delay(400)
-        showLoadingDots = true
+        // STEP 1: Logo appears with scale and fade
+        showLogo = true
+        launch {
+            logoAlpha.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(0, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+            )
+        }
+        logoScaleAnim.animateTo(
+            targetValue = 1f,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessLow
+            )
+        )
+        
+//        delay(100)
+        
+        // STEP 2: App name slides horizontally from behind the logo (left to center)
+        showAppName = true
+        launch {
+            appNameAlpha.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(delayMillis = 0, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+            )
+        }
+        appNameOffsetX.animateTo(
+            targetValue = 0f,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioNoBouncy,
+                stiffness = Spring.StiffnessLow
+            )
+        )
+        
+//        delay(100)
+        
+        // STEP 3: Tagline slides down from behind logo and name
+        showTagline = true
+        launch {
+            taglineAlpha.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(0)
+            )
+        }
+        taglineOffsetY.animateTo(
+            targetValue = 0f,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessLow
+            )
+        )
+        
+//        delay(100)
+        
+        // STEP 4: Loader fades in at bottom
+        showLoader = true
+        loaderAlpha.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(100)
+        )
     }
 
-    // Handle media scanning completion
+
+
+    // Handle media scanning completion - exit animation
     LaunchedEffect(isInitialized) {
         if (isInitialized && !exitSplash) {
+            delay(2000)
             exitSplash = true
             
-            // Exit animation
-            exitScale.animateTo(0.95f, animationSpec = tween(1700))
-            exitAlpha.animateTo(0f, animationSpec = tween(1700))
+            launch {
+                exitScale.animateTo(0.90f, animationSpec = tween(350))
+            }
+            exitAlpha.animateTo(0f, animationSpec = tween(350))
             
-            delay(400)
+            delay(100)
             onMediaScanComplete()
         }
     }
@@ -122,117 +189,111 @@ fun SplashScreen(
         contentAlignment = Alignment.Center
     ) {
         // Background particles using the drawable
-        AnimatedVisibility(
-            visible = showContent,
-            enter = fadeIn(animationSpec = tween(1000))
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.splash_particles),
-                contentDescription = null,
-                modifier = Modifier
-                    .size(300.dp)
-                    .graphicsLayer {
-                        alpha = 0.3f
-                        scaleX = logoScale * 1.2f
-                        scaleY = logoScale * 1.2f
-                    }
-            )
-        }
+//        AnimatedVisibility(
+//            visible = showContent,
+//            enter = fadeIn(animationSpec = tween(1000))
+//        ) {
+//            Image(
+//                painter = painterResource(id = R.drawable.splash_particles),
+//                contentDescription = null,
+//                modifier = Modifier
+//                    .size(300.dp)
+//                    .graphicsLayer {
+//                        alpha = 0.3f
+//                        scaleX = logoScale * 1.2f
+//                        scaleY = logoScale * 1.2f
+//                    }
+//            )
+//        }
 
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer {
-                    scaleX = contentScale.value
-                    scaleY = contentScale.value
-                    alpha = contentAlpha.value
-                }
+        // Main content with dramatic text reveal
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
         ) {
-            // Logo and title container with synchronized animation
-            AnimatedVisibility(
-                visible = showContent,
-                enter = scaleIn(
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                        stiffness = Spring.StiffnessMedium
-                    ),
-                    initialScale = 0.3f
-                ) + fadeIn(animationSpec = tween(800))
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(0.dp)
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(24.dp)
-                ) {
-                    // App logo
+                // Logo with entrance animation and breathing effect
+                if (showLogo) {
                     Image(
                         painter = painterResource(id = R.drawable.rhythm_splash_logo),
                         contentDescription = "Rhythm",
                         modifier = Modifier
-                            .size(190.dp)
+                            .size(180.dp)
                             .graphicsLayer {
-                                scaleX = logoScale
-                                scaleY = logoScale
+                                alpha = logoAlpha.value
+                                scaleX = logoScaleAnim.value * logoBreathing
+                                scaleY = logoScaleAnim.value * logoBreathing
                             }
                     )
-
-                    // App name with material design styling
-                    Text(
-                        text = "Rhythm",
-                        style = MaterialTheme.typography.displayMedium.copy(
-                            fontSize = 48.sp,
-                            letterSpacing = 2.sp
-                        ),
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.graphicsLayer {
-                            scaleX = logoScale
-                            scaleY = logoScale
-                        }
-                    )
                 }
-            }
 
-            Spacer(modifier = Modifier.height(40.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-            // Subtitle
-            AnimatedVisibility(
-                visible = showContent,
-                enter = slideInVertically(
-                    initialOffsetY = { it / 2 },
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                        stiffness = Spring.StiffnessMedium
-                    )
-                ) + fadeIn(animationSpec = tween(1000, delayMillis = 400))
-            ) {
-                Text(
-                    text = "Your Music, Your Rhythm",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        letterSpacing = 1.sp,
-                        fontSize = 18.sp
-                    ),
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = 32.dp)
-                )
+                // App name sliding from left (behind logo)
+                Box(
+                    modifier = Modifier.height(56.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (showAppName) {
+                        Text(
+                            text = "Rhythm",
+                            style = MaterialTheme.typography.displayMedium.copy(
+                                fontSize = 48.sp,
+                                letterSpacing = 2.sp
+                            ),
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .graphicsLayer {
+                                    alpha = appNameAlpha.value
+                                    translationX = appNameOffsetX.value
+                                }
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Tagline sliding down from behind logo and name
+                Box(
+                    modifier = Modifier.height(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (showTagline) {
+                        Text(
+                            text = "Your Music, Your Rhythm",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                letterSpacing = 1.sp,
+                                fontSize = 17.sp
+                            ),
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f),
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .graphicsLayer {
+                                    alpha = taglineAlpha.value
+                                    translationY = taglineOffsetY.value
+                                }
+                        )
+                    }
+                }
             }
         }
 
-        // Loading indicator with material design
-        AnimatedVisibility(
-            visible = showLoadingDots,
-            enter = fadeIn(animationSpec = tween(600, delayMillis = 600)),
+        // Loading indicator at bottom with fade in
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = 80.dp),
+                .padding(bottom = 80.dp)
+                .graphicsLayer {
+                    alpha = loaderAlpha.value
+                },
+            contentAlignment = Alignment.BottomCenter
         ) {
-            Box(
-                contentAlignment = Alignment.BottomCenter,
-                modifier = Modifier.fillMaxSize()
-            ) {
+            if (showLoader) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -243,7 +304,7 @@ fun SplashScreen(
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
                         fontWeight = FontWeight.Medium
                     )
-                    
+
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -255,7 +316,7 @@ fun SplashScreen(
                                 targetValue = 1.2f,
                                 animationSpec = infiniteRepeatable(
                                     animation = tween(
-                                        600, 
+                                        600,
                                         delayMillis = animationDelay,
                                         easing = androidx.compose.animation.core.EaseInOut
                                     ),
@@ -263,7 +324,7 @@ fun SplashScreen(
                                 ),
                                 label = "dot$index"
                             )
-                            
+
                             Surface(
                                 modifier = Modifier
                                     .size(6.dp)

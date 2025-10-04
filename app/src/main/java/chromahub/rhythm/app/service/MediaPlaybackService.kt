@@ -174,7 +174,7 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
         createNotificationChannel()
 
         // Start foreground immediately to avoid ANR
-        startForeground("Rhythm Music", "Starting service...")
+        startForegroundWithNotification("Rhythm Music", "Starting service...")
 
         // Initialize settings manager (fast operation)
         updateForegroundNotification("Rhythm Music", "Loading settings...")
@@ -232,7 +232,7 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
         }
     }
     
-    private fun startForeground(title: String = "Rhythm Music", content: String = "Initializing music service...") {
+    private fun startForegroundWithNotification(title: String = "Rhythm Music", content: String = "Initializing music service...") {
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(content)
@@ -241,7 +241,8 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .build()
 
-        startForeground(NOTIFICATION_ID, notification)
+        // Call the system's startForeground() method
+        super.startForeground(NOTIFICATION_ID, notification)
         Log.d(TAG, "Started foreground service: $title - $content")
     }
 
