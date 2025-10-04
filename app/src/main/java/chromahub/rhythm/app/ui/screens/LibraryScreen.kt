@@ -128,6 +128,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -249,11 +250,16 @@ fun LibraryScreen(
         tabOrder.indexOf(tabId).takeIf { it >= 0 } ?: 0
     }
     
-    var selectedTabIndex by remember { mutableStateOf(initialTabIndex) }
+    var selectedTabIndex by rememberSaveable { mutableStateOf(initialTabIndex) }
     val pagerState = rememberPagerState(initialPage = selectedTabIndex) { tabs.size }
     val tabRowState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
+    
+    // Auto-scroll tab row to show selected tab when returning to this screen
+    LaunchedEffect(selectedTabIndex) {
+        tabRowState.animateScrollToItem(selectedTabIndex)
+    }
     
     // Dialog and bottom sheet states
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
@@ -276,6 +282,9 @@ fun LibraryScreen(
     var importResult by remember { mutableStateOf<Pair<Int, String>?>(null) }
     var showErrorDialog by remember { mutableStateOf(false) }
     var showRestartDialog by remember { mutableStateOf(false) }
+    
+    // Explorer reload trigger
+    var explorerReloadTrigger by remember { mutableStateOf(0) }
     var selectedSong by remember { mutableStateOf<Song?>(null) }
     var selectedAlbum by remember { mutableStateOf<Album?>(null) }
     var selectedArtist by remember { mutableStateOf<Artist?>(null) }
@@ -521,7 +530,12 @@ fun LibraryScreen(
                     FilledIconButton(
                         onClick = {
                             HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
-                            onRefreshClick()
+                            // If on Explorer tab, reload explorer; otherwise, trigger media scan
+                            if (tabOrder.getOrNull(selectedTabIndex) == "EXPLORER") {
+                                explorerReloadTrigger++
+                            } else {
+                                onRefreshClick()
+                            }
                         },
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -1004,7 +1018,8 @@ fun LibraryScreen(
                             onPlayQueue = onPlayQueue,
                             onShuffleQueue = onShuffleQueue,
                             haptics = haptics,
-                            appSettings = appSettings
+                            appSettings = appSettings,
+                            reloadTrigger = explorerReloadTrigger
                         )
                     }
                 }
@@ -3794,7 +3809,8 @@ fun SingleCardExplorerContent(
     onPlayQueue: (List<Song>) -> Unit,
     onShuffleQueue: (List<Song>) -> Unit,
     haptics: androidx.compose.ui.hapticfeedback.HapticFeedback,
-    appSettings: AppSettings
+    appSettings: AppSettings,
+    reloadTrigger: Int = 0
 ) {
     val context = LocalContext.current
     val activity = context as Activity
@@ -4002,6 +4018,43 @@ fun SingleCardExplorerContent(
     
     // Debounce key to prevent rapid recompositions causing ANR
     var debounceJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+
+    // Handle reload trigger - clear cache and reload current directory
+    LaunchedEffect(reloadTrigger) {
+        if (reloadTrigger > 0) {
+            // Clear the entire cache
+            directoryCache.clear()
+            
+            // Force reload of current directory by removing it from cache and triggering reload
+            val cacheKey = currentPath
+            directoryCache.remove(cacheKey)
+            
+            // Cancel any pending load operation
+            debounceJob?.cancel()
+            
+            // Reload current directory
+            if (currentPath == null) {
+                val storageItems = getStorageRoots()
+                currentItems = storageItems
+                directoryCache[cacheKey] = storageItems
+                isLoadingDirectory = false
+            } else {
+                isLoadingDirectory = true
+                try {
+                    val items = withContext(Dispatchers.IO) {
+                        getDirectoryContentsOptimized(currentPath!!, audioExtensions, songs, context)
+                    }
+                    val sortedItems = items.sortedBy { it.name.lowercase() }
+                    currentItems = sortedItems
+                    directoryCache[cacheKey] = sortedItems
+                } catch (e: Exception) {
+                    currentItems = emptyList()
+                } finally {
+                    isLoadingDirectory = false
+                }
+            }
+        }
+    }
 
     // Load directory contents asynchronously with caching and debouncing
     LaunchedEffect(currentPath) {
