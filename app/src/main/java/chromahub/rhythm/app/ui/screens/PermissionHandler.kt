@@ -284,6 +284,7 @@ fun PermissionHandler(
         ) {
             OnboardingScreen(
                 currentStep = currentOnboardingStep,
+                musicViewModel = musicViewModel,
                 onNextStep = {
                     when (currentOnboardingStep) {
                         OnboardingStep.WELCOME -> currentOnboardingStep = OnboardingStep.PERMISSIONS
@@ -299,7 +300,8 @@ fun PermissionHandler(
                         OnboardingStep.THEMING -> currentOnboardingStep = OnboardingStep.LIBRARY_SETUP // Move to library setup
                         OnboardingStep.LIBRARY_SETUP -> currentOnboardingStep = OnboardingStep.MEDIA_SCAN // Move to media scan
                         OnboardingStep.MEDIA_SCAN -> currentOnboardingStep = OnboardingStep.UPDATER // Move to updater
-                        OnboardingStep.UPDATER -> {
+                        OnboardingStep.UPDATER -> currentOnboardingStep = OnboardingStep.SETUP_FINISHED // Move to setup finished
+                        OnboardingStep.SETUP_FINISHED -> {
                             appSettings.setOnboardingCompleted(true) // Mark onboarding as complete
                             currentOnboardingStep = OnboardingStep.COMPLETE // Move to complete
                             // Show media scan loader only after onboarding completion for the first time
@@ -321,6 +323,7 @@ fun PermissionHandler(
                         OnboardingStep.LIBRARY_SETUP -> currentOnboardingStep = OnboardingStep.THEMING
                         OnboardingStep.MEDIA_SCAN -> currentOnboardingStep = OnboardingStep.LIBRARY_SETUP
                         OnboardingStep.UPDATER -> currentOnboardingStep = OnboardingStep.MEDIA_SCAN
+                        OnboardingStep.SETUP_FINISHED -> currentOnboardingStep = OnboardingStep.UPDATER
                         else -> { /* Should not happen for WELCOME or COMPLETE */ }
                     }
                 },

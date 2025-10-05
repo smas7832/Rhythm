@@ -9,6 +9,7 @@ enum class OnboardingStep {
     LIBRARY_SETUP, // New step for library organization preferences
     MEDIA_SCAN, // New step for choosing blacklist/whitelist filtering mode
     UPDATER,
+    SETUP_FINISHED, // New step showing setup completion with finish button
     COMPLETE
 }
 

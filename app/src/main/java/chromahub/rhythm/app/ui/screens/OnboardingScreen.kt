@@ -4,26 +4,43 @@ import android.Manifest
 import android.os.Build
 import android.provider.Settings
 import androidx.compose.material.icons.filled.*
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -37,12 +54,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.FormatListNumbered
@@ -56,10 +77,13 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.RestoreFromTrash
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Queue
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.SortByAlpha
+import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.TouchApp
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.WavingHand
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -68,23 +92,30 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.animation.core.Animatable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -100,6 +131,7 @@ import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.ui.screens.onboarding.OnboardingStep
 import chromahub.rhythm.app.ui.screens.onboarding.PermissionScreenState
 import chromahub.rhythm.app.viewmodel.AppUpdaterViewModel
+import chromahub.rhythm.app.viewmodel.MusicViewModel
 import chromahub.rhythm.app.viewmodel.ThemeViewModel
 import chromahub.rhythm.app.util.HapticUtils
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -107,7 +139,9 @@ import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import kotlinx.coroutines.launch
 import java.util.Locale
+import kotlin.math.absoluteValue
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun OnboardingScreen(
     currentStep: OnboardingStep,
@@ -117,13 +151,34 @@ fun OnboardingScreen(
     permissionScreenState: PermissionScreenState,
     isParentLoading: Boolean,
     themeViewModel: ThemeViewModel,
-    appSettings: AppSettings
+    appSettings: AppSettings,
+    musicViewModel: MusicViewModel,
+    onFinish: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
     
-    // Get current step index for progress
+    // Collect playlists for playlist management bottom sheet
+    val playlists by musicViewModel.playlists.collectAsState()
+    
+    // Bottom sheet states
+    var showThemeBottomSheet by remember { mutableStateOf(false) }
+    var showMediaScanBottomSheet by remember { mutableStateOf(false) }
+    var showLibraryTabOrderBottomSheet by remember { mutableStateOf(false) }
+    var showBackupRestoreBottomSheet by remember { mutableStateOf(false) }
+    var showPlaylistManagementBottomSheet by remember { mutableStateOf(false) }
+    // Note: CacheManagement bottom sheet requires musicViewModel parameter
+    // var showCacheManagementBottomSheet by remember { mutableStateOf(false) }
+    
+    // Responsive sizing
+    val isTablet = configuration.screenWidthDp >= 600
+    val contentMaxWidth = if (isTablet) 560.dp else androidx.compose.ui.unit.Dp.Infinity
+    val horizontalPadding = if (isTablet) 40.dp else 20.dp
+    val cardPadding = if (isTablet) 28.dp else 20.dp
+    
+    // Get current step index
     val stepIndex = when (currentStep) {
         OnboardingStep.WELCOME -> 0
         OnboardingStep.PERMISSIONS -> 1
@@ -133,186 +188,374 @@ fun OnboardingScreen(
         OnboardingStep.LIBRARY_SETUP -> 5
         OnboardingStep.MEDIA_SCAN -> 6
         OnboardingStep.UPDATER -> 7
-        OnboardingStep.COMPLETE -> 8
+        OnboardingStep.SETUP_FINISHED -> 8
+        OnboardingStep.COMPLETE -> 9
+    }
+
+    val totalSteps = 9
+    
+    // Create pager state
+    val pagerState = rememberPagerState(
+        initialPage = stepIndex,
+        pageCount = { totalSteps }
+    )
+    
+    // Sync pager with step changes
+    LaunchedEffect(stepIndex) {
+        if (pagerState.currentPage != stepIndex) {
+            pagerState.animateScrollToPage(stepIndex)
+        }
     }
     
-    val totalSteps = 8 // Welcome, Permissions, Backup/Restore, Audio/Playback, Theming, Library Setup, Media Scan, Updater
+    // Sync step with pager changes
+    LaunchedEffect(pagerState.currentPage) {
+        val newStep = when (pagerState.currentPage) {
+            0 -> OnboardingStep.WELCOME
+            1 -> OnboardingStep.PERMISSIONS
+            2 -> OnboardingStep.BACKUP_RESTORE
+            3 -> OnboardingStep.AUDIO_PLAYBACK
+            4 -> OnboardingStep.THEMING
+            5 -> OnboardingStep.LIBRARY_SETUP
+            6 -> OnboardingStep.MEDIA_SCAN
+            7 -> OnboardingStep.UPDATER
+            8 -> OnboardingStep.SETUP_FINISHED
+            else -> OnboardingStep.COMPLETE
+        }
+        if (newStep != currentStep && pagerState.currentPage < stepIndex) {
+            onPrevStep()
+        } else if (newStep != currentStep && pagerState.currentPage > stepIndex) {
+            onNextStep()
+        }
+    }
     
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
-        contentAlignment = Alignment.Center
+            .background(MaterialTheme.colorScheme.surface)
     ) {
-        // Back button - Top left with better positioning
-        if (currentStep != OnboardingStep.WELCOME) {
-            FilledTonalButton(
-                onClick = {
-                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
-                    onPrevStep()
+        // Single onboarding card container for all pager content
+        OnboardingCard(
+            isTablet = isTablet,
+            modifier = Modifier.weight(1f)
+        ) {
+            // HorizontalPager for smooth sliding animations
+            HorizontalPager(
+                state = pagerState,
+                userScrollEnabled = when {
+                    currentStep != OnboardingStep.PERMISSIONS -> true
+                    permissionScreenState == PermissionScreenState.PermissionsGranted -> true
+                    permissionScreenState == PermissionScreenState.Loading -> false
+                    else -> false
                 },
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(top = 18.dp),
-                colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                ),
-                shape = RoundedCornerShape(20.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier.padding(horizontal = 0.dp)
+                modifier = Modifier.fillMaxSize()
+            ) { page ->
+                val step = OnboardingStep.values()[page]
+                // Container for step-specific content - positioned at top within pager page
+                Box(
+                    modifier = Modifier.fillMaxSize().padding(top=54.dp, start = horizontalPadding, end = horizontalPadding, bottom = cardPadding),
+                    contentAlignment = Alignment.TopCenter
                 ) {
-                    Icon(
-                        imageVector = RhythmIcons.Back,
-                        contentDescription = "Back",
-                        modifier = Modifier.size(25.dp)
-                    )
-                    // Spacer(modifier = Modifier.width(3.dp))
-                    // Text(
-                    //     text = "Back",
-                    //     style = MaterialTheme.typography.labelLarge,
-                    //     fontWeight = FontWeight.Medium
-                    // )
+                    when (step) {
+                        OnboardingStep.WELCOME -> {
+                            // Welcome screen without card
+                            EnhancedWelcomeContent(onNextStep = onNextStep)
+                        }
+                        OnboardingStep.PERMISSIONS -> {
+                            EnhancedPermissionContent(
+                                permissionScreenState = permissionScreenState,
+                                onGrantAccess = {
+                                    onNextStep() // Trigger permission request
+                                },
+                                onOpenSettings = {
+                                    val intent = android.content.Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                                    intent.data = android.net.Uri.fromParts("package", context.packageName, null)
+                                    context.startActivity(intent)
+                                    onRequestAgain() // Set loading state
+                                },
+                                isButtonLoading = isParentLoading
+                            )
+                        }
+                        OnboardingStep.BACKUP_RESTORE -> {
+                            EnhancedBackupRestoreContent(
+                                onNextStep = onNextStep,
+                                onSkip = onNextStep,
+                                appSettings = appSettings,
+                                onOpenBottomSheet = { showBackupRestoreBottomSheet = true }
+                            )
+                        }
+                        OnboardingStep.AUDIO_PLAYBACK -> {
+                            EnhancedAudioPlaybackContent(
+                                onNextStep = onNextStep,
+                                appSettings = appSettings
+                            )
+                        }
+                        OnboardingStep.THEMING -> {
+                            EnhancedThemingContent(
+                                onNextStep = onNextStep,
+                                onSkip = onNextStep,
+                                themeViewModel = themeViewModel,
+                                appSettings = appSettings,
+                                onOpenBottomSheet = { showThemeBottomSheet = true }
+                            )
+                        }
+                        OnboardingStep.LIBRARY_SETUP -> {
+                            EnhancedLibrarySetupContent(
+                                onNextStep = onNextStep,
+                                appSettings = appSettings,
+                                onOpenTabOrderBottomSheet = { showLibraryTabOrderBottomSheet = true },
+                                onOpenPlaylistManagementBottomSheet = { showPlaylistManagementBottomSheet = true }
+                            )
+                        }
+                        OnboardingStep.MEDIA_SCAN -> {
+                            EnhancedMediaScanContent(
+                                onNextStep = onNextStep,
+                                onSkip = onNextStep,
+                                appSettings = appSettings,
+                                onOpenBottomSheet = { showMediaScanBottomSheet = true }
+                            )
+                        }
+                        OnboardingStep.UPDATER -> {
+                            EnhancedUpdaterContent(
+                                onNextStep = onNextStep,
+                                appSettings = appSettings
+                            )
+                        }
+                        OnboardingStep.SETUP_FINISHED -> {
+                            EnhancedSetupFinishedContent(onFinish = onFinish)
+                        }
+                        OnboardingStep.COMPLETE -> {
+                            // This should not be visible as we transition to the main app
+                            Box(modifier = Modifier.fillMaxSize())
+                        }
+                    }
                 }
             }
         }
-        
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier.fillMaxSize()
-        ) {
-            // Enhanced header with progress (only show for non-welcome steps)
+
+        // Bottom navigation bar
             AnimatedVisibility(
                 visible = currentStep != OnboardingStep.WELCOME,
-                enter = fadeIn() + slideInVertically(initialOffsetY = { -it / 2 })
+                enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
+                exit = fadeOut() + slideOutVertically(targetOffsetY = { it })
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(bottom = 32.dp)
-                ) {
-                    // App name and logo
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
-                        modifier = Modifier.padding(bottom = 5.dp)
-                    ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.rhythm_splash_logo),
-                            contentDescription = null,
-                            modifier = Modifier.size(66.dp)
-                        )
-                        Spacer(modifier = Modifier.width(3.dp))
-                        Text(
-                            text = "Rhythm",
-                            style = MaterialTheme.typography.displaySmall,
-                            color = MaterialTheme.colorScheme.onBackground,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    
-                    // Progress indicator
-                    // OnboardingProgressIndicator(
-                    //     currentStep = stepIndex,
-                    //     totalSteps = totalSteps
-                    // )
-                }
-            }
-            
-            // Content - Welcome step without card, others with card
-            if (currentStep == OnboardingStep.WELCOME) {
-                // Welcome screen without card
-                EnhancedWelcomeContent(onNextStep = onNextStep)
-            } else {
-                // Other steps with card
                 Surface(
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    shape = MaterialTheme.shapes.extraLarge,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 0.dp)
-                        .animateContentSize(
-                            animationSpec = spring(
-                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                stiffness = Spring.StiffnessLow
-                            )
-                        )
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 0.dp
                 ) {
-                    Column(
+                    Row(
                         modifier = Modifier
-                            .padding(28.dp)
-                            .verticalScroll(rememberScrollState()),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                            .fillMaxWidth()
+                            .padding(horizontal = if (isTablet) 48.dp else 24.dp, vertical = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Enhanced step transition with slide animations
-                        Crossfade(
-                            targetState = currentStep,
-                            animationSpec = tween(
-                                easing = androidx.compose.animation.core.EaseInOutCubic
+                            // Back button with spring animation
+                        AnimatedVisibility(
+                            visible = stepIndex > 0,
+                            enter = fadeIn(
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                                    stiffness = Spring.StiffnessMedium
+                                )
+                            ) + expandHorizontally(
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                                    stiffness = Spring.StiffnessMedium
+                                )
                             ),
-                            label = "onboardingStepTransition"
-                        ) { step ->
-                            when (step) {
-                                OnboardingStep.PERMISSIONS -> {
-                                    EnhancedPermissionContent(
-                                        permissionScreenState = permissionScreenState,
-                                        onGrantAccess = {
-                                            onNextStep() // Trigger permission request
-                                        },
-                                        onOpenSettings = {
-                                            val intent = android.content.Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                                            intent.data = android.net.Uri.fromParts("package", context.packageName, null)
-                                            context.startActivity(intent)
-                                            onRequestAgain() // Set loading state
-                                        },
-                                        isButtonLoading = isParentLoading
+                            exit = fadeOut(
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                                    stiffness = Spring.StiffnessMedium
+                                )
+                            ) + shrinkHorizontally(
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                                    stiffness = Spring.StiffnessMedium
+                                )
+                            )
+                        ) {
+                            val buttonScale = remember { Animatable(1f) }
+                            
+                            OutlinedButton(
+                                onClick = { 
+                                    scope.launch {
+                                        buttonScale.animateTo(0.92f, animationSpec = tween(100))
+                                        buttonScale.animateTo(1f, animationSpec = spring(
+                                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                                            stiffness = Spring.StiffnessHigh
+                                        ))
+                                    }
+                                    onPrevStep() 
+                                },
+                                modifier = Modifier
+                                    .height(48.dp)
+                                    .graphicsLayer {
+                                        scaleX = buttonScale.value
+                                        scaleY = buttonScale.value
+                                    },
+                                shape = RoundedCornerShape(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Back", style = MaterialTheme.typography.labelLarge)
+                            }
+                        }
+
+                        // App logo and step count - centered between back and next buttons
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Image(
+                                painter = painterResource(id = R.drawable.rhythm_splash_logo),
+                                contentDescription = null,
+                                modifier = Modifier.size(32.dp)
+                            )
+                            androidx.compose.animation.AnimatedContent(
+                                targetState = stepIndex,
+                                transitionSpec = {
+                                    (slideInVertically { height -> height / 2 } + fadeIn()).togetherWith(
+                                        slideOutVertically { height -> -height / 2 } + fadeOut()
                                     )
+                                },
+                                modifier = Modifier.padding(top = 4.dp),
+                                label = "progressText"
+                            ) { step ->
+                                Text(
+                                    text = "${step + 1} of $totalSteps",
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 1.sp
+                                    ),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        // Next/Finish button with spring animation
+                        val nextButtonScale = remember { Animatable(1f) }
+                        
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    nextButtonScale.animateTo(0.92f, animationSpec = tween(100))
+                                    nextButtonScale.animateTo(1f, animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                        stiffness = Spring.StiffnessHigh
+                                    ))
                                 }
-                                OnboardingStep.BACKUP_RESTORE -> {
-                                    EnhancedBackupRestoreContent(
-                                        onNextStep = onNextStep,
-                                        appSettings = appSettings
-                                    )
+                                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                                when (currentStep) {
+                                    OnboardingStep.PERMISSIONS -> {
+                                        // For permission step, handle based on state
+                                        when (permissionScreenState) {
+                                            PermissionScreenState.RedirectToSettings -> {
+                                                val intent = android.content.Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                                                intent.data = android.net.Uri.fromParts("package", context.packageName, null)
+                                                context.startActivity(intent)
+                                                onRequestAgain()
+                                            }
+                                            PermissionScreenState.PermissionsGranted -> onNextStep()
+                                            PermissionScreenState.Loading -> { /* Do nothing while loading */ }
+                                            else -> onNextStep() // Trigger permission request
+                                        }
+                                    }
+                                    else -> onNextStep() // All other steps just go next
                                 }
-                                OnboardingStep.AUDIO_PLAYBACK -> {
-                                    EnhancedAudioPlaybackContent(
-                                        onNextStep = onNextStep,
-                                        appSettings = appSettings
-                                    )
+                            },
+                            enabled = when (currentStep) {
+                                OnboardingStep.PERMISSIONS -> !isParentLoading && permissionScreenState != PermissionScreenState.Loading
+                                else -> true
+                            },
+                            modifier = Modifier
+                                .height(48.dp)
+                                .graphicsLayer {
+                                    scaleX = nextButtonScale.value
+                                    scaleY = nextButtonScale.value
+                                },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = when (currentStep) {
+                                    OnboardingStep.PERMISSIONS -> when (permissionScreenState) {
+                                        PermissionScreenState.PermissionsGranted -> MaterialTheme.colorScheme.primary
+                                        PermissionScreenState.RedirectToSettings -> MaterialTheme.colorScheme.error
+                                        else -> MaterialTheme.colorScheme.primary
+                                    }
+                                    else -> MaterialTheme.colorScheme.primary
+                                },
+                                contentColor = when (currentStep) {
+                                    OnboardingStep.PERMISSIONS -> when (permissionScreenState) {
+                                        PermissionScreenState.PermissionsGranted -> MaterialTheme.colorScheme.onPrimary
+                                        PermissionScreenState.RedirectToSettings -> MaterialTheme.colorScheme.onError
+                                        else -> MaterialTheme.colorScheme.onPrimary
+                                    }
+                                    else -> MaterialTheme.colorScheme.onPrimary
                                 }
-                                OnboardingStep.THEMING -> {
-                                    EnhancedThemingContent(
-                                        onNextStep = onNextStep,
-                                        themeViewModel = themeViewModel
-                                    )
-                                }
-                                OnboardingStep.LIBRARY_SETUP -> {
-                                    EnhancedLibrarySetupContent(
-                                        onNextStep = onNextStep,
-                                        appSettings = appSettings
-                                    )
-                                }
-                                OnboardingStep.MEDIA_SCAN -> {
-                                    EnhancedMediaScanContent(
-                                        onNextStep = onNextStep,
-                                        appSettings = appSettings
-                                    )
-                                }
-                                OnboardingStep.UPDATER -> {
-                                    EnhancedUpdaterContent(
-                                        onNextStep = onNextStep,
-                                        appSettings = appSettings
-                                    )
-                                }
-                                OnboardingStep.COMPLETE -> {
-                                    // This should not be visible as we transition to the main app
-                                    Box {}
-                                }
-                                else -> {
-                                    Box {}
+                            ),
+                            shape = RoundedCornerShape(32.dp)
+                        ) {
+                            Crossfade(
+                                targetState = currentStep == OnboardingStep.PERMISSIONS && isParentLoading,
+                                animationSpec = tween(300),
+                                label = "buttonContent"
+                            ) { loading ->
+                                if (loading) {
+                                    Row(
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        M3LinearLoader(
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            "Checking...",
+                                            style = MaterialTheme.typography.labelLarge
+                                        )
+                                    }
+                                } else {
+                                    Row(
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        val buttonText = when {
+                                            currentStep == OnboardingStep.SETUP_FINISHED -> "Let's Go!"
+                                            currentStep == OnboardingStep.UPDATER -> "Finish Setup"
+                                            currentStep == OnboardingStep.PERMISSIONS -> when (permissionScreenState) {
+                                                PermissionScreenState.PermissionsGranted -> "Continue"
+                                                PermissionScreenState.RedirectToSettings -> "Open Settings"
+                                                else -> "Grant Access"
+                                            }
+                                            else -> "Next"
+                                        }
+                                        val buttonIcon = when {
+                                            currentStep == OnboardingStep.SETUP_FINISHED -> Icons.Filled.Check
+                                            currentStep == OnboardingStep.UPDATER -> Icons.AutoMirrored.Filled.ArrowForward
+                                            currentStep == OnboardingStep.PERMISSIONS -> when (permissionScreenState) {
+                                                PermissionScreenState.PermissionsGranted -> Icons.AutoMirrored.Filled.ArrowForward
+                                                PermissionScreenState.RedirectToSettings -> Icons.Filled.Security
+                                                else -> Icons.Filled.Security
+                                            }
+                                            else -> Icons.AutoMirrored.Filled.ArrowForward
+                                        }
+                                        
+                                        Text(
+                                            buttonText,
+                                            style = MaterialTheme.typography.labelLarge.copy(
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Icon(
+                                            imageVector = buttonIcon,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -320,6 +563,93 @@ fun OnboardingScreen(
                 }
             }
         }
+    
+    // Bottom sheets for advanced configuration
+    if (showThemeBottomSheet) {
+        ThemeCustomizationBottomSheet(
+            onDismiss = { showThemeBottomSheet = false },
+            appSettings = appSettings
+        )
+    }
+    
+    if (showMediaScanBottomSheet) {
+        MediaScanBottomSheet(
+            onDismiss = { showMediaScanBottomSheet = false },
+            appSettings = appSettings
+        )
+    }
+    
+    if (showLibraryTabOrderBottomSheet) {
+        LibraryTabOrderBottomSheet(
+            onDismiss = { showLibraryTabOrderBottomSheet = false },
+            appSettings = appSettings,
+            haptics = haptic
+        )
+    }
+    
+    if (showBackupRestoreBottomSheet) {
+        BackupRestoreBottomSheet(
+            onDismiss = { showBackupRestoreBottomSheet = false },
+            appSettings = appSettings
+        )
+    }
+    
+    if (showPlaylistManagementBottomSheet) {
+        PlaylistManagementBottomSheet(
+            onDismiss = { showPlaylistManagementBottomSheet = false },
+            playlists = playlists,
+            musicViewModel = musicViewModel,
+            onCreatePlaylist = { /* Handle in main app after onboarding */ },
+            onDeletePlaylist = { /* Handle in main app after onboarding */ }
+        )
+    }
+    
+    // Note: CacheManagement bottom sheet requires musicViewModel parameter
+    /*
+    if (showCacheManagementBottomSheet) {
+        CacheManagementBottomSheet(
+            onDismiss = { showCacheManagementBottomSheet = false },
+            appSettings = appSettings,
+            musicViewModel = musicViewModel
+        )
+    }
+    */
+}
+
+/**
+ * Unified card container for all onboarding steps (except welcome)
+ * Provides consistent Material You styling with rounded corners and elevated surface
+ */
+@Composable
+private fun OnboardingCard(
+    isTablet: Boolean,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    val contentMaxWidth = 600.dp
+    val cardPadding = if (isTablet) 20.dp else 18.dp
+    
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = MaterialTheme.shapes.extraLarge,
+        tonalElevation = if (isTablet) 4.dp else 2.dp,
+        modifier = modifier
+            .fillMaxWidth()
+            .let { if (isTablet) it.width(contentMaxWidth) else it }
+            .animateContentSize(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessLow
+                )
+            )
+    ) {
+        // Remove vertical scroll since we're not constraining height anymore
+        // and let pager handle its own sizing and scrolling behavior
+        Column(
+            modifier = Modifier.padding(cardPadding),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            content = content
+        )
     }
 }
 
@@ -327,130 +657,243 @@ fun OnboardingScreen(
 fun EnhancedWelcomeContent(onNextStep: () -> Unit) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
-    
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+
+    Box(
         modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 32.dp)
+            .fillMaxSize(),
+        contentAlignment = Alignment.Center
     ) {
-        // App logo with enhanced animation
-        AnimatedVisibility(
-            visible = true,
-            enter = scaleIn(
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessMediumLow
-                )
-            ) + fadeIn(
-                animationSpec = tween(1000)
-            )
-        ) {
-            Box(
-//                modifier = Modifier
-//                    .size(140.dp)
-//                     .clip(CircleShape)
-//                     .background(
-//                         MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f)
-//                     ),
-//                contentAlignment = Alignment.Center
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.rhythm_splash_logo),
-                    contentDescription = "Rhythm Logo",
-                    modifier = Modifier.size(180.dp)
-                )
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(40.dp))
-        
-        // App name with gradient effect
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = "Rhythm",
-                style = MaterialTheme.typography.displayLarge.copy(
-                    fontSize = 48.sp
-                ),
-                fontWeight = FontWeight.ExtraBold,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            
-            // Subtitle with modern styling
-            Text(
-                text = "Your Music, Your Way",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Medium,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
-            )
-        }
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        // Minimal description with better typography
-        Text(
-            text = "Discover, organize, and enjoy your personal music collection with a beautifully crafted player designed for music lovers.",
-            style = MaterialTheme.typography.bodyLarge,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            lineHeight = 24.sp,
-            modifier = Modifier.padding(horizontal = 8.dp)
-        )
-        
-        Spacer(modifier = Modifier.height(56.dp))
-        
-        // Enhanced Get Started button with modern design
-        Button(
-            onClick = {
-                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
-                onNextStep()
-            },
+            verticalArrangement = Arrangement.Center,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(64.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            ),
-            shape = RoundedCornerShape(20.dp),
-            elevation = ButtonDefaults.buttonElevation(
-                defaultElevation = 2.dp,
-                pressedElevation = 8.dp
-            )
+                .padding(horizontal = 32.dp)
         ) {
-            Row(
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = RhythmIcons.Play,
-                    contentDescription = null,
-                    modifier = Modifier.size(24.dp)
+            // App logo 
+            AnimatedVisibility(
+                visible = true,
+                enter = scaleIn(
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessMediumLow
+                    )
+                ) + fadeIn(
+                    animationSpec = tween(1000)
                 )
-                Spacer(modifier = Modifier.width(16.dp))
+            ) {
+                Box {
+                    Image(
+                        painter = painterResource(id = R.drawable.rhythm_splash_logo),
+                        contentDescription = "Rhythm Logo",
+                        modifier = Modifier
+                            .size(150.dp)
+                            .align(Alignment.Center)
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // App name with staggered animation
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                AnimatedVisibility(
+                    visible = true,
+                    enter = slideInVertically(
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessMedium
+                        ),
+                        initialOffsetY = { it / 2 }
+                    ) + fadeIn(animationSpec = tween(800, delayMillis = 200))
+                ) {
+                    Text(
+                        text = "Rhythm",
+                        style = MaterialTheme.typography.displayLarge.copy(
+                            fontSize = 48.sp,
+                            letterSpacing = 0.8.sp
+                        ),
+                        fontWeight = FontWeight.ExtraBold,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                }
+                
+                // Subtitle with modern styling and delayed animation
+                AnimatedVisibility(
+                    visible = true,
+                    enter = slideInVertically(
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessMedium
+                        ),
+                        initialOffsetY = { it / 2 }
+                    ) + fadeIn(animationSpec = tween(800, delayMillis = 400))
+                ) {
+                    Text(
+                        text = "Your all-in-one offline music player",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            letterSpacing = 0.4.sp
+                        ),
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            // Minimal description with better typography and animation
+            AnimatedVisibility(
+                visible = true,
+                enter = fadeIn(animationSpec = tween(1000, delayMillis = 600)) +
+                        slideInVertically(
+                            animationSpec = tween(800, delayMillis = 600),
+                            initialOffsetY = { it / 3 }
+                        )
+            ) {
                 Text(
-                    text = "Get Started",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
+                    text = "Personalize every aspect of your listening experience with powerful features and complete privacy. Play your music offline, ad-free, with full control.",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontSize = 14.sp,
+                        lineHeight = 22.sp
+                    ),
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(44.dp))
+            
+            // Enhanced Get Started button with modern design and animation
+            AnimatedVisibility(
+                visible = true,
+                enter = scaleIn(
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessLow
+                    )
+                ) + fadeIn(animationSpec = tween(800, delayMillis = 800))
+            ) {
+                Button(
+                    onClick = {
+                        HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                        onNextStep()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(68.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
+                    shape = RoundedCornerShape(24.dp)
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.animateContentSize()
+                    ) {
+                        Icon(
+                            imageVector = RhythmIcons.Play,
+                            contentDescription = null,
+                            modifier = Modifier.size(28.dp)
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Text(
+                            text = "Get Started",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontSize = 20.sp
+                            ),
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(32.dp))
+            
+            // Feature highlights with animated appearance
+            AnimatedVisibility(
+                visible = true,
+                enter = fadeIn(animationSpec = tween(800, delayMillis = 1000)) +
+                        expandVertically(animationSpec = tween(600, delayMillis = 1000))
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterHorizontally),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                ) {
+                    WelcomeFeatureChip(
+                        icon = Icons.Filled.MusicNote,
+                        text = "Offline"
+                    )
+                    WelcomeFeatureChip(
+                        icon = Icons.Filled.Palette,
+                        text = "Customizable"
+                    )
+                    WelcomeFeatureChip(
+                        icon = Icons.Filled.Security,
+                        text = "Private"
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            // Version info or subtle additional info with animation
+            AnimatedVisibility(
+                visible = true,
+                enter = fadeIn(animationSpec = tween(800, delayMillis = 1200))
+            ) {
+                Text(
+                    text = "Music player • Designed for Android",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        letterSpacing = 0.3.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    textAlign = TextAlign.Center
                 )
             }
         }
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        // Version info or subtle additional info
-        Text(
-            text = "Music player • Designed for Android",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-            textAlign = TextAlign.Center
-        )
+    }
+}
+
+@Composable
+private fun WelcomeFeatureChip(
+    icon: ImageVector,
+    text: String
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.7f),
+        shape = RoundedCornerShape(12.dp),
+        tonalElevation = 2.dp
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
     }
 }
 
@@ -493,7 +936,7 @@ fun EnhancedPermissionContent(
     val permissionsState = rememberMultiplePermissionsState(essentialPermissions)
     
     Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
+        horizontalAlignment = Alignment.Start,
         modifier = Modifier.fillMaxWidth()
     ) {
         // Enhanced icon with dynamic state
@@ -630,61 +1073,7 @@ fun EnhancedPermissionContent(
             }
         }
 
-        val haptic = LocalHapticFeedback.current
-        FilledTonalButton(
-            onClick = {
-                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
-                when (permissionScreenState) {
-                    PermissionScreenState.RedirectToSettings -> onOpenSettings()
-                    else -> onGrantAccess()
-                }
-            },
-            enabled = !isButtonLoading,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            colors = ButtonDefaults.filledTonalButtonColors(
-                containerColor = when (permissionScreenState) {
-                    PermissionScreenState.PermissionsGranted -> MaterialTheme.colorScheme.primary
-                    PermissionScreenState.RedirectToSettings -> MaterialTheme.colorScheme.error
-                    else -> MaterialTheme.colorScheme.primary
-                },
-                contentColor = when (permissionScreenState) {
-                    PermissionScreenState.PermissionsGranted -> MaterialTheme.colorScheme.onPrimary
-                    PermissionScreenState.RedirectToSettings -> MaterialTheme.colorScheme.onError
-                    else -> MaterialTheme.colorScheme.onPrimary
-                }
-            )
-        ) {
-            if (isButtonLoading) {
-                M3LinearLoader(
-                    modifier = Modifier.size(24.dp)
-                )
-            } else {
-                Row(
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    val buttonText = when (permissionScreenState) {
-                        PermissionScreenState.PermissionsGranted -> "Continue"
-                        PermissionScreenState.RedirectToSettings -> "Open App Settings"
-                        else -> "Grant Access"
-                    }
-                    
-                    Text(buttonText, style = MaterialTheme.typography.labelLarge)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Icon(
-                        imageVector = when (permissionScreenState) {
-                            PermissionScreenState.PermissionsGranted -> RhythmIcons.Forward
-                            PermissionScreenState.RedirectToSettings -> Icons.Filled.Security
-                            else -> Icons.Filled.Security
-                        },
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-        }
+        // Button removed - now handled by bottom navigation bar
     }
 }
 
@@ -695,14 +1084,52 @@ fun EnhancedPermissionCard(
     description: String,
     isGranted: Boolean = false
 ) {
+    // Animated state changes
+    val containerColor by animateColorAsState(
+        targetValue = if (isGranted) 
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+        else 
+            MaterialTheme.colorScheme.surfaceContainer,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "containerColor"
+    )
+    
+    val iconBackgroundColor by animateColorAsState(
+        targetValue = if (isGranted) 
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+        else 
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+        animationSpec = tween(300),
+        label = "iconBackgroundColor"
+    )
+    
+    val iconTint by animateColorAsState(
+        targetValue = if (isGranted) 
+            MaterialTheme.colorScheme.primary 
+        else 
+            MaterialTheme.colorScheme.onSurfaceVariant,
+        animationSpec = tween(300),
+        label = "iconTint"
+    )
+    
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .animateContentSize(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium
+                )
+            ),
         colors = CardDefaults.cardColors(
-            containerColor = if (isGranted) 
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-            else 
-                MaterialTheme.colorScheme.surfaceContainer
-        )
+            containerColor = containerColor
+        ),
+        border = if (isGranted) 
+            BorderStroke(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
+        else null
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -710,38 +1137,73 @@ fun EnhancedPermissionCard(
         ) {
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(48.dp)
                     .clip(CircleShape)
-                    .background(
-                        if (isGranted) 
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-                        else 
-                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-                    ),
+                    .background(iconBackgroundColor),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = if (isGranted) Icons.Filled.Check else icon,
-                    contentDescription = null,
-                    tint = if (isGranted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp)
-                )
+                // Crossfade between icon and checkmark
+                Crossfade(
+                    targetState = isGranted,
+                    animationSpec = tween(400),
+                    label = "iconCrossfade"
+                ) { granted ->
+                    Icon(
+                        imageVector = if (granted) Icons.Filled.Check else icon,
+                        contentDescription = null,
+                        tint = iconTint,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
             
             Spacer(modifier = Modifier.width(16.dp))
             
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                    
+                    // Success badge with animation
+                    AnimatedVisibility(
+                        visible = isGranted,
+                        enter = scaleIn(
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessMedium
+                            )
+                        ) + fadeIn(),
+                        exit = scaleOut() + fadeOut()
+                    ) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.primary,
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = "✓ Granted",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(4.dp))
+                
                 Text(
                     text = description,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    lineHeight = 16.sp
+                    lineHeight = 18.sp
                 )
             }
         }
@@ -751,11 +1213,14 @@ fun EnhancedPermissionCard(
 @Composable
 fun EnhancedBackupRestoreContent(
     onNextStep: () -> Unit,
-    appSettings: AppSettings
+    appSettings: AppSettings,
+    onSkip: () -> Unit = {},
+    onOpenBottomSheet: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val hapticFeedback = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
+    val scrollState = rememberScrollState()
     
     // State for backup settings
     val autoBackupEnabled by appSettings.autoBackupEnabled.collectAsState()
@@ -765,50 +1230,60 @@ fun EnhancedBackupRestoreContent(
     var showBackupTip by remember { mutableStateOf(false) }
     
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(scrollState),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         // Header with icon and title
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
+            horizontalAlignment = Alignment.Start,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Box(
-                modifier = Modifier
-                    .size(80.dp)
-                    .background(
-                        MaterialTheme.colorScheme.primaryContainer,
-                        CircleShape
-                    ),
-                contentAlignment = Alignment.Center
+            // Enhanced icon with animation
+            AnimatedVisibility(
+                visible = true,
+                enter = scaleIn() + fadeIn()
             ) {
-                Icon(
-                    imageVector = Icons.Filled.Backup,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(40.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Backup,
+                        contentDescription = "Backup & Restore",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(40.dp)
+                    )
+                }
             }
             
             Spacer(modifier = Modifier.height(16.dp))
             
             Text(
-                text = "Backup & Restore",
+                text = "Protect Your Data",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(bottom = 12.dp)
             )
             
             Text(
-                text = "Keep your settings, playlists, and preferences safe",
-                style = MaterialTheme.typography.bodyLarge,
-                textAlign = TextAlign.Center,
+                text = "Keep your playlists, settings, and preferences safe with automatic backups. Restore everything when switching devices or after reinstalling - never lose your music collection.",
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp)
+                modifier = Modifier.padding(bottom = 32.dp)
             )
         }
         
+        // Vertically centered content area
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically)
+        ) {
         // Auto-backup toggle card
         Card(
             shape = RoundedCornerShape(16.dp),
@@ -819,7 +1294,7 @@ fun EnhancedBackupRestoreContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable {
-                    HapticUtils.performHapticFeedback(context, hapticFeedback, HapticFeedbackType.TextHandleMove)
+                    HapticUtils.performHapticFeedback(context, hapticFeedback, HapticFeedbackType.LongPress)
                     appSettings.setAutoBackupEnabled(!autoBackupEnabled)
                 }
         ) {
@@ -855,7 +1330,7 @@ fun EnhancedBackupRestoreContent(
                 Switch(
                     checked = autoBackupEnabled,
                     onCheckedChange = {
-                        HapticUtils.performHapticFeedback(context, hapticFeedback, HapticFeedbackType.TextHandleMove)
+                        HapticUtils.performHapticFeedback(context, hapticFeedback, HapticFeedbackType.LongPress)
                         appSettings.setAutoBackupEnabled(it)
                     },
                     colors = SwitchDefaults.colors(
@@ -866,27 +1341,48 @@ fun EnhancedBackupRestoreContent(
             }
         }
         
-        // Info cards about backup features
-        Column(
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+        // Backup features info card
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
+            ),
+            modifier = Modifier.fillMaxWidth()
         ) {
-            BackupFeatureCard(
-                icon = Icons.Filled.Save,
-                title = "Complete Backup",
-                description = "All your settings, playlists, and preferences are included"
-            )
-            
-            BackupFeatureCard(
-                icon = Icons.Filled.RestoreFromTrash,
-                title = "Easy Restore",
-                description = "Restore from files or clipboard with one tap"
-            )
-            
-            BackupFeatureCard(
-                icon = Icons.Filled.Security,
-                title = "Local Storage",
-                description = "Backups are stored locally on your device for privacy"
-            )
+            Column(
+                modifier = Modifier.padding(20.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Lightbulb,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = "What Gets Backed Up?",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
+                }
+                
+                BackupFeatureTipItem(
+                    icon = Icons.Filled.Save,
+                    text = "All settings, playlists, themes, and library customization"
+                )
+                BackupFeatureTipItem(
+                    icon = Icons.Filled.RestoreFromTrash,
+                    text = "Restore from files or clipboard with one tap"
+                )
+                BackupFeatureTipItem(
+                    icon = Icons.Filled.Security,
+                    text = "Backups stored locally on your device for privacy"
+                )
+            }
         }
         
         // Tip card
@@ -921,77 +1417,106 @@ fun EnhancedBackupRestoreContent(
                 }
             }
         }
+        } // End vertically centered content
         
-        val haptic = LocalHapticFeedback.current
-        FilledTonalButton(
-            onClick = {
-                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
-                onNextStep()
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            )
+        Spacer(modifier = Modifier.height(0.dp))
+        
+        // Backup & Restore management card
+        Card(
+            onClick = onOpenBottomSheet,
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+            ),
+            modifier = Modifier.fillMaxWidth()
         ) {
             Row(
-                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Next", style = MaterialTheme.typography.labelLarge)
-                Spacer(modifier = Modifier.width(8.dp))
                 Icon(
-                    imageVector = RhythmIcons.Forward,
+                    imageVector = Icons.Filled.Backup,
                     contentDescription = null,
-                    modifier = Modifier.size(16.dp)
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Backup & Restore Center",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    Text(
+                        text = "Create backups or restore from existing backup files",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = "Open backup & restore",
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }
+        
+        /*Spacer(modifier = Modifier.height(24.dp))
+        
+        // Skip option with divider
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            HorizontalDivider(modifier = Modifier.weight(1f))
+            Text(
+                text = "or",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+            HorizontalDivider(modifier = Modifier.weight(1f))
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Skip button
+        OutlinedButton(
+            onClick = onSkip,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Text(
+                text = "Skip for now",
+                style = MaterialTheme.typography.labelLarge
+            )
+        }*/
+
     }
 }
 
 @Composable
-private fun BackupFeatureCard(
+private fun BackupFeatureTipItem(
     icon: ImageVector,
-    title: String,
-    description: String
+    text: String
 ) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.fillMaxWidth()
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(vertical = 6.dp)
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    lineHeight = 16.sp
-                )
-            }
-        }
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f),
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onTertiaryContainer
+        )
     }
 }
 
@@ -1003,9 +1528,11 @@ fun EnhancedAudioPlaybackContent(
     val context = LocalContext.current
     val hapticFeedbackEnabled by appSettings.hapticFeedbackEnabled.collectAsState()
     val useSystemVolume by appSettings.useSystemVolume.collectAsState()
+    val showLyrics by appSettings.showLyrics.collectAsState()
+    val onlineOnlyLyrics by appSettings.onlineOnlyLyrics.collectAsState()
 
     Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
+        horizontalAlignment = Alignment.Start,
         modifier = Modifier.fillMaxWidth()
     ) {
         // Enhanced audio icon
@@ -1032,27 +1559,26 @@ fun EnhancedAudioPlaybackContent(
         Spacer(modifier = Modifier.height(24.dp))
         
         Text(
-            text = "Audio & Playback",
+            text = "Audio & Playback Experience",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(bottom = 12.dp)
         )
         
         Text(
-            text = "Adjust audio and playback settings to optimize your listening experience.",
+            text = "Customize your audio experience with haptic feedback, volume controls, lyrics display, and equalizer settings.",
             style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 32.dp)
         )
 
-        // Audio options
+        // Vertically centered content area
         Column(
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.padding(bottom = 32.dp)
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically)
         ) {
+        // Audio options
             // Haptic feedback toggle
             EnhancedThemeOption(
                 icon = Icons.Filled.TouchApp,
@@ -1070,51 +1596,124 @@ fun EnhancedAudioPlaybackContent(
                 isEnabled = useSystemVolume,
                 onToggle = { appSettings.setUseSystemVolume(it) }
             )
-        }
-        
-        val haptic = LocalHapticFeedback.current
-        FilledTonalButton(
-            onClick = {
-                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
-                onNextStep()
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
+            
+            // Show Lyrics toggle
+            EnhancedThemeOption(
+                icon = Icons.Filled.Lyrics,
+                title = "Show Lyrics",
+                description = "Display synchronized lyrics when available for your favorite songs.",
+                isEnabled = showLyrics,
+                onToggle = { appSettings.setShowLyrics(it) }
             )
+            
+            // Online Lyrics Only toggle (shown when lyrics are enabled)
+            AnimatedVisibility(
+                visible = showLyrics,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    EnhancedThemeOption(
+                        icon = Icons.Filled.Cloud,
+                        title = "Online Lyrics Only",
+                        description = "Only fetch and display lyrics when connected to the internet to save data.",
+                        isEnabled = onlineOnlyLyrics,
+                        onToggle = { appSettings.setOnlineOnlyLyrics(it) }
+                    )
+                    
+                    // Offline lyrics support info
+                    AnimatedVisibility(
+                        visible = !onlineOnlyLyrics,
+                        enter = expandVertically() + fadeIn(),
+                        exit = shrinkVertically() + fadeOut()
+                    ) {
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Lightbulb,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = "Offline lyrics will be loaded from local .lrc files when available",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        } // End vertically centered content
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Equalizer info card
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            ),
+            modifier = Modifier.fillMaxWidth()
         ) {
             Row(
-                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Next", style = MaterialTheme.typography.labelLarge)
-                Spacer(modifier = Modifier.width(8.dp))
                 Icon(
-                    imageVector = RhythmIcons.Forward,
+                    imageVector = Icons.Filled.GraphicEq,
                     contentDescription = null,
-                    modifier = Modifier.size(16.dp)
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
                 )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Equalizer Available",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Fine-tune audio frequencies in Settings > Equalizer",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
+        
+
     }
 }
 
 @Composable
 fun EnhancedLibrarySetupContent(
     onNextStep: () -> Unit,
-    appSettings: AppSettings
+    appSettings: AppSettings,
+    onOpenTabOrderBottomSheet: () -> Unit = {},
+    onOpenPlaylistManagementBottomSheet: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val albumViewType by appSettings.albumViewType.collectAsState()
     val artistViewType by appSettings.artistViewType.collectAsState()
     val albumSortOrder by appSettings.albumSortOrder.collectAsState()
+    val scrollState = rememberScrollState()
 
     Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.fillMaxWidth()
+        horizontalAlignment = Alignment.Start,
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(scrollState)
     ) {
         // Enhanced library icon
         AnimatedVisibility(
@@ -1140,27 +1739,26 @@ fun EnhancedLibrarySetupContent(
         Spacer(modifier = Modifier.height(24.dp))
         
         Text(
-            text = "Library Organization",
+            text = "Organize Your Music Library",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(bottom = 12.dp)
         )
         
         Text(
-            text = "Customize how your music library is displayed and organized within Rhythm.",
+            text = "Customize how your albums, artists, and songs are displayed. Choose your preferred layout, sorting order, and tab arrangement.",
             style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 32.dp)
         )
 
-        // Library options
+        // Vertically centered content area
         Column(
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.padding(bottom = 32.dp)
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically)
         ) {
+        // Library options
             // Album view type dropdown
             SettingsDropdownItem(
                 title = "Album Display Style",
@@ -1212,32 +1810,101 @@ fun EnhancedLibrarySetupContent(
                     appSettings.setAlbumSortOrder(newSortOrder.name)
                 }
             )
+        } // End vertically centered content
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Additional features info
+        Column(
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            LibraryFeatureCard(
+                icon = Icons.Filled.FormatListNumbered,
+                title = "Library Tab Order",
+                description = "Reorder Songs, Playlists, Albums, Artists, and Explorer tabs",
+                onClick = onOpenTabOrderBottomSheet,
+                usePrimaryStyle = true
+            )
+
+            LibraryFeatureCard(
+                icon = Icons.Filled.Queue,
+                title = "Playlist Management",
+                description = "Create, import, export, and organize your music playlists",
+                onClick = onOpenPlaylistManagementBottomSheet,
+                usePrimaryStyle = true
+            )
         }
         
-        val haptic = LocalHapticFeedback.current
-        FilledTonalButton(
-            onClick = {
-                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
-                onNextStep()
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            )
+
+    }
+}
+
+@Composable
+private fun LibraryFeatureCard(
+    icon: ImageVector,
+    title: String,
+    description: String,
+    onClick: (() -> Unit)? = null,
+    usePrimaryStyle: Boolean = false
+) {
+    Card(
+        onClick = onClick ?: {},
+        enabled = onClick != null,
+        colors = CardDefaults.cardColors(
+            containerColor = if (usePrimaryStyle)
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+            else
+                MaterialTheme.colorScheme.surfaceContainerLow
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable { onClick?.invoke() } else Modifier)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(16.dp)
         ) {
-            Row(
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Next", style = MaterialTheme.typography.labelLarge)
-                Spacer(modifier = Modifier.width(8.dp))
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (usePrimaryStyle)
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                else
+                    MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (usePrimaryStyle)
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    else
+                        MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (usePrimaryStyle)
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    else
+                        MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 16.sp
+                )
+            }
+            if (onClick != null) {
                 Icon(
-                    imageVector = RhythmIcons.Forward,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp)
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = "Open",
+                    tint = if (usePrimaryStyle)
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    else
+                        MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }
@@ -1247,17 +1914,23 @@ fun EnhancedLibrarySetupContent(
 @Composable
 fun EnhancedThemingContent(
     onNextStep: () -> Unit,
-    themeViewModel: ThemeViewModel
+    themeViewModel: ThemeViewModel,
+    appSettings: AppSettings,
+    onSkip: () -> Unit = {},
+    onOpenBottomSheet: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val useSystemTheme by themeViewModel.useSystemTheme.collectAsState()
     val darkMode by themeViewModel.darkMode.collectAsState()
     val useDynamicColors by themeViewModel.useDynamicColors.collectAsState()
     val scope = rememberCoroutineScope()
+    val scrollState = rememberScrollState()
     
     Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.fillMaxWidth()
+        horizontalAlignment = Alignment.Start,
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(scrollState)
     ) {
         // Enhanced icon with animation
         AnimatedVisibility(
@@ -1283,26 +1956,139 @@ fun EnhancedThemingContent(
         Spacer(modifier = Modifier.height(24.dp))
         
         Text(
-            text = "Customize Your Theme",
+            text = "Make Rhythm Yours",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(bottom = 12.dp)
         )
         
         Text(
-            text = "Personalize Rhythm's appearance to match your style. Choose between system theme, dark mode, and dynamic colors.",
+            text = "Personalize Rhythm's appearance to match your style. Choose your system theme, font, or Material You dynamic colors (Android 12+).",
             style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 32.dp)
         )
         
-        // Theme options
+        // Live theme preview card
+        AnimatedVisibility(
+            visible = true,
+            enter = fadeIn(animationSpec = tween(600)) + expandVertically(animationSpec = tween(600))
+        ) {
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Live Preview",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                    
+                    // Preview components
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        // Primary color preview
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(56.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(MaterialTheme.colorScheme.primary),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.MusicNote,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Primary",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        
+                        // Secondary color preview
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(56.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(MaterialTheme.colorScheme.secondaryContainer),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Album,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Container",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        
+                        // Tertiary color preview
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(56.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(MaterialTheme.colorScheme.tertiaryContainer),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Person,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Accent",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Theme options - vertically centered
         Column(
-            modifier = Modifier.padding(bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically)
         ) {
             // System theme toggle
             EnhancedThemeOption(
@@ -1350,35 +2136,82 @@ fun EnhancedThemingContent(
                     }
                 )
             }
-        }
+        } // End vertically centered content
         
-        val haptic = LocalHapticFeedback.current
-        FilledTonalButton(
-            onClick = {
-                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
-                onNextStep()
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            colors = ButtonDefaults.filledTonalButtonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            )
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Advanced theming info card
+        Card(
+            onClick = onOpenBottomSheet,
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+            ),
+            modifier = Modifier.fillMaxWidth()
         ) {
             Row(
-                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Next", style = MaterialTheme.typography.labelLarge)
-                Spacer(modifier = Modifier.width(8.dp))
                 Icon(
-                    imageVector = RhythmIcons.Forward,
+                    imageVector = Icons.Filled.AutoAwesome,
                     contentDescription = null,
-                    modifier = Modifier.size(16.dp)
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Advanced Customization",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    Text(
+                        text = "Custom color schemes, album art colors, and fonts",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = "Open theme customization",
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }
+        
+        /*Spacer(modifier = Modifier.height(24.dp))
+        
+        // Skip option with divider
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            HorizontalDivider(modifier = Modifier.weight(1f))
+            Text(
+                text = "or",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+            HorizontalDivider(modifier = Modifier.weight(1f))
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Skip button
+        OutlinedButton(
+            onClick = onSkip,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Text(
+                text = "Skip for now",
+                style = MaterialTheme.typography.labelLarge
+            )
+        }*/
+
     }
 }
 
@@ -1398,7 +2231,7 @@ fun EnhancedThemeOption(
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .clickable { 
-                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
+                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                 onToggle(!isEnabled) 
             },
         colors = CardDefaults.cardColors(
@@ -1449,7 +2282,7 @@ fun EnhancedThemeOption(
             Switch(
                 checked = isEnabled,
                 onCheckedChange = { enabled ->
-                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
+                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                     onToggle(enabled)
                 },
                 colors = SwitchDefaults.colors(
@@ -1476,7 +2309,7 @@ fun EnhancedUpdaterContent(
     val scope = rememberCoroutineScope()
     
     Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
+        horizontalAlignment = Alignment.Start,
         modifier = Modifier.fillMaxWidth()
     ) {
         // Enhanced icon with animation
@@ -1503,26 +2336,24 @@ fun EnhancedUpdaterContent(
         Spacer(modifier = Modifier.height(24.dp))
         
         Text(
-            text = "App Updates",
+            text = "Stay Up to Date",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(bottom = 12.dp)
         )
         
         Text(
-            text = "Configure how Rhythm checks for and receives updates to ensure you always have the latest features and improvements.",
+            text = "Get the latest features, improvements, and bug fixes automatically from GitHub. Choose between Stable releases (recommended) or Beta builds for early access to new features. No Google Play required.",
             style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 32.dp)
         )
         
-        // Update options
+        // Update options - vertically centered
         Column(
-            modifier = Modifier.padding(bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically)
         ) {
             // Enable Updates toggle (NEW)
             EnhancedUpdateOption(
@@ -1544,7 +2375,7 @@ fun EnhancedUpdaterContent(
                 exit = shrinkVertically() + fadeOut()
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) { // Changed spacing to 16.dp for consistency
-                    // Auto check for updates toggle (now inside AnimatedVisibility)
+                        // Auto check for updates toggle (now inside AnimatedVisibility)
                     EnhancedUpdateOption(
                         icon = Icons.Filled.SystemUpdate, // Changed icon to Update from SystemUpdate
                         title = "Periodic Check", // Changed title
@@ -1626,37 +2457,7 @@ fun EnhancedUpdaterContent(
                     )
                 }
             }
-        }
-        
-        // Spacer(modifier = Modifier.height(32.dp)) // Added spacer for consistent button spacing
-        
-        val haptic = LocalHapticFeedback.current
-        FilledTonalButton(
-            onClick = {
-                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
-                onNextStep()
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            colors = ButtonDefaults.filledTonalButtonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            )
-        ) {
-            Row(
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Finish Setup", style = MaterialTheme.typography.labelLarge)
-                Spacer(modifier = Modifier.width(8.dp))
-                Icon(
-                    imageVector = RhythmIcons.Forward,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-        }
+        } // End vertically centered content
     }
 }
 
@@ -1676,7 +2477,7 @@ fun EnhancedUpdateOption(
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .clickable { 
-                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
+                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                 onToggle(!isEnabled) 
             },
         colors = CardDefaults.cardColors(
@@ -1727,7 +2528,7 @@ fun EnhancedUpdateOption(
             Switch(
                 checked = isEnabled,
                 onCheckedChange = { enabled ->
-                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
+                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                     onToggle(enabled)
                 },
                 colors = SwitchDefaults.colors(
@@ -1808,7 +2609,7 @@ fun SettingsDropdownItem(
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .clickable { 
-                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
+                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                 showDropdown = true 
             },
         colors = CardDefaults.cardColors(
@@ -1929,7 +2730,7 @@ fun SettingsDropdownItem(
                             )
                         },
                         onClick = {
-                            HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
+                            HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                             onOptionSelected(option)
                             showDropdown = false
                         },
@@ -1956,72 +2757,140 @@ fun OnboardingProgressIndicator(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
     ) {
-        // Step indicator dots
+        // Step indicator dots with enhanced animations
         Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             repeat(totalSteps) { index ->
                 val isCompleted = index < currentStep
                 val isCurrent = index == currentStep
                 
-                AnimatedVisibility(
-                    visible = true,
-                    enter = scaleIn() + fadeIn(),
-                    exit = scaleOut() + fadeOut()
+                // Animated dot size and color
+                val dotSize by animateDpAsState(
+                    targetValue = when {
+                        isCurrent -> 14.dp
+                        isCompleted -> 10.dp
+                        else -> 8.dp
+                    },
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessMedium
+                    ),
+                    label = "dotSize_$index"
+                )
+                
+                val dotColor by animateColorAsState(
+                    targetValue = when {
+                        isCompleted -> MaterialTheme.colorScheme.primary
+                        isCurrent -> MaterialTheme.colorScheme.primary
+                        else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                    },
+                    animationSpec = tween(300),
+                    label = "dotColor_$index"
+                )
+                
+                Box(
+                    modifier = Modifier
+                        .size(dotSize)
+                        .clip(CircleShape)
+                        .background(dotColor)
+                        .animateContentSize(
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessMedium
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(if (isCurrent) 12.dp else 8.dp)
-                            .clip(CircleShape)
-                            .background(
-                                when {
-                                    isCompleted -> MaterialTheme.colorScheme.primary
-                                    isCurrent -> MaterialTheme.colorScheme.primary
-                                    else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
-                                }
+                    // Show checkmark for completed steps
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = isCompleted && !isCurrent,
+                        enter = scaleIn(
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessMedium
                             )
-                            .animateContentSize(),
-                        contentAlignment = Alignment.Center
+                        ) + fadeIn(),
+                        exit = scaleOut() + fadeOut()
                     ) {
-                        if (isCompleted) {
-                            Icon(
-                                imageVector = Icons.Filled.Check,
-                                contentDescription = "Completed",
-                                tint = MaterialTheme.colorScheme.onPrimary,
-                                modifier = Modifier.size(6.dp)
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Filled.Check,
+                            contentDescription = "Completed",
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(6.dp)
+                        )
+                    }
+                    
+                    // Pulsing ring for current step
+                    if (isCurrent) {
+                        val infiniteTransition = rememberInfiniteTransition(label = "pulse_$index")
+                        val pulseScale by infiniteTransition.animateFloat(
+                            initialValue = 1f,
+                            targetValue = 1.4f,
+                            animationSpec = infiniteRepeatable<Float>(
+                                animation = tween(1000),
+                                repeatMode = RepeatMode.Reverse
+                            ),
+                            label = "pulseScale_$index"
+                        )
+                        
+                        Box(
+                            modifier = Modifier
+                                .size(dotSize * pulseScale)
+                                .clip(CircleShape)
+                                .background(
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                                )
+                        )
                     }
                 }
             }
         }
         
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         
-        // Progress text
-        Text(
-            text = "Step ${currentStep + 1} of $totalSteps",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        // Animated progress text with smooth transitions
+        androidx.compose.animation.AnimatedContent(
+            targetState = currentStep,
+            transitionSpec = {
+                (slideInVertically { height -> height / 2 } + fadeIn()).togetherWith(
+                    slideOutVertically { height -> -height / 2 } + fadeOut()
+                )
+            },
+            label = "progressText"
+        ) { step ->
+            Text(
+                text = "Step ${step + 1} of $totalSteps",
+                style = MaterialTheme.typography.labelLarge.copy(
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = 0.5.sp
+                ),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
 @Composable
 fun EnhancedMediaScanContent(
     onNextStep: () -> Unit,
-    appSettings: AppSettings
+    appSettings: AppSettings,
+    onSkip: () -> Unit = {},
+    onOpenBottomSheet: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val scrollState = rememberScrollState()
     
     // Get current media scan mode preference
     val mediaScanMode by appSettings.mediaScanMode.collectAsState()
     
     Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.fillMaxWidth()
+        horizontalAlignment = Alignment.Start,
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(scrollState)
     ) {
         // Enhanced icon with animation
         AnimatedVisibility(
@@ -2047,83 +2916,128 @@ fun EnhancedMediaScanContent(
         Spacer(modifier = Modifier.height(24.dp))
         
         Text(
-            text = "Media Scan Filtering",
+            text = "Filter Your Music Library",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(bottom = 12.dp)
         )
         
         Text(
-            text = "Choose how Rhythm should filter your music library. You can change this later in Settings.",
+            text = "Control which audio files appear in your library. Use Blacklist mode to hide unwanted files (ringtones, notifications), or Whitelist mode to only show specific music folders.",
             style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 32.dp)
         )
         
-        // Filtering mode options
-        Column(
-            modifier = Modifier.padding(bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Blacklist mode option
-            MediaScanModeOption(
-                icon = Icons.Filled.Block,
-                title = "Blacklist Mode",
-                description = "Hide specific songs and folders from your library",
-                example = "Example: Hide ringtones, voice memos, or unwanted audio files",
-                isSelected = mediaScanMode == "blacklist",
-                onSelect = {
-                    scope.launch {
-                        appSettings.setMediaScanMode("blacklist")
-                    }
-                }
-            )
-            
-            // Whitelist mode option
-            MediaScanModeOption(
-                icon = Icons.Filled.CheckCircle,
-                title = "Whitelist Mode",
-                description = "Only show songs and folders you specifically allow",
-                example = "Example: Only show your main music folders and ignore everything else", 
-                isSelected = mediaScanMode == "whitelist",
-                onSelect = {
-                    scope.launch {
-                        appSettings.setMediaScanMode("whitelist")
-                    }
-                }
-            )
-        }
-        
-        val haptic = LocalHapticFeedback.current
-        FilledTonalButton(
-            onClick = {
-                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
-                onNextStep()
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            colors = ButtonDefaults.filledTonalButtonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            )
+        // Media scan configuration card
+        Card(
+            onClick = onOpenBottomSheet,
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+            ),
+            modifier = Modifier.fillMaxWidth()
         ) {
             Row(
-                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Next", style = MaterialTheme.typography.labelLarge)
-                Spacer(modifier = Modifier.width(8.dp))
                 Icon(
-                    imageVector = RhythmIcons.Forward,
+                    imageVector = Icons.Filled.Tune,
                     contentDescription = null,
-                    modifier = Modifier.size(16.dp)
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Configure Media Scanning",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    Text(
+                        text = "Choose Blacklist or Whitelist mode • Current: ${mediaScanMode.replaceFirstChar { it.uppercase() }}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = "Open media scan settings",
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Cache management info card
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
+            ),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Storage,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Storage Management",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
+                    Text(
+                        text = "Manage cache size and storage in Settings > Cache Management",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
+                }
+            }
+        }
+        
+        /*Spacer(modifier = Modifier.height(24.dp))
+        
+        // Skip option with divider
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            HorizontalDivider(modifier = Modifier.weight(1f))
+            Text(
+                text = "or",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+            HorizontalDivider(modifier = Modifier.weight(1f))
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Skip button
+        OutlinedButton(
+            onClick = onSkip,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Text(
+                text = "Skip for now",
+                style = MaterialTheme.typography.labelLarge
+            )
+        }*/
+
     }
 }
 
@@ -2138,24 +3052,56 @@ fun MediaScanModeOption(
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
+    val scope = rememberCoroutineScope()
+    
+    // Animated scale for press effect
+    val cardScale = remember { Animatable(1f) }
+    
+    // Animated colors
+    val containerColor by animateColorAsState(
+        targetValue = if (isSelected) 
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+        else 
+            MaterialTheme.colorScheme.surfaceContainer,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "containerColor"
+    )
+    
+    val borderColor by animateColorAsState(
+        targetValue = if (isSelected) 
+            MaterialTheme.colorScheme.primary
+        else 
+            androidx.compose.ui.graphics.Color.Transparent,
+        animationSpec = tween(300),
+        label = "borderColor"
+    )
     
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .clickable { 
-                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
+            .graphicsLayer {
+                scaleX = cardScale.value
+                scaleY = cardScale.value
+            }
+            .clip(RoundedCornerShape(20.dp))
+            .clickable {
+                scope.launch {
+                    cardScale.animateTo(0.95f, tween(100))
+                    cardScale.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+                }
+                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
                 onSelect() 
             },
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) 
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
-            else 
-                MaterialTheme.colorScheme.surfaceContainer
+            containerColor = containerColor
         ),
-        border = if (isSelected) 
-            BorderStroke(4.dp, MaterialTheme.colorScheme.primary)
-        else null
+        border = BorderStroke(if (isSelected) 3.dp else 1.dp, borderColor),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (isSelected) 4.dp else 0.dp
+        )
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -2227,6 +3173,232 @@ fun MediaScanModeOption(
                     modifier = Modifier.size(24.dp)
                 )
             }
+        }
+    }
+}
+
+@Composable
+fun EnhancedSetupFinishedContent(onFinish: () -> Unit) {
+    val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+
+    Column(
+        horizontalAlignment = Alignment.Start,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        // Success icon with animation
+        AnimatedVisibility(
+            visible = true,
+            enter = scaleIn(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                )
+            ) + fadeIn(
+                animationSpec = tween(1000)
+            )
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.CheckCircle,
+                    contentDescription = "Setup Complete",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(40.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            text = "You're All Set!",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+
+        Text(
+            text = "Rhythm is ready to play! Your music library is being scanned in the background. Here's what's configured:",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 32.dp)
+        )
+
+        // Feature highlights - vertically centered
+        Column(
+            modifier = Modifier
+                .fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically)
+        ) {
+            SetupCompleteFeature(
+                icon = Icons.Filled.LibraryMusic,
+                title = "Library Configured",
+                description = "Your music library organization preferences are set"
+            )
+
+            SetupCompleteFeature(
+                icon = Icons.Filled.Palette,
+                title = "Theme Applied",
+                description = "Your custom theme and appearance settings are ready"
+            )
+
+            SetupCompleteFeature(
+                icon = Icons.Filled.Backup,
+                title = "Backup Options",
+                description = "Auto-backup and restoration settings configured"
+            )
+
+            // SetupCompleteFeature(
+            //     icon = Icons.Filled.TouchApp,
+            //     title = "Touch & Audio",
+            //     description = "Haptic feedback and audio preferences configured"
+            // )
+
+        }
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        // Next steps card
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
+            ),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Lightbulb,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = "What's Next?",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
+                }
+                
+                NextStepItem(
+                    icon = Icons.Filled.LibraryMusic,
+                    text = "Browse your songs, albums, and artists"
+                )
+                NextStepItem(
+                    icon = Icons.Filled.Queue,
+                    text = "Create your first playlist"
+                )
+                NextStepItem(
+                    icon = Icons.Filled.GraphicEq,
+                    text = "Fine-tune audio with the Equalizer"
+                )
+                NextStepItem(
+                    icon = Icons.Filled.Settings,
+                    text = "Explore more settings anytime"
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Reminder text
+        Text(
+            text = "All settings can be changed anytime in Settings",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        // Let's Go button removed - now handled by bottom navigation bar
+    }
+}
+
+@Composable
+private fun NextStepItem(
+    icon: ImageVector,
+    text: String
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(vertical = 6.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f),
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onTertiaryContainer
+        )
+    }
+}
+
+@Composable
+private fun SetupCompleteFeature(
+    icon: ImageVector,
+    title: String,
+    description: String
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = RoundedCornerShape(12.dp),
+        tonalElevation = 1.dp,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+            )
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 16.sp
+                )
+            }
+
+            Icon(
+                imageVector = Icons.Filled.Check,
+                contentDescription = "Completed",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }

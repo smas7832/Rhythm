@@ -595,6 +595,7 @@ class MainActivity : ComponentActivity() {
             OnboardingStep.LIBRARY_SETUP -> "Library Setup"
             OnboardingStep.MEDIA_SCAN -> "Media Scan"
             OnboardingStep.UPDATER -> "Updates"
+            OnboardingStep.SETUP_FINISHED -> "Setup Finished"
             OnboardingStep.COMPLETE -> "Complete"
         }
 }}
