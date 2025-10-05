@@ -318,6 +318,245 @@ function setupShowcaseCarousel() {
     startShowcaseAutoScroll(); // Start auto-scrolling on load
 }
 
+// Screenshot Popup Functionality (for index.html)
+function setupScreenshotPopup() {
+    const screenshotPopup = document.getElementById('screenshot-popup');
+    const screenshotPopupImage = document.getElementById('screenshot-popup-image');
+    const screenshotTitle = document.getElementById('screenshot-title');
+    const screenshotCounter = document.getElementById('screenshot-counter');
+    const closeScreenshotPopupBtn = document.querySelector('.close-screenshot-popup-btn');
+    const zoomInBtn = document.getElementById('zoom-in-btn');
+    const zoomOutBtn = document.getElementById('zoom-out-btn');
+    const zoomResetBtn = document.getElementById('zoom-reset-btn');
+    const zoomLevelDisplay = document.getElementById('zoom-level');
+    const screenshotPrevBtn = document.getElementById('screenshot-prev-btn');
+    const screenshotNextBtn = document.getElementById('screenshot-next-btn');
+
+    if (!screenshotPopup || !screenshotPopupImage || !closeScreenshotPopupBtn) {
+        return; // Exit if screenshot popup elements are not found
+    }
+
+    // Get all showcase carousel items
+    const showcaseSlides = document.querySelectorAll('.showcase-carousel-item img');
+    let currentScreenshotIndex = 0;
+    let currentZoom = 1;
+    const minZoom = 0.5;
+    const maxZoom = 3.0;
+    const zoomStep = 0.25;
+    let isPanning = false;
+    let startX, startY, initialX, initialY;
+
+    // Function to get screenshot title from alt text or filename
+    function getScreenshotTitle(imgElement) {
+        const altText = imgElement.alt;
+        const src = imgElement.src;
+        const filename = src.split('/').pop().replace('.png', '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+        // Use alt text if it exists and is not generic, otherwise format filename
+        if (altText && altText !== 'Screenshot' && altText.includes('Screen')) {
+            return altText;
+        } else {
+            return filename;
+        }
+    }
+
+    // Function to update zoom level display
+    function updateZoomDisplay() {
+        const percentage = Math.round(currentZoom * 100);
+        zoomLevelDisplay.textContent = `${percentage}%`;
+    }
+
+    // Function to apply zoom to image
+    function applyZoom(zoomValue) {
+        screenshotPopupImage.style.transform = `scale(${zoomValue})`;
+        updateZoomDisplay();
+    }
+
+    // Function to zoom in
+    function zoomIn() {
+        if (currentZoom < maxZoom) {
+            currentZoom = Math.min(currentZoom * 1.5, maxZoom);
+            applyZoom(currentZoom);
+        }
+    }
+
+    // Function to zoom out
+    function zoomOut() {
+        if (currentZoom > minZoom) {
+            currentZoom = Math.max(currentZoom * 0.75, minZoom);
+            applyZoom(currentZoom);
+        }
+    }
+
+    // Function to reset zoom and position
+    function resetZoom() {
+        currentZoom = 1;
+        screenshotPopupImage.style.transform = 'scale(1) translate(0, 0)';
+        updateZoomDisplay();
+    }
+
+    // Function to show screenshot popup
+    function showScreenshotPopup(index) {
+        if (index >= 0 && index < showcaseSlides.length) {
+            currentScreenshotIndex = index;
+            const imgElement = showcaseSlides[index];
+            const imgSrc = imgElement.src;
+            const imgAlt = imgElement.alt;
+            const title = getScreenshotTitle(imgElement);
+
+            // Update popup content
+            screenshotPopupImage.src = imgSrc;
+            screenshotPopupImage.alt = imgAlt;
+            screenshotTitle.textContent = title;
+            screenshotCounter.textContent = `${index + 1} of ${showcaseSlides.length}`;
+
+            // Reset zoom and enable/disable navigation buttons
+            resetZoom();
+            screenshotPrevBtn.disabled = currentScreenshotIndex === 0;
+            screenshotNextBtn.disabled = currentScreenshotIndex === showcaseSlides.length - 1;
+
+            // Show popup
+            screenshotPopup.classList.add('active');
+
+            // Pause showcase carousel auto-scroll
+            if (typeof window.showcaseAutoScrollInterval !== 'undefined') {
+                clearInterval(window.showcaseAutoScrollInterval);
+            }
+        }
+    }
+
+    // Function to hide screenshot popup
+    function hideScreenshotPopup() {
+        screenshotPopup.classList.remove('active');
+
+        // Resume showcase carousel auto-scroll
+        if (showcaseSlides.length > 0) {
+            const showcaseCarouselContainer = document.querySelector('.showcase-carousel');
+            const showcasePrevBtn = document.querySelector('.showcase-prev-btn');
+            const showcaseNextBtn = document.querySelector('.showcase-next-btn');
+
+            window.showcaseAutoScrollInterval = setInterval(() => {
+                showcaseNextBtn.click();
+            }, 5000); // Restart auto-scroll
+        }
+    }
+
+    // Add click event listeners to showcase images
+    showcaseSlides.forEach((slide, index) => {
+        slide.addEventListener('click', () => {
+            showScreenshotPopup(index);
+        });
+
+        // Make cursor pointer to indicate clickable
+        slide.style.cursor = 'pointer';
+    });
+
+    // Close popup event listeners
+    closeScreenshotPopupBtn.addEventListener('click', hideScreenshotPopup);
+    screenshotPopup.addEventListener('click', (e) => {
+        if (e.target === screenshotPopup) {
+            hideScreenshotPopup();
+        }
+    });
+
+    // Zoom controls
+    zoomInBtn.addEventListener('click', zoomIn);
+    zoomOutBtn.addEventListener('click', zoomOut);
+    zoomResetBtn.addEventListener('click', resetZoom);
+
+    // Mouse wheel zoom
+    screenshotPopupImage.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        if (e.deltaY < 0) {
+            zoomIn();
+        } else {
+            zoomOut();
+        }
+    });
+
+    // Pan functionality (drag to move zoomed image)
+    screenshotPopupImage.addEventListener('mousedown', (e) => {
+        if (currentZoom > 1) {
+            isPanning = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            const transform = getComputedStyle(screenshotPopupImage).transform;
+            const matrix = new DOMMatrix(transform);
+            initialX = matrix.m41 || 0;
+            initialY = matrix.m42 || 0;
+            screenshotPopupImage.style.cursor = 'grabbing';
+        }
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (isPanning && currentZoom > 1) {
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            const newX = initialX + dx;
+            const newY = initialY + dy;
+            screenshotPopupImage.style.transform = `scale(${currentZoom}) translate(${newX}px, ${newY}px)`;
+        }
+    });
+
+    document.addEventListener('mouseup', () => {
+        isPanning = false;
+        screenshotPopupImage.style.cursor = currentZoom > 1 ? 'grab' : 'default';
+    });
+
+    // Double-click to reset zoom
+    screenshotPopupImage.addEventListener('dblclick', resetZoom);
+
+    // Navigation buttons event listeners
+    screenshotPrevBtn.addEventListener('click', () => {
+        if (currentScreenshotIndex > 0) {
+            showScreenshotPopup(currentScreenshotIndex - 1);
+        }
+    });
+
+    screenshotNextBtn.addEventListener('click', () => {
+        if (currentScreenshotIndex < showcaseSlides.length - 1) {
+            showScreenshotPopup(currentScreenshotIndex + 1);
+        }
+    });
+
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+        if (!screenshotPopup.classList.contains('active')) return;
+
+        switch(e.key) {
+            case 'ArrowLeft':
+                if (e.ctrlKey || e.metaKey) {
+                    zoomOut();
+                } else {
+                    screenshotPrevBtn.click();
+                }
+                break;
+            case 'ArrowRight':
+                if (e.ctrlKey || e.metaKey) {
+                    zoomIn();
+                } else {
+                    screenshotNextBtn.click();
+                }
+                break;
+            case 'ArrowUp':
+                zoomIn();
+                break;
+            case 'ArrowDown':
+                zoomOut();
+                break;
+            case '0':
+            case 'Home':
+                resetZoom();
+                break;
+            case 'Escape':
+                hideScreenshotPopup();
+                break;
+        }
+    });
+
+    window.showScreenshotPopup = showScreenshotPopup; // Make it globally accessible
+}
+
 // Update Popup Functionality (for updates.html)
 function setupUpdatePopup() {
     const updateItems = document.querySelectorAll('.updates-list .update-item');
@@ -603,6 +842,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (currentPage === 'index.html' || currentPage === '') {
         setupNewsCarousel(); // Initialize news carousel functionality for index.html
         setupShowcaseCarousel(); // Initialize showcase carousel functionality for index.html
+        setupScreenshotPopup(); // Initialize screenshot popup functionality for index.html
     } else if (currentPage === 'updates.html') {
         setupUpdatePopup(); // Initialize update popup functionality for updates.html
         setupUpdateViewToggle(); // Initialize update view toggle functionality for updates.html

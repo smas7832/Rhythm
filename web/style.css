@@ -1942,6 +1942,319 @@ footer {
     color: var(--on-surface-variant);
 }
 
+/* Screenshot Popup Styles */
+.screenshot-popup-content {
+    background-color: var(--surface);
+    padding: 20px;
+    padding-top: 0px;
+    border-radius: var(--radius-lg);
+    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.3);
+    width: auto;
+    max-width: min(420px, 90vw); /* Phone screenshot width (typical mobile viewport) */
+    max-height: min(95vh, 1000px); /* Reasonable max height */
+    border: 1px solid var(--surface-variant);
+    position: relative;
+    transform: scale(0.8);
+    opacity: 0;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    display: flex;
+    flex-direction: column;
+}
+
+.update-popup-overlay.active .screenshot-popup-content {
+    transform: scale(1);
+    opacity: 1;
+}
+
+.close-screenshot-popup-btn {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    background-color: var(--error);
+    color: var(--on-error);
+    border: none;
+    padding: 8px 16px;
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    z-index: 2010;
+    box-shadow: var(--shadow-sm);
+}
+
+.close-screenshot-popup-btn:hover {
+    background-color: var(--error-container);
+    color: var(--on-error-container);
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: var(--shadow-md);
+}
+
+.close-screenshot-popup-btn i {
+    font-size: 16px;
+}
+
+.screenshot-popup-header {
+    position: relative;
+    flex: 1;
+    min-height: 400px; /* Reverted to more reasonable height */
+    max-height: 70vh; /* Allow reasonable flexible height */
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+}
+
+.screenshot-zoom-controls {
+    position: absolute;
+    top: 15px; /* Positioned lower than close button */
+    left: 85px; /* Leave space for close button on left */
+    right: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    z-index: 10;
+    pointer-events: none;
+}
+
+.zoom-btn {
+    pointer-events: all;
+    background-color: var(--surface);
+    color: var(--on-surface);
+    border: 2px solid var(--outline);
+    padding: 8px 12px;
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    box-shadow: var(--shadow-sm);
+}
+
+.zoom-btn:hover {
+    background-color: var(--primary-container);
+    border-color: var(--primary);
+    color: var(--on-primary-container);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.zoom-btn:active {
+    transform: translateY(-1px);
+}
+
+.zoom-level {
+    background-color: var(--surface);
+    color: var(--on-surface);
+    padding: 6px 12px;
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    font-weight: 600;
+    border: 2px solid var(--outline);
+    box-shadow: var(--shadow-sm);
+    pointer-events: all;
+}
+
+.screenshot-image-container {
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: var(--surface-container-low);
+    border-radius: var(--radius-lg);
+    scrollbar-width: thin;
+    scrollbar-color: var(--outline) transparent;
+}
+
+.screenshot-image-container::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.screenshot-image-container::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 4px;
+}
+
+.screenshot-image-container::-webkit-scrollbar-thumb {
+    background: var(--outline);
+    border-radius: 4px;
+}
+
+.screenshot-image-container::-webkit-scrollbar-thumb:hover {
+    background: var(--on-surface-variant);
+}
+
+.screenshot-popup-header img {
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+    display: block;
+    transition: transform 0.3s ease;
+    cursor: grab;
+    cursor: -webkit-grab;
+}
+
+.screenshot-popup-header img:active {
+    cursor: grabbing;
+    cursor: -webkit-grabbing;
+}
+
+.screenshot-popup-body {
+    padding-top: 20px;
+    flex-shrink: 0;
+}
+
+.screenshot-popup-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 0 20px;
+}
+
+.screenshot-popup-title {
+    flex: 1;
+    text-align: center;
+}
+
+.screenshot-popup-title h3 {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--on-surface);
+    margin-bottom: 5px;
+    line-height: 1.2;
+}
+
+.screenshot-popup-title p {
+    font-size: 16px;
+    color: var(--outline);
+    font-weight: 500;
+}
+
+.screenshot-nav-btn {
+    background-color: var(--primary-container);
+    color: var(--on-primary-container);
+    border: none;
+    padding: 12px 16px;
+    border-radius: var(--radius-lg);
+    font-size: 20px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 50px;
+    height: 50px;
+}
+
+.screenshot-nav-btn:hover {
+    background-color: var(--primary);
+    color: var(--on-primary);
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: var(--shadow-md);
+}
+
+.screenshot-nav-btn:active {
+    transform: translateY(-1px) scale(1.02);
+}
+
+/* Dark mode styles for screenshot popup */
+.dark-mode .screenshot-popup-content {
+    background-color: var(--surface-container-low);
+    border: 1px solid var(--surface-variant);
+}
+
+.dark-mode .screenshot-popup-title h3 {
+    color: var(--on-surface);
+}
+
+.dark-mode .screenshot-popup-title p {
+    color: var(--outline);
+}
+
+/* Responsive adjustments for screenshot popup */
+@media (max-width: 768px) {
+    .screenshot-popup-content {
+        padding: 15px; /* Adjusted padding for medium screens */
+        padding-top: 60px; /* Adjusted top padding for medium screens */
+        max-width: 95%;
+        max-height: 95vh;
+    }
+
+    .close-screenshot-popup-btn {
+        top: 15px;
+        right: 15px;
+        padding: 8px 15px;
+        font-size: 14px;
+    }
+
+    .close-screenshot-popup-btn i {
+        font-size: 16px;
+    }
+
+    .screenshot-popup-title h3 {
+        font-size: 20px; /* Adjusted font size */
+        padding-top: 5px;
+    }
+
+    .screenshot-popup-title p {
+        font-size: 14px;
+    }
+
+    .screenshot-popup-controls {
+        padding: 0 10px;
+    }
+
+    .screenshot-nav-btn {
+        width: 45px;
+        height: 45px;
+        padding: 10px 14px;
+        font-size: 18px;
+    }
+}
+
+@media (max-width: 480px) {
+    .screenshot-popup-content {
+        padding: 10px; /* Adjusted padding for small screens */
+        padding-top: 50px; /* Adjusted top padding for small screens */
+        max-width: 95%;
+        max-height: 95vh;
+    }
+
+    .close-screenshot-popup-btn {
+        top: 10px;
+        right: 10px;
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+
+    .close-screenshot-popup-btn i {
+        font-size: 14px;
+    }
+
+    .screenshot-popup-title h3 {
+        font-size: 16px; /* Adjusted font size */
+    }
+
+    .screenshot-popup-title p {
+        font-size: 12px;
+    }
+
+    .screenshot-nav-btn {
+        width: 40px;
+        height: 40px;
+        padding: 8px 12px;
+        font-size: 16px;
+    }
+}
+
 .news-carousel-section {
     padding: 100px 0;
     background-color: var(--surface-container-low);
@@ -2095,8 +2408,8 @@ footer {
 
 .showcase-carousel-item img {
     width: 100%;
-    height: 400px; /* Fixed height for screenshots */
-    object-fit: cover;
+    max-height: 400px; /* Maximum height for screenshots */
+    object-fit: contain; /* Show full screenshot without cropping */
     display: block;
     border-radius: var(--radius-lg);
 }
@@ -2145,7 +2458,7 @@ footer {
         right: 10px;
     }
     .showcase-carousel-item img {
-        height: 300px; /* Adjust height for smaller screens */
+        max-height: 300px; /* Adjust max height for smaller screens */
     }
 }
 
@@ -2154,7 +2467,7 @@ footer {
         padding: 60px 0;
     }
     .showcase-carousel-item img {
-        height: 250px; /* Further adjust height for very small screens */
+        max-height: 250px; /* Further adjust max height for very small screens */
     }
 }
 
