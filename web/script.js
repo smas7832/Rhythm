@@ -83,6 +83,50 @@ const updateData = {
             <p>Thank you for your continued support!</p>
         `
     },
+    update3: {
+        image: "assets/updates2.png",
+        headline: "October Update: Major Improvements Coming Soon!",
+        date: "October 5, 2025",
+        writer: "Anjishnu Nandi",
+        details: `
+            <p>Hey there, Rhythm community! We've been working tirelessly behind the scenes with tons of exciting updates and improvements that we know you'll love. After the solid foundation of our 2.7 stable release, we've been pushing boundaries and adding features that will take your music experience to the next level.</p>
+            <h3>What's Been Happening Behind the Scenes:</h3>
+            <h4>🎵 New Features & Enhancements:</h4>
+            <ul>
+                <li><strong>Sleep Timer</strong> - Customizable sleep timers with flexible duration options</li>
+                <li><strong>Audio Equalizer</strong> - Professional-grade equalizer for fine-tuning your sound</li>
+                <li><strong>Playlist Management</strong> - Advanced playlist import/export capabilities with backup support</li>
+                <li><strong>Library Redesign</strong> - Complete library overhaul with single card layout and improved navigation</li>
+                <li><strong>Metadata Editing</strong> - Edit song metadata including artwork, with permission handling</li>
+                <li><strong>Genre-Based Filtering</strong> - Smart genre detection and filtering throughout the app</li>
+                <li><strong>File Explorer</strong> - New Explorer tab with folder-based song grouping and storage access</li>
+                <li><strong>Theme Customization</strong> - Custom color schemes, fonts, and theme previews</li>
+                <li><strong>Enhanced Navigation</strong> - Improved navigation with customizable library tab order</li>
+                <li><strong>Device Output Management</strong> - Better audio device switching and output handling</li>
+                <li><strong>Cache & Performance</strong> - Advanced cache management and performance optimizations</li>
+            </ul>
+            <h4>🔧 Technical Improvements:</h4>
+            <ul>
+                <li>Enhanced lyrics fetching with better error handling</li>
+                <li>Robust genre detection and UI integration</li>
+                <li>Album art color extraction for dynamic theming</li>
+                <li>Improved search functionality across settings</li>
+                <li>Enhanced haptics and accessibility features</li>
+                <li>Mobile-responsive navigation and UI improvements</li>
+            </ul>
+            <h3>🚀 The New Stable Release is Around the Corner!</h3>
+            <p>We're putting the finishing touches on everything we've been working on. Expect a comprehensive stable release that's packed with all these new features and improvements. This release will bring together months of development into one polished, feature-rich update that maintains our commitment to stability while pushing the boundaries of what's possible with a Material You music player.</p>
+            <h3>🎯 What to Expect:</h3>
+            <ul>
+                <li>All new features mentioned above, fully tested and stable</li>
+                <li>Performance optimizations across the entire application</li>
+                <li>Enhanced stability and bug fixes</li>
+                <li>Improved user experience based on community feedback</li>
+                <li>New customization options to make Rhythm truly yours</li>
+            </ul>
+            <p><strong>Stay Tuned!</strong> We'll be announcing the release date very soon. In the meantime, thank you for your continued support and patience. Your feedback has been invaluable in shaping these updates, and we're excited for you to experience everything we've been building!</p>
+        `
+    },
 };
 
 // Function to check if an image exists
