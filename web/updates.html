@@ -3,13 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rhythm - Updates</title>
+    <title>Rhythm - Updates & Latest Features</title>
+
+    <!-- Resource Hints for Performance -->
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com">
+    <link rel="dns-prefetch" href="https://github.com">
+
+    <!-- Preload critical above-the-fold image -->
+    <link rel="preload" href="assets/updates.png" as="image" type="image/png">
+
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
     <link rel="shortcut icon" href="assets/icon.png">
+    <link rel="canonical" href="https://cromaguy.github.io/Rhythm/updates.html">
     <link rel="stylesheet" href="style.css">
+    <meta name="description" content="Stay updated with the latest features, improvements, and news from Rhythm music player. Track development progress and new releases.">
+    <meta name="keywords" content="Rhythm, Updates, Changelog, Features, Material You, Android Music Player">
+    <meta name="author" content="Anjishnu Nandi">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="Rhythm - Updates & Latest Features">
+    <meta property="og:description" content="Stay updated with the latest features, improvements, and news from Rhythm music player.">
+    <meta property="og:image" content="assets/icon.png">
+    <meta property="og:url" content="https://cromaguy.github.io/Rhythm/updates.html">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Rhythm - Updates & Latest Features">
+    <meta name="twitter:description" content="Stay updated with the latest features, improvements, and news from Rhythm music player.">
+    <meta name="twitter:image" content="assets/icon.png">
 </head>
 <body>
-    <header>
+    <!-- Skip to main content link for accessibility -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
+    <header role="banner">
         <div class="container">
             <div class="header-content">
                 <a href="index.html" class="logo">
@@ -61,7 +88,8 @@
             <a href="https://github.com/cromaguy/Rhythm" class="btn btn-primary">GitHub <i class="fab fa-github"></i></a>
         </div>
     </div>
-<br>
+
+    <main id="main-content" role="main">
     <section class="hero">
         <div class="animated-circles">
             <div class="circle x1"></div>
@@ -89,7 +117,7 @@
                     </div>
                 </div>
                 <div class="hero-image">
-                    <img src="assets/updates.png" alt="Rhythm Home Screen">
+                    <img src="assets/updates.png" alt="Rhythm Home Screen" loading="eager">
                 </div>
             </div>
         </div>
@@ -155,8 +183,9 @@
             </div>
         </div>
     </section>
+    </main>
 
-    <footer id="contact">
+    <footer id="contact" role="contentinfo">
         <div class="container">
             <div class="footer-content">
                 <div class="footer-section">

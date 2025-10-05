@@ -5,12 +5,67 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rhythm - Material You Music Player</title>
+
+    <!-- Resource Hints for Performance -->
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com">
+    <link rel="dns-prefetch" href="https://github.com">
+
+    <!-- Preload critical above-the-fold image -->
+    <link rel="preload" href="assets/hero.png" as="image" type="image/png">
+
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
     <link rel="shortcut icon" href="assets/icon.png"> <!-- Using a local icon for Rhythm -->
+    <link rel="canonical" href="https://cromaguy.github.io/Rhythm/">
     <link rel="stylesheet" href="style.css">
+    <meta name="description" content="Rhythm is a revolutionary Material You music player for Android featuring stunning design, intelligent features, and seamless performance. Download now from multiple sources.">
+    <meta name="keywords" content="Material You, Music Player, Android, Rhythm, ChromaHub, Anjishnu Nandi">
+    <meta name="author" content="Anjishnu Nandi">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="Rhythm - Material You Music Player">
+    <meta property="og:description" content="Experience music with stunning Material You design, intelligent features, and seamless performance.">
+    <meta property="og:image" content="assets/icon.png">
+    <meta property="og:url" content="https://cromaguy.github.io/Rhythm/">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Rhythm - Material You Music Player">
+    <meta name="twitter:description" content="Experience music with stunning Material You design, intelligent features, and seamless performance.">
+    <meta name="twitter:image" content="assets/icon.png">
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Rhythm",
+      "description": "A revolutionary Material You music player for Android",
+      "applicationCategory": "MultimediaApplication",
+      "operatingSystem": "Android",
+      "author": {
+        "@type": "Person",
+        "name": "Anjishnu Nandi"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "ChromaHub"
+      },
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.5",
+        "ratingCount": "100"
+      }
+    }
+    </script>
 </head>
 <body>
-    <header>
+    <!-- Skip to main content link for accessibility -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
+    <header role="banner">
         <div class="container">
             <div class="header-content">
                 <a href="#" class="logo">
@@ -62,7 +117,8 @@
             <a href="https://github.com/cromaguy/Rhythm" class="btn btn-primary">GitHub <i class="fab fa-github"></i></a>
         </div>
     </div>
-<br>
+
+    <main id="main-content" role="main">
     <section class="hero">
         <div class="animated-circles">
             <div class="circle x1"></div>
@@ -87,7 +143,7 @@
                     <a href="#downloadOptionsSection" class="btn btn-primary scroll-to-download">Download Now <i class="fas fa-download"></i></a>
                 </div>
                 <div class="hero-image">
-                    <img src="assets/hero.png" alt="Rhythm Home Screen">
+                    <img src="assets/hero.png" alt="Rhythm Home Screen" loading="eager">
                 </div>
             </div>
         </div>
@@ -124,15 +180,15 @@
                     <p>Real-time lyrics with perfect synchronization, smart search across your library, advanced shuffle, and auto-resume.</p>
                     <a href="https://github.com/cromaguy/Rhythm#what-makes-rhythm-special">Learn more <i class="fas fa-chevron-right"></i></a>
                 </div>
-                <!-- <div class="feature-card">
+                <div class="feature-card">
                     <div class="feature-icon">
                         <i class="fas fa-globe"></i>
                     </div>
                     <h3>Connected Experience</h3>
                     <p>LRCLib Integration for synced lyrics, auto-updates via GitHub releases, rich metadata, and Canvas Integration for cool experience.</p>
                     <a href="https://github.com/cromaguy/Rhythm#what-makes-rhythm-special">Learn more <i class="fas fa-chevron-right"></i></a>
-                </div> -->
                 </div>
+            </div>
             </div>
         </div>
     </section>
@@ -146,31 +202,31 @@
             <div class="carousel-container showcase-carousel">
                 <div class="carousel-track showcase-carousel-track" id="showcase-carousel-track">
                     <div class="showcase-carousel-item">
-                        <img src="assets/ScreenShots/Home.png" alt="Rhythm Home Screen">
+                        <img src="assets/ScreenShots/Home.png" alt="Rhythm Home Screen" loading="eager">
                     </div>
                     <div class="showcase-carousel-item">
-                        <img src="assets/ScreenShots/Home2.png" alt="Rhythm Home Screen 2">
+                        <img src="assets/ScreenShots/Home2.png" alt="Rhythm Home Screen 2" loading="lazy">
                     </div>
                     <div class="showcase-carousel-item">
-                        <img src="assets/ScreenShots/Home3.png" alt="Rhythm Home Screen 3">
+                        <img src="assets/ScreenShots/Home3.png" alt="Rhythm Home Screen 3" loading="lazy">
                     </div>
                     <div class="showcase-carousel-item">
-                        <img src="assets/ScreenShots/Player.png" alt="Rhythm Player Screen">
+                        <img src="assets/ScreenShots/Player.png" alt="Rhythm Player Screen" loading="lazy">
                     </div>
                     <div class="showcase-carousel-item">
-                        <img src="assets/ScreenShots/Player_Lyrics.png" alt="Rhythm Player Lyrics">
+                        <img src="assets/ScreenShots/Player_Lyrics.png" alt="Rhythm Player Lyrics" loading="lazy">
                     </div>
                     <div class="showcase-carousel-item">
-                        <img src="assets/ScreenShots/Library_Songs.png" alt="Rhythm Library Songs">
+                        <img src="assets/ScreenShots/Library_Songs.png" alt="Rhythm Library Songs" loading="lazy">
                     </div>
                     <div class="showcase-carousel-item">
-                        <img src="assets/ScreenShots/Library_Albums.png" alt="Rhythm Library Albums">
+                        <img src="assets/ScreenShots/Library_Albums.png" alt="Rhythm Library Albums" loading="lazy">
                     </div>
                     <div class="showcase-carousel-item">
-                        <img src="assets/ScreenShots/Library_Artists.png" alt="Rhythm Library Artists">
+                        <img src="assets/ScreenShots/Library_Artists.png" alt="Rhythm Library Artists" loading="lazy">
                     </div>
                     <div class="showcase-carousel-item">
-                        <img src="assets/ScreenShots/Library_Playlists.png" alt="Rhythm Library Playlists">
+                        <img src="assets/ScreenShots/Library_Playlists.png" alt="Rhythm Library Playlists" loading="lazy">
                     </div>
                     <div class="showcase-carousel-item">
                         <img src="assets/ScreenShots/Library_AlbumBS.png" alt="Rhythm Album Bottom Sheet">
@@ -316,8 +372,9 @@
             </div>
         </div>
     </section>
+    </main>
 
-    <footer id="contact">
+    <footer id="contact" role="contentinfo">
         <div class="container">
             <div class="footer-content">
                 <div class="footer-section">

@@ -85,12 +85,12 @@ const updateData = {
     },
     update3: {
         image: "assets/updates2.png",
-        headline: "October Update: Major Improvements Coming Soon!",
+        headline: "October 2025 Update: Major Improvements In Development!",
         date: "October 5, 2025",
         writer: "Anjishnu Nandi",
         details: `
-            <p>Hey there, Rhythm community! We've been working tirelessly behind the scenes with tons of exciting updates and improvements that we know you'll love. After the solid foundation of our 2.7 stable release, we've been pushing boundaries and adding features that will take your music experience to the next level.</p>
-            <h3>What's Been Happening Behind the Scenes:</h3>
+            <p>Hey there, Rhythm community! We're thrilled to share our ongoing development progress with you. Since our solid 2.7 stable release, we've been pushing boundaries and adding features that will elevate your music experience to new heights.</p>
+            <h3>What's Currently In Development:</h3>
             <h4>🎵 New Features & Enhancements:</h4>
             <ul>
                 <li><strong>Sleep Timer</strong> - Customizable sleep timers with flexible duration options</li>
@@ -114,17 +114,17 @@ const updateData = {
                 <li>Enhanced haptics and accessibility features</li>
                 <li>Mobile-responsive navigation and UI improvements</li>
             </ul>
-            <h3>🚀 The New Stable Release is Around the Corner!</h3>
-            <p>We're putting the finishing touches on everything we've been working on. Expect a comprehensive stable release that's packed with all these new features and improvements. This release will bring together months of development into one polished, feature-rich update that maintains our commitment to stability while pushing the boundaries of what's possible with a Material You music player.</p>
-            <h3>🎯 What to Expect:</h3>
+            <h3>🚀 Our Commitment to Progress:</h3>
+            <p>We're diligently working on bringing all these features together into a comprehensive, stable release. Our focus remains on maintaining the stability you expect while pushing the boundaries of what's possible with a Material You music player.</p>
+            <h3>🎯 Development Priorities:</h3>
             <ul>
-                <li>All new features mentioned above, fully tested and stable</li>
+                <li>Testing and refining all new features for stability</li>
                 <li>Performance optimizations across the entire application</li>
-                <li>Enhanced stability and bug fixes</li>
-                <li>Improved user experience based on community feedback</li>
-                <li>New customization options to make Rhythm truly yours</li>
+                <li>Bug fixes and user experience improvements based on feedback</li>
+                <li>Enhanced stability through rigorous testing</li>
+                <li>Adding customization options to make Rhythm truly yours</li>
             </ul>
-            <p><strong>Stay Tuned!</strong> We'll be announcing the release date very soon. In the meantime, thank you for your continued support and patience. Your feedback has been invaluable in shaping these updates, and we're excited for you to experience everything we've been building!</p>
+            <p><strong>Transparent Development:</strong> We believe in keeping our community informed about our progress. While we don't have an exact release date yet, we wanted to share what's currently taking shape. Thank you for your continued support and patience—your feedback helps shape the direction of Rhythm's development!</p>
         `
     },
 };
