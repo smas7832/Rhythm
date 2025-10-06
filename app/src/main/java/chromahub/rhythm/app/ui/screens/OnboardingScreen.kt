@@ -1676,7 +1676,7 @@ fun EnhancedAudioPlaybackContent(
         // Equalizer info card
         Card(
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
             ),
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -1687,7 +1687,7 @@ fun EnhancedAudioPlaybackContent(
                 Icon(
                     imageVector = Icons.Filled.GraphicEq,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(modifier = Modifier.width(12.dp))
@@ -1696,12 +1696,12 @@ fun EnhancedAudioPlaybackContent(
                         text = "Equalizer Available",
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onTertiaryContainer
                     )
                     Text(
                         text = "Fine-tune audio frequencies in Settings > Equalizer",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onTertiaryContainer
                     )
                 }
             }
@@ -3084,6 +3084,52 @@ fun EnhancedMediaScanContent(
             }
         }
         
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Media scan tips card
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
+            ),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Info,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = "How It Works",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
+                }
+                
+                MediaScanTipItem(
+                    icon = Icons.Filled.Block,
+                    text = "Blacklist hides unwanted audio (ringtones, notifications)"
+                )
+                MediaScanTipItem(
+                    icon = Icons.Filled.CheckCircle,
+                    text = "Whitelist shows only specific folders for a curated library"
+                )
+                MediaScanTipItem(
+                    icon = Icons.Filled.Folder,
+                    text = "Folder filters apply to all songs within that folder"
+                )
+            }
+        }
+        
         /*Spacer(modifier = Modifier.height(24.dp))
         
         // Skip option with divider
@@ -3115,6 +3161,30 @@ fun EnhancedMediaScanContent(
             )
         }*/
 
+    }
+}
+
+@Composable
+private fun MediaScanTipItem(
+    icon: ImageVector,
+    text: String
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(vertical = 6.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f),
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onTertiaryContainer
+        )
     }
 }
 

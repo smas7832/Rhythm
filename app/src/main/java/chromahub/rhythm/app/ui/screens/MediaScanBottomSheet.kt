@@ -202,6 +202,68 @@ fun MediaScanBottomSheet(
             
             Spacer(modifier = Modifier.height(24.dp))
             
+            // Mode-specific How It Works Card
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
+                ),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Info,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "How It Works",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                        )
+                    }
+                    
+                    if (currentMode == MediaScanMode.BLACKLIST) {
+                        MediaScanTipItem(
+                            icon = Icons.Filled.Block,
+                            text = "Hide specific songs or entire folders from your library"
+                        )
+                        MediaScanTipItem(
+                            icon = Icons.Filled.MusicOff,
+                            text = "Perfect for excluding ringtones, notifications, or podcasts"
+                        )
+                        MediaScanTipItem(
+                            icon = Icons.Filled.Visibility,
+                            text = "All other music remains visible and playable"
+                        )
+                    } else {
+                        MediaScanTipItem(
+                            icon = Icons.Filled.CheckCircle,
+                            text = "Only show songs from selected folders in your library"
+                        )
+                        MediaScanTipItem(
+                            icon = Icons.Filled.FolderSpecial,
+                            text = "Create a curated library with your favorite music folders"
+                        )
+                        MediaScanTipItem(
+                            icon = Icons.Filled.VisibilityOff,
+                            text = "All other music will be hidden from the library"
+                        )
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
             // Tabs
             TabRow(
                 selectedTabIndex = selectedTabIndex,
@@ -228,53 +290,6 @@ fun MediaScanBottomSheet(
                                 fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Normal
                             )
                         }
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Tips Card
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
-                ),
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Lightbulb,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = "How It Works",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onTertiaryContainer
-                        )
-                    }
-                    
-                    MediaScanTipItem(
-                        icon = Icons.Filled.Block,
-                        text = "Blacklist hides unwanted audio (ringtones, notifications)"
-                    )
-                    MediaScanTipItem(
-                        icon = Icons.Filled.CheckCircle,
-                        text = "Whitelist shows only specific folders for a curated library"
-                    )
-                    MediaScanTipItem(
-                        icon = Icons.Filled.Folder,
-                        text = "Folder filters apply to all songs within that folder"
                     )
                 }
             }
