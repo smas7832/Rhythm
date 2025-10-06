@@ -77,13 +77,14 @@ fun SplashScreen(
     var exitSplash by remember { mutableStateOf(false) }
 
     // Animatable values for smooth animations
-    val logoAlpha = remember { Animatable(0f) }
-    val logoScaleAnim = remember { Animatable(0.5f) }
+    val logoAlpha = remember { Animatable(1f) } // Start visible
+    val logoScaleAnim = remember { Animatable(1.0f) } // Start at full splash screen size
+    val logoOffsetX = remember { Animatable(0f) } // Logo position - slides left
     
-    val appNameOffsetX = remember { Animatable(-150f) } // Slides from left (behind logo)
+    val appNameOffsetX = remember { Animatable(0f) } // Starts centered behind logo - slides right
     val appNameAlpha = remember { Animatable(0f) }
     
-    val taglineOffsetY = remember { Animatable(-80f) } // Slides down from behind
+    val taglineOffsetY = remember { Animatable(50f) } // Slides up from below
     val taglineAlpha = remember { Animatable(0f) }
     
     val loaderAlpha = remember { Animatable(0f) }
@@ -95,67 +96,75 @@ fun SplashScreen(
     val isInitialized by musicViewModel.isInitialized.collectAsState()
 
     LaunchedEffect(Unit) {
-        delay(150)
-        
-        // STEP 1: Logo appears with scale and fade
+        delay(150) // Brief initial delay to match system splash
+
+        // STEP 1: Logo is already visible at full size (matches system splash)
         showLogo = true
-        launch {
-            logoAlpha.animateTo(
-                targetValue = 1f,
-                animationSpec = tween(0, easing = androidx.compose.animation.core.FastOutSlowInEasing)
-            )
-        }
+        delay(250) // Hold at full size briefly
+        
+        // Shrink logo to fit alongside text
         logoScaleAnim.animateTo(
-            targetValue = 1f,
+            targetValue = 0.55f, // Shrink to smaller size for side-by-side layout
             animationSpec = spring(
                 dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessLow
+                stiffness = Spring.StiffnessMedium
             )
         )
-        
-//        delay(100)
-        
-        // STEP 2: App name slides horizontally from behind the logo (left to center)
+
+        delay(150) // Brief pause after shrink
+
+        // STEP 2: Logo slides LEFT and App name slides RIGHT simultaneously (reveal from center)
         showAppName = true
         launch {
             appNameAlpha.animateTo(
                 targetValue = 1f,
-                animationSpec = tween(delayMillis = 0, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+                animationSpec = tween(500, easing = androidx.compose.animation.core.FastOutSlowInEasing)
             )
         }
+        // Logo slides left
+        launch {
+            logoOffsetX.animateTo(
+                targetValue = -265f, // Slide left from center
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium
+                )
+            )
+        }
+        // App name slides right from behind logo
         appNameOffsetX.animateTo(
-            targetValue = 0f,
+            targetValue = 105f, // Slide right from center
             animationSpec = spring(
-                dampingRatio = Spring.DampingRatioNoBouncy,
-                stiffness = Spring.StiffnessLow
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessMedium
             )
         )
-        
-//        delay(100)
-        
-        // STEP 3: Tagline slides down from behind logo and name
+
+        delay(200) // Pause for name to settle
+
+        // STEP 3: Tagline slides up from below with bounce
         showTagline = true
         launch {
             taglineAlpha.animateTo(
                 targetValue = 1f,
-                animationSpec = tween(0)
+                animationSpec = tween(400, easing = androidx.compose.animation.core.FastOutSlowInEasing)
             )
         }
         taglineOffsetY.animateTo(
             targetValue = 0f,
             animationSpec = spring(
                 dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessLow
+                stiffness = Spring.StiffnessMedium
             )
         )
-        
-//        delay(100)
-        
-        // STEP 4: Loader fades in at bottom
+
+        delay(150) // Brief delay before loader
+
+        // STEP 4: Loader fades in smoothly
         showLoader = true
         loaderAlpha.animateTo(
             targetValue = 1f,
-            animationSpec = tween(100)
+            animationSpec = tween(400, easing = androidx.compose.animation.core.EaseInOut)
         )
     }
 
@@ -215,28 +224,28 @@ fun SplashScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(0.dp)
             ) {
-                // Logo with entrance animation and breathing effect
-                if (showLogo) {
-                    Image(
-                        painter = painterResource(id = R.drawable.rhythm_splash_logo),
-                        contentDescription = "Rhythm",
-                        modifier = Modifier
-                            .size(180.dp)
-                            .graphicsLayer {
-                                alpha = logoAlpha.value
-                                scaleX = logoScaleAnim.value * logoBreathing
-                                scaleY = logoScaleAnim.value * logoBreathing
-                            }
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // App name sliding from left (behind logo)
+                // Logo and App name on the same line
                 Box(
-                    modifier = Modifier.height(56.dp),
+                    modifier = Modifier.height(200.dp),
                     contentAlignment = Alignment.Center
                 ) {
+                    // Logo with entrance animation and breathing effect (centered, then slides left)
+                    if (showLogo) {
+                        Image(
+                            painter = painterResource(id = R.drawable.rhythm_splash_logo),
+                            contentDescription = "Rhythm",
+                            modifier = Modifier
+                                .size(200.dp) // Larger base size to match system splash
+                                .graphicsLayer {
+                                    alpha = logoAlpha.value
+                                    scaleX = logoScaleAnim.value * logoBreathing
+                                    scaleY = logoScaleAnim.value * logoBreathing
+                                    translationX = logoOffsetX.value
+                                }
+                        )
+                    }
+
+                    // App name revealing from center (behind logo) moving right
                     if (showAppName) {
                         Text(
                             text = "Rhythm",
@@ -255,7 +264,7 @@ fun SplashScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 // Tagline sliding down from behind logo and name
                 Box(
