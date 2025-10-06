@@ -49,6 +49,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -352,6 +353,7 @@ fun OnboardingScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .navigationBarsPadding()
                             .padding(horizontal = if (isTablet) 48.dp else 24.dp, vertical = 16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
@@ -941,10 +943,13 @@ fun EnhancedPermissionContent(
     
     val essentialPermissions = storagePermissions + bluetoothPermissions + notificationPermissions
     val permissionsState = rememberMultiplePermissionsState(essentialPermissions)
+    val scrollState = rememberScrollState()
     
     Column(
         horizontalAlignment = Alignment.Start,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(scrollState)
     ) {
         // Enhanced icon with dynamic state
         AnimatedVisibility(
@@ -1348,86 +1353,6 @@ fun EnhancedBackupRestoreContent(
             }
         }
         
-        // Backup features info card
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
-            ),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier.padding(20.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(bottom = 12.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Lightbulb,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = "What Gets Backed Up?",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onTertiaryContainer
-                    )
-                }
-                
-                BackupFeatureTipItem(
-                    icon = Icons.Filled.Save,
-                    text = "All settings, playlists, themes, and library customization"
-                )
-                BackupFeatureTipItem(
-                    icon = Icons.Filled.RestoreFromTrash,
-                    text = "Restore from files or clipboard with one tap"
-                )
-                BackupFeatureTipItem(
-                    icon = Icons.Filled.Security,
-                    text = "Backups stored locally on your device for privacy"
-                )
-            }
-        }
-        
-        // Tip card
-        AnimatedVisibility(
-            visible = autoBackupEnabled,
-            enter = expandVertically() + fadeIn(),
-            exit = shrinkVertically() + fadeOut()
-        ) {
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f)
-                ),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Lightbulb,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = "You can manually create backups anytime in Settings > Backup & Restore",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onTertiaryContainer
-                    )
-                }
-            }
-        }
-        } // End vertically centered content
-        
-        Spacer(modifier = Modifier.height(0.dp))
-        
         // Backup & Restore management card
         Card(
             onClick = onOpenBottomSheet,
@@ -1468,6 +1393,86 @@ fun EnhancedBackupRestoreContent(
                 )
             }
         }
+        
+        // Tip card
+        AnimatedVisibility(
+            visible = autoBackupEnabled,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut()
+        ) {
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f)
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Lightbulb,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = "You can manually create backups anytime in Settings > Backup & Restore",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
+                }
+            }
+        }
+        
+        // Backup features info card
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
+            ),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Info,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = "What Gets Backed Up?",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
+                }
+                
+                BackupFeatureTipItem(
+                    icon = Icons.Filled.Save,
+                    text = "All settings, playlists, themes, and library customization"
+                )
+                BackupFeatureTipItem(
+                    icon = Icons.Filled.RestoreFromTrash,
+                    text = "Restore from files or clipboard with one tap"
+                )
+                BackupFeatureTipItem(
+                    icon = Icons.Filled.Security,
+                    text = "Backups stored locally on your device for privacy"
+                )
+            }
+        }
+        } // End vertically centered content
+        
+        Spacer(modifier = Modifier.height(0.dp))
         
         /*Spacer(modifier = Modifier.height(24.dp))
         
@@ -1537,10 +1542,13 @@ fun EnhancedAudioPlaybackContent(
     val useSystemVolume by appSettings.useSystemVolume.collectAsState()
     val showLyrics by appSettings.showLyrics.collectAsState()
     val onlineOnlyLyrics by appSettings.onlineOnlyLyrics.collectAsState()
+    val scrollState = rememberScrollState()
 
     Column(
         horizontalAlignment = Alignment.Start,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(scrollState)
     ) {
         // Enhanced audio icon
         AnimatedVisibility(
@@ -2334,10 +2342,13 @@ fun EnhancedUpdaterContent(
             updaterViewModel.checkForUpdates(force = true)
         }
     }
+    val scrollState = rememberScrollState()
     
     Column(
         horizontalAlignment = Alignment.Start,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(scrollState)
     ) {
         // Enhanced icon with animation
         AnimatedVisibility(
@@ -3247,10 +3258,13 @@ fun MediaScanModeOption(
 fun EnhancedSetupFinishedContent(onFinish: () -> Unit) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
+    val scrollState = rememberScrollState()
 
     Column(
         horizontalAlignment = Alignment.Start,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(scrollState)
     ) {
         // Success icon with animation
         AnimatedVisibility(

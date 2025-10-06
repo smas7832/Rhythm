@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -198,6 +199,7 @@ fun BackupRestoreBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .navigationBarsPadding()
                 .padding(horizontal = 24.dp, vertical = 16.dp)
         ) {
             // Header
@@ -640,10 +642,12 @@ fun BackupRestoreBottomSheet(
                     }
                 }
                 
-                // Information Card
+                // Tips/Information Card
                 item {
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
+                        ),
                         shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -652,43 +656,35 @@ fun BackupRestoreBottomSheet(
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier.padding(bottom = 12.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Filled.Info,
+                                    imageVector = Icons.Filled.Lightbulb,
                                     contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(20.dp)
+                                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    modifier = Modifier.size(24.dp)
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
+                                Spacer(modifier = Modifier.width(12.dp))
                                 Text(
-                                    text = "What's included in backup",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.SemiBold
+                                    text = "What's Included in Backup?",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
                                 )
                             }
                             
-                            Spacer(modifier = Modifier.height(12.dp))
-                            
-                            listOf(
-                                "All app settings and preferences",
-                                "Your playlists and favorite songs",  
-                                "Blacklisted/whitelisted songs and folders",
-                                "Pinned folders and library customization",
-                                "Theme settings (colors, fonts, extracted album art colors)",
-                                "Audio preferences (equalizer, crossfade, etc.)",
-                                "API settings and integrations",
-                                "Recently played history and statistics",
-                                "Restore requires app restart to take full effect"
-                            ).forEach { info ->
-                                CompactInfoItem(
-                                    icon = Icons.Filled.FiberManualRecord,
-                                    text = info
-                                )
-                                if (info != "Restore requires app restart to take full effect") {
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                }
-                            }
+                            BackupInfoItem(
+                                icon = Icons.Filled.Save,
+                                text = "All settings, playlists, themes, and library customization"
+                            )
+                            BackupInfoItem(
+                                icon = Icons.Filled.RestoreFromTrash,
+                                text = "Restore from files or clipboard with one tap"
+                            )
+                            BackupInfoItem(
+                                icon = Icons.Filled.Security,
+                                text = "Backups stored locally on your device for privacy"
+                            )
                         }
                     }
                 }
@@ -823,6 +819,30 @@ fun BackupRestoreBottomSheet(
                 }
             },
             shape = RoundedCornerShape(24.dp)
+        )
+    }
+}
+
+@Composable
+private fun BackupInfoItem(
+    icon: ImageVector,
+    text: String
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(vertical = 6.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f),
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onTertiaryContainer
         )
     }
 }
