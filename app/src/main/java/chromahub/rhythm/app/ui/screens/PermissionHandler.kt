@@ -39,6 +39,7 @@ import com.google.accompanist.permissions.shouldShowRationale
 import kotlinx.coroutines.delay
 import androidx.lifecycle.viewmodel.compose.viewModel
 import chromahub.rhythm.app.viewmodel.MusicViewModel
+import chromahub.rhythm.app.viewmodel.AppUpdaterViewModel
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 
@@ -52,7 +53,8 @@ fun PermissionHandler(
     isInitializingApp: Boolean, // Pass as parameter
     onSetIsLoading: (Boolean) -> Unit, // Callback to update state
     onSetIsInitializingApp: (Boolean) -> Unit, // Callback to update state
-    musicViewModel: MusicViewModel = viewModel()
+    musicViewModel: MusicViewModel = viewModel(),
+    updaterViewModel: AppUpdaterViewModel = viewModel()
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -285,6 +287,7 @@ fun PermissionHandler(
             OnboardingScreen(
                 currentStep = currentOnboardingStep,
                 musicViewModel = musicViewModel,
+                updaterViewModel = updaterViewModel,
                 onNextStep = {
                     when (currentOnboardingStep) {
                         OnboardingStep.WELCOME -> currentOnboardingStep = OnboardingStep.PERMISSIONS

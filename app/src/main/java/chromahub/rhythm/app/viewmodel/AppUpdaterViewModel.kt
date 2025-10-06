@@ -26,6 +26,7 @@ import okhttp3.Response
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.io.FileInputStream
 import androidx.core.content.FileProvider
 import android.Manifest
 import android.content.pm.PackageManager
@@ -39,6 +40,9 @@ import android.content.SharedPreferences
 import com.google.gson.Gson
 import kotlinx.coroutines.GlobalScope
 import chromahub.rhythm.app.BuildConfig
+import java.security.MessageDigest
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * App version data model
@@ -102,7 +106,9 @@ data class DownloadState(
     val downloadedBytes: Long,
     val etag: String?,
     val lastModified: String?,
-    val resumePosition: Long
+    val resumePosition: Long,
+    val checksum: String? = null, // SHA-256 checksum if available
+    val retryCount: Int = 0 // Track retry attempts
 )
 
 /**
@@ -135,6 +141,12 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
     // Active download state
     private var activeDownload: DownloadState? = null
     private var activeCall: Call? = null
+    
+    // Mutex to prevent concurrent downloads
+    private val downloadMutex = Mutex()
+    
+    // Maximum retry attempts for downloads
+    private val MAX_RETRY_ATTEMPTS = 3
 
     // Update channel (stable or beta)
     private val _updateChannel = MutableStateFlow("stable")
@@ -145,7 +157,7 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
         AppVersion(
             versionName = BuildConfig.VERSION_NAME,
             versionCode = BuildConfig.VERSION_CODE,
-            releaseDate = "2025-10-04", // This could be generated from build time if needed
+            releaseDate = "2025-10-06", // This could be generated from build time if needed
             whatsNew = emptyList(),
             knownIssues = emptyList(),
             downloadUrl = "",
@@ -215,21 +227,42 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
             
             if (downloadStateJson != null) {
                 activeDownload = gson.fromJson(downloadStateJson, DownloadState::class.java)
-                _downloadState.value = activeDownload
-                Log.d(TAG, "Loaded download state: ${activeDownload?.fileName}")
+                // Validate the download state
+                if (validateDownloadState(activeDownload)) {
+                    _downloadState.value = activeDownload
+                    Log.d(TAG, "Loaded download state: ${activeDownload?.fileName}")
+                } else {
+                    Log.w(TAG, "Download state validation failed, clearing")
+                    clearDownloadState()
+                    return
+                }
             }
             
-            if (downloadProgress > 0f) {
+            if (downloadProgress > 0f && downloadProgress <= 100f) {
                 _downloadProgress.value = downloadProgress
                 Log.d(TAG, "Loaded download progress: $downloadProgress%")
             }
             
             if (downloadedFilePath != null) {
                 val file = File(downloadedFilePath)
-                if (file.exists()) {
-                    _downloadedFile.value = file
-                    _downloadProgress.value = 100f
-                    Log.d(TAG, "Found completed download: ${file.absolutePath}")
+                if (file.exists() && file.length() > 0) {
+                    // Verify file integrity if checksum available
+                    val isValid = activeDownload?.checksum?.let { checksum ->
+                        verifyFileChecksum(file, checksum)
+                    } ?: true
+                    
+                    if (isValid) {
+                        _downloadedFile.value = file
+                        _downloadProgress.value = 100f
+                        Log.d(TAG, "Found completed download: ${file.absolutePath}")
+                    } else {
+                        Log.w(TAG, "Downloaded file checksum mismatch, deleting")
+                        file.delete()
+                        clearDownloadState()
+                    }
+                } else {
+                    Log.w(TAG, "Downloaded file not found or empty, clearing state")
+                    clearDownloadState()
                 }
             }
             
@@ -239,6 +272,20 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
             Log.e(TAG, "Failed to load download state", e)
             clearDownloadState()
         }
+    }
+    
+    /**
+     * Validate download state data
+     */
+    private fun validateDownloadState(state: DownloadState?): Boolean {
+        if (state == null) return false
+        return state.fileName.isNotBlank() &&
+               state.url.isNotBlank() &&
+               state.totalBytes >= 0 &&
+               state.downloadedBytes >= 0 &&
+               state.downloadedBytes <= state.totalBytes &&
+               state.retryCount >= 0 &&
+               state.retryCount < MAX_RETRY_ATTEMPTS
     }
     
     /**
@@ -649,7 +696,26 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
     /**
      * Download an APK file in-app with progress tracking and resume support
      */
-    private fun downloadApkInApp(downloadUrl: String, fileName: String) {
+    private fun downloadApkInApp(downloadUrl: String, fileName: String, retryAttempt: Int = 0) {
+        // Use mutex to prevent concurrent downloads
+        viewModelScope.launch {
+            if (!downloadMutex.tryLock()) {
+                Log.w(TAG, "Download already in progress")
+                return@launch
+            }
+            
+            try {
+                downloadApkInAppInternal(downloadUrl, fileName, retryAttempt)
+            } finally {
+                downloadMutex.unlock()
+            }
+        }
+    }
+    
+    /**
+     * Internal download implementation with mutex protection
+     */
+    private fun downloadApkInAppInternal(downloadUrl: String, fileName: String, retryAttempt: Int = 0) {
         if (_isDownloading.value) {
             return // Already downloading
         }
@@ -657,13 +723,29 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
         _downloadProgress.value = 0f
         _error.value = null
         
-        // Don't clear downloaded file immediately to prevent corruption on retry
-        val existingFile = _downloadedFile.value
-        val shouldResumeDownload = activeDownload != null && activeDownload?.url == downloadUrl
+        val shouldResumeDownload = activeDownload != null && 
+                                   activeDownload?.url == downloadUrl && 
+                                   activeDownload?.retryCount == retryAttempt
         
         if (!shouldResumeDownload) {
-            // Starting fresh download - clear previous state
+            // Starting fresh download - clear previous state and delete partial files
             _downloadedFile.value = null
+            
+            // Delete any existing partial download file
+            val context = getApplication<Application>()
+            val downloadDir = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+            } else {
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            }
+            downloadDir?.let { dir ->
+                val existingFile = File(dir, fileName)
+                if (existingFile.exists()) {
+                    Log.d(TAG, "Deleting partial download file: ${existingFile.absolutePath}")
+                    existingFile.delete()
+                }
+            }
+            
             activeDownload = null
         }
         
@@ -707,7 +789,24 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
                 
                 // Create or get existing file
                 val file = File(downloadDir, fileName)
-                val existingLength = if (file.exists()) file.length() else 0L
+                var existingLength = 0L
+                
+                // Validate existing file before resume
+                if (file.exists() && activeDownload != null && shouldResumeDownload) {
+                    existingLength = file.length()
+                    
+                    // Validate file size matches expected resume position
+                    if (existingLength != activeDownload?.resumePosition) {
+                        Log.w(TAG, "File size mismatch (expected: ${activeDownload?.resumePosition}, actual: $existingLength), deleting")
+                        file.delete()
+                        existingLength = 0L
+                        activeDownload = null
+                    }
+                } else if (file.exists()) {
+                    // File exists but we're not resuming - delete it
+                    Log.d(TAG, "Deleting existing file for fresh download")
+                    file.delete()
+                }
                 
                 // Create OkHttp client with longer timeouts
                 val client = OkHttpClient.Builder()
@@ -723,8 +822,11 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
                 
                 // Add range header if resuming
                 if (existingLength > 0 && activeDownload != null) {
+                    Log.d(TAG, "Resuming download from byte $existingLength")
                     requestBuilder.header("Range", "bytes=$existingLength-")
-                    requestBuilder.header("If-Match", activeDownload?.etag ?: "*")
+                    if (activeDownload?.etag != null) {
+                        requestBuilder.header("If-Match", activeDownload?.etag!!)
+                    }
                     if (activeDownload?.lastModified != null) {
                         requestBuilder.header("If-Unmodified-Since", activeDownload?.lastModified!!)
                     }
@@ -738,22 +840,30 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
                     override fun onFailure(call: Call, e: IOException) {
                         viewModelScope.launch {
                             if (!call.isCanceled()) {
-                                _isDownloading.value = false
-                                _error.value = "Download failed: ${e.message ?: "Unknown error"}"
                                 Log.e(TAG, "Download failed", e)
-                                activeDownload = null
-                                activeCall = null
+                                handleDownloadFailure(downloadUrl, fileName, retryAttempt, e.message ?: "Unknown error")
                             }
                         }
                     }
                     
                     override fun onResponse(call: Call, response: Response) {
-                        if (!response.isSuccessful && response.code != 206) {
+                        // Handle HTTP 412 Precondition Failed - file changed on server
+                        if (response.code == 412) {
+                            Log.w(TAG, "Server file changed (HTTP 412), restarting download")
                             viewModelScope.launch {
                                 _isDownloading.value = false
-                                _error.value = "Download failed: HTTP ${response.code} - ${response.message}"
                                 activeDownload = null
                                 activeCall = null
+                                // Delete partial file and restart
+                                file.delete()
+                                handleDownloadFailure(downloadUrl, fileName, retryAttempt, "File changed on server", forceRetry = true)
+                            }
+                            return
+                        }
+                        
+                        if (!response.isSuccessful && response.code != 206) {
+                            viewModelScope.launch {
+                                handleDownloadFailure(downloadUrl, fileName, retryAttempt, "HTTP ${response.code} - ${response.message}")
                             }
                             return
                         }
@@ -769,6 +879,7 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
                             }
                             
                             // Store download state
+                            val checksumHeader = response.header("X-Checksum-SHA256") ?: response.header("Digest")
                             activeDownload = DownloadState(
                                 fileName = fileName,
                                 url = downloadUrl,
@@ -776,7 +887,9 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
                                 downloadedBytes = existingLength,
                                 etag = response.header("ETag"),
                                 lastModified = response.header("Last-Modified"),
-                                resumePosition = existingLength
+                                resumePosition = existingLength,
+                                checksum = checksumHeader,
+                                retryCount = retryAttempt
                             )
                             viewModelScope.launch {
                                 _downloadState.value = activeDownload
@@ -840,50 +953,153 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
                             val expectedSize = if (totalLength > 0) totalLength else contentLength
                             
                             if (expectedSize > 0 && fileSize != expectedSize) {
+                                Log.e(TAG, "Download corrupted: file size mismatch (expected: $expectedSize, actual: $fileSize)")
                                 viewModelScope.launch {
-                                    _isDownloading.value = false
-                                    _error.value = "Download corrupted: file size mismatch (expected: $expectedSize, actual: $fileSize)"
-                                    Log.e(TAG, "Download corrupted: file size mismatch")
-                                    // Don't clear download state to allow retry
+                                    file.delete() // Delete corrupted file
+                                    handleDownloadFailure(downloadUrl, fileName, retryAttempt, "File size mismatch")
                                 }
                                 return
                             }
                             
-                            // Download complete
+                            // Verify checksum if available
+                            val checksumValid = activeDownload?.checksum?.let { expectedChecksum ->
+                                val actualChecksum = calculateFileChecksum(file)
+                                val isValid = verifyChecksum(actualChecksum, expectedChecksum)
+                                if (!isValid) {
+                                    Log.e(TAG, "Checksum verification failed. Expected: $expectedChecksum, Actual: $actualChecksum")
+                                }
+                                isValid
+                            } ?: true
+                            
+                            if (!checksumValid) {
+                                viewModelScope.launch {
+                                    file.delete() // Delete corrupted file
+                                    handleDownloadFailure(downloadUrl, fileName, retryAttempt, "Checksum verification failed")
+                                }
+                                return
+                            }
+                            
+                            // Download complete and verified
                             viewModelScope.launch {
                                 if (_isDownloading.value) {
                                     _isDownloading.value = false
                                     _downloadProgress.value = 100f
                                     _downloadedFile.value = file
+                                    // Calculate and store final checksum
+                                    val finalChecksum = calculateFileChecksum(file)
+                                    activeDownload = activeDownload?.copy(checksum = finalChecksum)
+                                    saveDownloadState() // Save final state with checksum
+                                    // Clear active download but keep downloaded file info
                                     activeDownload = null
                                     activeCall = null
                                     _downloadState.value = null
-                                    saveDownloadState() // Save final state
-                                    Log.d(TAG, "Download complete: ${file.absolutePath} (${fileSize} bytes)")
+                                    Log.d(TAG, "Download complete: ${file.absolutePath} (${fileSize} bytes, checksum: $finalChecksum)")
                                 }
                             }
                         } catch (e: Exception) {
                             viewModelScope.launch {
                                 if (_isDownloading.value) {
-                                    _isDownloading.value = false
-                                    _error.value = "Download failed: ${e.message ?: "Unknown error"}"
-                                    Log.e(TAG, "Download failed", e)
-                                    // Keep download state for potential resume
-                                    activeCall = null
+                                    Log.e(TAG, "Download failed during write", e)
+                                    file.delete() // Delete partial/corrupted file
+                                    handleDownloadFailure(downloadUrl, fileName, retryAttempt, e.message ?: "Unknown error")
                                 }
                             }
                         }
                     }
                 })
             } catch (e: Exception) {
+                Log.e(TAG, "Download setup failed", e)
                 _isDownloading.value = false
                 _error.value = "Download failed: ${e.message ?: "Unknown error"}"
-                Log.e(TAG, "Download failed", e)
                 activeDownload = null
                 activeCall = null
                 _downloadState.value = null
             }
         }
+    }
+    
+    /**
+     * Handle download failures with retry logic
+     */
+    private fun handleDownloadFailure(downloadUrl: String, fileName: String, retryAttempt: Int, errorMessage: String, forceRetry: Boolean = false) {
+        _isDownloading.value = false
+        activeCall = null
+        
+        val nextRetryAttempt = retryAttempt + 1
+        
+        if (forceRetry || nextRetryAttempt < MAX_RETRY_ATTEMPTS) {
+            // Calculate exponential backoff delay: 2^retry * 1000ms (1s, 2s, 4s, etc.)
+            val delayMs = if (forceRetry) 1000L else (1L shl retryAttempt) * 1000L
+            
+            Log.w(TAG, "Download attempt ${retryAttempt + 1} failed: $errorMessage. Retrying in ${delayMs}ms...")
+            _error.value = "Download failed: $errorMessage. Retrying (${nextRetryAttempt}/$MAX_RETRY_ATTEMPTS)..."
+            
+            // Schedule retry with exponential backoff
+            viewModelScope.launch {
+                delay(delayMs)
+                if (!_isDownloading.value) {
+                    Log.d(TAG, "Retrying download (attempt ${nextRetryAttempt})")
+                    activeDownload = null // Clear state for fresh retry
+                    downloadApkInApp(downloadUrl, fileName, if (forceRetry) 0 else nextRetryAttempt)
+                }
+            }
+        } else {
+            Log.e(TAG, "Download failed after $MAX_RETRY_ATTEMPTS attempts: $errorMessage")
+            _error.value = "Download failed after $MAX_RETRY_ATTEMPTS attempts: $errorMessage"
+            activeDownload = null
+            _downloadState.value = null
+            clearDownloadState()
+        }
+    }
+    
+    /**
+     * Calculate SHA-256 checksum of a file
+     */
+    private fun calculateFileChecksum(file: File): String {
+        return try {
+            val digest = MessageDigest.getInstance("SHA-256")
+            val buffer = ByteArray(8192)
+            var bytesRead: Int
+            
+            FileInputStream(file).use { fis ->
+                while (fis.read(buffer).also { bytesRead = it } != -1) {
+                    digest.update(buffer, 0, bytesRead)
+                }
+            }
+            
+            digest.digest().joinToString("") { "%02x".format(it) }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error calculating checksum", e)
+            ""
+        }
+    }
+    
+    /**
+     * Verify file checksum matches expected value
+     */
+    private fun verifyFileChecksum(file: File, expectedChecksum: String): Boolean {
+        if (expectedChecksum.isBlank()) return true
+        val actualChecksum = calculateFileChecksum(file)
+        return verifyChecksum(actualChecksum, expectedChecksum)
+    }
+    
+    /**
+     * Verify checksum with various format support
+     */
+    private fun verifyChecksum(actual: String, expected: String): Boolean {
+        if (actual.isBlank() || expected.isBlank()) return true
+        
+        // Handle different checksum formats (sha-256=xxx, sha256:xxx, etc.)
+        val cleanExpected = expected
+            .substringAfter("sha-256=", "")
+            .substringAfter("sha256:", "")
+            .substringAfter("SHA-256=", "")
+            .substringAfter("SHA256:", "")
+            .ifBlank { expected }
+            .lowercase()
+            .trim()
+        
+        return actual.lowercase() == cleanExpected
     }
     
     /**
@@ -988,9 +1204,9 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
         }
         
         val downloadState = activeDownload!!
-        Log.d(TAG, "Resuming download: ${downloadState.fileName} from ${downloadState.downloadedBytes} bytes")
+        Log.d(TAG, "Resuming download: ${downloadState.fileName} from ${downloadState.downloadedBytes} bytes (retry: ${downloadState.retryCount})")
         
-        downloadApkInApp(downloadState.url, downloadState.fileName)
+        downloadApkInApp(downloadState.url, downloadState.fileName, downloadState.retryCount)
     }
     
     /**

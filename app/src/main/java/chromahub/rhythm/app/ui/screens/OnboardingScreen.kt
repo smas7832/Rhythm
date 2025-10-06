@@ -127,6 +127,7 @@ import androidx.compose.ui.unit.sp
 import chromahub.rhythm.app.R
 import chromahub.rhythm.app.data.AppSettings
 import chromahub.rhythm.app.ui.components.M3LinearLoader
+import chromahub.rhythm.app.ui.components.M3FourColorCircularLoader
 import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.ui.screens.onboarding.OnboardingStep
 import chromahub.rhythm.app.ui.screens.onboarding.PermissionScreenState
@@ -138,6 +139,10 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import kotlinx.coroutines.launch
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.rotate
 import java.util.Locale
 import kotlin.math.absoluteValue
 
@@ -153,6 +158,7 @@ fun OnboardingScreen(
     themeViewModel: ThemeViewModel,
     appSettings: AppSettings,
     musicViewModel: MusicViewModel,
+    updaterViewModel: AppUpdaterViewModel = viewModel(),
     onFinish: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -317,7 +323,8 @@ fun OnboardingScreen(
                         OnboardingStep.UPDATER -> {
                             EnhancedUpdaterContent(
                                 onNextStep = onNextStep,
-                                appSettings = appSettings
+                                appSettings = appSettings,
+                                updaterViewModel = updaterViewModel
                             )
                         }
                         OnboardingStep.SETUP_FINISHED -> {
@@ -1303,7 +1310,7 @@ fun EnhancedBackupRestoreContent(
                 modifier = Modifier.padding(20.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Filled.AutoAwesome,
+                    imageVector = Icons.Filled.Autorenew,
                     contentDescription = null,
                     tint = if (autoBackupEnabled) 
                         MaterialTheme.colorScheme.primary 
@@ -2299,7 +2306,8 @@ fun EnhancedThemeOption(
 @Composable
 fun EnhancedUpdaterContent(
     onNextStep: () -> Unit,
-    appSettings: AppSettings
+    appSettings: AppSettings,
+    updaterViewModel: AppUpdaterViewModel = viewModel()
 ) {
     val context = LocalContext.current
     val autoCheckForUpdates by appSettings.autoCheckForUpdates.collectAsState()
@@ -2307,6 +2315,25 @@ fun EnhancedUpdaterContent(
     val updateCheckIntervalHours by appSettings.updateCheckIntervalHours.collectAsState()
     val updatesEnabled by appSettings.updatesEnabled.collectAsState() // NEW
     val scope = rememberCoroutineScope()
+    
+    // Collect updater states
+    val isCheckingForUpdates by updaterViewModel.isCheckingForUpdates.collectAsState()
+    val updateAvailable by updaterViewModel.updateAvailable.collectAsState()
+    val latestVersion by updaterViewModel.latestVersion.collectAsState()
+    val currentVersion by updaterViewModel.currentVersion.collectAsState()
+    val isDownloading by updaterViewModel.isDownloading.collectAsState()
+    val downloadProgress by updaterViewModel.downloadProgress.collectAsState()
+    val downloadedFile by updaterViewModel.downloadedFile.collectAsState()
+    val error by updaterViewModel.error.collectAsState()
+    
+    // Auto-check for updates once when this step is opened and updates are enabled
+    var hasCheckedOnce by remember { mutableStateOf(false) }
+    LaunchedEffect(updatesEnabled) {
+        if (updatesEnabled && !hasCheckedOnce) {
+            hasCheckedOnce = true
+            updaterViewModel.checkForUpdates(force = true)
+        }
+    }
     
     Column(
         horizontalAlignment = Alignment.Start,
@@ -2347,8 +2374,47 @@ fun EnhancedUpdaterContent(
             text = "Get the latest features, improvements, and bug fixes automatically from GitHub. Choose between Stable releases (recommended) or Beta builds for early access to new features. No Google Play required.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 32.dp)
+            modifier = Modifier.padding(bottom = 24.dp)
         )
+        
+        // Update Status UI - Material 3 Expressive Design (No Box/Card)
+        val showUpdateStatus = isCheckingForUpdates || isDownloading || 
+                               updateAvailable || downloadedFile != null || 
+                               (!isCheckingForUpdates && !updateAvailable && hasCheckedOnce && error == null)
+        
+        AnimatedVisibility(
+            visible = showUpdateStatus,
+            enter = expandVertically(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium
+                )
+            ) + fadeIn() + scaleIn(initialScale = 0.9f),
+            exit = shrinkVertically(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium
+                )
+            ) + fadeOut() + scaleOut(targetScale = 0.9f),
+            modifier = Modifier.padding(bottom = 20.dp)
+        ) {
+            OnboardingExpressiveUpdateStatus(
+                isCheckingForUpdates = isCheckingForUpdates,
+                updateAvailable = updateAvailable,
+                latestVersion = latestVersion,
+                currentVersion = currentVersion,
+                isDownloading = isDownloading,
+                downloadProgress = downloadProgress,
+                downloadedFile = downloadedFile,
+                error = error,
+                updaterViewModel = updaterViewModel,
+                onDownload = { updaterViewModel.downloadUpdate() },
+                onInstall = { updaterViewModel.installDownloadedApk() },
+                onCancelDownload = { updaterViewModel.cancelDownload() },
+                onDismissError = { updaterViewModel.clearError() },
+                onRetry = { updaterViewModel.checkForUpdates(force = true) }
+            )
+        }
         
         // Update options - vertically centered
         Column(
@@ -2377,7 +2443,7 @@ fun EnhancedUpdaterContent(
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) { // Changed spacing to 16.dp for consistency
                         // Auto check for updates toggle (now inside AnimatedVisibility)
                     EnhancedUpdateOption(
-                        icon = Icons.Filled.SystemUpdate, // Changed icon to Update from SystemUpdate
+                        icon = Icons.Filled.Autorenew,
                         title = "Periodic Check", // Changed title
                         description = "Check for updates from Rhythm's GitHub repo automatically", // Changed description
                         isEnabled = autoCheckForUpdates,
@@ -3349,6 +3415,436 @@ private fun NextStepItem(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onTertiaryContainer
         )
+    }
+}
+
+/**
+ * Material 3 Expressive Update Status UI - No Box/Card containers
+ * Uses flowing gradients, dynamic spacing, and expressive animations
+ */
+@Composable
+private fun OnboardingExpressiveUpdateStatus(
+    isCheckingForUpdates: Boolean,
+    updateAvailable: Boolean,
+    latestVersion: chromahub.rhythm.app.viewmodel.AppVersion?,
+    currentVersion: chromahub.rhythm.app.viewmodel.AppVersion,
+    isDownloading: Boolean,
+    downloadProgress: Float,
+    downloadedFile: java.io.File?,
+    error: String?,
+    updaterViewModel: AppUpdaterViewModel,
+    onDownload: () -> Unit,
+    onInstall: () -> Unit,
+    onCancelDownload: () -> Unit,
+    onDismissError: () -> Unit,
+    onRetry: () -> Unit
+) {
+    // Infinite transition for continuous animations
+    val infiniteTransition = rememberInfiniteTransition(label = "update_animations")
+    
+    // Rotating icon for checking state
+    val rotationAngle by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2500, easing = androidx.compose.animation.core.LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "rotation"
+    )
+    
+    // Pulsing scale for attention
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 0.95f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = androidx.compose.animation.core.EaseInOut),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse"
+    )
+    
+    // Breathing glow animation
+    val glowAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.4f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = androidx.compose.animation.core.EaseInOut),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "glow"
+    )
+    
+    // Success scale animation
+    val successScale = remember { Animatable(0.7f) }
+    LaunchedEffect(downloadedFile) {
+        if (downloadedFile != null) {
+            successScale.animateTo(
+                targetValue = 1f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioLowBouncy,
+                    stiffness = Spring.StiffnessLow
+                )
+            )
+        }
+    }
+    
+    // Main Column - NO BOX OR CARD WRAPPING
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .animateContentSize(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessLow
+                )
+            ),
+        verticalArrangement = Arrangement.spacedBy(20.dp)
+    ) {
+        // Status Header - flowing layout, no containers
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(20.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Floating animated icon - direct render, no background
+            Icon(
+                imageVector = when {
+                    error != null -> Icons.Filled.BugReport
+                    downloadedFile != null -> Icons.Filled.CheckCircle
+                    updateAvailable -> RhythmIcons.Download
+                    isCheckingForUpdates || isDownloading -> Icons.Filled.Autorenew
+                    else -> Icons.Filled.Check
+                },
+                contentDescription = null,
+                tint = when {
+                    error != null -> MaterialTheme.colorScheme.error
+                    downloadedFile != null -> MaterialTheme.colorScheme.tertiary
+                    updateAvailable -> MaterialTheme.colorScheme.primary
+                    isCheckingForUpdates || isDownloading -> MaterialTheme.colorScheme.secondary
+                    else -> MaterialTheme.colorScheme.primary
+                },
+                modifier = Modifier
+                    .size(64.dp)
+                    .rotate(if (isCheckingForUpdates) rotationAngle else 0f)
+                    .scale(
+                        when {
+                            downloadedFile != null -> successScale.value
+                            updateAvailable -> pulseScale
+                            else -> 1f
+                        }
+                    )
+                    .alpha(if (isCheckingForUpdates) glowAlpha else 1f)
+            )
+            
+            // Status text column
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = when {
+                        error != null -> "Update Check Failed"
+                        downloadedFile != null -> "Ready to Install"
+                        isDownloading -> "Downloading"
+                        isCheckingForUpdates -> "Checking..."
+                        updateAvailable -> "Update Available"
+                        else -> "Up to Date"
+                    },
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = when {
+                        error != null -> MaterialTheme.colorScheme.error
+                        downloadedFile != null -> MaterialTheme.colorScheme.tertiary
+                        updateAvailable -> MaterialTheme.colorScheme.primary
+                        isCheckingForUpdates || isDownloading -> MaterialTheme.colorScheme.secondary
+                        else -> MaterialTheme.colorScheme.onSurface
+                    },
+                    letterSpacing = 0.5.sp
+                )
+                
+                Text(
+                    text = when {
+                        error != null -> error
+                        downloadedFile != null -> "v${latestVersion?.versionName ?: "?"}"
+                        isDownloading -> "${downloadProgress.toInt()}% • ${((latestVersion?.apkSize ?: 0) * downloadProgress / 100).toLong().let { updaterViewModel.getReadableFileSize(it) }} / ${latestVersion?.let { updaterViewModel.getReadableFileSize(it.apkSize) } ?: ""}"
+                        isCheckingForUpdates -> "Fetching from GitHub..."
+                        updateAvailable -> "v${latestVersion?.versionName ?: "?"} • ${latestVersion?.let { updaterViewModel.getReadableFileSize(it.apkSize) } ?: ""}"
+                        else -> "v${currentVersion.versionName}"
+                    },
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = when {
+                        error != null -> MaterialTheme.colorScheme.error.copy(alpha = 0.8f)
+                        downloadedFile != null -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.8f)
+                        updateAvailable -> MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                        isCheckingForUpdates || isDownloading -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.8f)
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+        
+        // Download progress section - expressive, no containers
+        AnimatedVisibility(
+            visible = isDownloading,
+            enter = expandVertically(
+                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)
+            ) + fadeIn(),
+            exit = shrinkVertically(
+                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)
+            ) + fadeOut()
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                // Progress header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        chromahub.rhythm.app.ui.components.M3FourColorCircularLoader(
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = "In Progress",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                    }
+                    
+                    Text(
+                        text = "${downloadProgress.toInt()}%",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.secondary,
+                        letterSpacing = 1.sp
+                    )
+                }
+                
+                // Gradient progress bar using Canvas - no Box container
+                androidx.compose.foundation.Canvas(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(16.dp)
+                ) {
+                    val cornerRadius = 8.dp.toPx()
+                    val progressWidth = size.width * (downloadProgress / 100f)
+                    
+                    // Background track
+                    drawRoundRect(
+                        color = androidx.compose.ui.graphics.Color.Gray.copy(alpha = 0.2f),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(cornerRadius)
+                    )
+                    
+                    // Gradient progress
+                    if (progressWidth > 0) {
+                        drawRoundRect(
+                            brush = Brush.horizontalGradient(
+                                colors = listOf(
+                                    androidx.compose.ui.graphics.Color(0xFF2196F3),
+                                    androidx.compose.ui.graphics.Color(0xFF9C27B0),
+                                    androidx.compose.ui.graphics.Color(0xFF00BCD4)
+                                ),
+                                endX = progressWidth
+                            ),
+                            size = androidx.compose.ui.geometry.Size(progressWidth, size.height),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(cornerRadius)
+                        )
+                    }
+                }
+            }
+        }
+        
+        // Action buttons - expressive, no containers
+        AnimatedVisibility(
+            visible = error != null || downloadedFile != null || updateAvailable || isDownloading,
+            enter = expandVertically(
+                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)
+            ) + fadeIn() + scaleIn(initialScale = 0.9f),
+            exit = shrinkVertically(
+                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)
+            ) + fadeOut() + scaleOut(targetScale = 0.9f)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                when {
+                    error != null -> {
+                        OutlinedButton(
+                            onClick = onDismissError,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(20.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error
+                            ),
+                            border = BorderStroke(2.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f))
+                        ) {
+                            Text(
+                                text = "Dismiss",
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.titleSmall,
+                                modifier = Modifier.padding(vertical = 6.dp)
+                            )
+                        }
+                        
+                        Button(
+                            onClick = onRetry,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(20.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error
+                            ),
+                            elevation = ButtonDefaults.buttonElevation(
+                                defaultElevation = 4.dp,
+                                pressedElevation = 8.dp
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Refresh,
+                                contentDescription = null,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Retry",
+                                fontWeight = FontWeight.ExtraBold,
+                                style = MaterialTheme.typography.titleSmall,
+                                modifier = Modifier.padding(vertical = 6.dp)
+                            )
+                        }
+                    }
+                    
+                    downloadedFile != null -> {
+                        Button(
+                            onClick = onInstall,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .scale(successScale.value),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.tertiary
+                            ),
+                            shape = RoundedCornerShape(24.dp),
+                            elevation = ButtonDefaults.buttonElevation(
+                                defaultElevation = 6.dp,
+                                pressedElevation = 12.dp
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.CheckCircle,
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "Install Update Now",
+                                fontWeight = FontWeight.ExtraBold,
+                                style = MaterialTheme.typography.titleMedium,
+                                letterSpacing = 0.5.sp,
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
+                        }
+                    }
+                    
+                    isDownloading -> {
+                        OutlinedButton(
+                            onClick = onCancelDownload,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error
+                            ),
+                            border = BorderStroke(2.dp, MaterialTheme.colorScheme.error),
+                            shape = RoundedCornerShape(20.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Block,
+                                contentDescription = null,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "Cancel Download",
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.titleSmall,
+                                modifier = Modifier.padding(vertical = 6.dp)
+                            )
+                        }
+                    }
+                    
+                    updateAvailable && latestVersion?.apkAssetName?.isNotEmpty() == true -> {
+                        Button(
+                            onClick = onDownload,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .scale(pulseScale),
+                            shape = RoundedCornerShape(24.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary
+                            ),
+                            elevation = ButtonDefaults.buttonElevation(
+                                defaultElevation = 6.dp,
+                                pressedElevation = 12.dp
+                            )
+                        ) {
+                            Icon(
+                                imageVector = RhythmIcons.Download,
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(
+                                horizontalAlignment = Alignment.Start,
+                                modifier = Modifier.padding(vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = "Download Update",
+                                    fontWeight = FontWeight.ExtraBold,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    letterSpacing = 0.5.sp
+                                )
+                                Text(
+                                    text = latestVersion.let { updaterViewModel.getReadableFileSize(it.apkSize) },
+                                    fontWeight = FontWeight.Normal,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.9f)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Subtle gradient divider - no Spacer container
+        AnimatedVisibility(
+            visible = isCheckingForUpdates || isDownloading || updateAvailable || downloadedFile != null || error == null,
+            enter = fadeIn(),
+            exit = fadeOut()
+        ) {
+            androidx.compose.foundation.Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+            ) {
+                drawRect(
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(
+                            androidx.compose.ui.graphics.Color.Transparent,
+                            androidx.compose.ui.graphics.Color.Gray.copy(alpha = 0.3f),
+                            androidx.compose.ui.graphics.Color.Transparent
+                        )
+                    )
+                )
+            }
+        }
     }
 }
 
