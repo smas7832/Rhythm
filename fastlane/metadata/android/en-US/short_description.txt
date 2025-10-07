@@ -1,1 +1,1 @@
-Modern Material 3 music player with advanced audio features and seamless offline experience
+Modern music player with equalizer, sleep timer, custom themes, and seamless offline playback.

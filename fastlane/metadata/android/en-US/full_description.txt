@@ -12,18 +12,19 @@
 <p><b>🚀 Key Features:</b></p>
 <ul>
 <li><b>🎨 Beautiful Interface:</b> Material 3 design with wallpaper-based dynamic colors and fluid animations</li>
-<li><b>� Advanced Playback:</b> Gapless playback, crossfade, audio normalization, and replay gain</li>
+<li><b>🎵 Advanced Playback:</b> Gapless playback, crossfade, audio normalization, and replay gain</li>
 <li><b>📱 Smart Library:</b> Fast scanning, intelligent sorting, and powerful search across all your music</li>
 <li><b>🎯 Playlist Management:</b> Create custom playlists, mood-based collections, and recently played history</li>
-<li><b>� Lyrics Support:</b> Time-synced lyrics with online fetching and offline caching</li>
-<li><b>🔊 Audio Control:</b> Seamless Bluetooth switching, system equalizer, and multiple output devices</li>
+<li><b>🎤 Lyrics Support:</b> Time-synced lyrics with online fetching and offline caching</li>
+<li><b>🔊 Audio Control:</b> Built-in equalizer, sleep timer, seamless Bluetooth switching, and multiple output devices</li>
+<li><b>🎨 Custom Themes:</b> Extensive theme customization with dark/light modes and accent colors</li>
 <li><b>⚡ Performance:</b> Memory-efficient background playback with foreground service</li>
 <li><b>🔄 Reliability:</b> Auto-resume playback state and queue after restart</li>
 <li><b>🌙 Accessibility:</b> Full dark/light theme support and accessibility features</li>
-<li><b>� Statistics:</b> Track your listening habits with detailed playback statistics</li>
+<li><b>📊 Statistics:</b> Track your listening habits with detailed playback statistics</li>
 </ul>
 
-<p><b>� Perfect For:</b></p>
+<p><b>🎧 Perfect For:</b></p>
 <ul>
 <li>Audiophiles who demand high-quality playback and format support</li>
 <li>Privacy-conscious users who want offline-first functionality</li>
