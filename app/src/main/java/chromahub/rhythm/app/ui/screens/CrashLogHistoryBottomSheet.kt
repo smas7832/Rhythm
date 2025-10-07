@@ -21,10 +21,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -193,6 +196,13 @@ fun CrashLogHistoryBottomSheet(
     if (showLogDetailDialog) {
         AlertDialog(
             onDismissRequest = { showLogDetailDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Filled.BugReport,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error
+                )
+            },
             title = { Text("Crash Log Details") },
             text = {
                 OutlinedTextField(
@@ -214,14 +224,27 @@ fun CrashLogHistoryBottomSheet(
                         Toast.makeText(context, "Log copied to clipboard", Toast.LENGTH_SHORT).show()
                     }
                 ) {
+                    Icon(
+                        imageVector = Icons.Filled.ContentCopy,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text("Copy Log")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showLogDetailDialog = false }) {
+                OutlinedButton(onClick = { showLogDetailDialog = false }) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text("Close")
                 }
-            }
+            },
+            shape = RoundedCornerShape(24.dp)
         )
     }
 }

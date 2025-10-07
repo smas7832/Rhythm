@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import coil.compose.AsyncImage
@@ -1126,16 +1127,29 @@ private fun EditSongSheet(
                         containerColor = MaterialTheme.colorScheme.error
                     )
                 ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Warning,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text("Proceed")
                 }
             },
             dismissButton = {
-                TextButton(
+                OutlinedButton(
                     onClick = { showWarningDialog = false }
                 ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text("Cancel")
                 }
-            }
+            },
+            shape = RoundedCornerShape(24.dp)
         )
     }
     
@@ -1168,13 +1182,25 @@ private fun EditSongSheet(
                         onSave(title.trim(), artist.trim(), album.trim(), genre.trim(), yearInt, trackInt)
                     }
                 ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Security,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text("Continue")
                 }
             },
             dismissButton = {
-                TextButton(
+                OutlinedButton(
                     onClick = { showPermissionDialog = false }
                 ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text("Cancel")
                 }
             },

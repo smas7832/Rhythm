@@ -2,8 +2,10 @@ package chromahub.rhythm.app.ui.screens
 
 import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.core.content.ContextCompat
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -64,12 +66,6 @@ fun PermissionHandler(
     var permissionRequestLaunched by remember { mutableStateOf(false) } // New state to track if permission request has been launched
     var showMediaScanLoader by remember { mutableStateOf(false) } // New state for media scan loader
 
-    var currentOnboardingStep by remember {
-        mutableStateOf(
-            if (onboardingCompleted) OnboardingStep.COMPLETE else OnboardingStep.WELCOME
-        )
-    }
-
     // For Android 14+, we support partial photo access, Android 13+ needs READ_MEDIA_AUDIO, older versions need READ_EXTERNAL_STORAGE
     val storagePermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
         // Android 14+ supports partial photo/media access
@@ -115,6 +111,28 @@ fun PermissionHandler(
     
     // Only request essential permissions that are actually needed
     val essentialPermissions = storagePermissions + bluetoothPermissions + notificationPermissions
+    
+    // Check if onboarding state is valid - if onboarding is marked complete but permissions are not granted,
+    // reset the onboarding state to force a fresh start
+    LaunchedEffect(Unit) {
+        if (onboardingCompleted) {
+            val hasStoragePermissions = storagePermissions.all { permission ->
+                ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+            }
+            if (!hasStoragePermissions) {
+                // Invalid state: onboarding marked complete but permissions missing
+                // Reset onboarding to start fresh
+                appSettings.setOnboardingCompleted(false)
+                appSettings.setInitialMediaScanCompleted(false)
+            }
+        }
+    }
+
+    var currentOnboardingStep by remember {
+        mutableStateOf(
+            if (onboardingCompleted) OnboardingStep.COMPLETE else OnboardingStep.WELCOME
+        )
+    }
     
     val permissionsState = rememberMultiplePermissionsState(essentialPermissions)
     

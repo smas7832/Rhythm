@@ -2462,6 +2462,12 @@ fun SettingsScreen(
                     ),
                     modifier = Modifier.fillMaxWidth()
                 ) {
+                    Icon(
+                        imageVector = Icons.Filled.CheckCircle,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text("Close")
                 }
             },
@@ -2532,14 +2538,27 @@ fun SettingsScreen(
                     )
                     onSave(sliderPosition)
                 }) {
+                    Icon(
+                        imageVector = Icons.Filled.Save,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text("Save")
                 }
             },
             dismissButton = {
-                TextButton(onClick = onDismiss) {
+                OutlinedButton(onClick = onDismiss) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text("Cancel")
                 }
-            }
+            },
+            shape = RoundedCornerShape(24.dp)
         )
     }
 
@@ -2718,11 +2737,23 @@ fun SettingsScreen(
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     )
                 ) {
+                    Icon(
+                        imageVector = Icons.Filled.Save,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text("Save")
                 }
             },
             dismissButton = {
-                TextButton(onClick = onDismiss) {
+                OutlinedButton(onClick = onDismiss) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text("Cancel")
                 }
             },
@@ -2936,17 +2967,29 @@ fun SettingsScreen(
                 }
             },
             confirmButton = {
-                TextButton(
+                Button(
                     onClick = {
                         onSave(clientId, clientSecret)
                     },
                     enabled = clientId.isNotBlank() && clientSecret.isNotBlank()
                 ) {
+                    Icon(
+                        imageVector = Icons.Filled.Save,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text("Save")
                 }
             },
             dismissButton = {
-                TextButton(onClick = onDismiss) {
+                OutlinedButton(onClick = onDismiss) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text("Cancel")
                 }
             }

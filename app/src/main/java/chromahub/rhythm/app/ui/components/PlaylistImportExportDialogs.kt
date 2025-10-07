@@ -9,7 +9,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.rounded.*
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -229,9 +231,16 @@ fun PlaylistExportDialog(
                     onDismiss()
                 }
             }) {
+                Icon(
+                    imageVector = if (showLocationOptions) Icons.AutoMirrored.Filled.ArrowBack else Icons.Default.Close,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(if (showLocationOptions) "Back" else "Cancel")
             }
-        }
+        },
+        shape = RoundedCornerShape(24.dp)
     )
 }
 
@@ -390,9 +399,16 @@ fun BulkPlaylistExportDialog(
         },
         dismissButton = {
             OutlinedButton(onClick = onDismiss) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
                 Text("Cancel")
             }
-        }
+        },
+        shape = RoundedCornerShape(24.dp)
     )
 }
 
@@ -502,9 +518,16 @@ fun PlaylistImportDialog(
         },
         dismissButton = {
             OutlinedButton(onClick = onDismiss) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
                 Text("Cancel")
             }
-        }
+        },
+        shape = RoundedCornerShape(24.dp)
     )
 }
 
@@ -618,9 +641,16 @@ fun PlaylistOperationResultDialog(
         },
         confirmButton = {
             Button(onClick = onDismiss) {
+                Icon(
+                    imageVector = if (isError) Icons.Filled.Close else Icons.Filled.CheckCircle,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
                 Text("OK")
             }
-        }
+        },
+        shape = RoundedCornerShape(24.dp)
     )
 }
 

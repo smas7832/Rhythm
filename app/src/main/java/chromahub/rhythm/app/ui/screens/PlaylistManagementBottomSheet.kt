@@ -32,10 +32,13 @@ import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -66,6 +69,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.material.icons.rounded.Warning
 import chromahub.rhythm.app.data.Playlist
 import chromahub.rhythm.app.viewmodel.MusicViewModel
 import chromahub.rhythm.app.ui.components.BulkPlaylistExportDialog
@@ -521,18 +525,32 @@ fun PlaylistManagementBottomSheet(
                 showErrorDialog = false
                 operationError = null
             },
+            icon = {
+                Icon(
+                    imageVector = Icons.Rounded.Warning,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error
+                )
+            },
             title = { Text("Error") },
             text = { Text(operationError ?: "An unknown error occurred") },
             confirmButton = {
-                TextButton(
+                Button(
                     onClick = {
                         showErrorDialog = false
                         operationError = null
                     }
                 ) {
+                    Icon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text("OK")
                 }
-            }
+            },
+            shape = RoundedCornerShape(24.dp)
         )
     }
 

@@ -29,7 +29,10 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -1536,16 +1539,30 @@ fun RhythmNavigation(
                                         viewModel.clearTargetPlaylistForAddingSongs()
                                         navController.popBackStack()
                                     },
+                                    icon = {
+                                        Icon(
+                                            imageVector = Icons.Filled.Info,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    },
                                     title = { Text("No Songs Available") },
                                     text = { Text("All songs are already in this playlist.") },
                                     confirmButton = {
-                                        TextButton(onClick = {
+                                        Button(onClick = {
                                             viewModel.clearTargetPlaylistForAddingSongs()
                                             navController.popBackStack()
                                         }) {
+                                            Icon(
+                                                imageVector = Icons.Filled.CheckCircle,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
                                             Text("OK")
                                         }
-                                    }
+                                    },
+                                    shape = RoundedCornerShape(24.dp)
                                 )
                             } else {
                                 val listState = rememberLazyListState()

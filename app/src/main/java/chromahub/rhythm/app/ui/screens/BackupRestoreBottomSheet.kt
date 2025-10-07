@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
@@ -751,6 +752,12 @@ fun BackupRestoreBottomSheet(
                     HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                     showBackupSuccess = false 
                 }) {
+                    Icon(
+                        imageVector = Icons.Filled.CheckCircle,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text("OK")
                 }
             },
@@ -791,7 +798,13 @@ fun BackupRestoreBottomSheet(
                     (context as? Activity)?.finish()
                     Runtime.getRuntime().exit(0)
                 }) {
-                    Text("OK")
+                    Icon(
+                        imageVector = Icons.Rounded.RestartAlt,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Restart Now")
                 }
             },
             shape = RoundedCornerShape(24.dp)
@@ -815,6 +828,12 @@ fun BackupRestoreBottomSheet(
                     HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                     showError = false 
                 }) {
+                    Icon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text("OK")
                 }
             },

@@ -21,9 +21,11 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FileUpload
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -138,6 +140,13 @@ fun PlaylistDetailScreen(
     if (showRenameDialog) {
         AlertDialog(
             onDismissRequest = { showRenameDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Filled.Edit,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            },
             title = { Text("Rename Playlist") },
             text = {
                 OutlinedTextField(
@@ -149,51 +158,87 @@ fun PlaylistDetailScreen(
                 )
             },
             confirmButton = {
-                TextButton(
+                Button(
                     onClick = {
                         HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                         onRenamePlaylist(newPlaylistName)
                         showRenameDialog = false
                     }
                 ) {
+                    Icon(
+                        imageVector = Icons.Filled.Save,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text("Save")
                 }
             },
             dismissButton = {
-                TextButton(onClick = {
+                OutlinedButton(onClick = {
                     HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                     showRenameDialog = false
                 }) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text("Cancel")
                 }
-            }
+            },
+            shape = RoundedCornerShape(24.dp)
         )
     }
 
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Filled.DeleteForever,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error
+                )
+            },
             title = { Text("Delete Playlist") },
             text = { Text("Are you sure you want to delete '${playlist.name}'? This action cannot be undone.") },
             confirmButton = {
-                TextButton(
+                Button(
                     onClick = {
                         HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                         onDeletePlaylist()
                         showDeleteDialog = false
-                    }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
                 ) {
+                    Icon(
+                        imageVector = Icons.Filled.DeleteForever,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text("Delete")
                 }
             },
             dismissButton = {
-                TextButton(onClick = {
+                OutlinedButton(onClick = {
                     HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                     showDeleteDialog = false
                 }) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text("Cancel")
                 }
-            }
+            },
+            shape = RoundedCornerShape(24.dp)
         )
     }
 
@@ -785,27 +830,50 @@ fun PlaylistSongItem(
     if (showRemoveDialog) {
         AlertDialog(
             onDismissRequest = { showRemoveDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Filled.RemoveCircleOutline,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error
+                )
+            },
             title = { Text("Remove Song") },
             text = { Text("Remove '${song.title}' from this playlist?") },
             confirmButton = {
-                TextButton(
+                Button(
                     onClick = {
                         HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove) // Use captured haptics
                         onRemove("Removed ${song.title} from playlist")
                         showRemoveDialog = false
-                    }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
                 ) {
+                    Icon(
+                        imageVector = Icons.Filled.RemoveCircleOutline,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text("Remove")
                 }
             },
             dismissButton = {
-                TextButton(onClick = {
+                OutlinedButton(onClick = {
                     HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove) // Use captured haptics
                     showRemoveDialog = false
                 }) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text("Cancel")
                 }
-            }
+            },
+            shape = RoundedCornerShape(24.dp)
         )
     }
     

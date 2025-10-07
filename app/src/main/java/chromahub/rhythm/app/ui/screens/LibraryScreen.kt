@@ -24,8 +24,8 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.automirrored.rounded.*
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.collectAsState
@@ -1129,13 +1129,27 @@ fun LibraryScreen(
     if (operationError != null) {
         AlertDialog(
             onDismissRequest = { operationError = null },
+            icon = {
+                Icon(
+                    imageVector = Icons.Filled.Error,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error
+                )
+            },
             title = { Text("Error") },
             text = { Text(operationError!!) },
             confirmButton = {
                 Button(onClick = { operationError = null }) {
+                    Icon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text("OK")
                 }
-            }
+            },
+            shape = RoundedCornerShape(24.dp)
         )
     }
 
@@ -1143,6 +1157,13 @@ fun LibraryScreen(
     if (showImportResultDialog && importResult != null) {
         AlertDialog(
             onDismissRequest = { showImportResultDialog = false; importResult = null },
+            icon = {
+                Icon(
+                    imageVector = Icons.Rounded.RestartAlt,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            },
             title = { Text("Import Complete") },
             text = {
                 val (count, message) = importResult!!
@@ -1155,18 +1176,31 @@ fun LibraryScreen(
                     importResult = null
                     AppRestarter.restartApp(context)
                 }) {
+                    Icon(
+                        imageVector = Icons.Rounded.RestartAlt,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text("Restart App")
                 }
             },
             dismissButton = {
-                Button(onClick = {
+                OutlinedButton(onClick = {
                     HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                     showImportResultDialog = false
                     importResult = null
                 }) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text("Later")
                 }
-            }
+            },
+            shape = RoundedCornerShape(24.dp)
         )
     }
 }
