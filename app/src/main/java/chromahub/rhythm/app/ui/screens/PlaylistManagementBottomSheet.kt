@@ -224,33 +224,33 @@ fun PlaylistManagementBottomSheet(
                 }
                 
                 // Tips Card
-                item {
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
-                        ),
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Info,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = "Import/export playlists in M3U format • Bulk operations available",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onTertiaryContainer
-                            )
-                        }
-                    }
-                }
+//                item {
+//                    Card(
+//                        colors = CardDefaults.cardColors(
+//                            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
+//                        ),
+//                        shape = RoundedCornerShape(16.dp),
+//                        modifier = Modifier.fillMaxWidth()
+//                    ) {
+//                        Row(
+//                            modifier = Modifier.padding(16.dp),
+//                            verticalAlignment = Alignment.CenterVertically
+//                        ) {
+//                            Icon(
+//                                imageVector = Icons.Filled.Info,
+//                                contentDescription = null,
+//                                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+//                                modifier = Modifier.size(20.dp)
+//                            )
+//                            Spacer(modifier = Modifier.width(12.dp))
+//                            Text(
+//                                text = "Import/export playlists in M3U format • Bulk operations available",
+//                                style = MaterialTheme.typography.bodyMedium,
+//                                color = MaterialTheme.colorScheme.onTertiaryContainer
+//                            )
+//                        }
+//                    }
+//                }
 
                 // Playlist Management Options
                 item {

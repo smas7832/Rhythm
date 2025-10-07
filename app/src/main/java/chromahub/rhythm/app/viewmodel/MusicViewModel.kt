@@ -2155,16 +2155,30 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     override fun onCleared() {
-        Log.d(TAG, "ViewModel being cleared")
+        Log.d(TAG, "ViewModel being cleared - cleaning up resources")
+        
+        // Cancel all coroutine jobs
         progressUpdateJob?.cancel()
         deviceMonitoringJob?.cancel()
+        
+        // Release media controller
         mediaController?.release()
         controllerFuture?.let { MediaController.releaseFuture(it) }
+        
+        // Clean up audio device manager
         audioDeviceManager.cleanup()
         
         // Clean up sleep timer
         sleepTimerJob?.cancel()
         sleepTimerJob = null
+        
+        // Clean up repository to prevent memory leaks
+        try {
+            getMusicRepository().cleanup()
+            Log.d(TAG, "Repository cleaned up successfully")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error cleaning up repository", e)
+        }
         
         super.onCleared()
     }

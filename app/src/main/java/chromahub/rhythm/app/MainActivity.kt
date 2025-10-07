@@ -145,6 +145,9 @@ class MainActivity : ComponentActivity() {
     private val themeViewModel: ThemeViewModel by viewModels()
     private val appUpdaterViewModel: AppUpdaterViewModel by viewModels() // Inject AppUpdaterViewModel
     private lateinit var appSettings: AppSettings // Declare AppSettings
+    
+    // Track coroutine jobs to prevent memory leaks
+    private val lifecycleScopeJobs = mutableListOf<kotlinx.coroutines.Job>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -410,27 +413,27 @@ class MainActivity : ComponentActivity() {
         // Validate URI and check if it's an audio file
         if (!isValidAudioUri(uri)) {
             Log.e(TAG, "Invalid or unsupported audio file: $uri")
-            Toast.makeText(this, "Unsupported file format", Toast.LENGTH_SHORT).show()
+            Toast.makeText(applicationContext, "Unsupported file format", Toast.LENGTH_SHORT).show()
             return
         }
         
-        val mimeType = MediaUtils.getMimeType(this, uri)
+        val mimeType = MediaUtils.getMimeType(applicationContext, uri)
         Log.d(TAG, "File is recognized as audio with mime type: $mimeType")
         
         // Extract metadata from the audio file with proper error handling
-        lifecycleScope.launch {
+        val job = lifecycleScope.launch {
             try {
                 // Start the service with proper initialization waiting
                 val serviceStarted = startMediaServiceAndWait()
                 if (!serviceStarted) {
                     Log.e(TAG, "Failed to start media service")
-                    Toast.makeText(this@MainActivity, "Failed to initialize media player", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(applicationContext, "Failed to initialize media player", Toast.LENGTH_SHORT).show()
                     return@launch
                 }
                 
                 // Extract metadata on a background thread
                 val song = withContext(Dispatchers.IO) {
-                    MediaUtils.extractMetadataFromUri(this@MainActivity, uri)
+                    MediaUtils.extractMetadataFromUri(applicationContext, uri)
                 }
                 
                 Log.d(TAG, "Extracted song metadata: ${song.title} by ${song.artist} from ${song.album}")
@@ -460,14 +463,17 @@ class MainActivity : ComponentActivity() {
                     is IllegalArgumentException -> "Invalid audio file format"
                     else -> "Error playing audio file: ${e.message}"
                 }
-                Toast.makeText(this@MainActivity, errorMessage, Toast.LENGTH_SHORT).show()
+                Toast.makeText(applicationContext, errorMessage, Toast.LENGTH_SHORT).show()
             }
         }
+        
+        // Track the job for cleanup
+        lifecycleScopeJobs.add(job)
     }
     
     private fun isValidAudioUri(uri: Uri): Boolean {
         return try {
-            val mimeType = MediaUtils.getMimeType(this, uri)
+            val mimeType = MediaUtils.getMimeType(applicationContext, uri)
             mimeType?.startsWith("audio/") == true || 
             uri.toString().let { uriStr ->
                 uriStr.endsWith(".mp3", ignoreCase = true) ||
@@ -533,7 +539,7 @@ class MainActivity : ComponentActivity() {
     private suspend fun fallbackPlayExternalFile(uri: Uri) {
         try {
             Log.d(TAG, "Using direct service intent as fallback")
-            val playIntent = Intent(this@MainActivity, chromahub.rhythm.app.service.MediaPlaybackService::class.java)
+            val playIntent = Intent(applicationContext, chromahub.rhythm.app.service.MediaPlaybackService::class.java)
             playIntent.action = chromahub.rhythm.app.service.MediaPlaybackService.ACTION_PLAY_EXTERNAL_FILE
             playIntent.data = uri
             
@@ -546,11 +552,11 @@ class MainActivity : ComponentActivity() {
             // Give fallback some time to start
             delay(1000)
             if (!musicViewModel.isPlaying()) {
-                Toast.makeText(this@MainActivity, "Unable to play audio file", Toast.LENGTH_SHORT).show()
+                Toast.makeText(applicationContext, "Unable to play audio file", Toast.LENGTH_SHORT).show()
             }
         } catch (e: Exception) {
             Log.e(TAG, "Fallback playback also failed", e)
-            Toast.makeText(this@MainActivity, "Failed to play audio file", Toast.LENGTH_SHORT).show()
+            Toast.makeText(applicationContext, "Failed to play audio file", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -570,7 +576,16 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        super.onDestroy()
+        Log.d(TAG, "MainActivity onDestroy - cleaning up resources")
+        
+        // Cancel all tracked coroutine jobs to prevent memory leaks
+        lifecycleScopeJobs.forEach { job ->
+            if (job.isActive) {
+                job.cancel()
+                Log.d(TAG, "Cancelled pending job: $job")
+            }
+        }
+        lifecycleScopeJobs.clear()
         
         // Perform cache cleanup if enabled
         lifecycleScope.launch {
@@ -582,6 +597,8 @@ class MainActivity : ComponentActivity() {
                 Log.e(TAG, "Error during cache cleanup on app destroy", e)
             }
         }
+        
+        super.onDestroy()
     }
     
     // Helper function to get step name for accessibility

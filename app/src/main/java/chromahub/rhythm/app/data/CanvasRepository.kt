@@ -24,22 +24,25 @@ data class CanvasData(
 /**
  * Extension functions for MusicRepository to handle Spotify Canvas
  */
-class CanvasRepository(private val context: Context, private val appSettings: AppSettings) {
+class CanvasRepository(context: Context, private val appSettings: AppSettings) {
     companion object {
         private const val TAG = "CanvasRepository"
         private const val PREFS_NAME = "canvas_cache"
         private const val CACHE_EXPIRY_HOURS = 24
     }
     
+    // Use applicationContext to prevent memory leaks
+    private val context: Context = context.applicationContext
+    
     private val canvasApiService = NetworkClient.canvasApiService
     private val spotifyService = SpotifyService(appSettings)
-    private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val prefs: SharedPreferences = this.context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private val gson = Gson()
     
-    // In-memory cache for canvas URLs to avoid redundant API calls
-    private val canvasCache = mutableMapOf<String, CanvasData?>()
+    // Use WeakHashMap for automatic memory cleanup
+    private val canvasCache = java.util.WeakHashMap<String, CanvasData?>()
     // In-memory cache for Spotify track ID lookups to avoid redundant searches
-    private val trackIdCache = mutableMapOf<String, String?>()
+    private val trackIdCache = java.util.WeakHashMap<String, String?>()
     
     init {
         // Load cached data from SharedPreferences on initialization
@@ -407,5 +410,22 @@ class CanvasRepository(private val context: Context, private val appSettings: Ap
      */
     suspend fun testSpotifyApiConfiguration(): Pair<Boolean, String> {
         return spotifyService.testApiConfiguration()
+    }
+    
+    /**
+     * Cleanup method to clear caches
+     * Call this when the repository is no longer needed
+     */
+    fun cleanup() {
+        Log.d(TAG, "Cleaning up CanvasRepository...")
+        
+        // Save current cache before clearing
+        savePersistentCache()
+        
+        // Clear all caches
+        canvasCache.clear()
+        trackIdCache.clear()
+        
+        Log.d(TAG, "CanvasRepository cleaned up")
     }
 }

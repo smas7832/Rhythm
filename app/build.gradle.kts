@@ -16,8 +16,8 @@ android {
         applicationId = "chromahub.rhythm.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 28218646
-        versionName = "2.8.218.637 Beta"
+        versionCode = 28219648
+        versionName = "2.8.219.648 Beta"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -153,6 +153,9 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+    
+    // LeakCanary for memory leak detection (debug builds only)
+    debugImplementation("com.squareup.leakcanary:leakcanary-android:2.14")
 }
 
 fun getProperties(fileName: String): Properties? {

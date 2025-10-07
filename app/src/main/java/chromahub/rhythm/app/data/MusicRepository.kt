@@ -35,9 +35,15 @@ import kotlinx.coroutines.yield
 import java.io.File
 import java.net.URL
 import chromahub.rhythm.app.data.LyricsData
+import java.lang.ref.WeakReference
 
-class MusicRepository(private val context: Context) {
+class MusicRepository(context: Context) {
     private val TAG = "MusicRepository"
+    // Use WeakReference to prevent context leaks, but store applicationContext which is safe
+    private val contextRef = WeakReference(context.applicationContext)
+    private val context: Context
+        get() = contextRef.get() ?: throw IllegalStateException("Context has been garbage collected")
+    
     private val repositoryScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     /**
@@ -515,50 +521,37 @@ class MusicRepository(private val context: Context) {
      */
     private fun getGenreNameFromMediaStore(contentResolver: android.content.ContentResolver, songId: Int): String? {
         return try {
-            // First get the genre ID from the audio_genres_map table
-            val genreIdProjection = arrayOf(android.provider.MediaStore.Audio.Genres.Members.GENRE_ID)
-            val genreIdCursor = contentResolver.query(
-                android.provider.MediaStore.Audio.Genres.getContentUriForAudioId("external", songId),
-                genreIdProjection,
+            // Try to get genre directly from the URI - works on newer Android versions
+            val genreUri = android.provider.MediaStore.Audio.Genres.getContentUriForAudioId("external", songId)
+            val projection = arrayOf(android.provider.MediaStore.Audio.Genres.NAME)
+            
+            contentResolver.query(
+                genreUri,
+                projection,
                 null,
                 null,
                 null
-            )
-
-            genreIdCursor?.use { cursor ->
+            )?.use { cursor ->
                 if (cursor.moveToFirst()) {
-                    val genreIdIndex = cursor.getColumnIndex(android.provider.MediaStore.Audio.Genres.Members.GENRE_ID)
-                    if (genreIdIndex != -1) {
-                        val genreId = cursor.getLong(genreIdIndex)
-
-                        // Now get the genre name from the genres table
-                        val genreNameProjection = arrayOf(android.provider.MediaStore.Audio.Genres.NAME)
-                        val genreNameCursor = contentResolver.query(
-                            android.provider.MediaStore.Audio.Genres.EXTERNAL_CONTENT_URI,
-                            genreNameProjection,
-                            "${android.provider.MediaStore.Audio.Genres._ID} = ?",
-                            arrayOf(genreId.toString()),
-                            null
-                        )
-
-                        genreNameCursor?.use { nameCursor ->
-                            if (nameCursor.moveToFirst()) {
-                                val nameIndex = nameCursor.getColumnIndex(android.provider.MediaStore.Audio.Genres.NAME)
-                                if (nameIndex != -1) {
-                                    val genreName = nameCursor.getString(nameIndex)
-                                    Log.d(TAG, "Found genre name: $genreName for song ID: $songId")
-                                    return genreName
-                                }
-                            }
-                        }
+                    val nameIndex = cursor.getColumnIndexOrThrow(android.provider.MediaStore.Audio.Genres.NAME)
+                    val genreName = cursor.getString(nameIndex)
+                    if (!genreName.isNullOrBlank()) {
+                        Log.d(TAG, "Found genre: $genreName for song ID: $songId")
+                        return genreName
                     }
                 }
             }
 
-            Log.d(TAG, "No genre found for song ID: $songId")
+            null
+        } catch (e: IllegalArgumentException) {
+            // Column doesn't exist on this Android version - silently ignore
+            Log.d(TAG, "Genre column not available on this device (Android API limitation)")
             null
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting genre name from MediaStore", e)
+            // Other errors - log but don't spam
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
+                Log.d(TAG, "Could not get genre for song ID: $songId: ${e.message}")
+            }
             null
         }
     }
@@ -1835,5 +1828,27 @@ class MusicRepository(private val context: Context) {
 
         Log.d(TAG, "Background genre detection complete. Updated ${updatedSongs.size} songs with genres")
         onComplete?.invoke(finalSongs)
+    }
+    
+    /**
+     * Cleanup method to clear caches and cancel coroutines
+     * Call this when the repository is no longer needed
+     */
+    fun cleanup() {
+        Log.d(TAG, "Cleaning up MusicRepository...")
+        
+        // Cancel all coroutines
+        repositoryScope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
+        
+        // Clear all caches
+        artistImageCache.clear()
+        albumImageCache.clear()
+        lyricsCache.clear()
+        
+        // Clear rate limiting maps
+        lastApiCalls.clear()
+        apiCallCounts.clear()
+        
+        Log.d(TAG, "MusicRepository cleaned up")
     }
 }
