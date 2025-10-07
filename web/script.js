@@ -127,6 +127,65 @@ const updateData = {
             <p><strong>Transparent Development:</strong> We believe in keeping our community informed about our progress. While we don't have an exact release date yet, we wanted to share what's currently taking shape. Thank you for your continued support and patience—your feedback helps shape the direction of Rhythm's development!</p>
         `
     },
+    update4: {
+        image: "assets/Banner.png",
+        headline: "2.8 Stable Release is here!",
+        date: "October 7, 2025",
+        writer: "Anjishnu Nandi",
+        details: `
+            <p>Exciting news, Rhythm community! Version 2.8 Stable brings a comprehensive update with major new features, performance improvements, and enhanced user experience. This release represents months of dedicated development and incorporates extensive community feedback.</p>
+            <h3>🎵 Major New Features:</h3>
+            <ul>
+                <li><strong>Sleep Timer</strong> - Advanced sleep timer with customizable duration, fade-out options, and playlist continuation</li>
+                <li><strong>Professional Audio Equalizer</strong> - 10-band equalizer with presets, custom profiles, and real-time audio processing</li>
+                <li><strong>Enhanced Playlist Management</strong> - Import/export playlists, backup/restore functionality, and advanced playlist editing</li>
+                <li><strong>Library Redesign</strong> - Complete library overhaul with single card layout, improved navigation, and customizable tab order</li>
+                <li><strong>Metadata Editor</strong> - Edit song metadata including artwork, with proper permission handling and batch operations</li>
+                <li><strong>Genre-Based Organization</strong> - Smart genre detection, filtering, and organization throughout the library</li>
+                <li><strong>File Explorer Integration</strong> - New Explorer tab with folder-based song grouping and advanced storage access</li>
+                <li><strong>Theme Customization</strong> - Custom color schemes, font selection, and comprehensive theme previews</li>
+                <li><strong>Device Output Management</strong> - Enhanced audio device switching, Bluetooth handling, and output optimization</li>
+                <li><strong>Advanced Cache Management</strong> - Intelligent cache system with manual controls and performance monitoring</li>
+            </ul>
+            <h3>🔧 Performance & Stability Improvements:</h3>
+            <ul>
+                <li>Enhanced lyrics fetching with improved error handling and caching</li>
+                <li>Robust genre detection with better accuracy and UI integration</li>
+                <li>Album art color extraction for dynamic theming and Material You integration</li>
+                <li>Improved search functionality across all settings and library sections</li>
+                <li>Enhanced haptics and accessibility features throughout the app</li>
+                <li>Mobile-responsive navigation with improved touch interactions</li>
+                <li>Optimized memory usage and reduced battery consumption</li>
+                <li>Faster app startup and smoother transitions</li>
+            </ul>
+            <h3>🐛 Bug Fixes:</h3>
+            <ul>
+                <li>Fixed: Reinstalling Rhythm now properly resets onboarding and media scanning</li>
+                <li>Fixed: Crash due to color gradient issues in player controls</li>
+                <li>Fixed: Tab switching inconsistencies in library navigation</li>
+                <li>Fixed: Artist images not displaying correctly in some cases</li>
+                <li>Fixed: Canvas rendering optimizations for better performance</li>
+                <li>Fixed: Shuffle algorithm improvements for better randomization</li>
+                <li>Fixed: Various UI inconsistencies and Material You theming issues</li>
+                <li>Fixed: Permission handling improvements for media access</li>
+            </ul>
+            <h3>🎨 UI/UX Enhancements:</h3>
+            <ul>
+                <li>Refined Material You design implementation with better color schemes</li>
+                <li>Improved widget functionality with Play All and Mix options</li>
+                <li>Enhanced player controls with better visual hierarchy</li>
+                <li>Streamlined library filters and search capabilities</li>
+                <li>Better onboarding flow with improved user guidance</li>
+                <li>Enhanced settings organization and discoverability</li>
+            </ul>
+            <h3>🙏 Acknowledgments:</h3>
+            <p>We want to extend our heartfelt thanks to our amazing community for their continued support, feedback, and patience throughout the development process. Your input has been invaluable in shaping Rhythm into the music player it is today.</p>
+            <p>Special thanks to our beta testers and contributors who helped identify issues and suggest improvements. This release wouldn't be possible without your dedication!</p>
+            <h3>🔮 Looking Ahead:</h3>
+            <p>While 2.8 Stable represents a significant milestone, we're already planning exciting features for future updates. Stay tuned for more announcements and continue to share your feedback through our GitHub repository.</p>
+            <p><strong>Happy listening with Rhythm 2.8! 🎵</strong></p>
+        `
+    },
 };
 
 // Function to check if an image exists
