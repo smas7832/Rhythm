@@ -1124,7 +1124,19 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
             // For Android 8.0 and later, check if install from unknown sources is allowed
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 if (!context.packageManager.canRequestPackageInstalls()) {
-                    _error.value = "Installation from unknown sources is not allowed. Please enable it in Settings."
+                    // Automatically open settings to allow install from unknown sources
+                    try {
+                        val intent = Intent(
+                            android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                            android.net.Uri.parse("package:${context.packageName}")
+                        ).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        context.startActivity(intent)
+                    } catch (e: Exception) {
+                        _error.value = "Could not open settings. Please enable 'Install unknown apps' manually in Settings."
+                        Log.e(TAG, "Error opening unknown sources settings", e)
+                    }
                     return
                 }
             }

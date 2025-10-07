@@ -249,7 +249,7 @@ fun MediaScanLoader(
                         contentDescription = null,
                         modifier = Modifier.size(66.dp)
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(3.dp))
                     Text(
                         text = "Rhythm",
                         style = MaterialTheme.typography.displaySmall,

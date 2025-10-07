@@ -110,6 +110,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -251,10 +252,10 @@ fun OnboardingScreen(
                 userScrollEnabled = when {
                     currentStep != OnboardingStep.PERMISSIONS -> true
                     permissionScreenState == PermissionScreenState.PermissionsGranted -> true
-                    permissionScreenState == PermissionScreenState.Loading -> false
-                    else -> false
+                    else -> true // Allow scrolling to let user review info before granting
                 },
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                key = { page -> page } // Add key to preserve page state
             ) { page ->
                 val step = OnboardingStep.values()[page]
                 // Container for step-specific content - positioned at top within pager page
@@ -262,78 +263,81 @@ fun OnboardingScreen(
                     modifier = Modifier.fillMaxSize().padding(top=54.dp, start = horizontalPadding, end = horizontalPadding, bottom = cardPadding),
                     contentAlignment = Alignment.TopCenter
                 ) {
-                    when (step) {
-                        OnboardingStep.WELCOME -> {
-                            // Welcome screen without card
-                            EnhancedWelcomeContent(onNextStep = onNextStep)
-                        }
-                        OnboardingStep.PERMISSIONS -> {
-                            EnhancedPermissionContent(
-                                permissionScreenState = permissionScreenState,
-                                onGrantAccess = {
-                                    onNextStep() // Trigger permission request
-                                },
-                                onOpenSettings = {
-                                    val intent = android.content.Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                                    intent.data = android.net.Uri.fromParts("package", context.packageName, null)
-                                    context.startActivity(intent)
-                                    onRequestAgain() // Set loading state
-                                },
-                                isButtonLoading = isParentLoading
-                            )
-                        }
-                        OnboardingStep.BACKUP_RESTORE -> {
-                            EnhancedBackupRestoreContent(
-                                onNextStep = onNextStep,
-                                onSkip = onNextStep,
-                                appSettings = appSettings,
-                                onOpenBottomSheet = { showBackupRestoreBottomSheet = true }
-                            )
-                        }
-                        OnboardingStep.AUDIO_PLAYBACK -> {
-                            EnhancedAudioPlaybackContent(
-                                onNextStep = onNextStep,
-                                appSettings = appSettings
-                            )
-                        }
-                        OnboardingStep.THEMING -> {
-                            EnhancedThemingContent(
-                                onNextStep = onNextStep,
-                                onSkip = onNextStep,
-                                themeViewModel = themeViewModel,
-                                appSettings = appSettings,
-                                onOpenBottomSheet = { showThemeBottomSheet = true }
-                            )
-                        }
-                        OnboardingStep.LIBRARY_SETUP -> {
-                            EnhancedLibrarySetupContent(
-                                onNextStep = onNextStep,
-                                appSettings = appSettings,
-                                onOpenTabOrderBottomSheet = { showLibraryTabOrderBottomSheet = true },
-                                onOpenPlaylistManagementBottomSheet = { showPlaylistManagementBottomSheet = true }
-                            )
-                        }
-                        OnboardingStep.MEDIA_SCAN -> {
-                            EnhancedMediaScanContent(
-                                onNextStep = onNextStep,
-                                onSkip = onNextStep,
-                                appSettings = appSettings,
-                                onOpenBottomSheet = { showMediaScanBottomSheet = true }
-                            )
-                        }
-                        OnboardingStep.UPDATER -> {
-                            EnhancedUpdaterContent(
-                                onNextStep = onNextStep,
-                                appSettings = appSettings,
-                                updaterViewModel = updaterViewModel
-                            )
-                        }
-                        OnboardingStep.SETUP_FINISHED -> {
-                            EnhancedSetupFinishedContent(onFinish = onFinish)
-                        }
-                        OnboardingStep.COMPLETE -> {
-                            // This should not be visible as we transition to the main app
-                            Box(modifier = Modifier.fillMaxSize())
+                    // Use key to preserve composable state across recompositions
+                    androidx.compose.runtime.key(step) {
+                        when (step) {
+                            OnboardingStep.WELCOME -> {
+                                // Welcome screen without card
+                                EnhancedWelcomeContent(onNextStep = onNextStep)
+                            }
+                            OnboardingStep.PERMISSIONS -> {
+                                EnhancedPermissionContent(
+                                    permissionScreenState = permissionScreenState,
+                                    onGrantAccess = {
+                                        onNextStep() // Trigger permission request
+                                    },
+                                    onOpenSettings = {
+                                        val intent = android.content.Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                                        intent.data = android.net.Uri.fromParts("package", context.packageName, null)
+                                        context.startActivity(intent)
+                                        onRequestAgain() // Set loading state
+                                    },
+                                    isButtonLoading = isParentLoading
+                                )
+                            }
+                            OnboardingStep.BACKUP_RESTORE -> {
+                                EnhancedBackupRestoreContent(
+                                    onNextStep = onNextStep,
+                                    onSkip = onNextStep,
+                                    appSettings = appSettings,
+                                    onOpenBottomSheet = { showBackupRestoreBottomSheet = true }
+                                )
+                            }
+                            OnboardingStep.AUDIO_PLAYBACK -> {
+                                EnhancedAudioPlaybackContent(
+                                    onNextStep = onNextStep,
+                                    appSettings = appSettings
+                                )
+                            }
+                            OnboardingStep.THEMING -> {
+                                EnhancedThemingContent(
+                                    onNextStep = onNextStep,
+                                    onSkip = onNextStep,
+                                    themeViewModel = themeViewModel,
+                                    appSettings = appSettings,
+                                    onOpenBottomSheet = { showThemeBottomSheet = true }
+                                )
+                            }
+                            OnboardingStep.LIBRARY_SETUP -> {
+                                EnhancedLibrarySetupContent(
+                                    onNextStep = onNextStep,
+                                    appSettings = appSettings,
+                                    onOpenTabOrderBottomSheet = { showLibraryTabOrderBottomSheet = true },
+                                    onOpenPlaylistManagementBottomSheet = { showPlaylistManagementBottomSheet = true }
+                                )
+                            }
+                            OnboardingStep.MEDIA_SCAN -> {
+                                EnhancedMediaScanContent(
+                                    onNextStep = onNextStep,
+                                    onSkip = onNextStep,
+                                    appSettings = appSettings,
+                                    onOpenBottomSheet = { showMediaScanBottomSheet = true }
+                                )
+                            }
+                            OnboardingStep.UPDATER -> {
+                                EnhancedUpdaterContent(
+                                    onNextStep = onNextStep,
+                                    appSettings = appSettings,
+                                    updaterViewModel = updaterViewModel
+                                )
+                            }
+                            OnboardingStep.SETUP_FINISHED -> {
+                                EnhancedSetupFinishedContent(onFinish = onFinish)
+                            }
+                            OnboardingStep.COMPLETE -> {
+                                // This should not be visible as we transition to the main app
+                                Box(modifier = Modifier.fillMaxSize())
+                            }
                         }
                     }
                 }
@@ -2344,13 +2348,52 @@ fun EnhancedUpdaterContent(
     }
     val scrollState = rememberScrollState()
     
+    // Infinite transition for continuous animations
+    val infiniteTransition = rememberInfiniteTransition(label = "update_animations")
+    
+    // Rotating icon for checking state
+    val rotationAngle by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2500, easing = androidx.compose.animation.core.LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "rotation"
+    )
+    
+    // Breathing glow animation
+    val glowAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.4f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = androidx.compose.animation.core.EaseInOut),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "glow"
+    )
+    
+    // Success scale animation
+    val successScale = remember { Animatable(0.7f) }
+    LaunchedEffect(downloadedFile) {
+        if (downloadedFile != null) {
+            successScale.animateTo(
+                targetValue = 1f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioLowBouncy,
+                    stiffness = Spring.StiffnessLow
+                )
+            )
+        }
+    }
+    
     Column(
         horizontalAlignment = Alignment.Start,
         modifier = Modifier
             .fillMaxWidth()
             .verticalScroll(scrollState)
     ) {
-        // Enhanced icon with animation
+        // Enhanced icon with animation - shows status
         AnimatedVisibility(
             visible = true,
             enter = scaleIn() + fadeIn()
@@ -2359,42 +2402,103 @@ fun EnhancedUpdaterContent(
                 modifier = Modifier
                     .size(80.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)),
+                    .background(
+                        when {
+                            error != null -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+                            downloadedFile != null -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f)
+                            updateAvailable -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                            else -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                        }
+                    ),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Filled.SystemUpdate,
-                    contentDescription = "App Updates",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(40.dp)
-                )
+                if (isCheckingForUpdates) {
+                    M3FourColorCircularLoader(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .alpha(glowAlpha)
+                    )
+                } else {
+                    Icon(
+                        imageVector = when {
+                            error != null -> Icons.Filled.BugReport
+                            downloadedFile != null -> Icons.Filled.CheckCircle
+                            updateAvailable -> RhythmIcons.Download
+                            isDownloading -> Icons.Filled.Autorenew
+                            else -> Icons.Filled.SystemUpdate
+                        },
+                        contentDescription = "App Updates",
+                        tint = when {
+                            error != null -> MaterialTheme.colorScheme.error
+                            downloadedFile != null -> MaterialTheme.colorScheme.tertiary
+                            updateAvailable -> MaterialTheme.colorScheme.primary
+                            isDownloading -> MaterialTheme.colorScheme.secondary
+                            else -> MaterialTheme.colorScheme.primary
+                        },
+                        modifier = Modifier
+                            .size(40.dp)
+                            .rotate(if (isDownloading) rotationAngle else 0f)
+                            .scale(
+                                when {
+                                    downloadedFile != null -> successScale.value
+                                    else -> 1f
+                                }
+                            )
+                    )
+                }
             }
         }
         
         Spacer(modifier = Modifier.height(24.dp))
         
+        // Title shows status
         Text(
-            text = "Stay Up to Date",
+            text = when {
+                error != null -> "Update Check Failed"
+                downloadedFile != null -> "Ready to Install"
+                isDownloading -> "Downloading Update"
+                isCheckingForUpdates -> "Checking for Updates..."
+                updateAvailable -> "Update Available"
+                else -> "Stay Up to Date"
+            },
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = when {
+                error != null -> MaterialTheme.colorScheme.error
+                downloadedFile != null -> MaterialTheme.colorScheme.tertiary
+                updateAvailable -> MaterialTheme.colorScheme.primary
+                isCheckingForUpdates || isDownloading -> MaterialTheme.colorScheme.secondary
+                else -> MaterialTheme.colorScheme.onSurface
+            },
             modifier = Modifier.padding(bottom = 12.dp)
         )
         
+        // Description shows version info or default text
         Text(
-            text = "Get the latest features, improvements, and bug fixes automatically from GitHub. Choose between Stable releases (recommended) or Beta builds for early access to new features. No Google Play required.",
+            text = when {
+                error != null -> error ?: "An error occurred"
+                downloadedFile != null -> "Version ${latestVersion?.versionName ?: "?"} is ready to install"
+                isDownloading -> "${downloadProgress.toInt()}% • ${((latestVersion?.apkSize ?: 0) * downloadProgress / 100).toLong().let { updaterViewModel.getReadableFileSize(it) }} / ${latestVersion?.let { updaterViewModel.getReadableFileSize(it.apkSize) } ?: ""}"
+                isCheckingForUpdates -> "Fetching latest version from GitHub..."
+                updateAvailable -> "Version ${latestVersion?.versionName ?: "?"} • ${latestVersion?.let { updaterViewModel.getReadableFileSize(it.apkSize) } ?: ""}"
+                else -> "Get the latest features, improvements, and bug fixes automatically from GitHub. Choose between Stable releases (recommended) or Beta builds for early access to new features. No Google Play required."
+            },
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = when {
+                error != null -> MaterialTheme.colorScheme.error.copy(alpha = 0.8f)
+                downloadedFile != null -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.8f)
+                updateAvailable -> MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                isCheckingForUpdates || isDownloading -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.8f)
+                else -> MaterialTheme.colorScheme.onSurfaceVariant
+            },
             modifier = Modifier.padding(bottom = 24.dp)
         )
         
-        // Update Status UI - Material 3 Expressive Design (No Box/Card)
-        val showUpdateStatus = isCheckingForUpdates || isDownloading || 
-                               updateAvailable || downloadedFile != null || 
-                               (!isCheckingForUpdates && !updateAvailable && hasCheckedOnce && error == null)
+        // Update Actions UI - Only buttons and progress
+        val showUpdateActions = isDownloading || updateAvailable || downloadedFile != null || error != null
         
         AnimatedVisibility(
-            visible = showUpdateStatus,
+            visible = showUpdateActions,
             enter = expandVertically(
                 animationSpec = spring(
                     dampingRatio = Spring.DampingRatioMediumBouncy,
@@ -2410,15 +2514,14 @@ fun EnhancedUpdaterContent(
             modifier = Modifier.padding(bottom = 20.dp)
         ) {
             OnboardingExpressiveUpdateStatus(
-                isCheckingForUpdates = isCheckingForUpdates,
-                updateAvailable = updateAvailable,
-                latestVersion = latestVersion,
-                currentVersion = currentVersion,
                 isDownloading = isDownloading,
                 downloadProgress = downloadProgress,
                 downloadedFile = downloadedFile,
                 error = error,
+                updateAvailable = updateAvailable,
+                latestVersion = latestVersion,
                 updaterViewModel = updaterViewModel,
+                successScale = successScale,
                 onDownload = { updaterViewModel.downloadUpdate() },
                 onInstall = { updaterViewModel.installDownloadedApk() },
                 onCancelDownload = { updaterViewModel.cancelDownload() },
@@ -3503,76 +3606,25 @@ private fun NextStepItem(
 }
 
 /**
- * Material 3 Expressive Update Status UI - No Box/Card containers
- * Uses flowing gradients, dynamic spacing, and expressive animations
+ * Material 3 Expressive Update Actions UI - Shows only buttons and progress
+ * Simplified to display action buttons and download progress, status is shown in main heading
  */
 @Composable
 private fun OnboardingExpressiveUpdateStatus(
-    isCheckingForUpdates: Boolean,
-    updateAvailable: Boolean,
-    latestVersion: chromahub.rhythm.app.viewmodel.AppVersion?,
-    currentVersion: chromahub.rhythm.app.viewmodel.AppVersion,
     isDownloading: Boolean,
     downloadProgress: Float,
     downloadedFile: java.io.File?,
     error: String?,
+    updateAvailable: Boolean,
+    latestVersion: chromahub.rhythm.app.viewmodel.AppVersion?,
     updaterViewModel: AppUpdaterViewModel,
+    successScale: Animatable<Float, AnimationVector1D>,
     onDownload: () -> Unit,
     onInstall: () -> Unit,
     onCancelDownload: () -> Unit,
     onDismissError: () -> Unit,
     onRetry: () -> Unit
 ) {
-    // Infinite transition for continuous animations
-    val infiniteTransition = rememberInfiniteTransition(label = "update_animations")
-    
-    // Rotating icon for checking state
-    val rotationAngle by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2500, easing = androidx.compose.animation.core.LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "rotation"
-    )
-    
-    // Pulsing scale for attention
-    val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 0.95f,
-        targetValue = 1.05f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = androidx.compose.animation.core.EaseInOut),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulse"
-    )
-    
-    // Breathing glow animation
-    val glowAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.4f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2000, easing = androidx.compose.animation.core.EaseInOut),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "glow"
-    )
-    
-    // Success scale animation
-    val successScale = remember { Animatable(0.7f) }
-    LaunchedEffect(downloadedFile) {
-        if (downloadedFile != null) {
-            successScale.animateTo(
-                targetValue = 1f,
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioLowBouncy,
-                    stiffness = Spring.StiffnessLow
-                )
-            )
-        }
-    }
-    
     // Main Column - NO BOX OR CARD WRAPPING
     Column(
         modifier = Modifier
@@ -3585,89 +3637,6 @@ private fun OnboardingExpressiveUpdateStatus(
             ),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        // Status Header - flowing layout, no containers
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(20.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Floating animated icon - direct render, no background
-            Icon(
-                imageVector = when {
-                    error != null -> Icons.Filled.BugReport
-                    downloadedFile != null -> Icons.Filled.CheckCircle
-                    updateAvailable -> RhythmIcons.Download
-                    isCheckingForUpdates || isDownloading -> Icons.Filled.Autorenew
-                    else -> Icons.Filled.Check
-                },
-                contentDescription = null,
-                tint = when {
-                    error != null -> MaterialTheme.colorScheme.error
-                    downloadedFile != null -> MaterialTheme.colorScheme.tertiary
-                    updateAvailable -> MaterialTheme.colorScheme.primary
-                    isCheckingForUpdates || isDownloading -> MaterialTheme.colorScheme.secondary
-                    else -> MaterialTheme.colorScheme.primary
-                },
-                modifier = Modifier
-                    .size(64.dp)
-                    .rotate(if (isCheckingForUpdates) rotationAngle else 0f)
-                    .scale(
-                        when {
-                            downloadedFile != null -> successScale.value
-                            updateAvailable -> pulseScale
-                            else -> 1f
-                        }
-                    )
-                    .alpha(if (isCheckingForUpdates) glowAlpha else 1f)
-            )
-            
-            // Status text column
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Text(
-                    text = when {
-                        error != null -> "Update Check Failed"
-                        downloadedFile != null -> "Ready to Install"
-                        isDownloading -> "Downloading"
-                        isCheckingForUpdates -> "Checking..."
-                        updateAvailable -> "Update Available"
-                        else -> "Up to Date"
-                    },
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = when {
-                        error != null -> MaterialTheme.colorScheme.error
-                        downloadedFile != null -> MaterialTheme.colorScheme.tertiary
-                        updateAvailable -> MaterialTheme.colorScheme.primary
-                        isCheckingForUpdates || isDownloading -> MaterialTheme.colorScheme.secondary
-                        else -> MaterialTheme.colorScheme.onSurface
-                    },
-                    letterSpacing = 0.5.sp
-                )
-                
-                Text(
-                    text = when {
-                        error != null -> error
-                        downloadedFile != null -> "v${latestVersion?.versionName ?: "?"}"
-                        isDownloading -> "${downloadProgress.toInt()}% • ${((latestVersion?.apkSize ?: 0) * downloadProgress / 100).toLong().let { updaterViewModel.getReadableFileSize(it) }} / ${latestVersion?.let { updaterViewModel.getReadableFileSize(it.apkSize) } ?: ""}"
-                        isCheckingForUpdates -> "Fetching from GitHub..."
-                        updateAvailable -> "v${latestVersion?.versionName ?: "?"} • ${latestVersion?.let { updaterViewModel.getReadableFileSize(it.apkSize) } ?: ""}"
-                        else -> "v${currentVersion.versionName}"
-                    },
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = when {
-                        error != null -> MaterialTheme.colorScheme.error.copy(alpha = 0.8f)
-                        downloadedFile != null -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.8f)
-                        updateAvailable -> MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
-                        isCheckingForUpdates || isDownloading -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.8f)
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                    fontWeight = FontWeight.Medium
-                )
-            }
-        }
         
         // Download progress section - expressive, no containers
         AnimatedVisibility(
@@ -3713,7 +3682,8 @@ private fun OnboardingExpressiveUpdateStatus(
                     )
                 }
                 
-                // Gradient progress bar using Canvas - no Box container
+                // Plain accent color progress bar using Canvas - no Box container
+                val accentColor = MaterialTheme.colorScheme.primary
                 androidx.compose.foundation.Canvas(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -3728,17 +3698,10 @@ private fun OnboardingExpressiveUpdateStatus(
                         cornerRadius = androidx.compose.ui.geometry.CornerRadius(cornerRadius)
                     )
                     
-                    // Gradient progress
+                    // Plain accent progress
                     if (progressWidth > 0) {
                         drawRoundRect(
-                            brush = Brush.horizontalGradient(
-                                colors = listOf(
-                                    androidx.compose.ui.graphics.Color(0xFF2196F3),
-                                    androidx.compose.ui.graphics.Color(0xFF9C27B0),
-                                    androidx.compose.ui.graphics.Color(0xFF00BCD4)
-                                ),
-                                endX = progressWidth
-                            ),
+                            color = accentColor,
                             size = androidx.compose.ui.geometry.Size(progressWidth, size.height),
                             cornerRadius = androidx.compose.ui.geometry.CornerRadius(cornerRadius)
                         )
@@ -3866,9 +3829,7 @@ private fun OnboardingExpressiveUpdateStatus(
                     updateAvailable && latestVersion?.apkAssetName?.isNotEmpty() == true -> {
                         Button(
                             onClick = onDownload,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .scale(pulseScale),
+                            modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(24.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.primary
@@ -3909,7 +3870,7 @@ private fun OnboardingExpressiveUpdateStatus(
         
         // Subtle gradient divider - no Spacer container
         AnimatedVisibility(
-            visible = isCheckingForUpdates || isDownloading || updateAvailable || downloadedFile != null || error == null,
+            visible = isDownloading || updateAvailable || downloadedFile != null || error != null,
             enter = fadeIn(),
             exit = fadeOut()
         ) {

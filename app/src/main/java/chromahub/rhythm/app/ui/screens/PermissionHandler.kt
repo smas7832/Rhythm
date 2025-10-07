@@ -183,26 +183,13 @@ fun PermissionHandler(
         }
     }
 
-    // Effect to trigger permission request when entering PERMISSIONS step
-    LaunchedEffect(currentOnboardingStep, permissionScreenState) {
+    // Effect to evaluate permission state when entering PERMISSIONS step
+    // BUT do NOT auto-launch permission request - let user click button
+    LaunchedEffect(currentOnboardingStep) {
         if (currentOnboardingStep == OnboardingStep.PERMISSIONS) {
-            // Only set loading and launch request if we are in PermissionsRequired state
-            if (permissionScreenState == PermissionScreenState.PermissionsRequired && !permissionRequestLaunched) {
-                onSetIsLoading(true) // Show loader on the button
-                try {
-                    permissionsState.launchMultiplePermissionRequest()
-                    permissionRequestLaunched = true
-                } catch (e: Exception) {
-                    // Handle permission request failure
-                    onSetIsLoading(false)
-                    permissionScreenState = PermissionScreenState.ShowRationale
-                }
-            } else if (permissionScreenState == PermissionScreenState.Loading) {
-                // If still in loading, re-evaluate to determine the correct state
-                scope.launch {
-                    evaluatePermissionsAndSetStep()
-                }
-            }
+            // Immediately evaluate the current permission state without launching request
+            onSetIsLoading(false) // Ensure we're not showing loading initially
+            evaluatePermissionsAndSetStep()
         }
     }
 
@@ -213,7 +200,7 @@ fun PermissionHandler(
         // Only re-evaluate if we are currently on the permissions step or if onboarding is complete
         // but permissions somehow became ungranted (e.g., user revoked from settings).
         if (currentOnboardingStep == OnboardingStep.PERMISSIONS || (onboardingCompleted && permissionScreenState != PermissionScreenState.PermissionsGranted)) {
-            onSetIsLoading(true) // Start loading when re-checking permissions
+            // Don't show loading immediately - evaluate first, then decide
             evaluatePermissionsAndSetStep()
         }
     }
@@ -226,8 +213,8 @@ fun PermissionHandler(
                 // When activity resumes, if we are on the permissions step, re-check
                 if (currentOnboardingStep == OnboardingStep.PERMISSIONS || (onboardingCompleted && permissionScreenState != PermissionScreenState.PermissionsGranted)) {
                     scope.launch {
-                        delay(500) // Small delay to ensure system permission dialogs are fully dismissed
-                        onSetIsLoading(true) // Start loading when re-checking permissions on resume
+                        delay(300) // Small delay to ensure system permission dialogs are fully dismissed
+                        // Don't set loading here - just re-evaluate
                         evaluatePermissionsAndSetStep()
                         permissionRequestLaunched = false // Reset for next time
                     }
@@ -292,11 +279,29 @@ fun PermissionHandler(
                     when (currentOnboardingStep) {
                         OnboardingStep.WELCOME -> currentOnboardingStep = OnboardingStep.PERMISSIONS
                         OnboardingStep.PERMISSIONS -> {
-                            // This branch is now only for the "Grant Access" button click
-                            // which should trigger the permission request.
-                            onSetIsLoading(true) // Set loading to true when requesting
-                            permissionsState.launchMultiplePermissionRequest() // Directly launch request
-                            permissionRequestLaunched = true // Mark as launched
+                            // Handle based on current permission state
+                            when (permissionScreenState) {
+                                PermissionScreenState.PermissionsGranted -> {
+                                    // Already granted, move to next step
+                                    currentOnboardingStep = OnboardingStep.BACKUP_RESTORE
+                                }
+                                PermissionScreenState.RedirectToSettings -> {
+                                    // This is handled by onRequestAgain callback
+                                }
+                                else -> {
+                                    // Launch permission request
+                                    onSetIsLoading(true) // Set loading to true when requesting
+                                    scope.launch {
+                                        try {
+                                            permissionsState.launchMultiplePermissionRequest()
+                                            permissionRequestLaunched = true // Mark as launched
+                                        } catch (e: Exception) {
+                                            onSetIsLoading(false)
+                                            permissionScreenState = PermissionScreenState.ShowRationale
+                                        }
+                                    }
+                                }
+                            }
                         }
                         OnboardingStep.BACKUP_RESTORE -> currentOnboardingStep = OnboardingStep.AUDIO_PLAYBACK // Move to audio playback
                         OnboardingStep.AUDIO_PLAYBACK -> currentOnboardingStep = OnboardingStep.THEMING // Move to theming
@@ -320,7 +325,14 @@ fun PermissionHandler(
                 onPrevStep = {
                     when (currentOnboardingStep) {
                         OnboardingStep.PERMISSIONS -> currentOnboardingStep = OnboardingStep.WELCOME
-                        OnboardingStep.BACKUP_RESTORE -> currentOnboardingStep = OnboardingStep.PERMISSIONS
+                        OnboardingStep.BACKUP_RESTORE -> {
+                            currentOnboardingStep = OnboardingStep.PERMISSIONS
+                            // Re-evaluate permissions when going back to permission screen
+                            scope.launch {
+                                onSetIsLoading(false) // Ensure not loading
+                                evaluatePermissionsAndSetStep()
+                            }
+                        }
                         OnboardingStep.AUDIO_PLAYBACK -> currentOnboardingStep = OnboardingStep.BACKUP_RESTORE
                         OnboardingStep.THEMING -> currentOnboardingStep = OnboardingStep.AUDIO_PLAYBACK
                         OnboardingStep.LIBRARY_SETUP -> currentOnboardingStep = OnboardingStep.THEMING
