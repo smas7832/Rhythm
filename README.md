@@ -46,6 +46,7 @@
 - [✨ What Makes Rhythm Special](#-what-makes-rhythm-special)
 - [📱 Screenshots](#-screenshots)
 - [🚀 Download & Install](#-download--install)
+- [🎯 Using Rhythm After Installation](#-using-rhythm-after-installation)
 - [🛠 Technology Stack](#-technology-stack)
 - [📦 Open Source Libraries](#-open-source-libraries)
 - [🤝 Contributing](#-contributing)
@@ -169,6 +170,148 @@ Rhythm is not just another music player - it's a complete audio experience desig
 5. 🔄 Enjoy automatic updates!
 
 > **Recommended for privacy-conscious users**
+
+---
+
+## 🎯 **Using Rhythm After Installation**
+
+After installing Rhythm, you'll go through a comprehensive onboarding process to set up your music experience. Here's what to expect and how to use the app effectively.
+
+### 📋 **First-Time Setup (Onboarding)**
+
+Rhythm features a 9-step guided setup to personalize your music experience:
+
+#### 1. **👋 Welcome Screen**
+- Introduction to Rhythm's features
+- Overview of the setup process
+- Click "Get Started" to begin
+
+#### 2. **🔐 Permission Setup**
+- **Storage Access**: Required to scan and play your music files
+- **Notification Access** (Android 13+): For playback controls and updates
+- **Bluetooth Access**: For wireless audio output devices
+- Grant permissions to continue with setup
+
+#### 3. **💾 Backup & Restore**
+- Choose whether to restore from a previous backup
+- Set up automatic backup preferences
+- Configure backup frequency and location
+
+#### 4. **🎵 Audio & Playback Settings**
+- Configure audio output preferences
+- Set up gapless playback options
+- Choose volume control behavior
+- Configure audio focus handling
+
+#### 5. **🎨 Theming & Appearance**
+- Select light/dark theme or system default
+- Enable Material You dynamic colors (Android 12+)
+- Choose accent colors and app appearance
+- Set up custom color schemes
+
+#### 6. **📚 Library Organization**
+- Configure how your music library is organized
+- Set sorting preferences (by artist, album, date, etc.)
+- Choose grid or list view layouts
+- Configure metadata display options
+
+#### 7. **🔍 Media Scanning**
+- Choose between blacklist or whitelist filtering
+- Set up folders to include/exclude from scanning
+- Configure automatic media scanning
+- Review scan results and library statistics
+
+#### 8. **⬆️ Update Preferences**
+- Configure automatic update checking
+- Choose update channel (stable/beta)
+- Set update notification preferences
+- Enable background update downloads
+
+#### 9. **✅ Setup Complete**
+- Review your configuration
+- Start initial media scan
+- Begin using Rhythm!
+
+### 🔑 **App Permissions Explained**
+
+Rhythm requests the following permissions for optimal functionality:
+
+| Permission | Why Needed | Where Used |
+|:---|:---|:---|
+| **📁 Storage Access**<br>`READ_EXTERNAL_STORAGE`<br>`READ_MEDIA_AUDIO`<br>`READ_MEDIA_IMAGES` | Access music files and album artwork on your device | • Media library scanning<br>• Music playback<br>• Album art display<br>• Playlist management |
+| **🔔 Notifications**<br>`POST_NOTIFICATIONS` | Show playback controls and update notifications | • Media notification controls<br>• Update availability alerts<br>• Background playback status |
+| **📶 Internet Access**<br>`INTERNET`<br>`ACCESS_NETWORK_STATE` | Fetch lyrics, artwork, and app updates | • LRCLib lyrics integration<br>• Online album artwork<br>• GitHub update checking<br>• Spotify Canvas support |
+| **🎧 Audio Settings**<br>`MODIFY_AUDIO_SETTINGS` | Control audio output and routing | • Audio focus management<br>• Bluetooth device switching<br>• Volume control integration |
+| **📱 Bluetooth**<br>`BLUETOOTH`<br>`BLUETOOTH_ADMIN`<br>`BLUETOOTH_CONNECT`<br>`BLUETOOTH_SCAN` | Connect to wireless audio devices | • Bluetooth speaker/headphone support<br>• Audio output device selection<br>• Wireless playback controls |
+| **📲 Install Packages**<br>`REQUEST_INSTALL_PACKAGES` | Install app updates automatically | • In-app APK installation<br>• Automatic update deployment |
+| **🎵 Media Playback**<br>`FOREGROUND_SERVICE`<br>`FOREGROUND_SERVICE_MEDIA_PLAYBACK` | Background music playback | • Continuous music playback<br>• Lock screen controls<br>• Background audio processing |
+| **🖼️ Media Location**<br>`ACCESS_MEDIA_LOCATION` | Access location data in media files | • Enhanced metadata extraction<br>• Location-based artwork |
+
+> **Privacy Note**: Rhythm only accesses media files and never uploads your personal data. All permissions are used solely for the app's core music playback functionality.
+
+### 🎵 **Basic App Usage**
+
+#### **Getting Started**
+1. **Launch the App**: Open Rhythm from your app drawer
+2. **Grant Permissions**: Allow access to your music library
+3. **Wait for Scan**: Initial media scan may take a few minutes
+4. **Start Playing**: Browse your library and tap any song to play
+
+#### **Main Features**
+- **🏠 Home Screen**: Quick access to recently played, favorites, and recommendations
+- **▶️ Player**: Full-screen player with lyrics, queue, and controls
+- **📚 Library**: Browse by songs, albums, artists, playlists, and folders
+- **🔍 Search**: Fast fuzzy search across your entire music collection
+- **📋 Queue**: Manage playback queue and upcoming tracks
+- **⚙️ Settings**: Customize appearance, audio, and behavior
+
+#### **Playback Controls**
+- **Play/Pause**: Tap the play button or use notification controls
+- **Skip Tracks**: Use next/previous buttons or swipe gestures
+- **Shuffle/Repeat**: Access from player controls or notification
+- **Volume**: Use device volume buttons or in-app slider
+- **Seek**: Drag the progress bar to jump to any position
+
+#### **Library Management**
+- **Add to Playlists**: Long-press songs to create or add to playlists
+- **Edit Metadata**: View and edit song information and album art
+- **Blacklist Folders**: Exclude unwanted folders from your library
+- **Backup/Restore**: Protect your playlists and settings
+
+#### **Customization**
+- **Themes**: Switch between light/dark modes and custom colors
+- **Equalizer**: Access system equalizer for audio adjustments
+- **Sleep Timer**: Set automatic playback stop time
+- **Output Selection**: Choose audio output device (speaker, Bluetooth, etc.)
+
+### 🆘 **Troubleshooting**
+
+#### **Permission Issues**
+- Go to **Settings → Apps → Rhythm → Permissions** to grant manually
+- Restart the app after granting permissions
+- Check that storage access is enabled for your music folders
+
+#### **Media Scanning Problems**
+- Ensure music files are in accessible locations
+- Check blacklist/whitelist settings in **Settings → Library**
+- Try rescanning media from **Settings → Library → Rescan Media**
+
+#### **Playback Issues**
+- Check audio output device selection
+- Verify Bluetooth connection if using wireless audio
+- Clear app cache if experiencing audio glitches
+
+#### **Update Problems**
+- Check internet connection for update downloads
+- Enable "Install from unknown sources" for APK updates
+- Download updates manually from our [Releases](https://github.com/cromaguy/Rhythm/releases) page
+
+### 📞 **Getting Help**
+
+- **📱 In-App Help**: Access help from Settings → About → Help
+- **💬 Community Support**: Join our [Telegram group](https://t.me/RhythmSupport)
+- **🐛 Report Issues**: Use [GitHub Issues](https://github.com/cromaguy/Rhythm/issues) for bugs
+- **📖 Documentation**: Check our [website](https://rhythmweb.vercel.app/) for guides
 
 ---
 
