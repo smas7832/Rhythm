@@ -1000,3 +1000,253 @@ document.querySelectorAll('.scroll-to-download').forEach(button => {
         }
     });
 });
+
+// Help Page Functionality
+document.addEventListener('DOMContentLoaded', () => {
+    // Help section collapsible functionality
+    const helpCategories = document.querySelectorAll('.help-category');
+
+    helpCategories.forEach(category => {
+        const header = category.querySelector('h2');
+        const content = category.querySelectorAll('.help-item');
+
+        // Add click event to category headers
+        header.addEventListener('click', () => {
+            const isExpanded = category.classList.contains('expanded');
+
+            // Close all categories first
+            helpCategories.forEach(cat => {
+                cat.classList.remove('expanded');
+                const items = cat.querySelectorAll('.help-item');
+                items.forEach(item => {
+                    item.style.display = 'none';
+                    item.style.opacity = '0';
+                });
+            });
+
+            // If this category wasn't expanded, expand it
+            if (!isExpanded) {
+                category.classList.add('expanded');
+                content.forEach((item, index) => {
+                    setTimeout(() => {
+                        item.style.display = 'block';
+                        item.style.opacity = '1';
+                        item.style.transform = 'translateY(0)';
+                    }, index * 100);
+                });
+            }
+        });
+
+        // Initially hide all help items
+        content.forEach(item => {
+            item.style.display = 'none';
+            item.style.opacity = '0';
+            item.style.transform = 'translateY(-10px)';
+            item.style.transition = 'all 0.3s ease';
+        });
+    });
+
+    // Help search functionality - Material 3 Express
+    const searchInput = document.querySelector('.page-search');
+    if (searchInput) {
+        let searchTimeout;
+
+        // Add search icon and loading state
+        const searchWrapper = searchInput.parentElement;
+        const searchIcon = document.createElement('i');
+        searchIcon.className = 'fas fa-search';
+        searchWrapper.appendChild(searchIcon);
+
+        // Enhanced search functionality with debouncing
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            const searchTerm = e.target.value.toLowerCase().trim();
+
+            // Visual feedback
+            searchIcon.className = searchTerm.length > 0 ? 'fas fa-times' : 'fas fa-search';
+
+            searchTimeout = setTimeout(() => {
+                const helpItems = document.querySelectorAll('.help-item');
+                const helpCategories = document.querySelectorAll('.help-category');
+
+                if (searchTerm.length === 0) {
+                    // Smooth show all items
+                    helpItems.forEach((item, index) => {
+                        setTimeout(() => {
+                            item.style.display = 'block';
+                            item.style.opacity = '1';
+                            item.style.transform = 'scale(1) translateY(0)';
+                        }, index * 50);
+                    });
+                    helpCategories.forEach(category => {
+                        category.style.display = 'block';
+                    });
+                    return;
+                }
+
+                // Search with animation
+                let visibleCount = 0;
+                helpItems.forEach((item, index) => {
+                    const text = item.textContent.toLowerCase();
+                    const isVisible = text.includes(searchTerm);
+
+                    if (isVisible) {
+                        visibleCount++;
+                        setTimeout(() => {
+                            item.style.display = 'block';
+                            item.style.opacity = '1';
+                            item.style.transform = 'scale(1) translateY(0)';
+                        }, index * 30);
+                    } else {
+                        item.style.opacity = '0';
+                        item.style.transform = 'scale(0.95) translateY(-10px)';
+                        setTimeout(() => {
+                            item.style.display = 'none';
+                        }, 200);
+                    }
+                });
+
+                // Hide categories that have no visible items
+                helpCategories.forEach(category => {
+                    const visibleItems = category.querySelectorAll('.help-item[style*="display: block"]');
+                    if (visibleItems.length > 0) {
+                        category.style.display = 'block';
+                        category.style.opacity = '1';
+                        category.style.transform = 'translateY(0)';
+                    } else {
+                        category.style.opacity = '0';
+                        category.style.transform = 'translateY(-20px)';
+                        setTimeout(() => {
+                            category.style.display = 'none';
+                        }, 300);
+                    }
+                });
+
+                // Show "no results" message if needed
+                let noResultsMsg = document.querySelector('.no-results');
+                if (visibleCount === 0 && searchTerm.length > 0) {
+                    if (!noResultsMsg) {
+                        noResultsMsg = document.createElement('div');
+                        noResultsMsg.className = 'no-results';
+                        noResultsMsg.style.cssText = `
+                            text-align: center;
+                            padding: 40px;
+                            color: var(--on-surface-variant);
+                            font-size: 18px;
+                            animation: fadeIn 0.3s ease;
+                        `;
+                        noResultsMsg.innerHTML = `
+                            <i class="fas fa-search" style="font-size: 48px; color: var(--surface-variant); margin-bottom: 16px; display: block;"></i>
+                            No results found for "${searchTerm}"
+                        `;
+                        document.querySelector('.help-content').appendChild(noResultsMsg);
+                    }
+                } else if (noResultsMsg) {
+                    noResultsMsg.remove();
+                }
+            }, 300);
+        });
+
+        // Clear search on icon click
+        searchIcon.addEventListener('click', () => {
+            if (searchInput.value.length > 0) {
+                searchInput.value = '';
+                searchInput.dispatchEvent(new Event('input'));
+            }
+        });
+    }
+
+    // Add smooth scrolling to help category links
+    const helpLinks = document.querySelectorAll('a[href^="#"]');
+    helpLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+            const targetId = link.getAttribute('href');
+            const targetElement = document.querySelector(targetId);
+
+            if (targetElement) {
+                e.preventDefault();
+
+                // Use scrollIntoView with block: 'start' and adjust for header
+                const header = document.querySelector('header');
+                const headerHeight = header ? header.offsetHeight : 80;
+
+                // Temporarily adjust scroll-margin-top for smooth scrolling
+                targetElement.style.scrollMarginTop = `${headerHeight + 20}px`;
+
+                targetElement.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+
+                // Reset scroll-margin-top after scrolling
+                setTimeout(() => {
+                    targetElement.style.scrollMarginTop = '';
+                }, 1000);
+            }
+        });
+    });
+
+    // Add animation on scroll for help items
+    const observerOptions = {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.opacity = '1';
+                entry.target.style.transform = 'translateY(0)';
+            }
+        });
+    }, observerOptions);
+
+    // Observe help categories
+    document.querySelectorAll('.help-category').forEach(category => {
+        category.style.opacity = '0';
+        category.style.transform = 'translateY(30px)';
+        category.style.transition = 'all 0.6s ease';
+        observer.observe(category);
+    });
+});
+
+// Back to Top Button
+document.addEventListener('DOMContentLoaded', () => {
+    // Create back to top button
+    const backToTopBtn = document.createElement('button');
+    backToTopBtn.className = 'back-to-top';
+    backToTopBtn.innerHTML = '<i class="fas fa-arrow-up"></i>';
+    backToTopBtn.setAttribute('aria-label', 'Back to top');
+    document.body.appendChild(backToTopBtn);
+
+    // Show/hide back to top button
+    window.addEventListener('scroll', () => {
+        if (window.scrollY > 300) {
+            backToTopBtn.classList.add('show');
+        } else {
+            backToTopBtn.classList.remove('show');
+        }
+    });
+
+    // Scroll to top when clicked
+    backToTopBtn.addEventListener('click', () => {
+        window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
+    });
+
+    // Reading progress indicator for help page
+    if (document.querySelector('.help-section')) {
+        const progressBar = document.createElement('div');
+        progressBar.className = 'reading-progress';
+        document.body.appendChild(progressBar);
+
+        window.addEventListener('scroll', () => {
+            const scrollTop = window.scrollY;
+            const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+            const scrollPercent = (scrollTop / docHeight) * 100;
+            progressBar.style.width = scrollPercent + '%';
+        });
+    }
+});
