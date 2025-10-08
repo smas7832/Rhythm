@@ -18,7 +18,7 @@
     <link rel="shortcut icon" href="assets/icon.png">
     <link rel="canonical" href="https://cromaguy.github.io/Rhythm/help.html">
     <link rel="stylesheet" href="style.css">
-    <meta name="description" content="Get help and learn how to use Rhythm music player effectively. Complete guide with setup instructions, features, and troubleshooting.">
+    <meta name="description" content="Comprehensive Rhythm help guide covering Material You theming, Media3 ExoPlayer audio engine, advanced library management, professional equalization, synchronized lyrics, and intelligent playback features.">
     <meta name="keywords" content="Rhythm, Help, How to Use, Guide, Music Player, Android, Setup, Features">
     <meta name="author" content="Anjishnu Nandi">
     <meta name="robots" content="index, follow">
@@ -169,103 +169,138 @@
                 <div id="getting-started" class="help-category">
                     <h2><i class="fas fa-download"></i> Getting Started</h2>
                     <div class="help-item">
-                        <h3>Installation & Requirements</h3>
-                        <p>Download Rhythm from our GitHub releases or F-Droid. The app requires Android 8.0+ (API 26), 2GB RAM minimum, and 50MB storage. Enable "Install from unknown sources" for APK installation.</p>
+                        <h3>Installation & System Requirements</h3>
+                        <p>Rhythm requires Android 8.0+ (API 26) with 2GB RAM minimum and 50MB storage. Download from GitHub releases or F-Droid (IzzyOnDroid repository). For APK installation, enable "Install from unknown sources" in your device settings. The app is signed with an official keystore for security.</p>
                     </div>
                     <div class="help-item">
-                        <h3>9-Step Setup Process</h3>
-                        <p>First launch guides you through permissions, theming setup, and media scanning. Grant storage permissions to access your music library. The app will automatically scan for music files.</p>
+                        <h3>Comprehensive 9-Step Onboarding</h3>
+                        <p><strong>Step 1:</strong> Welcome screen with feature overview<br>
+                        <strong>Step 2:</strong> Storage, notification, and Bluetooth permissions<br>
+                        <strong>Step 3:</strong> Backup/restore configuration<br>
+                        <strong>Step 4:</strong> Audio output and gapless playback setup<br>
+                        <strong>Step 5:</strong> Material You theming and appearance<br>
+                        <strong>Step 6:</strong> Library organization and sorting preferences<br>
+                        <strong>Step 7:</strong> Media scanning with blacklist/whitelist options<br>
+                        <strong>Step 8:</strong> Auto-update preferences and beta program<br>
+                        <strong>Step 9:</strong> Initial media scan and setup completion</p>
                     </div>
                     <div class="help-item">
-                        <h3>Essential Permissions</h3>
+                        <h3>Essential Permissions Explained</h3>
                         <ul>
-                            <li><strong>Storage Access:</strong> Scan and play music files from device storage</li>
-                            <li><strong>Notifications:</strong> Playback controls, updates, and media session</li>
-                            <li><strong>Bluetooth:</strong> Wireless audio device support</li>
-                            <li><strong>Internet:</strong> Lyrics (LRCLib), artwork (Deezer), and app updates</li>
+                            <li><strong>Storage Access:</strong> Reads music files, album art, and manages playlists</li>
+                            <li><strong>Media Audio/Images:</strong> Access to music library and artwork (Android 13+)</li>
+                            <li><strong>Notifications:</strong> Playback controls, update alerts, and media session</li>
+                            <li><strong>Bluetooth:</strong> Wireless speaker/headphone support and device switching</li>
+                            <li><strong>Internet:</strong> LRCLib lyrics, Deezer artwork, GitHub updates, Spotify Canvas</li>
+                            <li><strong>Audio Settings:</strong> Volume control and audio focus management</li>
+                            <li><strong>Install Packages:</strong> In-app APK updates and installations</li>
+                            <li><strong>Media Playback Service:</strong> Background playback and lock screen controls</li>
                         </ul>
                     </div>
                     <div class="help-item">
-                        <h3>Material You & Theming</h3>
-                        <p>Rhythm supports Android 12+ dynamic theming with colors extracted from your wallpaper. Choose between light/dark modes or follow system settings for seamless adaptation.</p>
+                        <h3>Material You Dynamic Theming</h3>
+                        <p>Android 12+ users get automatic color extraction from wallpaper. Choose from light/dark modes or system default. Custom color schemes available in Settings → Appearance → Theme Customization for personalized theming.</p>
                     </div>
                 </div>
 
                 <div id="playing-music" class="help-category">
                     <h2><i class="fas fa-music"></i> Playing Music</h2>
                     <div class="help-item">
-                        <h3>Professional Audio Engine</h3>
-                        <p>Rhythm uses Media3 ExoPlayer for studio-quality playback with gapless transitions. Supports FLAC, ALAC, MP3, AAC, OGG, WAV, and more formats.</p>
+                        <h3>Professional Media3 ExoPlayer Engine</h3>
+                        <p>Rhythm uses Google's Media3 ExoPlayer for studio-quality audio with gapless playback, perfect track transitions, and robust error handling. Supports high-resolution formats including FLAC, ALAC, MP3, AAC, OGG, WAV, and more with bit-perfect playback.</p>
                     </div>
                     <div class="help-item">
-                        <h3>Smart Playback Features</h3>
+                        <h3>Advanced Playback Features</h3>
                         <ul>
-                            <li><strong>Auto-Resume:</strong> Continues playback exactly where you left off</li>
-                            <li><strong>Smart Audio Focus:</strong> Handles calls and notifications gracefully</li>
-                            <li><strong>Canvas Support:</strong> Dynamic Spotify Canvas visuals for compatible tracks</li>
-                            <li><strong>Advanced Shuffle:</strong> True random, artist-aware, and weighted algorithms</li>
+                            <li><strong>Auto-Resume:</strong> Continues playback at exact position after app restart or device reboot</li>
+                            <li><strong>Smart Audio Focus:</strong> Handles phone calls, notifications, and other apps gracefully</li>
+                            <li><strong>Gapless Playback:</strong> Seamless transitions between tracks without silence</li>
+                            <li><strong>Spotify Canvas:</strong> Dynamic animated backgrounds for compatible tracks</li>
+                            <li><strong>Advanced Shuffle:</strong> True random, artist-aware, and weighted shuffle algorithms</li>
+                            <li><strong>Queue Management:</strong> Reorder, remove, and save playback queues</li>
                         </ul>
                     </div>
                     <div class="help-item">
-                        <h3>Synchronized Lyrics</h3>
-                        <p>Real-time lyrics integration with LRCLib. Tap timestamps to seek, auto-scroll during playback. Manual reload available if lyrics fail to load.</p>
+                        <h3>Synchronized Lyrics with LRCLib</h3>
+                        <p>Real-time lyrics with community-driven LRCLib integration. Tap timestamps to seek, auto-scroll during playback, and manual reload option. Supports multiple languages and synchronized highlighting. Configure API endpoints in Settings → Advanced → API Management.</p>
                     </div>
                     <div class="help-item">
-                        <h3>Queue & Playback Control</h3>
-                        <p>Long-press songs to add to queue. Reorder tracks, remove items, or clear entire queue. Independent volume control or system integration.</p>
+                        <h3>Professional 10-Band Equalizer</h3>
+                        <p>Sophisticated 10-band equalizer with frequency-specific controls, preset profiles, and custom settings. Adjust bass, midrange, treble, and create personalized audio profiles. Real-time audio processing with high-quality filtering algorithms.</p>
                     </div>
                     <div class="help-item">
-                        <h3>Equalizer & Audio Customization</h3>
-                        <p>Built-in 5-band equalizer with presets. Adjust bass, treble, and audio settings. Save custom equalizer profiles.</p>
+                        <h3>Sleep Timer with Advanced Features</h3>
+                        <p>Customizable sleep timers with preset durations, fade-out options, and playlist continuation. Visual countdown indicator, automatic pause at specified time, and flexible duration selection from minutes to hours.</p>
+                    </div>
+                    <div class="help-item">
+                        <h3>Device Output & Bluetooth Management</h3>
+                        <p>Advanced audio output selection with automatic Bluetooth device detection and switching. Manual device selection, audio focus management, and support for multiple simultaneous outputs. Enhanced Bluetooth handling for calls and notifications.</p>
                     </div>
                 </div>
 
                 <div id="library-management" class="help-category">
                     <h2><i class="fas fa-folder-open"></i> Library Management</h2>
                     <div class="help-item">
-                        <h3>Smart Library Organization</h3>
-                        <p>Navigate through Songs, Albums, Artists, Playlists, and Folders tabs. Customize tab order in Settings → Library to match your preferences.</p>
+                        <h3>Advanced Library Organization</h3>
+                        <p>Five main tabs: Songs, Albums, Artists, Playlists, and Explorer. Customize tab order in Settings → Library → Tab Order. Each tab supports multiple sorting options and view preferences. The Explorer tab provides folder-based browsing with advanced storage access.</p>
                     </div>
                     <div class="help-item">
-                        <h3>Lightning-Fast Search</h3>
-                        <p>Fuzzy search across your entire library. Search by song title, artist, album, or lyrics. Results update in real-time as you type.</p>
+                        <h3>Lightning-Fast Fuzzy Search</h3>
+                        <p>Intelligent search across song titles, artists, albums, genres, and lyrics. Real-time results update as you type. Search supports partial matches, typos, and multiple keywords. Access search from any library tab.</p>
+                    </div>
+                    <div class="help-item">
+                        <h3>Genre-Based Smart Organization</h3>
+                        <p>Automatic genre detection with intelligent categorization. Filter library by genres, view genre-specific collections, and organize music by musical style. Enhanced genre recognition with better accuracy and UI integration.</p>
                     </div>
                     <div class="help-item">
                         <h3>Advanced Media Scanning</h3>
                         <ul>
-                            <li><strong>Automatic Scanning:</strong> Scans device on first launch and app updates</li>
-                            <li><strong>Whitelist Mode:</strong> Include only specific folders</li>
-                            <li><strong>Blacklist Mode:</strong> Exclude unwanted directories</li>
-                            <li><strong>Explorer:</strong> Manually browse and add music folders</li>
+                            <li><strong>Automatic Scanning:</strong> Background scanning on app launch and updates</li>
+                            <li><strong>Whitelist Mode:</strong> Include only specified folders for precise control</li>
+                            <li><strong>Blacklist Mode:</strong> Exclude unwanted directories and system folders</li>
+                            <li><strong>Explorer Integration:</strong> Manual folder browsing and selective adding</li>
+                            <li><strong>Real-time Updates:</strong> Automatic library refresh when files change</li>
                         </ul>
                     </div>
                     <div class="help-item">
-                        <h3>Playlist Management</h3>
-                        <p>Create, edit, and manage playlists. Import/export in various formats. Add songs via long-press or drag-and-drop. Smart playlist suggestions.</p>
+                        <h3>Comprehensive Playlist Management</h3>
+                        <p>Create, edit, delete, and organize playlists with drag-and-drop reordering. Import/export in M3U, PLS, and other formats. Smart playlist suggestions based on listening habits. Backup and restore playlist collections.</p>
                     </div>
                     <div class="help-item">
-                        <h3>Rich Metadata & Artwork</h3>
-                        <p>Automatic high-quality album art fetching from Deezer. Comprehensive tag support with embedded metadata display.</p>
+                        <h3>Rich Metadata & Artwork Editing</h3>
+                        <p>View and edit comprehensive song metadata including title, artist, album, genre, year, and track number. Edit album artwork with permission handling. Batch metadata operations and automatic high-quality artwork fetching from Deezer.</p>
+                    </div>
+                    <div class="help-item">
+                        <h3>Album Art & Visual Features</h3>
+                        <p>Automatic high-quality album art fetching from Deezer database. Color extraction for dynamic theming. Support for embedded artwork and external image files. Smart fallback logos for missing artwork.</p>
                     </div>
                 </div>
 
                 <div id="customization" class="help-category">
                     <h2><i class="fas fa-palette"></i> Customization</h2>
                     <div class="help-item">
-                        <h3>Themes & Appearance</h3>
-                        <p>Choose between light/dark themes or follow system settings. Enable Material You for dynamic colors based on your wallpaper.</p>
+                        <h3>Material You Dynamic Theming</h3>
+                        <p>Android 12+ users get automatic color extraction from wallpaper. System automatically generates color schemes that adapt to your device's theme. Toggle between light/dark modes or follow system settings.</p>
                     </div>
                     <div class="help-item">
-                        <h3>Color Themes</h3>
-                        <p>Extract colors from album artwork for dynamic theming, or choose from predefined color schemes in Settings.</p>
+                        <h3>Advanced Theme Customization</h3>
+                        <p>Access Settings → Appearance → Theme Customization for complete control. Choose from predefined color schemes, create custom palettes, and preview themes before applying. Support for custom accent colors and theme variants.</p>
                     </div>
                     <div class="help-item">
-                        <h3>Fonts</h3>
-                        <p>Change the app's font from system fonts or import custom fonts. Access this option in Settings → Appearance.</p>
+                        <h3>Font Selection & Typography</h3>
+                        <p>Change the app's font from system fonts or import custom fonts. Access in Settings → Appearance → Font. Choose from various typography options to match your style preferences.</p>
                     </div>
                     <div class="help-item">
-                        <h3>Tab Order</h3>
-                        <p>Reorder the navigation tabs (Songs, Albums, Artists, etc.) to match your preferences in Settings → Library.</p>
+                        <h3>Library Tab Customization</h3>
+                        <p>Reorder navigation tabs (Songs, Albums, Artists, Playlists, Explorer) in Settings → Library → Tab Order. Arrange tabs to match your usage patterns and prioritize frequently used sections.</p>
+                    </div>
+                    <div class="help-item">
+                        <h3>Grid vs List View Options</h3>
+                        <p>Choose between grid and list layouts for albums and artists. Grid view shows artwork prominently, list view provides more text information. Settings persist across app sessions.</p>
+                    </div>
+                    <div class="help-item">
+                        <h3>Album Art Color Extraction</h3>
+                        <p>Dynamic theming based on album artwork colors. Extract vibrant colors from current track's artwork for immersive visual experience. Automatic color palette generation for consistent theming.</p>
                     </div>
                 </div>
 
@@ -273,31 +308,39 @@
                     <h2><i class="fas fa-cog"></i> Settings & Advanced Features</h2>
                     <div class="help-item">
                         <h3>Smart Settings Search</h3>
-                        <p>Use the search bar in Settings to instantly find any option. Type keywords to filter through all available settings and preferences.</p>
+                        <p>Powerful search functionality in Settings with real-time filtering. Type keywords to instantly find any setting across all categories. No need to navigate through menus - search finds everything.</p>
                     </div>
                     <div class="help-item">
-                        <h3>Backup & Restore</h3>
-                        <p>Backup playlists, settings, and preferences. Restore them when reinstalling or switching devices. Includes theme preferences and equalizer settings.</p>
+                        <h3>Comprehensive Backup & Restore</h3>
+                        <p>Complete backup solution for playlists, settings, themes, equalizer profiles, and preferences. Restore everything when reinstalling or switching devices. Includes theme preferences, custom color schemes, and all user configurations.</p>
                     </div>
                     <div class="help-item">
-                        <h3>Sleep Timer & Auto-Stop</h3>
-                        <p>Set timers to automatically stop playback after a specified duration. Choose from presets or custom time. Visual countdown indicator.</p>
+                        <h3>Advanced Sleep Timer</h3>
+                        <p>Flexible sleep timer with custom durations, fade-out effects, and playlist continuation options. Visual countdown indicator, automatic pause functionality, and presets for common durations. Enhanced with playlist-aware behavior.</p>
                     </div>
                     <div class="help-item">
-                        <h3>API Management</h3>
-                        <p>Configure API endpoints for lyrics (LRCLib) and artwork (Deezer). Set custom API keys or use default community services.</p>
+                        <h3>API Management & Configuration</h3>
+                        <p>Configure API endpoints for lyrics (LRCLib) and artwork (Deezer). Set custom API keys, manage rate limits, and switch between community and personal API services. Advanced network configuration options.</p>
                     </div>
                     <div class="help-item">
-                        <h3>Cache Management</h3>
-                        <p>Control artwork, lyrics, and Canvas cache sizes. Clear cache to free up space or refresh content. Automatic cache cleanup options.</p>
+                        <h3>Intelligent Cache Management</h3>
+                        <p>Advanced cache system with manual controls and performance monitoring. Separate caches for artwork, lyrics, and Canvas visuals. Automatic cleanup, size limits, and cache refresh options. Monitor storage usage and optimize performance.</p>
                     </div>
                     <div class="help-item">
-                        <h3>Auto-Updates</h3>
-                        <p>Automatic update checking via GitHub releases. Download and install updates directly within the app. Beta program access for early features.</p>
+                        <h3>Auto-Updates & Beta Program</h3>
+                        <p>Automatic update checking via GitHub releases with in-app download and installation. Beta program access for early feature testing. Choose between stable and beta update channels. Background update downloads.</p>
                     </div>
                     <div class="help-item">
-                        <h3>Device Output & Bluetooth</h3>
-                        <p>Advanced audio output selection. Automatic Bluetooth device detection and switching. Audio focus management for calls and notifications.</p>
+                        <h3>Enhanced Device Output Management</h3>
+                        <p>Sophisticated audio output selection with automatic Bluetooth device detection and switching. Manual device selection, audio focus management, and support for multiple simultaneous outputs. Enhanced handling for calls and notifications.</p>
+                    </div>
+                    <div class="help-item">
+                        <h3>Advanced Audio Controls</h3>
+                        <p>Independent volume control with system integration options. Audio focus management for seamless interaction with other apps. Volume normalization and advanced audio routing capabilities.</p>
+                    </div>
+                    <div class="help-item">
+                        <h3>Privacy & Data Management</h3>
+                        <p>Complete control over data usage and privacy. Manage what data is sent to APIs, control artwork fetching, and configure offline capabilities. No personal data collection - everything stays on your device.</p>
                     </div>
                 </div>
 

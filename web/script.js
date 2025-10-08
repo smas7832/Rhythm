@@ -210,8 +210,14 @@ function setupNewsCarousel() {
     // Clear existing content
     newsCarouselTrack.innerHTML = '';
 
-    // Populate news items dynamically
-    Object.keys(updateData).slice(0, 3).forEach(key => { // Show only the latest 3 updates
+    // Populate news items dynamically - sort by date (newest first)
+    const sortedUpdateKeys = Object.keys(updateData).sort((a, b) => {
+        const dateA = new Date(updateData[a].date);
+        const dateB = new Date(updateData[b].date);
+        return dateB - dateA; // Newest first
+    });
+
+    sortedUpdateKeys.forEach(key => {
         const data = updateData[key];
         const newsItem = document.createElement('div');
         newsItem.className = 'news-carousel-item';
@@ -1001,48 +1007,56 @@ document.querySelectorAll('.scroll-to-download').forEach(button => {
     });
 });
 
-// Help Page Functionality
+// Help Page Functionality - Material 3 Expressive
 document.addEventListener('DOMContentLoaded', () => {
-    // Help section collapsible functionality
+    // Help section collapsible functionality with improved animations
     const helpCategories = document.querySelectorAll('.help-category');
 
-    helpCategories.forEach(category => {
+    helpCategories.forEach((category, categoryIndex) => {
         const header = category.querySelector('h2');
         const content = category.querySelectorAll('.help-item');
+
+        // Set initial animation delays for staggered entry
+        category.style.setProperty('--category-delay', `${categoryIndex * 0.1}s`);
 
         // Add click event to category headers
         header.addEventListener('click', () => {
             const isExpanded = category.classList.contains('expanded');
 
-            // Close all categories first
+            // Close all categories first with smooth animation
             helpCategories.forEach(cat => {
-                cat.classList.remove('expanded');
-                const items = cat.querySelectorAll('.help-item');
-                items.forEach(item => {
-                    item.style.display = 'none';
-                    item.style.opacity = '0';
-                });
+                if (cat !== category) {
+                    cat.classList.remove('expanded');
+                    const items = cat.querySelectorAll('.help-item');
+                    items.forEach((item, index) => {
+                        item.style.setProperty('--item-delay', '0s');
+                        item.classList.remove('item-visible');
+                    });
+                }
             });
 
-            // If this category wasn't expanded, expand it
+            // Toggle current category
             if (!isExpanded) {
                 category.classList.add('expanded');
                 content.forEach((item, index) => {
-                    setTimeout(() => {
-                        item.style.display = 'block';
-                        item.style.opacity = '1';
-                        item.style.transform = 'translateY(0)';
-                    }, index * 100);
+                    // Set staggered animation delay
+                    item.style.setProperty('--item-delay', `${index * 0.08}s`);
+                    // Use requestAnimationFrame for smooth animation triggering
+                    requestAnimationFrame(() => {
+                        item.classList.add('item-visible');
+                    });
+                });
+            } else {
+                category.classList.remove('expanded');
+                content.forEach(item => {
+                    item.classList.remove('item-visible');
                 });
             }
         });
 
-        // Initially hide all help items
+        // Initially hide all help items with CSS classes
         content.forEach(item => {
-            item.style.display = 'none';
-            item.style.opacity = '0';
-            item.style.transform = 'translateY(-10px)';
-            item.style.transition = 'all 0.3s ease';
+            item.classList.remove('item-visible');
         });
     });
 
