@@ -378,22 +378,29 @@ fun LibraryScreen(
     }
     
     if (showSongInfoSheet && selectedSong != null) {
+        // Get the latest version of the song from the songs list
+        val displaySong = songs.find { it.id == selectedSong!!.id } ?: selectedSong
+        
         SongInfoBottomSheet(
-            song = selectedSong!!,
+            song = displaySong!!,
             onDismiss = { showSongInfoSheet = false },
             onEditSong = { title, artist, album, genre, year, trackNumber ->
                 // Use the ViewModel's new metadata saving function with callbacks
                 musicViewModel.saveMetadataChanges(
-                    song = selectedSong!!,
+                    song = displaySong!!,
                     title = title,
                     artist = artist,
                     album = album,
                     genre = genre,
                     year = year,
                     trackNumber = trackNumber,
-                    onSuccess = {
-                        Toast.makeText(context, "Metadata updated successfully", Toast.LENGTH_SHORT).show()
-                        showSongInfoSheet = false
+                    onSuccess = { fileWriteSucceeded ->
+                        if (fileWriteSucceeded) {
+                            Toast.makeText(context, "Metadata saved successfully to file!", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(context, "Metadata updated in library only. File write failed - check permissions.", Toast.LENGTH_LONG).show()
+                        }
+                        // Don't close the sheet - let the user see the updated info
                     },
                     onError = { errorMessage ->
                         Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
@@ -4210,7 +4217,7 @@ fun SingleCardExplorerContent(
             
             // Reload current directory
             if (currentPath == null) {
-                val storageItems = getStorageRoots()
+                val storageItems = getStorageRoots(context)
                 currentItems = storageItems
                 directoryCache[cacheKey] = storageItems
                 isLoadingDirectory = false
@@ -4242,7 +4249,7 @@ fun SingleCardExplorerContent(
         if (currentPath == null) {
             // Show device storage roots (fast operation, no need for background)
             isLoadingDirectory = true
-            val storageItems = getStorageRoots()
+            val storageItems = getStorageRoots(context)
             currentItems = storageItems
             directoryCache[cacheKey] = storageItems
             isLoadingDirectory = false
@@ -4844,11 +4851,11 @@ fun SingleCardExplorerContent(
 }
 
 // Helper function to get device storage roots
-fun getStorageRoots(): List<ExplorerItem> {
+fun getStorageRoots(context: android.content.Context): List<ExplorerItem> {
     val items = mutableListOf<ExplorerItem>()
 
     try {
-        // Get internal storage
+        // Get internal storage (primary external storage)
         val internalStorage = Environment.getExternalStorageDirectory()
         if (internalStorage.exists()) {
             items.add(ExplorerItem(
@@ -4862,30 +4869,62 @@ fun getStorageRoots(): List<ExplorerItem> {
         }
 
         // Get external storage directories (SD cards, etc.)
-        // Use a modern alternative to getExternalFilesDirs
-        val externalDirs = try {
-            @Suppress("DEPRECATION")
-            ContextCompat.getExternalFilesDirs(android.app.Application().applicationContext, null)
-        } catch (e: Exception) {
-            emptyArray<File>()
-        }
+        // This gives us all removable storage paths
+        val externalDirs = ContextCompat.getExternalFilesDirs(context, null)
+        
         externalDirs.forEachIndexed { index, dir ->
-            if (dir != null && dir.exists()) {
-                val path = dir.absolutePath
-                val storageName = if (index == 0) "External Storage" else "SD Card $index"
-
-                items.add(ExplorerItem(
-                    name = storageName,
-                    path = path,
-                    isDirectory = true,
-                    itemCount = 0,
-                    type = ExplorerItemType.STORAGE,
-                    song = null
-                ))
+            if (dir != null && index > 0) { // Skip index 0 as it's internal storage
+                // Navigate up to get the actual SD card root
+                // From /storage/XXXX-XXXX/Android/data/package/files to /storage/XXXX-XXXX
+                var sdCardRoot = dir
+                var depth = 0
+                while (sdCardRoot.parent != null && depth < 10) {
+                    sdCardRoot = sdCardRoot.parentFile ?: break
+                    depth++
+                    // Stop when we reach /storage/XXXX-XXXX level
+                    if (sdCardRoot.parent == "/storage" || sdCardRoot.parentFile?.name == "storage") {
+                        break
+                    }
+                }
+                
+                if (sdCardRoot.exists() && sdCardRoot.canRead()) {
+                    val storageName = "SD Card ${if (index > 1) index else ""}"
+                    items.add(ExplorerItem(
+                        name = storageName.trim(),
+                        path = sdCardRoot.absolutePath,
+                        isDirectory = true,
+                        itemCount = 0,
+                        type = ExplorerItemType.STORAGE,
+                        song = null
+                    ))
+                }
+            }
+        }
+        
+        // Alternative method: Check /storage directory directly
+        val storageDir = File("/storage")
+        if (storageDir.exists() && storageDir.isDirectory) {
+            storageDir.listFiles()?.forEach { file ->
+                if (file.isDirectory && 
+                    file.name != "emulated" && 
+                    file.name != "self" && 
+                    !file.name.startsWith(".") &&
+                    file.canRead() &&
+                    !items.any { it.path == file.absolutePath }) {
+                    
+                    items.add(ExplorerItem(
+                        name = "Removable Storage (${file.name})",
+                        path = file.absolutePath,
+                        isDirectory = true,
+                        itemCount = 0,
+                        type = ExplorerItemType.STORAGE,
+                        song = null
+                    ))
+                }
             }
         }
     } catch (e: Exception) {
-        // Fallback - return empty list
+        android.util.Log.e("LibraryScreen", "Error getting storage roots", e)
     }
 
     return items

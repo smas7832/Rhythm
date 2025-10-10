@@ -238,16 +238,15 @@ Rhythm requests the following permissions for optimal functionality:
 
 | Permission | Why Needed | Where Used |
 |:---|:---|:---|
-| **📁 Storage Access**<br>`READ_EXTERNAL_STORAGE`<br>`READ_MEDIA_AUDIO`<br>`READ_MEDIA_IMAGES` | Access music files and album artwork on your device | • Media library scanning<br>• Music playback<br>• Album art display<br>• Playlist management |
+| **📁 Storage Access**<br>`READ_EXTERNAL_STORAGE` (API ≤32)<br>`WRITE_EXTERNAL_STORAGE` (API ≤29)<br>`READ_MEDIA_AUDIO`<br>`READ_MEDIA_IMAGES`<br>`READ_MEDIA_VISUAL_USER_SELECTED` | Access music files and album artwork on your device | • Media library scanning<br>• Music playback<br>• Album art display<br>• Playlist management<br>• Metadata editing |
 | **🔔 Notifications**<br>`POST_NOTIFICATIONS` | Show playback controls and update notifications | • Media notification controls<br>• Update availability alerts<br>• Background playback status |
-| **📶 Internet Access**<br>`INTERNET`<br>`ACCESS_NETWORK_STATE` | Fetch lyrics, artwork, and app updates | • LRCLib lyrics integration<br>• Online album artwork<br>• GitHub update checking<br>• Spotify Canvas support |
-| **🎧 Audio Settings**<br>`MODIFY_AUDIO_SETTINGS` | Control audio output and routing | • Audio focus management<br>• Bluetooth device switching<br>• Volume control integration |
-| **📱 Bluetooth**<br>`BLUETOOTH`<br>`BLUETOOTH_ADMIN`<br>`BLUETOOTH_CONNECT`<br>`BLUETOOTH_SCAN` | Connect to wireless audio devices | • Bluetooth speaker/headphone support<br>• Audio output device selection<br>• Wireless playback controls |
+| **📶 Internet Access**<br>`INTERNET`<br>`ACCESS_NETWORK_STATE` | Fetch lyrics, artwork, and app updates | • LRCLib lyrics integration<br>• Online album artwork<br>• GitHub update checking<br>• Deezer & YouTube Music APIs |
+| **🎧 Audio Settings**<br>`MODIFY_AUDIO_SETTINGS` | Control audio output and routing | • Audio focus management<br>• Bluetooth device switching<br>• Volume control integration<br>• Equalizer support |
+| **📱 Bluetooth**<br>`BLUETOOTH`<br>`BLUETOOTH_ADMIN` (API ≤30)<br>`BLUETOOTH_CONNECT`<br>`BLUETOOTH_SCAN` | Connect to wireless audio devices | • Bluetooth speaker/headphone support<br>• Audio output device selection<br>• Wireless playback controls |
 | **📲 Install Packages**<br>`REQUEST_INSTALL_PACKAGES` | Install app updates automatically | • In-app APK installation<br>• Automatic update deployment |
 | **🎵 Media Playback**<br>`FOREGROUND_SERVICE`<br>`FOREGROUND_SERVICE_MEDIA_PLAYBACK` | Background music playback | • Continuous music playback<br>• Lock screen controls<br>• Background audio processing |
-| **🖼️ Media Location**<br>`ACCESS_MEDIA_LOCATION` | Access location data in media files | • Enhanced metadata extraction<br>• Location-based artwork |
 
-> **Privacy Note**: Rhythm only accesses media files and never uploads your personal data. All permissions are used solely for the app's core music playback functionality.
+> **Privacy Note**: Rhythm is fully FOSS-compliant and only uses standard media permissions. We removed `MANAGE_EXTERNAL_STORAGE` and `ACCESS_MEDIA_LOCATION` as they're not needed for music playback. All permissions are used solely for the app's core functionality, and no personal data is ever uploaded.
 
 ### 🎵 **Basic App Usage**
 
@@ -275,6 +274,9 @@ Rhythm requests the following permissions for optimal functionality:
 #### **Library Management**
 - **Add to Playlists**: Long-press songs to create or add to playlists
 - **Edit Metadata**: View and edit song information and album art
+  - ⚠️ **Android 11+ Limitation**: Can only modify files created by Rhythm due to scoped storage restrictions
+  - Files imported from other sources will be read-only
+  - Metadata changes will still update in the app's library
 - **Blacklist Folders**: Exclude unwanted folders from your library
 - **Backup/Restore**: Protect your playlists and settings
 
@@ -290,6 +292,19 @@ Rhythm requests the following permissions for optimal functionality:
 - Go to **Settings → Apps → Rhythm → Permissions** to grant manually
 - Restart the app after granting permissions
 - Check that storage access is enabled for your music folders
+
+#### **Metadata Editing Limitations (Android 11+)**
+- **Cannot modify files**: Due to Android's scoped storage security model, apps can only modify files they created
+- **Read-only files**: Music files imported from other sources, downloads, or file transfers cannot be edited
+- **What still works**: 
+  - ✅ Metadata changes update in Rhythm's library (playlists, sorting, search)
+  - ✅ Files created/recorded by Rhythm can be edited
+  - ✅ View all metadata for any file
+- **Why this happens**: 
+  - Android 11+ prevents apps from modifying files they don't own to protect user data
+  - This is a system-level security restriction, not an app limitation
+  - Other music players face the same restriction
+- **Workaround**: Use a desktop app or dedicated metadata editor that has broader file access
 
 #### **Media Scanning Problems**
 - Ensure music files are in accessible locations

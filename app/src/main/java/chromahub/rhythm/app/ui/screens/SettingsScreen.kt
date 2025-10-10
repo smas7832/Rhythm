@@ -418,18 +418,6 @@ fun SettingsScreen(
 
             // Audio & Playback
             SearchableSettingItem(
-                "Sleep Timer",
-                "Auto-pause playback after a set duration",
-                "Audio & Playback",
-                listOf("sleep", "timer", "auto-pause", "duration")
-            ),
-            SearchableSettingItem(
-                "Crossfade",
-                "Smooth transition between songs",
-                "Audio & Playback",
-                listOf("crossfade", "transition", "fade", "smooth")
-            ),
-            SearchableSettingItem(
                 "Audio focus",
                 "Pause when other apps play audio",
                 "Audio & Playback",

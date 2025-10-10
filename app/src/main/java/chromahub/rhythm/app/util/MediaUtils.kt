@@ -1,5 +1,6 @@
 package chromahub.rhythm.app.util
 
+import android.app.RemoteAction
 import android.content.ContentResolver
 import android.content.Context
 import android.graphics.Bitmap
@@ -10,11 +11,24 @@ import android.os.Build
 import android.provider.MediaStore
 import android.util.Log
 import android.webkit.MimeTypeMap
+import org.jaudiotagger.audio.AudioFileIO
+import org.jaudiotagger.tag.FieldKey
+import org.jaudiotagger.tag.Tag
 import androidx.core.net.toUri
 import chromahub.rhythm.app.data.Song
-import chromahub.rhythm.app.util.ImageUtils
 import java.io.File
 import java.io.FileOutputStream
+
+/**
+ * Exception wrapper for RecoverableSecurityException that includes the pending intent
+ * and temp file path for retry after permission is granted
+ */
+class RecoverableSecurityExceptionWrapper(
+    message: String,
+    val userAction: RemoteAction,
+    val fileUri: Uri,
+    val tempFilePath: String
+) : Exception(message)
 
 /**
  * Utility class for handling media-related operations
@@ -425,6 +439,7 @@ object MediaUtils {
         newArtist: String,
         newAlbum: String,
         newGenre: String,
+        newYear: Int = 0,
         newTrackNumber: Int
     ): Boolean {
         return try {
@@ -434,7 +449,7 @@ object MediaUtils {
             Log.d(TAG, "Attempting to update metadata for song: ${song.title}")
             Log.d(TAG, "Song URI: ${song.uri}")
             Log.d(TAG, "Song ID: ${song.id}")
-            Log.d(TAG, "New values - Title: $newTitle, Artist: $newArtist, Album: $newAlbum, Genre: $newGenre, Year: N/A, Track: $newTrackNumber")
+            Log.d(TAG, "New values - Title: $newTitle, Artist: $newArtist, Album: $newAlbum, Genre: $newGenre, Year: $newYear, Track: $newTrackNumber")
             
             // Check if URI is valid and accessible
             if (!song.uri.toString().startsWith("content://media/")) {
@@ -442,17 +457,184 @@ object MediaUtils {
                 return false
             }
             
-            // Validate required fields
-            if (newTitle.isBlank()) {
-                Log.e(TAG, "Title cannot be blank")
-                return false
-            }
-            if (newArtist.isBlank()) {
-                Log.e(TAG, "Artist cannot be blank")
-                return false
+            // Get file path from URI for metadata writing
+            val filePath = when (song.uri.scheme) {
+                "content" -> {
+                    val projection = arrayOf(MediaStore.Audio.Media.DATA)
+                    contentResolver.query(song.uri, projection, null, null, null)
+                        ?.use { cursor ->
+                            if (cursor.moveToFirst()) {
+                                val dataIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
+                                cursor.getString(dataIndex)
+                            } else null
+                        }
+                }
+                "file" -> song.uri.path
+                else -> null
             }
             
-            // Check write permissions for older versions
+            // Write metadata to the actual file
+            var fileWriteSucceeded = false
+            
+            // For Android 10+ (API 29+), we need to use a temporary file approach
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                try {
+                    Log.d(TAG, "Using temporary file approach for Android 10+ file write")
+                    Log.d(TAG, "Song URI: ${song.uri}")
+                    Log.d(TAG, "Song path: $filePath")
+                    
+                    // Get the file extension to preserve format
+                    val fileName = song.title.replace("[^a-zA-Z0-9.-]".toRegex(), "_")
+                    val extension = filePath?.substringAfterLast('.', "mp3") ?: "mp3"
+                    val tempFile = File(context.cacheDir, "temp_audio_${System.currentTimeMillis()}.$extension")
+                    
+                    try {
+                        // Step 1: Copy original file to temp location
+                        Log.d(TAG, "Step 1: Copying original file to temp...")
+                        var bytesRead = 0L
+                        contentResolver.openInputStream(song.uri)?.use { inputStream ->
+                            tempFile.outputStream().use { outputStream ->
+                                bytesRead = inputStream.copyTo(outputStream)
+                            }
+                        }
+                        Log.d(TAG, "Copied $bytesRead bytes to temp location: ${tempFile.absolutePath}")
+                        
+                        if (!tempFile.exists() || tempFile.length() == 0L) {
+                            throw Exception("Failed to copy file to temp location")
+                        }
+                        
+                        // Step 2: Modify metadata using jaudiotagger on temp file
+                        Log.d(TAG, "Step 2: Modifying metadata in temp file...")
+                        val audioFileObj = AudioFileIO.read(tempFile)
+                        val tag: Tag = audioFileObj.tag ?: audioFileObj.createDefaultTag()
+                        
+                        tag.setField(FieldKey.TITLE, newTitle)
+                        tag.setField(FieldKey.ARTIST, newArtist)
+                        tag.setField(FieldKey.ALBUM, newAlbum)
+                        if (newGenre.isNotBlank()) {
+                            tag.setField(FieldKey.GENRE, newGenre)
+                        }
+                        if (newYear > 0) {
+                            tag.setField(FieldKey.YEAR, newYear.toString())
+                        }
+                        if (newTrackNumber > 0) {
+                            tag.setField(FieldKey.TRACK, newTrackNumber.toString())
+                        }
+                        
+                        audioFileObj.tag = tag
+                        AudioFileIO.write(audioFileObj)
+                        Log.d(TAG, "Metadata written to temp file successfully")
+                        
+                        // Step 3: Copy modified temp file back to original location
+                        Log.d(TAG, "Step 3: Copying modified file back to original location...")
+                        
+                        // Try to open output stream - this is where it might fail on Android 10+
+                        val outputStream = try {
+                            contentResolver.openOutputStream(song.uri, "w")
+                        } catch (e: android.app.RecoverableSecurityException) {
+                            // Android 11+ requires user permission via createWriteRequest
+                            Log.e(TAG, "RecoverableSecurityException - Need to request user permission for this file")
+                            Log.e(TAG, "This file was not created by this app. User permission is required to modify it.")
+                            Log.e(TAG, "Solution: App needs to use MediaStore.createWriteRequest() and show permission dialog")
+                            
+                            // Store the temp file path so it can be used after permission is granted
+                            // For now, we'll throw with the pending intent info
+                            throw RecoverableSecurityExceptionWrapper(
+                                "User permission required to modify this file",
+                                e.userAction,
+                                song.uri,
+                                tempFile.absolutePath
+                            )
+                        } catch (e: SecurityException) {
+                            Log.e(TAG, "SecurityException opening output stream - app may not have write permission for this file", e)
+                            null
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Exception opening output stream: ${e.javaClass.simpleName} - ${e.message}", e)
+                            null
+                        }
+                        
+                        if (outputStream == null) {
+                            Log.e(TAG, "Failed to open output stream for writing. This typically means:")
+                            Log.e(TAG, "1. File is on external SD card (requires special permissions)")
+                            Log.e(TAG, "2. File is in a protected directory")
+                            Log.e(TAG, "3. App doesn't own this file (Android 11+ scoped storage restriction)")
+                            throw Exception("Cannot open output stream for URI: ${song.uri}")
+                        }
+                        
+                        outputStream.use { outStream ->
+                            tempFile.inputStream().use { inputStream ->
+                                val bytesCopied = inputStream.copyTo(outStream)
+                                Log.d(TAG, "Copied $bytesCopied bytes back to original location")
+                            }
+                        }
+                        
+                        fileWriteSucceeded = true
+                        Log.d(TAG, "Successfully wrote metadata using temp file approach for Android 10+")
+                        
+                    } catch (inner: RecoverableSecurityExceptionWrapper) {
+                        // This is a special case where we need user permission
+                        Log.e(TAG, "RecoverableSecurityException caught - user permission required")
+                        // Re-throw to be handled by the ViewModel/UI layer
+                        throw inner
+                    } catch (inner: Exception) {
+                        Log.e(TAG, "Error during temp file operations", inner)
+                        throw inner
+                    } finally {
+                        // Clean up temp file
+                        if (tempFile.exists()) {
+                            val deleted = tempFile.delete()
+                            Log.d(TAG, "Temp file cleanup: ${if (deleted) "success" else "failed"}")
+                        }
+                    }
+                } catch (e: RecoverableSecurityExceptionWrapper) {
+                    // User permission required - propagate up to UI layer
+                    Log.w(TAG, "User permission required for file modification: ${e.message}")
+                    throw e
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to write metadata using temp file approach on Android 10+", e)
+                    Log.e(TAG, "Error details: ${e.message}")
+                    e.printStackTrace()
+                    // Continue with MediaStore update even if file writing fails
+                }
+            } else {
+                // For Android 9 and below, use traditional file access
+                if (filePath == null) {
+                    Log.e(TAG, "Could not get file path for metadata update")
+                } else {
+                    val audioFile = File(filePath)
+                    if (!audioFile.exists()) {
+                        Log.e(TAG, "File does not exist: $filePath")
+                    } else if (!audioFile.canWrite()) {
+                        Log.e(TAG, "File is not writable: $filePath")
+                    } else {
+                        try {
+                            val audioFileObj = AudioFileIO.read(audioFile)
+                            val tag: Tag = audioFileObj.tag ?: audioFileObj.createDefaultTag()
+                            
+                            tag.setField(FieldKey.TITLE, newTitle)
+                            tag.setField(FieldKey.ARTIST, newArtist)
+                            tag.setField(FieldKey.ALBUM, newAlbum)
+                            if (newGenre.isNotBlank()) {
+                                tag.setField(FieldKey.GENRE, newGenre)
+                            }
+                            if (newYear > 0) {
+                                tag.setField(FieldKey.YEAR, newYear.toString())
+                            }
+                            if (newTrackNumber > 0) {
+                                tag.setField(FieldKey.TRACK, newTrackNumber.toString())
+                            }
+                            
+                            audioFileObj.tag = tag
+                            AudioFileIO.write(audioFileObj)
+                            
+                            fileWriteSucceeded = true
+                            Log.d(TAG, "Successfully wrote metadata to file (Android 9-): $filePath")
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to write metadata to file using jaudiotagger", e)
+                        }
+                    }
+                }
+            }
             if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
                 val hasWritePermission = androidx.core.content.ContextCompat.checkSelfPermission(
                     context,
@@ -489,6 +671,9 @@ object MediaUtils {
                 put(MediaStore.Audio.Media.ALBUM, newAlbum)
                 if (newGenre.isNotBlank()) {
                     put(MediaStore.Audio.Media.GENRE, newGenre)
+                }
+                if (newYear > 0) {
+                    put(MediaStore.Audio.Media.YEAR, newYear)
                 }
                 if (newTrackNumber > 0) {
                     put(MediaStore.Audio.Media.TRACK, newTrackNumber)
@@ -530,13 +715,18 @@ object MediaUtils {
             }
             
             Log.d(TAG, "Updated $rowsUpdated rows for song: ${song.title}")
-            val success = rowsUpdated > 0
+            val mediaStoreSuccess = rowsUpdated > 0
             
-            if (success) {
+            // Log the results of both operations
+            Log.d(TAG, "Metadata update results - MediaStore: $mediaStoreSuccess, File write: $fileWriteSucceeded")
+            
+            // Only trigger media scanner if the file write actually succeeded
+            // If file write failed but MediaStore succeeded, scanner would overwrite with old metadata
+            if (mediaStoreSuccess && fileWriteSucceeded) {
                 // Trigger media scanner to refresh the metadata
                 try {
                     // Get file path from URI
-                    val filePath = when (song.uri.scheme) {
+                    val scanFilePath = when (song.uri.scheme) {
                         "content" -> {
                             val projection = arrayOf(MediaStore.Audio.Media.DATA)
                             contentResolver.query(song.uri, projection, null, null, null)
@@ -551,23 +741,27 @@ object MediaUtils {
                         else -> null
                     }
                     
-                    if (filePath != null) {
+                    if (scanFilePath != null) {
                         android.media.MediaScannerConnection.scanFile(
                             context,
-                            arrayOf(filePath),
+                            arrayOf(scanFilePath),
                             null,
                             null
                         )
-                        Log.d(TAG, "Media scanner triggered for updated file: $filePath")
+                        Log.d(TAG, "Media scanner triggered for updated file: $scanFilePath")
                     } else {
                         Log.w(TAG, "Could not get file path for media scanner")
                     }
                 } catch (e: Exception) {
                     Log.w(TAG, "Failed to trigger media scanner", e)
                 }
+            } else if (mediaStoreSuccess && !fileWriteSucceeded) {
+                Log.i(TAG, "MediaStore updated but file write failed - skipping media scanner to preserve MediaStore changes")
             }
             
-            success
+            // Return true ONLY if file write succeeded (the actual persistent change)
+            // MediaStore updates are temporary and will be overwritten by media scanner
+            fileWriteSucceeded
             
         } catch (e: Exception) {
             Log.e(TAG, "Failed to update song metadata: ${song.title}", e)

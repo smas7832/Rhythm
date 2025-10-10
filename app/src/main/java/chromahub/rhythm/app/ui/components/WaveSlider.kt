@@ -274,6 +274,47 @@ private fun DrawScope.drawExpressiveHandle(
         close()
     }
     
+    // Draw shadow behind the main handle first
+    val shadowOffset = 2.dp.toPx()
+    val shadowPath = Path().apply {
+        val radius = handleSize / 2
+        val controlOffset = radius * 0.3f
+        
+        // Offset the entire path slightly for shadow effect
+        moveTo(centerX + shadowOffset * 0.5f, centerY - radius + shadowOffset)
+        
+        cubicTo(
+            centerX + controlOffset + shadowOffset * 0.5f, centerY - radius + shadowOffset,
+            centerX + radius + shadowOffset * 0.5f, centerY - controlOffset * 0.7f + shadowOffset,
+            centerX + radius + shadowOffset * 0.5f, centerY + shadowOffset
+        )
+        
+        cubicTo(
+            centerX + radius + shadowOffset * 0.5f, centerY + controlOffset * 1.2f + shadowOffset,
+            centerX + controlOffset * 0.8f + shadowOffset * 0.5f, centerY + radius + shadowOffset,
+            centerX + shadowOffset * 0.5f, centerY + radius + shadowOffset
+        )
+        
+        cubicTo(
+            centerX - controlOffset * 0.8f + shadowOffset * 0.5f, centerY + radius + shadowOffset,
+            centerX - radius + shadowOffset * 0.5f, centerY + controlOffset * 1.2f + shadowOffset,
+            centerX - radius + shadowOffset * 0.5f, centerY + shadowOffset
+        )
+        
+        cubicTo(
+            centerX - radius + shadowOffset * 0.5f, centerY - controlOffset * 0.7f + shadowOffset,
+            centerX - controlOffset + shadowOffset * 0.5f, centerY - radius + shadowOffset,
+            centerX + shadowOffset * 0.5f, centerY - radius + shadowOffset
+        )
+        
+        close()
+    }
+    
+    drawPath(
+        path = shadowPath,
+        color = Color.Black.copy(alpha = 0.15f)
+    )
+    
     // Draw the main handle shape with elevation effect
     drawPath(
         path = handlePath,
@@ -321,46 +362,4 @@ private fun DrawScope.drawExpressiveHandle(
             color = handleColor.copy(alpha = 0.4f)
         )
     }
-    
-    // Add subtle shadow/elevation effect
-    val shadowOffset = 2.dp.toPx()
-    val shadowPath = Path().apply {
-        val radius = handleSize / 2
-        val controlOffset = radius * 0.3f
-        
-        // Offset the entire path slightly for shadow effect
-        moveTo(centerX + shadowOffset * 0.5f, centerY - radius + shadowOffset)
-        
-        cubicTo(
-            centerX + controlOffset + shadowOffset * 0.5f, centerY - radius + shadowOffset,
-            centerX + radius + shadowOffset * 0.5f, centerY - controlOffset * 0.7f + shadowOffset,
-            centerX + radius + shadowOffset * 0.5f, centerY + shadowOffset
-        )
-        
-        cubicTo(
-            centerX + radius + shadowOffset * 0.5f, centerY + controlOffset * 1.2f + shadowOffset,
-            centerX + controlOffset * 0.8f + shadowOffset * 0.5f, centerY + radius + shadowOffset,
-            centerX + shadowOffset * 0.5f, centerY + radius + shadowOffset
-        )
-        
-        cubicTo(
-            centerX - controlOffset * 0.8f + shadowOffset * 0.5f, centerY + radius + shadowOffset,
-            centerX - radius + shadowOffset * 0.5f, centerY + controlOffset * 1.2f + shadowOffset,
-            centerX - radius + shadowOffset * 0.5f, centerY + shadowOffset
-        )
-        
-        cubicTo(
-            centerX - radius + shadowOffset * 0.5f, centerY - controlOffset * 0.7f + shadowOffset,
-            centerX - controlOffset + shadowOffset * 0.5f, centerY - radius + shadowOffset,
-            centerX + shadowOffset * 0.5f, centerY - radius + shadowOffset
-        )
-        
-        close()
-    }
-    
-    // Draw shadow behind the main handle
-    drawPath(
-        path = shadowPath,
-        color = Color.Black.copy(alpha = 0.15f)
-    )
 }

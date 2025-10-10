@@ -1,7 +1,11 @@
 package chromahub.rhythm.app.ui.screens
 
+import android.content.Context
+import android.net.Uri
 import android.util.Log
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.EaseInOut
 import androidx.compose.animation.core.Spring
@@ -60,6 +64,12 @@ import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.FileOpen
+import androidx.compose.material.icons.rounded.Save
+import androidx.compose.material.icons.rounded.FolderOpen
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.BottomSheetDefaults
@@ -93,6 +103,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.Slider
@@ -169,6 +181,7 @@ import chromahub.rhythm.app.ui.screens.AddToPlaylistBottomSheet
 import chromahub.rhythm.app.ui.screens.DeviceOutputBottomSheet
 import chromahub.rhythm.app.ui.screens.SongInfoBottomSheet
 import chromahub.rhythm.app.ui.screens.ArtistBottomSheet
+import chromahub.rhythm.app.ui.screens.LyricsEditorBottomSheet
 import chromahub.rhythm.app.util.MediaUtils
 import chromahub.rhythm.app.ui.components.CanvasPlayer
 import chromahub.rhythm.app.data.CanvasRepository
@@ -214,6 +227,9 @@ fun PlayerScreen(
     lyrics: chromahub.rhythm.app.data.LyricsData? = null,
     isLoadingLyrics: Boolean = false,
     onRetryLyrics: () -> Unit = {},
+    onEditLyrics: (String) -> Unit = {},
+    onPickLyricsFile: () -> Unit = {},
+    onSaveLyrics: (String, String) -> Unit = { _, _ -> }, // (lyrics, saveLocation)
     playlists: List<Playlist> = emptyList(),
     queue: List<Song> = emptyList(),
     onSongClick: (Song) -> Unit = {},
@@ -291,6 +307,7 @@ fun PlayerScreen(
     // Bottom sheet states
     var showEqualizerBottomSheet by remember { mutableStateOf(false) }
     var showSleepTimerBottomSheet by remember { mutableStateOf(false) }
+    var showLyricsEditorDialog by remember { mutableStateOf(false) }
     val isCompactWidth = configuration.screenWidthDp < 400
     
     // Sleep timer state from ViewModel
@@ -302,6 +319,27 @@ fun PlayerScreen(
     
     // Chip visibility state
     var showChips by remember { mutableStateOf(false) }
+    
+    // File picker launcher for loading lyrics directly
+    val loadLyricsLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        uri?.let {
+            try {
+                context.contentResolver.openInputStream(it)?.use { inputStream ->
+                    val loadedLyrics = inputStream.bufferedReader().readText()
+                    // Save the loaded lyrics to the ViewModel
+                    musicViewModel.saveEditedLyrics(loadedLyrics)
+                    // Open the lyrics editor with the loaded content
+                    showLyricsEditorDialog = true
+                    Toast.makeText(context, "Lyrics loaded successfully", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Log.e("PlayerScreen", "Error loading lyrics file", e)
+                Toast.makeText(context, "Error loading lyrics: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
 
     // Dynamic sizing based on screen dimensions
     val albumArtSize = when {
@@ -666,9 +704,12 @@ fun PlayerScreen(
                         genre = genre,
                         year = year,
                         trackNumber = trackNumber,
-                        onSuccess = {
-                            // Show success message
-                            Toast.makeText(context, "Metadata updated successfully", Toast.LENGTH_SHORT).show()
+                        onSuccess = { fileWriteSucceeded ->
+                            if (fileWriteSucceeded) {
+                                Toast.makeText(context, "Metadata saved successfully to file!", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, "Metadata updated in library only. File write failed - check permissions.", Toast.LENGTH_LONG).show()
+                            }
                         },
                         onError = { errorMessage ->
                             // Show detailed error message
@@ -1430,26 +1471,78 @@ fun PlayerScreen(
                                                             textAlign = TextAlign.Center
                                                         )
                                                         
-                                                        // Show retry button when not loading
+                                                        // Show action buttons when not loading
                                                         if (!isLoadingLyrics) {
                                                             Spacer(modifier = Modifier.height(16.dp))
+                                                            
+                                                            // Action buttons row
+                                                            Row(
+                                                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                                                modifier = Modifier.padding(horizontal = 24.dp)
+                                                            ) {
+                                                                // Retry button
+                                                                FilledTonalButton(
+                                                                    onClick = {
+                                                                        HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                                                                        onRetryLyrics()
+                                                                    },
+                                                                    colors = ButtonDefaults.filledTonalButtonColors(
+                                                                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                                                                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                                                                    ),
+                                                                    modifier = Modifier.weight(1f)
+                                                                ) {
+                                                                    Icon(
+                                                                        imageVector = Icons.Rounded.Refresh,
+                                                                        contentDescription = null,
+                                                                        modifier = Modifier.size(18.dp)
+                                                                    )
+                                                                    Spacer(modifier = Modifier.width(8.dp))
+                                                                    Text("Retry")
+                                                                }
+                                                                
+                                                                // Edit manually button
+                                                                OutlinedButton(
+                                                                    onClick = {
+                                                                        HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                                                                        showLyricsEditorDialog = true
+                                                                    },
+                                                                    colors = ButtonDefaults.outlinedButtonColors(
+                                                                        contentColor = MaterialTheme.colorScheme.secondary
+                                                                    ),
+                                                                    modifier = Modifier.weight(1f)
+                                                                ) {
+                                                                    Icon(
+                                                                        imageVector = Icons.Rounded.Edit,
+                                                                        contentDescription = null,
+                                                                        modifier = Modifier.size(18.dp)
+                                                                    )
+                                                                    Spacer(modifier = Modifier.width(8.dp))
+                                                                    Text("Add")
+                                                                }
+                                                            }
+                                                            
+                                                            Spacer(modifier = Modifier.height(8.dp))
+                                                            
+                                                            // Full width button for loading lyrics
                                                             FilledTonalButton(
                                                                 onClick = {
                                                                     HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
-                                                                    onRetryLyrics()
+                                                                    loadLyricsLauncher.launch(arrayOf("text/plain", "text/*", "*/*"))
                                                                 },
+                                                                modifier = Modifier.padding(horizontal = 24.dp),
                                                                 colors = ButtonDefaults.filledTonalButtonColors(
-                                                                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                                                                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                                                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                                                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                                                                 )
                                                             ) {
                                                                 Icon(
-                                                                    imageVector = Icons.Rounded.Refresh,
+                                                                    imageVector = Icons.Rounded.FileOpen,
                                                                     contentDescription = null,
                                                                     modifier = Modifier.size(18.dp)
                                                                 )
                                                                 Spacer(modifier = Modifier.width(8.dp))
-                                                                Text("Retry")
+                                                                Text("Load Lyrics")
                                                             }
                                                         }
                                                     }
@@ -2311,6 +2404,65 @@ fun PlayerScreen(
                             )
                         }
                         
+                        // Lyrics Edit chip
+                        item {
+                            var isPressed by remember { mutableStateOf(false) }
+                            val scale by animateFloatAsState(
+                                targetValue = if (isPressed) 0.95f else 1f,
+                                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+                                label = "lyricsEditChipScale"
+                            )
+                            
+                            val hasLyrics = lyrics?.getBestLyrics()?.isNotEmpty() == true
+                            // Use same colors as "Add to" chip - surfaceVariant for consistency
+                            val chipColors = AssistChipDefaults.assistChipColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                leadingIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            
+                            AssistChip(
+                                onClick = {
+                                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                                    showLyricsEditorDialog = true
+                                },
+                                label = {
+                                    Text(
+                                        text = if (hasLyrics) "Edit Lyrics" else "Add Lyrics",
+                                        style = MaterialTheme.typography.labelLarge
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = if (hasLyrics) Icons.Rounded.Edit else Icons.Rounded.Lyrics,
+                                        contentDescription = if (hasLyrics) "Edit lyrics" else "Add lyrics",
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                },
+                                modifier = Modifier
+                                    .height(32.dp)
+                                    .graphicsLayer {
+                                        scaleX = scale
+                                        scaleY = scale
+                                    }
+                                    .pointerInput(Unit) {
+                                        detectTapGestures(
+                                            onPress = {
+                                                isPressed = true
+                                                try {
+                                                    awaitRelease()
+                                                } finally {
+                                                    isPressed = false
+                                                }
+                                            }
+                                        )
+                                    },
+                                shape = RoundedCornerShape(16.dp),
+                                colors = chipColors,
+                                border = null
+                            )
+                        }
+                        
                         // Album chip  
                         item {
                             var isPressed by remember { mutableStateOf(false) }
@@ -2603,6 +2755,20 @@ fun PlayerScreen(
             currentSong = song,
             isPlaying = isPlaying,
             musicViewModel = musicViewModel
+        )
+    }
+    
+    // Lyrics Editor Bottom Sheet
+    if (showLyricsEditorDialog) {
+        LyricsEditorBottomSheet(
+            currentLyrics = lyrics?.getBestLyrics() ?: "",
+            songTitle = song?.title ?: "Unknown",
+            onDismiss = { showLyricsEditorDialog = false },
+            onSave = { editedLyrics ->
+                // Save lyrics to cache and update current lyrics
+                musicViewModel.saveEditedLyrics(editedLyrics)
+                showLyricsEditorDialog = false
+            }
         )
     }
 }

@@ -741,7 +741,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         year: Int,
         trackNumber: Int,
         artworkUri: Uri? = null,
-        onSuccess: () -> Unit,
+        onSuccess: (fileWriteSucceeded: Boolean) -> Unit,
         onError: (String) -> Unit
     ) {
         viewModelScope.launch {
@@ -756,6 +756,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                         newArtist = artist,
                         newAlbum = album,
                         newGenre = genre,
+                        newYear = year,
                         newTrackNumber = trackNumber
                     )
                 }
@@ -773,30 +774,46 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 // Update the song using existing function
                 updateCurrentSongMetadata(updatedSong)
                 
-                if (success) {
-                    Log.d(TAG, "Successfully updated file metadata for: $title by $artist")
-                    
-                    // Handle artwork saving if provided
-                    if (artworkUri != null) {
-                        try {
-                            // Save artwork to cache directory for now
-                            saveArtworkToCache(context, song, artworkUri)
-                            Log.d(TAG, "Artwork saved to cache for: $title")
-                        } catch (e: Exception) {
-                            Log.w(TAG, "Failed to save artwork, but metadata was saved successfully", e)
-                        }
-                    }
-                    
-                    withContext(Dispatchers.Main) {
-                        onSuccess()
-                    }
-                } else {
-                    Log.w(TAG, "File metadata update failed, updated in-memory data only")
-                    withContext(Dispatchers.Main) {
-                        onError("Metadata updated in app only. File permissions may prevent saving to audio file.")
+                // Handle artwork saving if provided
+                if (artworkUri != null && success) {
+                    try {
+                        // Save artwork to cache directory for now
+                        saveArtworkToCache(context, song, artworkUri)
+                        Log.d(TAG, "Artwork saved to cache for: $title")
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to save artwork, but metadata was saved successfully", e)
                     }
                 }
                 
+                withContext(Dispatchers.Main) {
+                    if (success) {
+                        Log.d(TAG, "Successfully updated file metadata for: $title by $artist")
+                        onSuccess(true)
+                    } else {
+                        // File update failed but MediaStore may have succeeded
+                        Log.w(TAG, "File metadata write failed")
+                        onSuccess(false)
+                    }
+                }
+                
+            } catch (e: chromahub.rhythm.app.util.RecoverableSecurityExceptionWrapper) {
+                // Android 11+ scoped storage restriction - file not owned by app
+                Log.w(TAG, "RecoverableSecurityException - file modification requires user permission")
+                
+                // Update in-memory data anyway
+                val updatedSong = song.copy(
+                    title = title,
+                    artist = artist,
+                    album = album,
+                    genre = genre,
+                    year = year,
+                    trackNumber = trackNumber
+                )
+                updateCurrentSongMetadata(updatedSong)
+                
+                withContext(Dispatchers.Main) {
+                    onError("Cannot modify this file: Android security restrictions prevent editing files not created by this app. Metadata updated in library only.")
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Error saving metadata", e)
                 withContext(Dispatchers.Main) {
@@ -2795,6 +2812,49 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     fun retryFetchLyrics() {
         Log.d(TAG, "Manual retry of lyrics fetch requested")
         fetchLyricsForCurrentSong(0)
+    }
+    
+    /**
+     * Save edited lyrics for the current song to cache
+     */
+    fun saveEditedLyrics(editedLyrics: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val song = _currentSong.value
+                if (song != null) {
+                    val artist = song.artist
+                    val title = song.title
+                    
+                    // Determine if lyrics are synced (contains timestamps)
+                    val isSynced = editedLyrics.contains(Regex("\\[\\d{2}:\\d{2}\\.\\d{2}]"))
+                    
+                    val lyricsData = if (isSynced) {
+                        LyricsData(plainLyrics = null, syncedLyrics = editedLyrics)
+                    } else {
+                        LyricsData(plainLyrics = editedLyrics, syncedLyrics = null)
+                    }
+                    
+                    // Save to cache (internal storage)
+                    val fileName = "${artist}_${title}.json".replace(Regex("[^a-zA-Z0-9._-]"), "_")
+                    val lyricsDir = File(getApplication<Application>().filesDir, "lyrics")
+                    if (!lyricsDir.exists()) {
+                        lyricsDir.mkdirs()
+                    }
+                    val file = File(lyricsDir, fileName)
+                    val json = Gson().toJson(lyricsData)
+                    file.writeText(json)
+                    
+                    // Update in-memory state
+                    _currentLyrics.value = lyricsData
+                    
+                    Log.d(TAG, "Saved edited lyrics for: $title by $artist")
+                } else {
+                    Log.w(TAG, "Cannot save lyrics - no current song")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error saving edited lyrics", e)
+            }
+        }
     }
 
     fun setVolume(newVolume: Float) {

@@ -1041,9 +1041,22 @@ class MusicRepository(context: Context) {
         }
 
     /**
-     * Finds local lyrics file in app's files directory
+     * Finds local lyrics file in app's files directory OR next to the music file
+     * Supports both .lrc files (in music folder) and .json cache files (in app folder)
      */
     private fun findLocalLyrics(artist: String, title: String): LyricsData? {
+        // First, check for .lrc file next to the music file
+        try {
+            val lrcLyrics = findLrcFileForSong(artist, title)
+            if (lrcLyrics != null) {
+                Log.d(TAG, "Found local .lrc file for: $artist - $title")
+                return lrcLyrics
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Error checking for .lrc file: ${e.message}")
+        }
+        
+        // Second, check for cached JSON lyrics in app's files directory
         val fileName = "${artist}_${title}.json".replace(Regex("[^a-zA-Z0-9._-]"), "_")
         val file = File(context.filesDir, "lyrics/$fileName")
         return try {
@@ -1057,6 +1070,109 @@ class MusicRepository(context: Context) {
             Log.e(TAG, "Error reading local lyrics file: ${e.message}", e)
             null
         }
+    }
+    
+    /**
+     * Searches for .lrc file next to the music file
+     * Looks for files with same name as the song or generic patterns
+     */
+    private fun findLrcFileForSong(artist: String, title: String): LyricsData? {
+        try {
+            // Find the song in MediaStore to get its path
+            val projection = arrayOf(MediaStore.Audio.Media._ID, MediaStore.Audio.Media.DATA)
+            val selection = "${MediaStore.Audio.Media.TITLE} = ? AND ${MediaStore.Audio.Media.ARTIST} = ?"
+            val selectionArgs = arrayOf(title, artist)
+            
+            context.contentResolver.query(
+                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                projection,
+                selection,
+                selectionArgs,
+                null
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val dataIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
+                    val songPath = cursor.getString(dataIndex)
+                    
+                    if (songPath != null) {
+                        val songFile = File(songPath)
+                        val directory = songFile.parentFile
+                        val songNameWithoutExt = songFile.nameWithoutExtension
+                        
+                        if (directory != null && directory.exists()) {
+                            // Look for .lrc file with same name as the song
+                            val lrcFile = File(directory, "$songNameWithoutExt.lrc")
+                            if (lrcFile.exists() && lrcFile.canRead()) {
+                                val lrcContent = lrcFile.readText()
+                                return parseLrcFile(lrcContent)
+                            }
+                            
+                            // Also try with artist - title pattern
+                            val cleanArtist = artist.replace(Regex("[^a-zA-Z0-9]"), "_")
+                            val cleanTitle = title.replace(Regex("[^a-zA-Z0-9]"), "_")
+                            val alternativeLrcFile = File(directory, "${cleanArtist}_${cleanTitle}.lrc")
+                            if (alternativeLrcFile.exists() && alternativeLrcFile.canRead()) {
+                                val lrcContent = alternativeLrcFile.readText()
+                                return parseLrcFile(lrcContent)
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error searching for .lrc file", e)
+        }
+        return null
+    }
+    
+    /**
+     * Parses .lrc file content into LyricsData format
+     * LRC format: [mm:ss.xx]lyrics text
+     */
+    private fun parseLrcFile(lrcContent: String): LyricsData? {
+        try {
+            if (lrcContent.isBlank()) return null
+            
+            val lines = lrcContent.lines()
+            val syncedLines = mutableListOf<String>()
+            val plainLines = mutableListOf<String>()
+            var hasSyncedLyrics = false
+            
+            // Pattern to match LRC timestamps [mm:ss.xx] or [mm:ss]
+            val timestampPattern = Regex("\\[(\\d{2}):(\\d{2})(?:\\.(\\d{2,3}))?\\](.*)") 
+            
+            for (line in lines) {
+                val trimmedLine = line.trim()
+                if (trimmedLine.isEmpty()) continue
+                
+                // Check if line has timestamp
+                val match = timestampPattern.find(trimmedLine)
+                if (match != null) {
+                    hasSyncedLyrics = true
+                    syncedLines.add(trimmedLine) // Keep the timestamp for synced lyrics
+                    val lyricsText = match.groupValues[4].trim()
+                    if (lyricsText.isNotEmpty()) {
+                        plainLines.add(lyricsText) // Extract just the lyrics text for plain version
+                    }
+                } else {
+                    // Metadata line (like [ar:], [ti:], [al:]) or plain text
+                    if (!trimmedLine.startsWith("[") || !trimmedLine.contains("]")) {
+                        plainLines.add(trimmedLine)
+                    }
+                }
+            }
+            
+            val plainLyrics = if (plainLines.isNotEmpty()) plainLines.joinToString("\n") else null
+            val syncedLyrics = if (hasSyncedLyrics && syncedLines.isNotEmpty()) syncedLines.joinToString("\n") else null
+            
+            if (plainLyrics != null || syncedLyrics != null) {
+                Log.d(TAG, "Successfully parsed .lrc file - Synced: ${syncedLyrics != null}, Plain: ${plainLyrics != null}")
+                return LyricsData(plainLyrics, syncedLyrics)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing .lrc file", e)
+        }
+        return null
     }
 
     /**
