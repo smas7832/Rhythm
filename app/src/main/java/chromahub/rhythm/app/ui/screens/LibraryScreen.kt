@@ -78,6 +78,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.ui.graphics.graphicsLayer
@@ -2581,7 +2582,7 @@ fun LibrarySongItem(
                 // Play next
                 Surface(
                     color = MaterialTheme.colorScheme.surfaceContainer,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(16.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 8.dp, vertical = 2.dp)
@@ -2622,7 +2623,7 @@ fun LibrarySongItem(
                 // Add to queue
                 Surface(
                     color = MaterialTheme.colorScheme.surfaceContainer,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(16.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 8.dp, vertical = 2.dp)
@@ -2663,7 +2664,7 @@ fun LibrarySongItem(
                 // Toggle favorite
                 Surface(
                     color = MaterialTheme.colorScheme.surfaceContainer,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(16.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 8.dp, vertical = 2.dp)
@@ -2704,7 +2705,7 @@ fun LibrarySongItem(
                 // Add to playlist
                 Surface(
                     color = MaterialTheme.colorScheme.surfaceContainer,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(16.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 8.dp, vertical = 2.dp)
@@ -2827,7 +2828,7 @@ fun LibrarySongItem(
                 // Song info
                 Surface(
                     color = MaterialTheme.colorScheme.surfaceContainer,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(16.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 8.dp, vertical = 2.dp)
@@ -2868,7 +2869,7 @@ fun LibrarySongItem(
                 // Add to blacklist
                 Surface(
                     color = MaterialTheme.colorScheme.surfaceContainer,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(16.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 8.dp, vertical = 2.dp)
@@ -3299,29 +3300,59 @@ fun LibraryAlbumItem(
                 Spacer(modifier = Modifier.height(4.dp)) // Increase spacing
                 
                 Row(
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Icon(
-                        imageVector = RhythmIcons.MusicNote,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                        modifier = Modifier.size(14.dp)
-                    )
-                    
-                    Spacer(modifier = Modifier.width(4.dp))
-                    
-                    Text(
-                        text = "${album.numberOfSongs} ${if (album.numberOfSongs == 1) "song" else "songs"}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-                    )
-                    
+                    // Song count pill
+                    Surface(
+                        shape = RoundedCornerShape(50), // Pill shape
+                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = RhythmIcons.MusicNote,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Text(
+                                text = "${album.numberOfSongs} Songs",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+                    }
+
+                    // Year pill
                     if (album.year > 0) {
-                        Text(
-                            text = " • ${album.year}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-                        )
+                        Surface(
+                            shape = RoundedCornerShape(50), // Pill shape
+                            color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.DateRange,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Text(
+                                    text = "${album.year}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -3525,7 +3556,7 @@ fun AlbumGridItem(
             onClick()
         },
         modifier = modifier
-            .aspectRatio(0.72f),
+            .fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
@@ -3606,12 +3637,64 @@ fun AlbumGridItem(
                 
                 Spacer(modifier = Modifier.height(4.dp))
                 
-                // Song count
-                Text(
-                    text = "${album.numberOfSongs} ${if (album.numberOfSongs == 1) "song" else "songs"}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                )
+                // Pills row
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.padding(horizontal = 2.dp)
+                ) {
+                    // Song count pill
+                    Surface(
+                        shape = RoundedCornerShape(50), // Pill shape
+                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(3.dp)
+                        ) {
+                            Icon(
+                                imageVector = RhythmIcons.MusicNote,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.size(10.dp)
+                            )
+                            Text(
+                                text = "${album.numberOfSongs}",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+                    }
+
+                    // Year pill
+                    if (album.year > 0) {
+                        Surface(
+                            shape = RoundedCornerShape(50), // Pill shape
+                            color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(3.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.DateRange,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    modifier = Modifier.size(10.dp)
+                                )
+                                Text(
+                                    text = "${album.year}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                            }
+                        }
+                    }
+                }
             }
             
             // Play button overlay
@@ -4045,42 +4128,62 @@ private fun ArtistGridCard(
                 
                 Spacer(modifier = Modifier.height(8.dp))
                 
-                // Artist info row
+                // Artist info row with pills (centered)
                 Row(
-                    horizontalArrangement = Arrangement.Center,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    // Track count
-                    Icon(
-                        imageVector = RhythmIcons.Music.MusicNote,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "${artist.numberOfTracks}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    // Track count pill
+                    Surface(
+                        shape = RoundedCornerShape(50), // Pill shape
+                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(3.dp)
+                        ) {
+                            Icon(
+                                imageVector = RhythmIcons.MusicNote,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.size(10.dp)
+                            )
+                            Text(
+                                text = "${artist.numberOfTracks}",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+                    }
                     
+                    // Album count pill
                     if (artist.numberOfAlbums > 0) {
-                        Spacer(modifier = Modifier.width(16.dp))
-                        
-                        // Album count
-                        Icon(
-                            imageVector = RhythmIcons.Album,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "${artist.numberOfAlbums}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Surface(
+                            shape = RoundedCornerShape(50), // Pill shape
+                            color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(3.dp)
+                            ) {
+                                Icon(
+                                    imageVector = RhythmIcons.Album,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    modifier = Modifier.size(10.dp)
+                                )
+                                Text(
+                                    text = "${artist.numberOfAlbums}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -4172,37 +4275,61 @@ private fun ArtistListCard(
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                // Artist info
+                // Artist info with pills
                 Row(
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Icon(
-                        imageVector = RhythmIcons.Music.MusicNote,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "${artist.numberOfTracks} songs",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                    )
+                    // Track count pill
+                    Surface(
+                        shape = RoundedCornerShape(50), // Pill shape
+                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = RhythmIcons.MusicNote,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Text(
+                                text = "${artist.numberOfTracks} Songs",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+                    }
 
+                    // Album count pill
                     if (artist.numberOfAlbums > 0) {
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Icon(
-                            imageVector = RhythmIcons.Album,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "${artist.numberOfAlbums} albums",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                        )
+                        Surface(
+                            shape = RoundedCornerShape(50), // Pill shape
+                            color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = RhythmIcons.Album,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Text(
+                                    text = "${artist.numberOfAlbums} Albums",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                            }
+                        }
                     }
                 }
             }

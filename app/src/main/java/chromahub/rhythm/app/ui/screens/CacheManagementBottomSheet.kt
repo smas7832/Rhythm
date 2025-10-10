@@ -520,30 +520,30 @@ fun CacheManagementBottomSheet(
             }
 
             // Close button
-            item {
-                FilledTonalButton(
-                    onClick = onDismiss,
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                    ),
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Close,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Close",
-                        fontWeight = FontWeight.Medium
-                    )
-                }
+            // item {
+            //     FilledTonalButton(
+            //         onClick = onDismiss,
+            //         colors = ButtonDefaults.filledTonalButtonColors(
+            //             containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            //             contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+            //         ),
+            //         modifier = Modifier.fillMaxWidth(),
+            //         shape = RoundedCornerShape(16.dp)
+            //     ) {
+            //         Icon(
+            //             imageVector = Icons.Filled.Close,
+            //             contentDescription = null,
+            //             modifier = Modifier.size(18.dp)
+            //         )
+            //         Spacer(modifier = Modifier.width(8.dp))
+            //         Text(
+            //             text = "Close",
+            //             fontWeight = FontWeight.Medium
+            //         )
+            //     }
                 
-                Spacer(modifier = Modifier.height(16.dp))
-            }
+            //     Spacer(modifier = Modifier.height(16.dp))
+            // }
         }
     }
 }

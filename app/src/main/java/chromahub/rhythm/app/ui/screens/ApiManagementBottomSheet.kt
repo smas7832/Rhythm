@@ -232,19 +232,19 @@ fun ApiManagementBottomSheet(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Close button
-            Button(
-                onClick = {
-                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
-                    onDismiss()
-                },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary
-                ),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Close")
-            }
+            // // Close button
+            // Button(
+            //     onClick = {
+            //         HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+            //         onDismiss()
+            //     },
+            //     colors = ButtonDefaults.buttonColors(
+            //         containerColor = MaterialTheme.colorScheme.primary
+            //     ),
+            //     modifier = Modifier.fillMaxWidth()
+            // ) {
+            //     Text("Close")
+            // }
 
             Spacer(modifier = Modifier.height(16.dp))
         }

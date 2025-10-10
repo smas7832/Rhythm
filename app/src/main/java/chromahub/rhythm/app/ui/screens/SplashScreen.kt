@@ -10,8 +10,11 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -82,10 +85,6 @@ fun SplashScreen(
     val logoOffsetX = remember { Animatable(0f) } // Logo position - slides left
     
     val appNameOffsetX = remember { Animatable(0f) } // Starts centered behind logo - slides right
-    val appNameAlpha = remember { Animatable(0f) }
-    
-    val taglineOffsetY = remember { Animatable(50f) } // Slides up from below
-    val taglineAlpha = remember { Animatable(0f) }
     
     val loaderAlpha = remember { Animatable(0f) }
     
@@ -111,16 +110,10 @@ fun SplashScreen(
             )
         )
 
-        delay(150) // Brief pause after shrink
+        delay(100) // Brief pause after shrink
 
-        // STEP 2: Logo slides LEFT and App name slides RIGHT simultaneously (reveal from center)
+        // STEP 2: Logo slides LEFT and App name appears with expand animation (like TabButton)
         showAppName = true
-        launch {
-            appNameAlpha.animateTo(
-                targetValue = 1f,
-                animationSpec = tween(500, easing = androidx.compose.animation.core.FastOutSlowInEasing)
-            )
-        }
         // Logo slides left
         launch {
             logoOffsetX.animateTo(
@@ -131,7 +124,7 @@ fun SplashScreen(
                 )
             )
         }
-        // App name slides right from behind logo
+        // App name offset happens via AnimatedVisibility now
         appNameOffsetX.animateTo(
             targetValue = 105f, // Slide right from center
             animationSpec = spring(
@@ -140,23 +133,10 @@ fun SplashScreen(
             )
         )
 
-        delay(200) // Pause for name to settle
+        delay(250) // Pause for name to settle
 
-        // STEP 3: Tagline slides up from below with bounce
+        // STEP 3: Tagline appears with expand animation
         showTagline = true
-        launch {
-            taglineAlpha.animateTo(
-                targetValue = 1f,
-                animationSpec = tween(400, easing = androidx.compose.animation.core.FastOutSlowInEasing)
-            )
-        }
-        taglineOffsetY.animateTo(
-            targetValue = 0f,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessMedium
-            )
-        )
 
         delay(150) // Brief delay before loader
 
@@ -245,48 +225,78 @@ fun SplashScreen(
                         )
                     }
 
-                    // App name revealing from center (behind logo) moving right
+                    // App name revealing with expand animation (like TabButton in ThemeCustomizationBottomSheet)
                     if (showAppName) {
-                        Text(
-                            text = "Rhythm",
-                            style = MaterialTheme.typography.displayMedium.copy(
-                                fontSize = 48.sp,
-                                letterSpacing = 2.sp
-                            ),
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier
-                                .graphicsLayer {
-                                    alpha = appNameAlpha.value
-                                    translationX = appNameOffsetX.value
-                                }
-                        )
+                        Row(
+                            modifier = Modifier.graphicsLayer {
+                                translationX = appNameOffsetX.value
+                            }
+                        ) {
+                            androidx.compose.animation.AnimatedVisibility(
+                                visible = showAppName,
+                                enter = expandHorizontally(
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                        stiffness = Spring.StiffnessMedium
+                                    )
+                                ) + fadeIn(
+                                    animationSpec = tween(400)
+                                ),
+                                exit = shrinkHorizontally() + fadeOut()
+                            ) {
+                                Text(
+                                    text = "Rhythm",
+                                    style = MaterialTheme.typography.displayMedium.copy(
+                                        fontSize = 48.sp,
+                                        letterSpacing = 2.sp
+                                    ),
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
                     }
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Tagline sliding down from behind logo and name
+                // Tagline with expand animation from center
                 Box(
                     modifier = Modifier.height(32.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     if (showTagline) {
-                        Text(
-                            text = "Your Music, Your Rhythm",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                letterSpacing = 1.sp,
-                                fontSize = 17.sp
-                            ),
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f),
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier
-                                .graphicsLayer {
-                                    alpha = taglineAlpha.value
-                                    translationY = taglineOffsetY.value
-                                }
-                        )
+                        Row {
+                            androidx.compose.animation.AnimatedVisibility(
+                                visible = showTagline,
+                                enter = expandHorizontally(
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                        stiffness = Spring.StiffnessMedium
+                                    )
+                                ) + fadeIn(
+                                    animationSpec = tween(400)
+                                ) + slideInVertically(
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                        stiffness = Spring.StiffnessMedium
+                                    ),
+                                    initialOffsetY = { 50 }
+                                ),
+                                exit = shrinkHorizontally() + fadeOut()
+                            ) {
+                                Text(
+                                    text = "Your Music, Your Rhythm",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        letterSpacing = 1.sp,
+                                        fontSize = 17.sp
+                                    ),
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
                     }
                 }
             }

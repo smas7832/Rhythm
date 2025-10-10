@@ -474,17 +474,19 @@ fun SettingsScreen(
                 listOf("playlist", "manage", "organize")
             ),
 
-            // Updates & API
+            // App Updates
             SearchableSettingItem(
                 "Check for Updates",
                 "Check for app updates",
                 "App Updates",
                 listOf("update", "check", "version", "new")
             ),
+            
+            // API
             SearchableSettingItem(
                 "API Settings",
                 "Configure API endpoints",
-                "Updates & API",
+                "API",
                 listOf("api", "endpoint", "server", "configure")
             ),
 
@@ -539,7 +541,7 @@ fun SettingsScreen(
             "Audio & Playback" to 3,
             "Library & Content Display" to 4,
             "Storage & Cache" to 5,
-            "Updates & API" to 6,
+            "API" to 6,
             "App Updates" to 7,
             "Advanced" to 8,
             "About" to 9
@@ -1312,7 +1314,7 @@ fun SettingsScreen(
                         }
                     )
 
-                    SettingsDivider()
+                    // SettingsDivider()
 
                     // Library Tab Order
                     val tabOrder by appSettings.libraryTabOrder.collectAsState()
@@ -1335,7 +1337,7 @@ fun SettingsScreen(
                     } else ""
 
                     SettingsChipItem(
-                        title = "Library Tab Order",
+                        title = "Tab Order",
                         description = "Reorder tabs to customize library",
                         primaryChipText = tabNames.getOrNull(0) ?: "Songs",
                         secondaryChipText = secondaryTabText,
@@ -1458,7 +1460,7 @@ fun SettingsScreen(
                 // Integrations & Services section
                 item {
                     SettingsSectionHeader(
-                        title = "Updates & API",
+                        title = "API",
                         isHighlighted = highlightedSection == "Updates & API"
                     )
 

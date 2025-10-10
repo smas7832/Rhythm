@@ -1226,6 +1226,14 @@ private fun OverviewContent(
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+            }
             
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 ColorSource.entries.forEach { source ->
@@ -1248,8 +1256,30 @@ private fun OverviewContent(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(bottom = 8.dp, top = 8.dp)
-            )
+            // Section header with UP NEXT style
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 0.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "FONT SOURCE",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                HorizontalDivider(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 8.dp),
+                    thickness = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant
+                )
+            }
             
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -1271,13 +1301,30 @@ private fun OverviewContent(
         
         // Theme Mode Settings
         item {
-            Text(
-                text = "Theme Mode",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(bottom = 8.dp, top = 8.dp)
-            )
+            // Section header with UP NEXT style
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 0.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "THEME MODE",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                HorizontalDivider(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 8.dp),
+                    thickness = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant
+                )
+            }
             
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 // System Theme Toggle

@@ -20,7 +20,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.background
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.rounded.*
@@ -239,6 +241,25 @@ fun BackupRestoreBottomSheet(
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // Backup Status
+                // item {
+                //     Row(
+                //         modifier = Modifier
+                //             .fillMaxWidth()
+                //             .padding(horizontal = 0.dp, vertical = 8.dp),
+                //         verticalAlignment = Alignment.CenterVertically
+                //     ) {
+                //         Text(
+                //             text = "BACKUP STATUS",
+                //             style = MaterialTheme.typography.titleSmall,
+                //             fontWeight = FontWeight.Bold,
+                //             color = MaterialTheme.colorScheme.primary
+                //         )
+
+                //         )
+                //     }
+                // }
+
                 // Backup Status Cards Row
                 item {
                     Row(
@@ -311,7 +332,7 @@ fun BackupRestoreBottomSheet(
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Icon(
-                                    imageVector = if (autoBackupEnabled) Icons.Filled.AutoAwesome else Icons.Filled.Schedule,
+                                    imageVector = if (autoBackupEnabled) Icons.Filled.Autorenew else Icons.Filled.Schedule,
                                     contentDescription = null,
                                     tint = if (autoBackupEnabled) 
                                         MaterialTheme.colorScheme.onTertiaryContainer 
@@ -372,6 +393,33 @@ fun BackupRestoreBottomSheet(
                     }
                 }
 
+                // Backup Management
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 0.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "MANAGE BACKUP",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        androidx.compose.material3.HorizontalDivider(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(horizontal = 8.dp),
+                            thickness = 1.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant
+                        )
+                    }
+                }
+
                 // Auto-backup toggle
                 item {
                     Card(
@@ -392,7 +440,7 @@ fun BackupRestoreBottomSheet(
                             modifier = Modifier.padding(16.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Filled.AutoAwesome,
+                                imageVector = Icons.Filled.Autorenew,
                                 contentDescription = null,
                                 tint = if (autoBackupEnabled) 
                                     MaterialTheme.colorScheme.primary 
@@ -430,6 +478,7 @@ fun BackupRestoreBottomSheet(
                         }
                     }
                 }
+
 
                 // Create Backup Button
                 item {
@@ -495,6 +544,34 @@ fun BackupRestoreBottomSheet(
                                 modifier = Modifier.size(20.dp)
                             )
                         }
+                    }
+                }
+
+                // Restore Backup
+                item {
+                    // Section header with UP NEXT style
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 0.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "RESTORE BACKUP",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        androidx.compose.material3.HorizontalDivider(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(horizontal = 8.dp),
+                            thickness = 1.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant
+                        )
                     }
                 }
 
@@ -691,35 +768,35 @@ fun BackupRestoreBottomSheet(
                 }
                 
                 // Close button
-                item {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    FilledTonalButton(
-                        onClick = {
-                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
-                            onDismiss()
-                        },
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                        ),
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Close,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Close",
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
+//                item {
+//                    Spacer(modifier = Modifier.height(16.dp))
+//
+//                    FilledTonalButton(
+//                        onClick = {
+//                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+//                            onDismiss()
+//                        },
+//                        colors = ButtonDefaults.filledTonalButtonColors(
+//                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+//                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+//                        ),
+//                        modifier = Modifier.fillMaxWidth(),
+//                        shape = RoundedCornerShape(16.dp)
+//                    ) {
+//                        Icon(
+//                            imageVector = Icons.Filled.Close,
+//                            contentDescription = null,
+//                            modifier = Modifier.size(18.dp)
+//                        )
+//                        Spacer(modifier = Modifier.width(8.dp))
+//                        Text(
+//                            text = "Close",
+//                            fontWeight = FontWeight.Medium
+//                        )
+//                    }
+//
+//                    Spacer(modifier = Modifier.height(16.dp))
+//                }
             }
         }
     }

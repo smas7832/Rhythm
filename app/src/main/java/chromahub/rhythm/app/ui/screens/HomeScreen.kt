@@ -694,8 +694,8 @@ private fun ModernScrollableContent(
             item {
                 Column {
                     ModernSectionTitle(
-                        title = "Featured Albums", 
-                        subtitle = "Discover amazing music",
+                        title = "Discover Albums",
+                        subtitle = "Explore amazing music",
                         viewAllAction = onViewAllAlbums
                     )
                     Spacer(modifier = Modifier.height(20.dp))
@@ -1613,19 +1613,19 @@ private fun ModernFeaturedCard(
             }
             
             // Featured badge with more expressive design
-            Surface(
-                color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.95f),
-                shape = RoundedCornerShape(topEnd = 40.dp, bottomStart = 28.dp), // More rounded
-                modifier = Modifier.align(Alignment.TopEnd)
-            ) {
-                Text(
-                    text = "FEATURED",
-                    style = MaterialTheme.typography.labelLarge, // Slightly larger
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onTertiary,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp) // More padding
-                )
-            }
+//            Surface(
+//                color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.95f),
+//                shape = RoundedCornerShape(topEnd = 40.dp, bottomStart = 28.dp), // More rounded
+//                modifier = Modifier.align(Alignment.TopEnd)
+//            ) {
+//                Text(
+//                    text = "FEATURED",
+//                    style = MaterialTheme.typography.labelLarge, // Slightly larger
+//                    fontWeight = FontWeight.Bold,
+//                    color = MaterialTheme.colorScheme.onTertiary,
+//                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp) // More padding
+//                )
+//            }
         }
     }
 }
