@@ -1219,13 +1219,14 @@ private fun OverviewContent(
     ) {
         // Color Source Selection
         item {
-            Text(
-                text = "Color Source",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 0.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "COLOR SOURCE",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -1233,6 +1234,13 @@ private fun OverviewContent(
 
                 Spacer(modifier = Modifier.width(8.dp))
 
+                HorizontalDivider(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 8.dp),
+                    thickness = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant
+                )
             }
             
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1251,12 +1259,6 @@ private fun OverviewContent(
         
         // Font Source Selection
         item {
-            Text(
-                text = "Font Source",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-            // Section header with UP NEXT style
             Row(
                 modifier = Modifier
                     .fillMaxWidth()

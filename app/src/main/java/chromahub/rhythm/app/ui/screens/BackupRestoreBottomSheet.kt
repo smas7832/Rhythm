@@ -256,6 +256,14 @@ fun BackupRestoreBottomSheet(
                 //             color = MaterialTheme.colorScheme.primary
                 //         )
 
+                //         Spacer(modifier = Modifier.width(8.dp))
+
+                //         androidx.compose.material3.HorizontalDivider(
+                //             modifier = Modifier
+                //                 .weight(1f)
+                //                 .padding(horizontal = 8.dp),
+                //             thickness = 1.dp,
+                //             color = MaterialTheme.colorScheme.outlineVariant
                 //         )
                 //     }
                 // }
