@@ -97,10 +97,9 @@ fun QueueBottomSheet(
     onMoveQueueItem: (Int, Int) -> Unit = { _, _ -> },
     onAddSongsClick: () -> Unit = {},
     onClearQueue: () -> Unit = {},
-    sheetState: SheetState = rememberModalBottomSheetState()
+    sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 ) {
     val haptic = LocalHapticFeedback.current
-    
     // Animation states
     var showContent by remember { mutableStateOf(false) }
     

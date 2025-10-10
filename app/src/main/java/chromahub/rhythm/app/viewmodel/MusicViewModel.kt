@@ -2042,45 +2042,60 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     
     fun toggleFavorite() {
         _currentSong.value?.let { song ->
-            val songId = song.id
-            val currentFavorites = _favoriteSongs.value.toMutableSet()
+            toggleFavorite(song)
+        }
+    }
+
+    /**
+     * Toggle favorite status for a specific song
+     */
+    fun toggleFavorite(song: Song) {
+        val songId = song.id
+        val currentFavorites = _favoriteSongs.value.toMutableSet()
+        
+        if (currentFavorites.contains(songId)) {
+            Log.d(TAG, "Removing song from favorites: ${song.title}")
+            currentFavorites.remove(songId)
             
-            if (currentFavorites.contains(songId)) {
-                Log.d(TAG, "Removing song from favorites: ${song.title}")
-                currentFavorites.remove(songId)
+            // Update _isFavorite only if this is the current song
+            if (_currentSong.value?.id == songId) {
                 _isFavorite.value = false
-                
-                // Remove from Favorites playlist
-                _playlists.value = _playlists.value.map { playlist ->
-                    if (playlist.id == "1" && playlist.name == "Favorites") {
-                        playlist.copy(songs = playlist.songs.filter { it.id != song.id })
-                    } else {
-                        playlist
-                    }
-                }
-                savePlaylists()
-            } else {
-                Log.d(TAG, "Adding song to favorites: ${song.title}")
-                currentFavorites.add(songId)
-                _isFavorite.value = true
-                
-                // Add to Favorites playlist
-                _playlists.value = _playlists.value.map { playlist ->
-                    if (playlist.id == "1" && playlist.name == "Favorites") {
-                        playlist.copy(songs = playlist.songs + song)
-                    } else {
-                        playlist
-                    }
-                }
-                savePlaylists()
             }
             
-            _favoriteSongs.value = currentFavorites
-            saveFavoriteSongs()
+            // Remove from Favorites playlist
+            _playlists.value = _playlists.value.map { playlist ->
+                if (playlist.id == "1" && playlist.name == "Favorites") {
+                    playlist.copy(songs = playlist.songs.filter { it.id != song.id })
+                } else {
+                    playlist
+                }
+            }
+            savePlaylists()
+        } else {
+            Log.d(TAG, "Adding song to favorites: ${song.title}")
+            currentFavorites.add(songId)
             
-            // Notify MediaPlaybackService about favorite state change
-            notifyMediaServiceFavoriteChange()
+            // Update _isFavorite only if this is the current song
+            if (_currentSong.value?.id == songId) {
+                _isFavorite.value = true
+            }
+            
+            // Add to Favorites playlist
+            _playlists.value = _playlists.value.map { playlist ->
+                if (playlist.id == "1" && playlist.name == "Favorites") {
+                    playlist.copy(songs = playlist.songs + song)
+                } else {
+                    playlist
+                }
+            }
+            savePlaylists()
         }
+        
+        _favoriteSongs.value = currentFavorites
+        saveFavoriteSongs()
+        
+        // Notify MediaPlaybackService about favorite state change
+        notifyMediaServiceFavoriteChange()
     }
     
     private fun notifyMediaServiceFavoriteChange() {
@@ -3008,6 +3023,67 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             }
         } ?: run {
             val errorMsg = "Cannot add song to queue - media controller is null"
+            Log.e(TAG, errorMsg)
+            _queueOperationError.value = errorMsg
+        }
+    }
+
+    /**
+     * Add a song to play next (right after the current song in the queue)
+     */
+    fun playNext(song: Song) {
+        Log.d(TAG, "Adding song to play next: ${song.title}")
+        
+        // Clear any previous error
+        _queueOperationError.value = null
+        
+        mediaController?.let { controller ->
+            try {
+                val mediaItem = MediaItem.Builder()
+                    .setMediaId(song.id)
+                    .setUri(song.uri)
+                    .setMediaMetadata(
+                        MediaMetadata.Builder()
+                            .setTitle(song.title)
+                            .setArtist(song.artist)
+                            .setAlbumTitle(song.album)
+                            .setArtworkUri(song.artworkUri)
+                            .build()
+                    )
+                    .build()
+                
+                // Calculate the position to insert (right after current song)
+                val currentIndex = controller.currentMediaItemIndex
+                val insertIndex = if (currentIndex >= 0) currentIndex + 1 else 0
+                
+                // Add to media controller queue at specific position
+                controller.addMediaItem(insertIndex, mediaItem)
+                
+                // If nothing is currently playing, start playback
+                if (controller.playbackState == Player.STATE_IDLE || controller.playbackState == Player.STATE_ENDED) {
+                    controller.prepare()
+                    controller.play()
+                }
+                
+                // Update the queue in our state - make a defensive copy
+                val currentQueueSongs = _currentQueue.value.songs.toMutableList()
+                val currentQueueIndex = _currentQueue.value.currentIndex
+                val queueInsertIndex = if (currentQueueIndex >= 0 && currentQueueIndex < currentQueueSongs.size) {
+                    currentQueueIndex + 1
+                } else {
+                    0
+                }
+                currentQueueSongs.add(queueInsertIndex, song)
+                
+                _currentQueue.value = Queue(currentQueueSongs, currentQueueIndex)
+                
+                Log.d(TAG, "Successfully added '${song.title}' to play next at position $queueInsertIndex. Queue now has ${currentQueueSongs.size} songs")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error adding song to play next", e)
+                _queueOperationError.value = "Failed to add '${song.title}' to play next: ${e.message}"
+            }
+        } ?: run {
+            val errorMsg = "Cannot add song to play next - media controller is null"
             Log.e(TAG, errorMsg)
             _queueOperationError.value = errorMsg
         }
