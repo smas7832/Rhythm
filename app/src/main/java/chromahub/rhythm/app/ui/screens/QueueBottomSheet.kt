@@ -166,13 +166,15 @@ fun QueueBottomSheet(
             
             if (mutableQueue.isEmpty()) {
                 // Empty queue state
-                EmptyQueueContent(
-                    onAddSongsClick = onAddSongsClick,
-                    modifier = Modifier.graphicsLayer {
-                        alpha = contentAlpha
-                        translationY = contentTranslation
-                    }
-                )
+                AnimatedVisibility(
+                    visible = showContent,
+                    enter = fadeIn() + slideInVertically { it },
+                    exit = fadeOut() + slideOutVertically { it }
+                ) {
+                    EmptyQueueContent(
+                        onAddSongsClick = onAddSongsClick
+                    )
+                }
             } else {
                 // Now Playing section - show current song separately
                 currentSong?.let { song ->
@@ -202,44 +204,46 @@ fun QueueBottomSheet(
                 // Show "UP NEXT" section if there are upcoming songs
                 if (upcomingQueue.isNotEmpty()) {
                     // Queue header for upcoming songs
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 24.dp, vertical = 16.dp)
-                            .graphicsLayer {
-                                alpha = contentAlpha
-                                translationY = contentTranslation
-                            },
-                        verticalAlignment = Alignment.CenterVertically
+                    AnimatedVisibility(
+                        visible = showContent,
+                        enter = fadeIn() + slideInVertically { it },
+                        exit = fadeOut() + slideOutVertically { it }
                     ) {
-                        Text(
-                            text = "UP NEXT",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        
-                        Spacer(modifier = Modifier.width(8.dp))
-                        
-                        HorizontalDivider(
+                        Row(
                             modifier = Modifier
-                                .weight(1f)
-                                .padding(horizontal = 8.dp),
-                            thickness = 1.dp,
-                            color = MaterialTheme.colorScheme.outlineVariant
-                        )
-                        
-                        Text(
-                            text = "${upcomingQueue.size}",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier
-                                .background(
-                                    color = MaterialTheme.colorScheme.surfaceVariant,
-                                    shape = CircleShape
-                                )
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
+                                .fillMaxWidth()
+                                .padding(horizontal = 24.dp, vertical = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "UP NEXT",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            HorizontalDivider(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(horizontal = 8.dp),
+                                thickness = 1.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant
+                            )
+
+                            Text(
+                                text = "${upcomingQueue.size}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier
+                                    .background(
+                                        color = MaterialTheme.colorScheme.surfaceVariant,
+                                        shape = CircleShape
+                                    )
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
                     }
                     
                     // Queue list with reordering using custom drag and drop
