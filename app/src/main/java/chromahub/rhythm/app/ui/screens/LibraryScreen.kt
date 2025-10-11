@@ -929,6 +929,37 @@ fun LibraryScreen(
                         }
                     }
                 }
+                
+                // Edit button at the end to open LibraryTabReorderBottomSheet
+                item {
+                    var showLibraryTabOrderSheet by remember { mutableStateOf(false) }
+                    
+                    FilledTonalIconButton(
+                        onClick = {
+                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                            showLibraryTabOrderSheet = true
+                        },
+                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        ),
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Reorder tabs",
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    
+                    if (showLibraryTabOrderSheet) {
+                        LibraryTabOrderBottomSheet(
+                            onDismiss = { showLibraryTabOrderSheet = false },
+                            appSettings = appSettings,
+                            haptics = haptics
+                        )
+                    }
+                }
             }
             
             // Single Big Card Container
@@ -5417,14 +5448,85 @@ fun getDirectoryContentsOptimized(directoryPath: String, audioExtensions: Set<St
 
     try {
         val directory = File(directoryPath)
-        if (!directory.exists() || !directory.canRead()) {
+        if (!directory.exists()) {
             return items
         }
 
         // Build a map of file paths to songs for quick lookup
         val songsByPath = buildSongPathMap(songs, context)
 
-        val files = directory.listFiles()
+        // Try to list files - may fail on SD card root due to permissions
+        val files = try {
+            directory.listFiles()
+        } catch (e: SecurityException) {
+            // If we can't list files directly (e.g., SD card root), fall back to MediaStore approach
+            // Filter songs that belong to this directory or its subdirectories
+            val dirPath = directoryPath.replace("//", "/")
+            val songsInDir = songs.filter { song ->
+                try {
+                    val songPath = getFilePathFromUri(song.uri, context)
+                    songPath != null && songPath.startsWith(dirPath)
+                } catch (e: Exception) {
+                    false
+                }
+            }
+            
+            // Build directory structure from MediaStore songs
+            val subdirs = mutableSetOf<String>()
+            songsInDir.forEach { song ->
+                try {
+                    val songPath = getFilePathFromUri(song.uri, context) ?: return@forEach
+                    val relativePath = songPath.removePrefix(dirPath).removePrefix("/")
+                    val firstSlash = relativePath.indexOf('/')
+                    if (firstSlash > 0) {
+                        // This song is in a subdirectory
+                        subdirs.add(relativePath.substring(0, firstSlash))
+                    } else if (firstSlash < 0 && relativePath.isNotEmpty()) {
+                        // This song is directly in this directory
+                        val extension = File(songPath).extension.lowercase()
+                        if (extension in audioExtensions) {
+                            items.add(ExplorerItem(
+                                name = song.title,
+                                path = songPath,
+                                isDirectory = false,
+                                itemCount = 1,
+                                type = ExplorerItemType.FILE,
+                                song = song
+                            ))
+                        }
+                    }
+                } catch (e: Exception) {
+                    // Skip problematic songs
+                }
+            }
+            
+            // Add subdirectories
+            subdirs.forEach { subdir ->
+                val subdirPath = "$dirPath/$subdir"
+                val audioCount = songsInDir.count { song ->
+                    try {
+                        val songPath = getFilePathFromUri(song.uri, context)
+                        songPath != null && songPath.startsWith(subdirPath)
+                    } catch (e: Exception) {
+                        false
+                    }
+                }
+                if (audioCount > 0) {
+                    items.add(ExplorerItem(
+                        name = subdir,
+                        path = subdirPath,
+                        isDirectory = true,
+                        itemCount = audioCount,
+                        type = ExplorerItemType.FOLDER,
+                        song = null
+                    ))
+                }
+            }
+            
+            return items
+        }
+        
+        // Normal file listing succeeded
         files?.forEach { file ->
             if (file.isDirectory) {
                 // Use shallow count only (much faster) for better performance
@@ -5460,6 +5562,7 @@ fun getDirectoryContentsOptimized(directoryPath: String, audioExtensions: Set<St
         }
     } catch (e: Exception) {
         // Handle permission or access errors gracefully
+        android.util.Log.e("LibraryScreen", "Error reading directory: $directoryPath", e)
     }
 
     return items
