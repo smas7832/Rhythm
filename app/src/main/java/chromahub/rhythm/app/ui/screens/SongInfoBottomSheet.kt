@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
@@ -26,6 +27,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.rounded.*
@@ -87,7 +89,11 @@ fun SongInfoBottomSheet(
     val haptics = LocalHapticFeedback.current
     val appSettings = remember { AppSettings.getInstance(context) }
     var extendedInfo by remember { mutableStateOf<ExtendedSongInfo?>(null) }
+    var isLoadingMetadata by remember { mutableStateOf(true) }
     var showEditSheet by remember { mutableStateOf(false) }
+    
+    // Animation states
+    var showContent by remember { mutableStateOf(false) }
     
     // Track the current song state to allow updates
     var currentSong by remember(song?.id) { mutableStateOf(song) }
@@ -155,9 +161,17 @@ fun SongInfoBottomSheet(
 
     // Load extended metadata
     LaunchedEffect(song.id) {
+        isLoadingMetadata = true
         extendedInfo = withContext(Dispatchers.IO) {
             MediaUtils.getExtendedSongInfo(context, song)
         }
+        isLoadingMetadata = false
+    }
+
+    // Animation trigger
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(100)
+        showContent = true
     }
 
     ModalBottomSheet(
@@ -179,279 +193,292 @@ fun SongInfoBottomSheet(
         ) {
             item {
                 // Header with album art and track info
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                AnimatedVisibility(
+                    visible = showContent,
+                    enter = fadeIn() + slideInVertically { it },
+                    exit = fadeOut() + slideOutVertically { it }
                 ) {
-                    // Album Art with modern styling
-                    Surface(
-                        modifier = Modifier.size(80.dp),
-                        shape = RoundedCornerShape(20.dp),
-                        tonalElevation = 0.dp,
-                        shadowElevation = 0.dp
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .apply(
-                                    ImageUtils.buildImageRequest(
-                                        song.artworkUri,
-                                        song.title,
-                                        context.cacheDir,
-                                        M3PlaceholderType.TRACK
+                        // Album Art with modern styling
+                        Surface(
+                            modifier = Modifier.size(80.dp),
+                            shape = RoundedCornerShape(20.dp),
+                            tonalElevation = 0.dp,
+                            shadowElevation = 0.dp
+                        ) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .apply(
+                                        ImageUtils.buildImageRequest(
+                                            song.artworkUri,
+                                            song.title,
+                                            context.cacheDir,
+                                            M3PlaceholderType.TRACK
+                                        )
                                     )
-                                )
-                                .build(),
-                            contentDescription = "Album artwork",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
+                                    .build(),
+                                contentDescription = "Album artwork",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
 
-                    // Song info with improved layout
+                        // Song info with improved layout
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = song.title,
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            
+                            Text(
+                                text = song.artist,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            
+                            Text(
+                                text = song.album,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        
+                        // Edit button
+                        onEditSong?.let { editCallback ->
+                            FilledTonalIconButton(
+                                onClick = { 
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    showEditSheet = true
+                                },
+                                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Edit,
+                                    contentDescription = "Edit metadata"
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            item {
+                // Actions section
+                AnimatedVisibility(
+                    visible = showContent,
+                    enter = fadeIn() + slideInVertically { it },
+                    exit = fadeOut() + slideOutVertically { it }
+                ) {
                     Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text(
-                            text = song.title,
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        
-                        Text(
-                            text = song.artist,
+                            text = "Actions",
                             style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(top = 4.dp, bottom = 2.dp),
+                            color = MaterialTheme.colorScheme.primary
                         )
                         
-                        Text(
-                            text = song.album,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    
-                    // Edit button
-                    onEditSong?.let { editCallback ->
-                        FilledTonalIconButton(
-                            onClick = { 
-                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                showEditSheet = true
-                            },
-                            colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Edit,
-                                contentDescription = "Edit metadata"
-                            )
-                        }
-                    }
-                }
-            }
-            item {
-                Text(
-                    text = "Actions",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 2.dp),
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Block/Unblock Song
-                    FilledTonalButton(
-                        onClick = {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            isLoadingBlacklist = true
+                            // Block/Unblock Song
+                            FilledTonalButton(
+                                onClick = {
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    isLoadingBlacklist = true
+                                    
+                                    song?.let { songToBlock ->
+                                        if (isBlacklisted) {
+                                            appSettings.removeFromBlacklist(songToBlock.id)
+                                        } else {
+                                            appSettings.addToBlacklist(songToBlock.id)
+                                        }
+                                        
+                                        isLoadingBlacklist = false
+                                        val message = if (isBlacklisted) "Song removed from blacklist" else "Song added to blacklist"
+                                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                enabled = !isLoadingBlacklist,
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = if (isBlacklisted) 
+                                        MaterialTheme.colorScheme.errorContainer 
+                                    else 
+                                        MaterialTheme.colorScheme.secondaryContainer
+                                )
+                            ) {
+                                if (isLoadingBlacklist) {
+                                    SimpleCircularLoader(
+                                        size = 16.dp,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = if (isBlacklisted) Icons.Rounded.Block else Icons.Rounded.DoNotDisturb,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(if (isBlacklisted) "Un-Blacklist Track" else "Blacklist Track")
+                            }
                             
-                            song?.let { songToBlock ->
-                                if (isBlacklisted) {
-                                    appSettings.removeFromBlacklist(songToBlock.id)
-                                } else {
-                                    appSettings.addToBlacklist(songToBlock.id)
+                            // Block/Unblock Folder
+                            if (folderPath != null) {
+                                FilledTonalButton(
+                                    onClick = {
+                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        isLoadingBlacklist = true
+                                        
+                                        if (isInBlacklistedFolder) {
+                                            appSettings.removeFolderFromBlacklist(folderPath)
+                                        } else {
+                                            appSettings.addFolderToBlacklist(folderPath)
+                                        }
+                                        
+                                        isLoadingBlacklist = false
+                                        val message = if (isInBlacklistedFolder) "Folder removed from blacklist" else "Folder added to blacklist"
+                                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                    },
+                                    enabled = !isLoadingBlacklist,
+                                    modifier = Modifier.weight(1f),
+                                    colors = ButtonDefaults.filledTonalButtonColors(
+                                        containerColor = if (isInBlacklistedFolder) 
+                                            MaterialTheme.colorScheme.errorContainer 
+                                        else 
+                                            MaterialTheme.colorScheme.tertiaryContainer
+                                    )
+                                ) {
+                                    if (isLoadingBlacklist) {
+                                        SimpleCircularLoader(
+                                            size = 16.dp,
+                                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = if (isInBlacklistedFolder) Icons.Rounded.FolderOff else Icons.Rounded.Folder,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(if (isInBlacklistedFolder) "Un-Blacklist Folder" else "Blacklist Folder")
                                 }
-                                
-                                isLoadingBlacklist = false
-                                val message = if (isBlacklisted) "Song removed from blacklist" else "Song added to blacklist"
-                                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                             }
-                        },
-                        enabled = !isLoadingBlacklist,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = if (isBlacklisted) 
-                                MaterialTheme.colorScheme.errorContainer 
-                            else 
-                                MaterialTheme.colorScheme.secondaryContainer
-                        )
-                    ) {
-                        if (isLoadingBlacklist) {
-                            SimpleCircularLoader(
-                                size = 16.dp,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                        } else {
-                            Icon(
-                                imageVector = if (isBlacklisted) Icons.Rounded.Block else Icons.Rounded.DoNotDisturb,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
                         }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(if (isBlacklisted) "Un-Blacklist Track" else "Blacklist Track")
-                    }
-                    
-                    // Block/Unblock Folder
-                    if (folderPath != null) {
-                        FilledTonalButton(
-                            onClick = {
-                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                isLoadingBlacklist = true
-                                
-                                if (isInBlacklistedFolder) {
-                                    appSettings.removeFolderFromBlacklist(folderPath)
-                                } else {
-                                    appSettings.addFolderToBlacklist(folderPath)
-                                }
-                                
-                                isLoadingBlacklist = false
-                                val message = if (isInBlacklistedFolder) "Folder removed from blacklist" else "Folder added to blacklist"
-                                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-                            },
-                            enabled = !isLoadingBlacklist,
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.filledTonalButtonColors(
-                                containerColor = if (isInBlacklistedFolder) 
-                                    MaterialTheme.colorScheme.errorContainer 
-                                else 
-                                    MaterialTheme.colorScheme.tertiaryContainer
-                            )
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            if (isLoadingBlacklist) {
-                                SimpleCircularLoader(
-                                    size = 16.dp,
-                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                            // Whitelist/Remove from whitelist Song
+                            FilledTonalButton(
+                                onClick = {
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    isLoadingWhitelist = true
+                                    
+                                    song?.let { songToWhitelist ->
+                                        if (isWhitelisted) {
+                                            appSettings.removeFromWhitelist(songToWhitelist.id)
+                                        } else {
+                                            appSettings.addToWhitelist(songToWhitelist.id)
+                                        }
+                                        
+                                        isLoadingWhitelist = false
+                                        val message = if (isWhitelisted) "Song removed from whitelist" else "Song added to whitelist" 
+                                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                enabled = !isLoadingWhitelist,
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = if (isWhitelisted) 
+                                        MaterialTheme.colorScheme.primaryContainer 
+                                    else 
+                                        MaterialTheme.colorScheme.secondaryContainer
                                 )
-                            } else {
-                                Icon(
-                                    imageVector = if (isInBlacklistedFolder) Icons.Rounded.FolderOff else Icons.Rounded.Folder,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp)
-                                )
+                            ) {
+                                if (isLoadingWhitelist) {
+                                    SimpleCircularLoader(
+                                        size = 16.dp,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = if (isWhitelisted) Icons.Rounded.CheckCircle else Icons.Rounded.Add,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(if (isWhitelisted) "Un-Whitelist Track" else "Whitelist Track")
                             }
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(if (isInBlacklistedFolder) "Un-Blacklist Folder" else "Blacklist Folder")
-                        }
-                    }
-                }
-            }
-            
-            item {
-                
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Whitelist/Remove from whitelist Song
-                    FilledTonalButton(
-                        onClick = {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            isLoadingWhitelist = true
                             
-                            song?.let { songToWhitelist ->
-                                if (isWhitelisted) {
-                                    appSettings.removeFromWhitelist(songToWhitelist.id)
-                                } else {
-                                    appSettings.addToWhitelist(songToWhitelist.id)
+                            // Whitelist/Remove from whitelist Folder
+                            if (folderPath != null) {
+                                FilledTonalButton(
+                                    onClick = {
+                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        isLoadingWhitelist = true
+                                        
+                                        if (isInWhitelistedFolder) {
+                                            appSettings.removeFolderFromWhitelist(folderPath)
+                                        } else {
+                                            appSettings.addFolderToWhitelist(folderPath)
+                                        }
+                                        
+                                        isLoadingWhitelist = false
+                                        val message = if (isInWhitelistedFolder) "Folder removed from whitelist" else "Folder added to whitelist"
+                                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                    },
+                                    enabled = !isLoadingWhitelist,
+                                    modifier = Modifier.weight(1f),
+                                    colors = ButtonDefaults.filledTonalButtonColors(
+                                        containerColor = if (isInWhitelistedFolder) 
+                                            MaterialTheme.colorScheme.primaryContainer 
+                                        else 
+                                            MaterialTheme.colorScheme.tertiaryContainer
+                                    )
+                                ) {
+                                    if (isLoadingWhitelist) {
+                                        SimpleCircularLoader(
+                                            size = 16.dp,
+                                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = if (isInWhitelistedFolder) Icons.Rounded.FolderOff else Icons.Rounded.Folder,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(if (isInWhitelistedFolder) "Un-Whitelist Folder" else "Whitelist Folder")
                                 }
-                                
-                                isLoadingWhitelist = false
-                                val message = if (isWhitelisted) "Song removed from whitelist" else "Song added to whitelist" 
-                                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                             }
-                        },
-                        enabled = !isLoadingWhitelist,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = if (isWhitelisted) 
-                                MaterialTheme.colorScheme.primaryContainer 
-                            else 
-                                MaterialTheme.colorScheme.secondaryContainer
-                        )
-                    ) {
-                        if (isLoadingWhitelist) {
-                            SimpleCircularLoader(
-                                size = 16.dp,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                        } else {
-                            Icon(
-                                imageVector = if (isWhitelisted) Icons.Rounded.CheckCircle else Icons.Rounded.Add,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(if (isWhitelisted) "Un-Whitelist Track" else "Whitelist Track")
-                    }
-                    
-                    // Whitelist/Remove from whitelist Folder
-                    if (folderPath != null) {
-                        FilledTonalButton(
-                            onClick = {
-                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                isLoadingWhitelist = true
-                                
-                                if (isInWhitelistedFolder) {
-                                    appSettings.removeFolderFromWhitelist(folderPath)
-                                } else {
-                                    appSettings.addFolderToWhitelist(folderPath)
-                                }
-                                
-                                isLoadingWhitelist = false
-                                val message = if (isInWhitelistedFolder) "Folder removed from whitelist" else "Folder added to whitelist"
-                                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-                            },
-                            enabled = !isLoadingWhitelist,
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.filledTonalButtonColors(
-                                containerColor = if (isInWhitelistedFolder) 
-                                    MaterialTheme.colorScheme.primaryContainer 
-                                else 
-                                    MaterialTheme.colorScheme.tertiaryContainer
-                            )
-                        ) {
-                            if (isLoadingWhitelist) {
-                                SimpleCircularLoader(
-                                    size = 16.dp,
-                                    color = MaterialTheme.colorScheme.onTertiaryContainer
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = if (isInWhitelistedFolder) Icons.Rounded.FolderOff else Icons.Rounded.Folder,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(if (isInWhitelistedFolder) "Un-Whitelist Folder" else "Whitelist Folder")
                         }
                     }
                 }
@@ -551,10 +578,17 @@ fun SongInfoBottomSheet(
 
             item {
                 // Metadata grid section
-                MetadataGridSection(
-                    song = song,
-                    extendedInfo = extendedInfo
-                )
+                AnimatedVisibility(
+                    visible = showContent,
+                    enter = fadeIn() + slideInVertically { it },
+                    exit = fadeOut() + slideOutVertically { it }
+                ) {
+                    MetadataGridSection(
+                        song = song,
+                        extendedInfo = extendedInfo,
+                        isLoading = isLoadingMetadata
+                    )
+                }
             }
         }
         
@@ -575,7 +609,8 @@ fun SongInfoBottomSheet(
 @Composable
 private fun MetadataGridSection(
     song: Song,
-    extendedInfo: ExtendedSongInfo?
+    extendedInfo: ExtendedSongInfo?,
+    isLoading: Boolean
 ) {
     // Prepare metadata items (avoiding duplicates and showing more information)
     val metadataItems = buildList {
@@ -646,48 +681,93 @@ private fun MetadataGridSection(
         }
     }
     
-    if (metadataItems.isNotEmpty()) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    // Always show the card, but show loader when loading or no metadata
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(20.dp)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
+                Icon(
+                    imageVector = Icons.Rounded.Info,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Metadata",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            if (isLoading) {
+                // Show loader while loading
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Info,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Metadata",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
+                    SimpleCircularLoader(
+                        size = 32.dp,
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
+            } else if (metadataItems.isNotEmpty()) {
+                // Show metadata grid with staggered item animations
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(2),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.height(((metadataItems.size / 2 + metadataItems.size % 2) * 80).dp)
                 ) {
-                    items(metadataItems) { item ->
-                        MetadataGridItem(item = item)
+                    itemsIndexed(metadataItems) { index, item ->
+                        AnimatedVisibility(
+                            visible = true,
+                            enter = fadeIn(
+                                animationSpec = tween(
+                                    durationMillis = 500,
+                                    delayMillis = 400 + (index * 100)
+                                )
+                            ) + slideInVertically(
+                                animationSpec = tween(
+                                    durationMillis = 500,
+                                    delayMillis = 400 + (index * 100)
+                                ),
+                                initialOffsetY = { it / 5 }
+                            )
+                        ) {
+                            MetadataGridItem(item = item)
+                        }
                     }
+                }
+            } else {
+                // Show empty state
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(80.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "No metadata available",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }

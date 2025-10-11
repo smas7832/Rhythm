@@ -2576,8 +2576,8 @@ fun LibrarySongItem(
                 modifier = Modifier
                     .widthIn(min = 220.dp)
                     .background(MaterialTheme.colorScheme.surface)
-                    .padding(6.dp),
-                shape = RoundedCornerShape(16.dp)
+                    .padding(5.dp),
+                shape = RoundedCornerShape(18.dp)
             ) {
                 // Play next
                 Surface(
@@ -3783,22 +3783,24 @@ fun SingleCardArtistsContent(
             
             if (sortedArtists.isNotEmpty()) {
                 items(sortedArtists, key = { it.id }) { artist ->
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceContainer,
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        ArtistGridCard(
-                            artist = artist,
-                            onClick = {
-                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
-                                onArtistClick(artist)
-                            },
-                            onPlayClick = {
-                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
-                                viewModel.playArtist(artist)
-                            }
-                        )
+                    AnimateIn {
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceContainer,
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            ArtistGridCard(
+                                artist = artist,
+                                onClick = {
+                                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                                    onArtistClick(artist)
+                                },
+                                onPlayClick = {
+                                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                                    viewModel.playArtist(artist)
+                                }
+                            )
+                        }
                     }
                 }
             } else {
@@ -3828,22 +3830,24 @@ fun SingleCardArtistsContent(
             
             if (sortedArtists.isNotEmpty()) {
                 items(sortedArtists, key = { it.id }) { artist ->
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceContainer,
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        ArtistListCard(
-                            artist = artist,
-                            onClick = {
-                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
-                                onArtistClick(artist)
-                            },
-                            onPlayClick = {
-                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
-                                viewModel.playArtist(artist)
-                            }
-                        )
+                    AnimateIn {
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceContainer,
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            ArtistListCard(
+                                artist = artist,
+                                onClick = {
+                                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                                    onArtistClick(artist)
+                                },
+                                onPlayClick = {
+                                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                                    viewModel.playArtist(artist)
+                                }
+                            )
+                        }
                     }
                 }
             } else {
@@ -6471,7 +6475,7 @@ fun BottomFloatingButtonGroup(
             .padding(horizontal = 20.dp),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {

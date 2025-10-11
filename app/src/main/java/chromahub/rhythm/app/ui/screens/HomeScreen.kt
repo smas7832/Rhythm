@@ -75,8 +75,11 @@ import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.Button
+import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.ui.draw.scale
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -1296,84 +1299,172 @@ private fun ModernSectionTitle(
             }
         }
         
+        // Compact Material 3 Split Button Group
         Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            onPlayAll?.let {
-                Button(
-                    onClick = {
-                        HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
-                        it()
-                    },
-                    shape = RoundedCornerShape(20.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
+            // Play/Shuffle Split Button (Primary Action)
+            if (onPlayAll != null || onShufflePlay != null) {
+                var isPlayPressed by remember { mutableStateOf(false) }
+                var isShufflePressed by remember { mutableStateOf(false) }
+                
+                val playScale by animateFloatAsState(
+                    targetValue = if (isPlayPressed) 0.94f else 1f,
+                    animationSpec = spring(dampingRatio = 0.6f, stiffness = 500f),
+                    label = "playScale"
+                )
+                val shuffleScale by animateFloatAsState(
+                    targetValue = if (isShufflePressed) 0.94f else 1f,
+                    animationSpec = spring(dampingRatio = 0.6f, stiffness = 500f),
+                    label = "shuffleScale"
+                )
+                
+                // Split button container
+                Surface(
+                    shape = RoundedCornerShape(24.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    tonalElevation = 1.dp
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.PlayArrow,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "Play",
-                        style = MaterialTheme.typography.labelMedium
-                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(0.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Play button (left side)
+                        onPlayAll?.let {
+                            Surface(
+                                onClick = {
+                                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                                    it()
+                                },
+                                shape = RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp),
+                                color = Color.Transparent,
+                                modifier = Modifier
+                                    .scale(playScale)
+                                    .pointerInput(Unit) {
+                                        detectTapGestures(
+                                            onPress = {
+                                                isPlayPressed = true
+                                                tryAwaitRelease()
+                                                isPlayPressed = false
+                                            }
+                                        )
+                                    }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(start = 14.dp, end = 10.dp, top = 10.dp, bottom = 10.dp),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.PlayArrow,
+                                        contentDescription = "Play",
+                                        modifier = Modifier.size(18.dp),
+                                        tint = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "Play",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                }
+                            }
+                        }
+                        
+                        // Divider
+                        if (onPlayAll != null && onShufflePlay != null) {
+                            Box(
+                                modifier = Modifier
+                                    .width(1.dp)
+                                    .height(24.dp)
+                                    .background(MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f))
+                            )
+                        }
+                        
+                        // Shuffle button (right side)
+                        onShufflePlay?.let {
+                            Surface(
+                                onClick = {
+                                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                                    it()
+                                },
+                                shape = RoundedCornerShape(topEnd = 24.dp, bottomEnd = 24.dp),
+                                color = Color.Transparent,
+                                modifier = Modifier
+                                    .scale(shuffleScale)
+                                    .pointerInput(Unit) {
+                                        detectTapGestures(
+                                            onPress = {
+                                                isShufflePressed = true
+                                                tryAwaitRelease()
+                                                isShufflePressed = false
+                                            }
+                                        )
+                                    }
+                            ) {
+                                Box(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Shuffle,
+                                        contentDescription = "Shuffle",
+                                        modifier = Modifier.size(18.dp),
+                                        tint = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
-            onShufflePlay?.let {
-                Button(
-                    onClick = {
-                        HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
-                        it()
-                    },
-                    shape = RoundedCornerShape(20.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        contentColor = MaterialTheme.colorScheme.onSurface
-                    )
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Shuffle,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "Shuffle",
-                        style = MaterialTheme.typography.labelMedium
-                    )
-                }
-            }
-
+            // View All Button (Secondary Action) - Prominent size
             viewAllAction?.let {
-                Button(
+                var isPressed by remember { mutableStateOf(false) }
+                val scale by animateFloatAsState(
+                    targetValue = if (isPressed) 0.94f else 1f,
+                    animationSpec = spring(dampingRatio = 0.6f, stiffness = 500f),
+                    label = "viewAllScale"
+                )
+                
+                OutlinedButton(
                     onClick = {
                         HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
                         it()
                     },
-                    shape = RoundedCornerShape(20.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
+                    shape = RoundedCornerShape(24.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = Color.Transparent,
+                        contentColor = MaterialTheme.colorScheme.primary
+                    ),
+                    border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                    modifier = Modifier
+                        .scale(scale)
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onPress = {
+                                    isPressed = true
+                                    tryAwaitRelease()
+                                    isPressed = false
+                                }
+                            )
+                        }
                 ) {
                     Text(
                         text = "View All",
-                        style = MaterialTheme.typography.labelMedium
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
                         contentDescription = null,
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.primary
                     )
                 }
             }

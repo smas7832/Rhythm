@@ -119,8 +119,8 @@ fun SplashScreen(
             logoOffsetX.animateTo(
                 targetValue = -265f, // Slide left from center
                 animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessMedium
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = Spring.StiffnessLow
                 )
             )
         }
@@ -128,8 +128,8 @@ fun SplashScreen(
         appNameOffsetX.animateTo(
             targetValue = 105f, // Slide right from center
             animationSpec = spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessMedium
+                dampingRatio = Spring.DampingRatioNoBouncy,
+                stiffness = Spring.StiffnessLow
             )
         )
 
