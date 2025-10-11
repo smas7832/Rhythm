@@ -25,7 +25,7 @@ object NetworkClient {
     
     private const val LRCLIB_BASE_URL = "https://lrclib.net/"
     private const val DEEZER_BASE_URL = "https://api.deezer.com/"
-    private const val CANVAS_BASE_URL = "https://api.paxsenix.biz.id/spotify/"
+    private const val CANVAS_BASE_URL = "https://api.paxsenix.org/spotify/"
     private const val YTMUSIC_BASE_URL = "https://music.youtube.com/"
     private const val SPOTIFY_API_BASE_URL = "https://api.spotify.com/v1/"
     

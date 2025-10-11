@@ -174,6 +174,8 @@ class AppSettings private constructor(context: Context) {
         private const val KEY_SLEEP_TIMER_REMAINING_SECONDS = "sleep_timer_remaining_seconds"
         private const val KEY_SLEEP_TIMER_ACTION = "sleep_timer_action"
         
+        // Library Sort Order
+        private const val KEY_SONGS_SORT_ORDER = "songs_sort_order"
         
         @Volatile
         private var INSTANCE: AppSettings? = null
@@ -628,6 +630,10 @@ class AppSettings private constructor(context: Context) {
     private val _backupLocation = MutableStateFlow(prefs.getString(KEY_BACKUP_LOCATION, null))
     val backupLocation: StateFlow<String?> = _backupLocation.asStateFlow()
     
+    // Library Sort Order
+    private val _songsSortOrder = MutableStateFlow(prefs.getString(KEY_SONGS_SORT_ORDER, "TITLE_ASC") ?: "TITLE_ASC")
+    val songsSortOrder: StateFlow<String> = _songsSortOrder.asStateFlow()
+    
     // Playback Settings Methods
     fun setHighQualityAudio(enable: Boolean) {
         prefs.edit().putBoolean(KEY_HIGH_QUALITY_AUDIO, enable).apply()
@@ -760,6 +766,11 @@ class AppSettings private constructor(context: Context) {
     fun setGroupByAlbumArtist(enable: Boolean) {
         prefs.edit().putBoolean(KEY_GROUP_BY_ALBUM_ARTIST, enable).apply()
         _groupByAlbumArtist.value = enable
+    }
+    
+    fun setSongsSortOrder(sortOrder: String) {
+        prefs.edit().putString(KEY_SONGS_SORT_ORDER, sortOrder).apply()
+        _songsSortOrder.value = sortOrder
     }
     
     // Audio Device Settings Methods
@@ -1644,6 +1655,7 @@ class AppSettings private constructor(context: Context) {
         _artistViewType.value = ArtistViewType.valueOf(prefs.getString(KEY_ARTIST_VIEW_TYPE, ArtistViewType.GRID.name) ?: ArtistViewType.GRID.name)
         _albumSortOrder.value = prefs.getString(KEY_ALBUM_SORT_ORDER, "TRACK_NUMBER") ?: "TRACK_NUMBER"
         _artistCollaborationMode.value = prefs.getBoolean(KEY_ARTIST_COLLABORATION_MODE, false)
+        _songsSortOrder.value = prefs.getString(KEY_SONGS_SORT_ORDER, "TITLE_ASC") ?: "TITLE_ASC"
         
         // Audio Device Settings
         _lastAudioDevice.value = prefs.getString(KEY_LAST_AUDIO_DEVICE, null)

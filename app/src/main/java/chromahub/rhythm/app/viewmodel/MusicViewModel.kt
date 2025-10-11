@@ -319,8 +319,14 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _targetPlaylistId = MutableStateFlow<String?>(null)
     val targetPlaylistId: StateFlow<String?> = _targetPlaylistId.asStateFlow()
 
-    // Sort library functionality
-    private val _sortOrder = MutableStateFlow(SortOrder.TITLE_ASC)
+    // Sort library functionality - Load saved sort order from AppSettings
+    private val _sortOrder = MutableStateFlow(
+        try {
+            SortOrder.valueOf(appSettings.songsSortOrder.value)
+        } catch (e: Exception) {
+            SortOrder.TITLE_ASC
+        }
+    )
     val sortOrder: StateFlow<SortOrder> = _sortOrder.asStateFlow()
 
     // User preferences and statistics
@@ -2702,6 +2708,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             if (_sortOrder.value != newSortOrder) {
                 _sortOrder.value = newSortOrder
+                // Save sort order to AppSettings for persistence
+                appSettings.setSongsSortOrder(newSortOrder.name)
                 
                 // Sort songs based on new sort order
                 _songs.value = when (newSortOrder) {
