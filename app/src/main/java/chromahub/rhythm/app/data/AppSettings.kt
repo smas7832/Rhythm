@@ -69,6 +69,7 @@ class AppSettings private constructor(context: Context) {
         private const val KEY_ALBUM_SORT_ORDER = "album_sort_order"
         private const val KEY_ARTIST_COLLABORATION_MODE = "artist_collaboration_mode"
         private const val KEY_LIBRARY_TAB_ORDER = "library_tab_order"
+        private const val KEY_GROUP_BY_ALBUM_ARTIST = "group_by_album_artist" // New setting for album artist grouping
         
         // Audio Device Settings
         private const val KEY_LAST_AUDIO_DEVICE = "last_audio_device"
@@ -272,6 +273,10 @@ class AppSettings private constructor(context: Context) {
             ?: defaultTabOrder
     )
     val libraryTabOrder: StateFlow<List<String>> = _libraryTabOrder.asStateFlow()
+    
+    // Group By Album Artist
+    private val _groupByAlbumArtist = MutableStateFlow(prefs.getBoolean(KEY_GROUP_BY_ALBUM_ARTIST, true)) // Default true for better organization
+    val groupByAlbumArtist: StateFlow<Boolean> = _groupByAlbumArtist.asStateFlow()
     
     // Audio Device Settings
     private val _lastAudioDevice = MutableStateFlow(prefs.getString(KEY_LAST_AUDIO_DEVICE, null))
@@ -750,6 +755,11 @@ class AppSettings private constructor(context: Context) {
     fun resetLibraryTabOrder() {
         prefs.edit().remove(KEY_LIBRARY_TAB_ORDER).apply()
         _libraryTabOrder.value = defaultTabOrder
+    }
+    
+    fun setGroupByAlbumArtist(enable: Boolean) {
+        prefs.edit().putBoolean(KEY_GROUP_BY_ALBUM_ARTIST, enable).apply()
+        _groupByAlbumArtist.value = enable
     }
     
     // Audio Device Settings Methods

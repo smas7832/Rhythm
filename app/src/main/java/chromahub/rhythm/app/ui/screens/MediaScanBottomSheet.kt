@@ -311,6 +311,8 @@ fun MediaScanBottomSheet(
                 1 -> FoldersFilterTab(
                     mode = currentMode,
                     filteredFolders = filteredFoldersList,
+                    allSongs = allSongs,
+                    filteredAvailableSongs = filteredSongs,
                     appSettings = appSettings,
                     haptic = haptic,
                     context = context
@@ -402,13 +404,21 @@ private fun SongsFilterTab(
     haptic: androidx.compose.ui.hapticfeedback.HapticFeedback,
     context: android.content.Context
 ) {
+    // Track if data is still being calculated to show loading state
+    val isCalculating = remember(allSongs, filteredAvailableSongs, mode) {
+        allSongs.isNotEmpty() && filteredAvailableSongs.isEmpty()
+    }
+    
     // Calculate effective filter counts considering both individual songs and folder filters
     val totalSongsCount = allSongs.size
-    val availableSongsCount = filteredAvailableSongs.size // This already excludes blacklisted songs
+    val availableSongsCount = filteredAvailableSongs.size // This already excludes blacklisted/includes only whitelisted songs
     val effectivelyFilteredCount = if (mode == MediaScanMode.BLACKLIST) {
+        // For blacklist: show how many songs are blocked
         totalSongsCount - availableSongsCount
     } else {
-        filteredSongDetails.size // For whitelist, show count of whitelisted songs
+        // For whitelist: show how many songs are available (from both explicit whitelist and whitelisted folders)
+        // availableSongsCount already includes songs from whitelisted folders
+        availableSongsCount
     }
     
     Column {
@@ -426,14 +436,31 @@ private fun SongsFilterTab(
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp)
+                    modifier = Modifier.padding(16.dp),
+                    horizontalAlignment = Alignment.Start
                 ) {
-                    Text(
-                        text = "$effectivelyFilteredCount",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = if (mode == MediaScanMode.BLACKLIST) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer
-                    )
+                    if (isCalculating) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            SimpleCircularLoader(
+                                color = if (mode == MediaScanMode.BLACKLIST) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer,
+                                size = 28.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "...",
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = if (mode == MediaScanMode.BLACKLIST) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    } else {
+                        Text(
+                            text = "$effectivelyFilteredCount",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = if (mode == MediaScanMode.BLACKLIST) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
                     Text(
                         text = if (mode == MediaScanMode.BLACKLIST) "Blocked" else "Whitelisted",
                         style = MaterialTheme.typography.bodySmall,
@@ -556,10 +583,22 @@ private fun SongsFilterTab(
 private fun FoldersFilterTab(
     mode: MediaScanMode,
     filteredFolders: List<String>,
+    allSongs: List<Song>,
+    filteredAvailableSongs: List<Song>,
     appSettings: AppSettings,
     haptic: androidx.compose.ui.hapticfeedback.HapticFeedback,
     context: android.content.Context
 ) {
+    // Calculate songs affected by folder filters
+    val songsInFilteredFolders = remember(allSongs, filteredFolders, filteredAvailableSongs, mode) {
+        if (mode == MediaScanMode.BLACKLIST) {
+            // For blacklist: count songs that are blocked because of folder blacklist
+            allSongs.size - filteredAvailableSongs.size
+        } else {
+            // For whitelist: count songs that are available from whitelisted folders
+            filteredAvailableSongs.size
+        }
+    }
     // Folder picker launcher
     val folderPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -584,28 +623,21 @@ private fun FoldersFilterTab(
     
     Column {
         // Stats
-        Card(
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = if (mode == MediaScanMode.BLACKLIST) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            shape = RoundedCornerShape(12.dp)
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+            Card(
+                modifier = Modifier.weight(1f),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (mode == MediaScanMode.BLACKLIST) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Filled.Folder,
-                    contentDescription = null,
-                    tint = if (mode == MediaScanMode.BLACKLIST) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(32.dp)
-                )
-                Spacer(modifier = Modifier.width(16.dp))
-                Column {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
                     Text(
                         text = "${filteredFolders.size}",
                         style = MaterialTheme.typography.headlineMedium,
@@ -613,9 +645,36 @@ private fun FoldersFilterTab(
                         color = if (mode == MediaScanMode.BLACKLIST) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer
                     )
                     Text(
-                        text = if (mode == MediaScanMode.BLACKLIST) "Blocked folders" else "Whitelisted folders",
-                        style = MaterialTheme.typography.bodyMedium,
+                        text = if (mode == MediaScanMode.BLACKLIST) "Folders" else "Folders",
+                        style = MaterialTheme.typography.bodySmall,
                         color = if (mode == MediaScanMode.BLACKLIST) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.width(12.dp))
+            
+            Card(
+                modifier = Modifier.weight(1f),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text(
+                        text = "$songsInFilteredFolders",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
+                    Text(
+                        text = if (mode == MediaScanMode.BLACKLIST) "Songs Affected" else "Songs Available",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer
                     )
                 }
             }

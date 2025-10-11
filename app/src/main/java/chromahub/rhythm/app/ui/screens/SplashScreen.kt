@@ -209,23 +209,8 @@ fun SplashScreen(
                     modifier = Modifier.height(200.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    // Logo with entrance animation and breathing effect (centered, then slides left)
-                    if (showLogo) {
-                        Image(
-                            painter = painterResource(id = R.drawable.rhythm_splash_logo),
-                            contentDescription = "Rhythm",
-                            modifier = Modifier
-                                .size(200.dp) // Larger base size to match system splash
-                                .graphicsLayer {
-                                    alpha = logoAlpha.value
-                                    scaleX = logoScaleAnim.value * logoBreathing
-                                    scaleY = logoScaleAnim.value * logoBreathing
-                                    translationX = logoOffsetX.value
-                                }
-                        )
-                    }
-
                     // App name revealing with expand animation (like TabButton in ThemeCustomizationBottomSheet)
+                    // Rendered first so it appears BEHIND the logo in z-order
                     if (showAppName) {
                         Row(
                             modifier = Modifier.graphicsLayer {
@@ -255,6 +240,23 @@ fun SplashScreen(
                                 )
                             }
                         }
+                    }
+                    
+                    // Logo with entrance animation and breathing effect (centered, then slides left)
+                    // Rendered second so it appears ON TOP of the text in z-order
+                    if (showLogo) {
+                        Image(
+                            painter = painterResource(id = R.drawable.rhythm_splash_logo),
+                            contentDescription = "Rhythm",
+                            modifier = Modifier
+                                .size(200.dp) // Larger base size to match system splash
+                                .graphicsLayer {
+                                    alpha = logoAlpha.value
+                                    scaleX = logoScaleAnim.value * logoBreathing
+                                    scaleY = logoScaleAnim.value * logoBreathing
+                                    translationX = logoOffsetX.value
+                                }
+                        )
                     }
                 }
 

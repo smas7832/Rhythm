@@ -18,7 +18,8 @@ data class Song(
     val trackNumber: Int = 0,
     val year: Int = 0,
     val genre: String? = null,
-    val dateAdded: Long = System.currentTimeMillis() // New field for date added
+    val dateAdded: Long = System.currentTimeMillis(), // New field for date added
+    val albumArtist: String? = null // Album artist for grouping
 ) : Parcelable {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -37,7 +38,8 @@ data class Song(
         if (trackNumber != other.trackNumber) return false
         if (year != other.year) return false
         if (!Objects.equals(genre, other.genre)) return false
-        if (dateAdded != other.dateAdded) return false // Include in equals
+        if (dateAdded != other.dateAdded) return false
+        if (!Objects.equals(albumArtist, other.albumArtist)) return false
 
         return true
     }
@@ -55,7 +57,8 @@ data class Song(
             trackNumber,
             year,
             genre,
-            dateAdded // Include in hashCode
+            dateAdded,
+            albumArtist
         )
     }
 }

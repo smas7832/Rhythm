@@ -39,7 +39,6 @@ import chromahub.rhythm.app.data.Song
 import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.ui.components.M3PlaceholderType
 import chromahub.rhythm.app.util.ImageUtils
-import chromahub.rhythm.app.util.ArtistCollaborationUtils
 import chromahub.rhythm.app.util.HapticUtils
 import chromahub.rhythm.app.viewmodel.MusicViewModel
 import coil.compose.AsyncImage
@@ -68,34 +67,41 @@ fun ArtistBottomSheet(
     val scope = rememberCoroutineScope()
     val viewModel: MusicViewModel = viewModel()
     val appSettings = remember { AppSettings.getInstance(context) }
-    val collaborationMode by appSettings.artistCollaborationMode.collectAsState()
+    val groupByAlbumArtist by appSettings.groupByAlbumArtist.collectAsState()
     
     // Get songs and albums from viewModel
     val allSongs by viewModel.songs.collectAsState()
     val allAlbums by viewModel.albums.collectAsState()
     
-    // Enhanced artist filtering using centralized utility based on collaboration mode
-    val artistSongs = remember(allSongs, artist, collaborationMode) {
-        if (collaborationMode) {
-            // Show all songs including collaborations using ArtistCollaborationUtils
-            allSongs.filter { song ->
-                ArtistCollaborationUtils.isArtistInCollaboration(artist.name, song.artist)
+    // Filter songs and albums for this artist based on grouping preference
+    val artistSongs = remember(allSongs, artist, groupByAlbumArtist) {
+        allSongs.filter { song ->
+            if (groupByAlbumArtist) {
+                // When grouping by album artist, match the album artist (or track artist as fallback)
+                val songArtistName = (song.albumArtist?.takeIf { it.isNotBlank() } ?: song.artist).trim()
+                songArtistName == artist.name
+            } else {
+                // When not grouping, match track artist directly
+                song.artist == artist.name
             }
-        } else {
-            // Use filtered approach (default mode)
-            ArtistCollaborationUtils.filterSongsByArtist(allSongs, artist.name)
         }
     }
     
-    val artistAlbums = remember(allAlbums, artist, collaborationMode) {
-        if (collaborationMode) {
-            // Show all albums including collaborations using ArtistCollaborationUtils
+    val artistAlbums = remember(allAlbums, allSongs, artist, groupByAlbumArtist) {
+        if (groupByAlbumArtist) {
+            // When grouping by album artist, check if any song in the album has matching album artist
             allAlbums.filter { album ->
-                ArtistCollaborationUtils.isArtistInCollaboration(artist.name, album.artist)
+                allSongs.any { song ->
+                    song.album == album.title &&
+                    song.albumId == album.id &&
+                    (song.albumArtist?.takeIf { it.isNotBlank() } ?: song.artist).trim() == artist.name
+                }
             }
         } else {
-            // Use filtered approach (default mode)
-            ArtistCollaborationUtils.filterAlbumsByArtist(allAlbums, artist.name)
+            // When not grouping, match album artist directly
+            allAlbums.filter { album ->
+                album.artist == artist.name
+            }
         }
     }
     

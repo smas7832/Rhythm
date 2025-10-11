@@ -139,7 +139,6 @@ import chromahub.rhythm.app.ui.screens.ArtistBottomSheet
 import chromahub.rhythm.app.ui.screens.AlbumBottomSheet
 import chromahub.rhythm.app.ui.screens.AddToPlaylistBottomSheet
 import chromahub.rhythm.app.util.ImageUtils
-import chromahub.rhythm.app.util.ArtistCollaborationUtils
 import chromahub.rhythm.app.viewmodel.AppUpdaterViewModel
 import chromahub.rhythm.app.viewmodel.AppVersion
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -208,10 +207,9 @@ fun HomeScreen(
         albums.shuffled().take(6) // Increased to 6 for better variety
     }
     
-    // Get all unique artists with better collaboration handling
-    val availableArtists = remember(songs, artists) {
-        ArtistCollaborationUtils.extractIndividualArtists(artists, songs)
-            .sortedBy { it.name }
+    // Get all unique artists (already handled by repository based on user preference)
+    val availableArtists = remember(artists) {
+        artists.sortedBy { it.name }
     }
     
     val quickPicks = songs.take(8) // Increased for better variety
@@ -1815,10 +1813,7 @@ private fun ModernArtistCard(
             FilledIconButton(
                 onClick = {
                     HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
-                    val artistSongs = chromahub.rhythm.app.util.ArtistCollaborationUtils.filterSongsByArtist(songs, artist.name)
-                    if (artistSongs.isNotEmpty()) {
-                        viewModel.playQueue(artistSongs)
-                    }
+                    viewModel.playArtist(artist)
                     onClick()
                 },
                 colors = IconButtonDefaults.filledIconButtonColors(

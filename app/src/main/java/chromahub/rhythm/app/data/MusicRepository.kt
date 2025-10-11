@@ -207,7 +207,8 @@ class MusicRepository(context: Context) {
                         year = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.YEAR),
                         dateAdded = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED),
                         size = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE),
-                        genre = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.GENRE)
+                        genre = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.GENRE),
+                        albumArtist = cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM_ARTIST) // May be -1 on older devices
                     )
                 } catch (e: IllegalArgumentException) {
                     Log.e(TAG, "Required column not found in MediaStore", e)
@@ -257,7 +258,8 @@ class MusicRepository(context: Context) {
         val year: Int,
         val dateAdded: Int,
         val size: Int,
-        val genre: Int
+        val genre: Int,
+        val albumArtist: Int // May be -1 if not available on older devices
     )
     
     private fun createSongFromCursor(cursor: android.database.Cursor, indices: ColumnIndices): Song? {
@@ -273,6 +275,9 @@ class MusicRepository(context: Context) {
             val dateAdded = cursor.getLong(indices.dateAdded) * 1000L
             val size = cursor.getLong(indices.size)
             val genreId = cursor.getString(indices.genre)?.trim()
+            val albumArtist = if (indices.albumArtist >= 0) {
+                cursor.getString(indices.albumArtist)?.trim()?.takeIf { it.isNotBlank() }
+            } else null
 
             // Skip files that are too small (likely invalid)
             if (size < 1024) { // Less than 1KB
@@ -308,7 +313,8 @@ class MusicRepository(context: Context) {
                 trackNumber = track,
                 year = year,
                 dateAdded = dateAdded,
-                genre = null // Genre will be detected in background
+                genre = null, // Genre will be detected in background
+                albumArtist = albumArtist
             )
         } catch (e: Exception) {
             Log.w(TAG, "Error creating song from cursor", e)
@@ -622,9 +628,29 @@ class MusicRepository(context: Context) {
     }
 
     /**
-     * Loads artists from device storage with enhanced metadata extraction
+     * Loads artists from device storage with enhanced metadata extraction.
+     * Supports grouping by album artist or track artist based on user preference.
      */
     suspend fun loadArtists(): List<Artist> = withContext(Dispatchers.IO) {
+        val appSettings = AppSettings.getInstance(context)
+        val groupByAlbumArtist = appSettings.groupByAlbumArtist.value
+        
+        Log.d(TAG, "Loading artists (groupByAlbumArtist=$groupByAlbumArtist)")
+        
+        if (groupByAlbumArtist) {
+            // New method: Group by album artist from songs
+            loadArtistsGroupedByAlbumArtist()
+        } else {
+            // Original method: Use MediaStore.Audio.Artists (grouped by track artist)
+            loadArtistsFromMediaStore()
+        }
+    }
+    
+    /**
+     * Original method: Loads artists using MediaStore.Audio.Artists
+     * This groups by track artist, showing collaborations as separate entries
+     */
+    private suspend fun loadArtistsFromMediaStore(): List<Artist> = withContext(Dispatchers.IO) {
         val artists = mutableListOf<Artist>()
         val collection = MediaStore.Audio.Artists.EXTERNAL_CONTENT_URI
 
@@ -675,6 +701,49 @@ class MusicRepository(context: Context) {
             }
         }
 
+        Log.d(TAG, "Loaded ${artists.size} artists from MediaStore")
+        artists
+    }
+    
+    /**
+     * New method: Groups artists by album artist from all songs.
+     * This provides proper album-based grouping, showing single artist for collaboration albums.
+     */
+    private suspend fun loadArtistsGroupedByAlbumArtist(): List<Artist> = withContext(Dispatchers.IO) {
+        val allSongs = loadSongs()
+        val artistMap = mutableMapOf<String, MutableList<Song>>()
+        val albumsByArtist = mutableMapOf<String, MutableSet<String>>()
+        
+        // Group songs by album artist (or track artist if album artist is not available)
+        for (song in allSongs) {
+            val artistName = (song.albumArtist?.takeIf { it.isNotBlank() } ?: song.artist).trim()
+            
+            // Skip invalid artist names
+            if (artistName.isBlank() || artistName.equals("<unknown>", ignoreCase = true)) {
+                continue
+            }
+            
+            // Add song to artist's collection
+            artistMap.getOrPut(artistName) { mutableListOf() }.add(song)
+            
+            // Track unique albums for this artist
+            if (song.album.isNotBlank()) {
+                albumsByArtist.getOrPut(artistName) { mutableSetOf() }.add(song.album)
+            }
+        }
+        
+        // Create Artist objects from grouped data
+        val artists = artistMap.map { (artistName, songs) ->
+            val albums = albumsByArtist[artistName] ?: emptySet()
+            Artist(
+                id = "album_artist_${artistName.hashCode()}", // Generate unique ID based on name
+                name = artistName,
+                numberOfAlbums = albums.size,
+                numberOfTracks = songs.size
+            )
+        }.sortedBy { it.name.lowercase() }
+        
+        Log.d(TAG, "Loaded ${artists.size} artists grouped by album artist")
         artists
     }
 
@@ -1592,6 +1661,8 @@ class MusicRepository(context: Context) {
     suspend fun getSongsForArtist(artistId: String): List<Song> = withContext(Dispatchers.IO) {
         val allSongs = loadSongs() // Ensure songs are loaded once
         val allArtists = loadArtists() // Ensure artists are loaded once
+        val appSettings = AppSettings.getInstance(context)
+        val groupByAlbumArtist = appSettings.groupByAlbumArtist.value
 
         Log.d("MusicRepository", "Getting songs for artist ID: $artistId")
 
@@ -1602,11 +1673,17 @@ class MusicRepository(context: Context) {
             return@withContext emptyList()
         }
 
-        Log.d("MusicRepository", "Found artist: ${artist.name} (ID: $artistId)")
+        Log.d("MusicRepository", "Found artist: ${artist.name} (ID: $artistId, groupByAlbumArtist=$groupByAlbumArtist)")
 
         // Filter songs that match the artist's name
+        // When grouping by album artist, check album artist first, then fall back to track artist
         val artistSongs = allSongs.filter { song ->
-            song.artist == artist.name
+            if (groupByAlbumArtist) {
+                val songArtistName = (song.albumArtist?.takeIf { it.isNotBlank() } ?: song.artist).trim()
+                songArtistName == artist.name
+            } else {
+                song.artist == artist.name
+            }
         }
 
         Log.d("MusicRepository", "Found ${artistSongs.size} songs for artist: ${artist.name}")
@@ -1616,6 +1693,9 @@ class MusicRepository(context: Context) {
     suspend fun getAlbumsForArtist(artistId: String): List<Album> = withContext(Dispatchers.IO) {
         val allAlbums = loadAlbums() // Ensure albums are loaded once
         val allArtists = loadArtists() // Ensure artists are loaded once
+        val allSongs = loadSongs() // Need songs to check album artist
+        val appSettings = AppSettings.getInstance(context)
+        val groupByAlbumArtist = appSettings.groupByAlbumArtist.value
 
         Log.d("MusicRepository", "Getting albums for artist ID: $artistId")
 
@@ -1626,11 +1706,21 @@ class MusicRepository(context: Context) {
             return@withContext emptyList()
         }
 
-        Log.d("MusicRepository", "Found artist: ${artist.name} (ID: $artistId)")
+        Log.d("MusicRepository", "Found artist: ${artist.name} (ID: $artistId, groupByAlbumArtist=$groupByAlbumArtist)")
 
         // Filter albums that match the artist's name
+        // When grouping by album artist, check if any song in the album has matching album artist
         val artistAlbums = allAlbums.filter { album ->
-            album.artist == artist.name
+            if (groupByAlbumArtist) {
+                // Check if any song from this album has the artist as album artist
+                allSongs.any { song ->
+                    song.album == album.title &&
+                    song.albumId == album.id &&
+                    (song.albumArtist?.takeIf { it.isNotBlank() } ?: song.artist).trim() == artist.name
+                }
+            } else {
+                album.artist == artist.name
+            }
         }
 
         Log.d("MusicRepository", "Found ${artistAlbums.size} albums for artist: ${artist.name}")

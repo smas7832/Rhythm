@@ -108,7 +108,6 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import chromahub.rhythm.app.ui.screens.AddToPlaylistBottomSheet
 import chromahub.rhythm.app.ui.components.CreatePlaylistDialog
 import chromahub.rhythm.app.ui.screens.ArtistBottomSheet
-import chromahub.rhythm.app.util.ArtistCollaborationUtils
 import chromahub.rhythm.app.util.ImageUtils
 import chromahub.rhythm.app.util.HapticUtils
 import chromahub.rhythm.app.ui.screens.SettingsSectionHeader
@@ -214,8 +213,9 @@ fun SearchScreen(
         }
     }
     
-    val uniqueArtists = remember(artists, songs) {
-        ArtistCollaborationUtils.extractIndividualArtists(artists, songs)
+    // Artists are already processed by repository based on user preference
+    val uniqueArtists = remember(artists) {
+        artists
     }
 
     val searchedArtists by remember(searchQuery, uniqueArtists) {

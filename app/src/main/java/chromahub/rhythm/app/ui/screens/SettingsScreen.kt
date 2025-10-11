@@ -1294,6 +1294,21 @@ fun SettingsScreen(
                     //         appSettings.setArtistCollaborationMode(enabled)
                     //     }
                     // )
+                    
+                    // Group by Album Artist Setting
+                    val groupByAlbumArtist by appSettings.groupByAlbumArtist.collectAsState()
+
+                    SettingsToggleItem(
+                        title = "Group by Album Artist",
+                        description = "Group artists by album artist instead of track artist. When enabled, collaboration albums appear under the main artist.",
+                        checked = groupByAlbumArtist,
+                        icon = Icons.Filled.Person,
+                        onCheckedChange = { enabled ->
+                            appSettings.setGroupByAlbumArtist(enabled)
+                            // Trigger library refresh to reload artists
+                            musicViewModel.refreshLibrary()
+                        }
+                    )
 
                     // Playlist Management
                     val userPlaylists = playlists.filter { !it.isDefault }
@@ -1358,6 +1373,11 @@ fun SettingsScreen(
                     val allSongs by musicViewModel.songs.collectAsState()
                     val filteredSongs by musicViewModel.filteredSongs.collectAsState()
 
+                    // Track if data is still being calculated to show loading state
+                    val isCalculatingCounts = remember(allSongs, filteredSongs, blacklistedSongs, blacklistedFolders) {
+                        allSongs.isNotEmpty() && filteredSongs.isEmpty() && (blacklistedSongs.isNotEmpty() || blacklistedFolders.isNotEmpty())
+                    }
+
                     // Calculate effective blacklist counts considering both individual songs and folder blacklists
                     val totalSongsCount = allSongs.size
                     val availableSongsCount =
@@ -1368,7 +1388,7 @@ fun SettingsScreen(
                     SettingsChipItem(
                         title = "Manage Media Scan",
                         description = "Control blacklist and whitelist for media scanning",
-                        primaryChipText = "$effectivelyBlacklistedSongsCount blocked",
+                        primaryChipText = if (isCalculatingCounts) "Loading..." else "$effectivelyBlacklistedSongsCount blocked",
                         secondaryChipText = "$blacklistedFoldersCount folders",
                         icon = Icons.Filled.FilterList,
                         primaryChipColor = MaterialTheme.colorScheme.errorContainer,

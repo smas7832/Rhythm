@@ -230,11 +230,22 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     // Filtered artists excluding artists with all songs blacklisted
     val filteredArtists: StateFlow<List<Artist>> = kotlinx.coroutines.flow.combine(
         _artists,
-        filteredSongs
-    ) { artists, filteredSongs ->
+        filteredSongs,
+        appSettings.groupByAlbumArtist
+    ) { artists, filteredSongs, groupByAlbumArtist ->
         artists.filter { artist ->
             // Include artist if they have at least one non-blacklisted song
-            filteredSongs.any { song -> song.artist == artist.name }
+            // Check against the appropriate field based on grouping mode
+            if (groupByAlbumArtist) {
+                // When grouping by album artist, match against song's albumArtist (with fallback to artist)
+                filteredSongs.any { song -> 
+                    val songAlbumArtist = song.albumArtist ?: song.artist
+                    songAlbumArtist == artist.name 
+                }
+            } else {
+                // When grouping by track artist, match against song's artist
+                filteredSongs.any { song -> song.artist == artist.name }
+            }
         }
     }.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Lazily, emptyList())
 
@@ -390,6 +401,25 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 Log.d(TAG, "Async initialization completed")
             } catch (e: Exception) {
                 Log.e(TAG, "Error in async initialization", e)
+            }
+        }
+        
+        // Listen for blacklist/whitelist changes and refresh playlists accordingly
+        viewModelScope.launch {
+            combine(
+                appSettings.blacklistedSongs,
+                appSettings.blacklistedFolders,
+                appSettings.whitelistedSongs,
+                appSettings.whitelistedFolders
+            ) { blacklistedSongs, blacklistedFolders, whitelistedSongs, whitelistedFolders ->
+                // Trigger when any filter changes
+                Unit
+            }.collect {
+                // Wait for initialization to complete before refreshing
+                if (_isInitialized.value) {
+                    Log.d(TAG, "Blacklist/Whitelist changed, refreshing playlists to remove filtered songs")
+                    refreshPlaylists()
+                }
             }
         }
     }
@@ -2217,6 +2247,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     /**
      * Populates the "Recently Added" playlist with songs from current year's albums.
+     * Only includes songs that pass the blacklist/whitelist filters.
      */
     private fun populateRecentlyAddedPlaylist() {
         viewModelScope.launch {
@@ -2239,8 +2270,14 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 songsToAdd.addAll(albumSongs)
             }
 
-            // Add songs to the playlist, avoiding duplicates
-            val updatedSongs = (recentlyAddedPlaylist.songs.toSet() + songsToAdd).toList()
+            // Filter songs using the same blacklist/whitelist logic as filteredSongs
+            val currentFilteredSongs = filteredSongs.value.toSet()
+            val filteredSongsToAdd = songsToAdd.filter { it in currentFilteredSongs }
+
+            // Add songs to the playlist, avoiding duplicates and respecting filters
+            val updatedSongs = (recentlyAddedPlaylist.songs.toSet() + filteredSongsToAdd).toList()
+                .filter { it in currentFilteredSongs } // Remove any previously added songs that are now filtered
+            
             _playlists.value = _playlists.value.map { playlist ->
                 if (playlist.id == "2") {
                     playlist.copy(songs = updatedSongs, dateModified = System.currentTimeMillis())
@@ -2249,7 +2286,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
             savePlaylists()
-            Log.d(TAG, "Populated Recently Added playlist with ${songsToAdd.size} new songs.")
+            Log.d(TAG, "Populated Recently Added playlist with ${filteredSongsToAdd.size} new filtered songs (${songsToAdd.size - filteredSongsToAdd.size} filtered out).")
         }
     }
 
