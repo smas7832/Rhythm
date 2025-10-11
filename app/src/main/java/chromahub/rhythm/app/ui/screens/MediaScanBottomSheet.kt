@@ -3,6 +3,7 @@ package chromahub.rhythm.app.ui.screens
 import android.app.Activity
 import android.content.Intent
 import android.provider.DocumentsContract
+import android.util.Log
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -58,8 +59,15 @@ fun MediaScanBottomSheet(
     val whitelistedSongs by appSettings.whitelistedSongs.collectAsState()
     val whitelistedFolders by appSettings.whitelistedFolders.collectAsState()
     
-    // Mode state
-    var currentMode by remember { mutableStateOf(initialMode) }
+    // Get current media scan mode from settings
+    val mediaScanMode by appSettings.mediaScanMode.collectAsState()
+    
+    // Mode state - initialize from settings
+    var currentMode by remember { 
+        mutableStateOf(
+            if (mediaScanMode == "whitelist") MediaScanMode.WHITELIST else MediaScanMode.BLACKLIST
+        ) 
+    }
     
     // Tab state
     var selectedTabIndex by remember { mutableStateOf(0) }
@@ -144,7 +152,8 @@ fun MediaScanBottomSheet(
                     FilterChip(
                         onClick = { 
                             HapticUtils.performHapticFeedback(context, haptic, androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
-                            currentMode = MediaScanMode.BLACKLIST 
+                            currentMode = MediaScanMode.BLACKLIST
+                            appSettings.setMediaScanMode("blacklist")
                         },
                         label = { 
                             Text(
@@ -174,7 +183,8 @@ fun MediaScanBottomSheet(
                     FilterChip(
                         onClick = { 
                             HapticUtils.performHapticFeedback(context, haptic, androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
-                            currentMode = MediaScanMode.WHITELIST 
+                            currentMode = MediaScanMode.WHITELIST
+                            appSettings.setMediaScanMode("whitelist")
                         },
                         label = { 
                             Text(
@@ -607,15 +617,41 @@ private fun FoldersFilterTab(
             result.data?.data?.let { uri ->
                 try {
                     val docId = DocumentsContract.getTreeDocumentId(uri)
-                    val folderPath = docId.substringAfter(":")
+                    val split = docId.split(":")
                     
-                    if (mode == MediaScanMode.BLACKLIST) {
-                        appSettings.addFolderToBlacklist("/$folderPath")
+                    if (split.size >= 2) {
+                        val storageType = split[0] // e.g., "primary", "home", or specific SD card ID
+                        val relativePath = split[1] // e.g., "Music/MyFolder"
+                        
+                        // Build the full path based on storage type
+                        val fullPath = when (storageType) {
+                            "primary" -> "/storage/emulated/0/$relativePath"
+                            "home" -> "/storage/emulated/0/$relativePath"
+                            else -> {
+                                // For SD cards or other storage, try to construct path
+                                // This is a best-effort approach
+                                if (storageType.contains("-")) {
+                                    // SD card UUID format
+                                    "/storage/$storageType/$relativePath"
+                                } else {
+                                    // Fallback to emulated storage
+                                    "/storage/emulated/0/$relativePath"
+                                }
+                            }
+                        }
+                        
+                        if (mode == MediaScanMode.BLACKLIST) {
+                            appSettings.addFolderToBlacklist(fullPath)
+                        } else {
+                            appSettings.addFolderToWhitelist(fullPath)
+                        }
+                        
+                        Log.d("MediaScanBottomSheet", "Added folder to ${if (mode == MediaScanMode.BLACKLIST) "blacklist" else "whitelist"}: $fullPath (from docId: $docId)")
                     } else {
-                        appSettings.addFolderToWhitelist("/$folderPath")
+                        Log.e("MediaScanBottomSheet", "Invalid docId format: $docId")
                     }
                 } catch (e: Exception) {
-                    // Handle error
+                    Log.e("MediaScanBottomSheet", "Error parsing folder path", e)
                 }
             }
         }

@@ -116,16 +116,24 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     // Filtered songs excluding blacklisted ones and including only whitelisted ones (both songs and folders)
     val filteredSongs: StateFlow<List<Song>> = kotlinx.coroutines.flow.combine(
         _songs,
+        appSettings.mediaScanMode,
         appSettings.blacklistedSongs,
         appSettings.blacklistedFolders,
         appSettings.whitelistedSongs,
         appSettings.whitelistedFolders
-    ) { songs, blacklistedIds, blacklistedFolders, whitelistedIds, whitelistedFolders ->
-        filterSongsAsync(songs, blacklistedIds, blacklistedFolders, whitelistedIds, whitelistedFolders)
+    ) { flows: Array<Any> ->
+        val songs = flows[0] as List<Song>
+        val mode = flows[1] as String
+        val blacklistedIds = flows[2] as List<String>
+        val blacklistedFolders = flows[3] as List<String>
+        val whitelistedIds = flows[4] as List<String>
+        val whitelistedFolders = flows[5] as List<String>
+        filterSongsAsync(songs, mode, blacklistedIds, blacklistedFolders, whitelistedIds, whitelistedFolders)
     }.flowOn(Dispatchers.IO).stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Lazily, emptyList())
     
     private suspend fun filterSongsAsync(
-        songs: List<Song>, 
+        songs: List<Song>,
+        mediaScanMode: String,
         blacklistedIds: List<String>, 
         blacklistedFolders: List<String>,
         whitelistedIds: List<String>,
@@ -134,7 +142,15 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         val hasBlacklist = blacklistedIds.isNotEmpty() || blacklistedFolders.isNotEmpty()
         val hasWhitelist = whitelistedIds.isNotEmpty() || whitelistedFolders.isNotEmpty()
         
-        if (!hasBlacklist && !hasWhitelist) {
+        // Determine which filtering mode to use based on mediaScanMode setting
+        val useBlacklistMode = mediaScanMode == "blacklist"
+        val useWhitelistMode = mediaScanMode == "whitelist"
+        
+        // If no filters are active for the current mode, return all songs
+        if (useBlacklistMode && !hasBlacklist) {
+            return@withContext songs
+        }
+        if (useWhitelistMode && !hasWhitelist) {
             return@withContext songs
         }
         
@@ -146,13 +162,15 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         var processed = 0
         
         for (song in songs) {
-            // First check blacklist (if song is blacklisted, skip it)
-            if (hasBlacklist) {
+            // In BLACKLIST mode: exclude blacklisted songs/folders, include everything else
+            if (useBlacklistMode && hasBlacklist) {
+                // Check if song is individually blacklisted
                 if (blacklistedIds.contains(song.id)) {
                     processed++
                     continue
                 }
                 
+                // Check if song is in a blacklisted folder
                 if (blacklistedFolders.isNotEmpty()) {
                     val songPath = getPathFromUriCached(song.uri)
                     if (songPath != null && isPathBlacklisted(songPath, blacklistedFolders)) {
@@ -160,30 +178,33 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                         continue
                     }
                 }
+                
+                // Song passed blacklist checks, include it
+                result.add(song)
             }
-            
-            // Then check whitelist (if whitelist exists, song must be whitelisted)
-            if (hasWhitelist) {
+            // In WHITELIST mode: include ONLY whitelisted songs/folders, exclude everything else
+            else if (useWhitelistMode && hasWhitelist) {
                 var isWhitelisted = false
                 
-                // Check if song ID is whitelisted
+                // Check if song ID is individually whitelisted
                 if (whitelistedIds.contains(song.id)) {
                     isWhitelisted = true
-                } else if (whitelistedFolders.isNotEmpty()) {
-                    // Check if song is in a whitelisted folder
+                }
+                
+                // Check if song is in a whitelisted folder
+                if (!isWhitelisted && whitelistedFolders.isNotEmpty()) {
                     val songPath = getPathFromUriCached(song.uri)
                     if (songPath != null && isPathWhitelisted(songPath, whitelistedFolders)) {
                         isWhitelisted = true
                     }
                 }
                 
-                if (!isWhitelisted) {
-                    processed++
-                    continue
+                // Only add if whitelisted
+                if (isWhitelisted) {
+                    result.add(song)
                 }
             }
             
-            result.add(song)
             processed++
             
             // Yield control periodically to prevent ANR
@@ -193,20 +214,28 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
         
         val endTime = System.currentTimeMillis()
-        Log.d(TAG, "Filtered ${songs.size} songs to ${result.size} in ${endTime - startTime}ms (blacklist: $hasBlacklist, whitelist: $hasWhitelist)")
+        Log.d(TAG, "Filtered ${songs.size} songs to ${result.size} in ${endTime - startTime}ms (mode: $mediaScanMode, blacklist: $hasBlacklist, whitelist: $hasWhitelist)")
         
         result
     }
     
     private fun isPathBlacklisted(songPath: String, blacklistedFolders: List<String>): Boolean {
+        // Normalize song path for consistent comparison
+        val normalizedSongPath = songPath.replace("\\", "/")
+        
         return blacklistedFolders.any { folderPath ->
-            songPath.startsWith(folderPath, ignoreCase = true)
+            val normalizedFolderPath = folderPath.replace("\\", "/")
+            normalizedSongPath.startsWith(normalizedFolderPath, ignoreCase = true)
         }
     }
     
     private fun isPathWhitelisted(songPath: String, whitelistedFolders: List<String>): Boolean {
+        // Normalize song path for consistent comparison
+        val normalizedSongPath = songPath.replace("\\", "/")
+        
         return whitelistedFolders.any { folderPath ->
-            songPath.startsWith(folderPath, ignoreCase = true)
+            val normalizedFolderPath = folderPath.replace("\\", "/")
+            normalizedSongPath.startsWith(normalizedFolderPath, ignoreCase = true)
         }
     }
 
