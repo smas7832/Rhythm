@@ -1,1 +1,1 @@
-Modern music player with equalizer, sleep timer, custom themes, and seamless offline playback.
+A privacy-first music player with powerful library management and more.

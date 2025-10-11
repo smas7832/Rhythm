@@ -1,27 +1,24 @@
-<p><b>Rhythm</b> is a powerful, open-source music player for Android that combines beautiful Material 3 design with advanced audio capabilities. Built with modern Android technologies, it delivers a premium music experience that respects your privacy and works entirely offline.</p>
+<p><b>Rhythm</b> is a modern, open-source music player that puts your music collection first. With beautiful Material 3 design and powerful features, it's built for music lovers who value privacy and control.</p>
 
-<p><b>🎵 Why Choose Rhythm?</b></p>
+<p><b>✨ What Makes Rhythm Special?</b></p>
 <ul>
-<li><b>Privacy First:</b> No data collection, no tracking, no internet required</li>
-<li><b>Modern Design:</b> Material 3 with dynamic theming and smooth animations</li>
-<li><b>High-Quality Audio:</b> FLAC, ALAC, MP3, AAC, OGG, WAV support with gapless playback</li>
-<li><b>Smart Features:</b> AI-powered playlists, advanced queue management, and auto-resume</li>
-<li><b>Open Source:</b> Transparent, community-driven development</li>
+<li><b>100% Private:</b> No tracking, no ads, works completely offline</li>
+<li><b>Beautiful Design:</b> Material 3 with dynamic colors that adapt to your device</li>
+<li><b>Lossless Audio:</b> Supports FLAC, ALAC, WAV, MP3, AAC, OGG with gapless playback</li>
+<li><b>Smart & Fast:</b> Intelligent library organization with powerful search</li>
+<li><b>Fully Featured:</b> Lyrics editor, equalizer, sleep timer, custom playlists</li>
 </ul>
 
-<p><b>🚀 Key Features:</b></p>
+<p><b>🎵 Core Features:</b></p>
 <ul>
-<li><b>🎨 Beautiful Interface:</b> Material 3 design with wallpaper-based dynamic colors and fluid animations</li>
-<li><b>🎵 Advanced Playback:</b> Gapless playback, crossfade, audio normalization, and replay gain</li>
-<li><b>📱 Smart Library:</b> Fast scanning, intelligent sorting, and powerful search across all your music</li>
-<li><b>🎯 Playlist Management:</b> Create custom playlists, mood-based collections, and recently played history</li>
-<li><b>🎤 Lyrics Support:</b> Time-synced lyrics with online fetching and offline caching</li>
-<li><b>🔊 Audio Control:</b> Built-in equalizer, sleep timer, seamless Bluetooth switching, and multiple output devices</li>
-<li><b>🎨 Custom Themes:</b> Extensive theme customization with dark/light modes and accent colors</li>
-<li><b>⚡ Performance:</b> Memory-efficient background playback with foreground service</li>
-<li><b>🔄 Reliability:</b> Auto-resume playback state and queue after restart</li>
-<li><b>🌙 Accessibility:</b> Full dark/light theme support and accessibility features</li>
-<li><b>📊 Statistics:</b> Track your listening habits with detailed playback statistics</li>
+<li><b>Music Library:</b> Smart tabs for Songs, Albums, Artists, Playlists, and Folders with customizable sorting</li>
+<li><b>Lyrics Editor:</b> View and edit time-synced lyrics directly in the player</li>
+<li><b>Queue Control:</b> Powerful queue management with Play Next and Add to Queue</li>
+<li><b>Playlists:</b> Create unlimited playlists, import/export M3U files, and manage favorites</li>
+<li><b>Audio Quality:</b> Built-in 5-band equalizer with presets, crossfade, and normalization</li>
+<li><b>Sleep Timer:</b> Set timer with fade-out, pause, or stop actions</li>
+<li><b>Themes:</b> Dark/light modes, dynamic colors, and custom accent colors</li>
+<li><b>Folder Explorer:</b> Browse music by folders with blacklist/whitelist support</li>
 </ul>
 
 <p><b>🎧 Perfect For:</b></p>
@@ -33,13 +30,12 @@
 <li>Anyone seeking a reliable, feature-rich alternative to mainstream players</li>
 </ul>
 
-<p><b>📱 Technical Excellence:</b></p>
+<p><b>⚡ Privacy & Control:</b></p>
 <ul>
-<li>Built with Jetpack Compose and Material 3 for modern UI</li>
-<li>Media3/ExoPlayer for robust audio playback</li>
-<li>Targets Android 14 (API 34) with support back to Android 8.0</li>
-<li>Efficient memory usage and battery optimization</li>
-<li>Comprehensive audio format support including lossless formats</li>
+<li>All data stays on your device</li>
+<li>No internet permission required for core functionality</li>
+<li>Optional online features (lyrics fetching) can be disabled</li>
+<li>Open source - audit the code yourself on GitHub</li>
 </ul>
 
 <p><b>Note:</b> Rhythm includes an optional update checker that downloads updates directly from GitHub. This bypasses additional screening from F-Droid and IzzyOnDroid repositories. You can disable this feature in settings if preferred.</p>
