@@ -186,6 +186,49 @@ const updateData = {
             <p><strong>Happy listening with Rhythm 2.8! 🎵</strong></p>
         `
     },
+    update5: {
+        image: "assets/Banner.png",
+        headline: "2.9 Stable Release is here!",
+        date: "October 11, 2025",
+        writer: "Anjishnu Nandi",
+        details: `
+            <p>Exciting news, Rhythm community! Version 2.9 Stable brings critical fixes to media scanning functionality, new features like lyrics editor and play next functionality, and numerous improvements across the app. This release focuses on stability and user experience enhancements.</p>
+            <h3>🐛 Critical Fixes:</h3>
+            <ul>
+                <li><strong>Fixed: Media Scan Mode Not Respected in Filtering Logic (MediaScan)</strong> - The filtering system now properly respects the selected media scan mode (blacklist vs whitelist)</li>
+                <li><strong>Fixed: Media Scan Mode Not Updated When Switching Tabs (MediaScan)</strong> - Switching between blacklist and whitelist tabs now properly updates the active filtering mode</li>
+                <li><strong>Fixed: Incorrect Folder Path Extraction from Document Tree Picker (MediaScan)</strong> - Folder selection now correctly constructs full paths that match MediaStore file paths</li>
+                <li><strong>Fixed: Blacklisted tracks showing up on playlists (MediaScan)</strong> - Playlists now properly respect media scan filtering</li>
+            </ul>
+            <h3>🎵 New Features:</h3>
+            <ul>
+                <li><strong>Added: Lyrics Editor (Player)</strong> - Edit and customize lyrics directly in the player interface</li>
+                <li><strong>Added: Play Next (Library)</strong> - Add songs to play next in queue from library view</li>
+                <li><strong>Added: Tab Reorder now can be accessed directly (Library)</strong> - Quick access to tab reordering functionality</li>
+            </ul>
+            <h3>🔧 Improvements:</h3>
+            <ul>
+                <li><strong>Improved: Song item three-dot menu (Player)</strong> - Enhanced context menu with better organization and functionality</li>
+                <li><strong>Improved: Added project website information (About)</strong> - Direct links and information about the Rhythm project website</li>
+                <li><strong>Fixed: Cleaned up unused permissions (System)</strong> - Removed unnecessary permissions for better privacy</li>
+                <li><strong>Fixed: Lazy loading on Artist tab (Library)</strong> - Improved performance when browsing artists</li>
+                <li><strong>Fixed: External Storage contents not showing up on explorer (Library)</strong> - Better support for external storage devices</li>
+            </ul>
+            <h3>📝 Miscellaneous Changes:</h3>
+            <ul>
+                <li>Lots of miscellaneous changes and optimizations</li>
+                <li>Many more optimizations & improvements across the entire application</li>
+                <li>Enhanced stability and performance improvements</li>
+                <li>Better error handling and user feedback</li>
+            </ul>
+            <h3>🙏 Acknowledgments:</h3>
+            <p>We want to thank our community for reporting the media scanning issues and helping us identify these critical bugs. Your feedback is invaluable in making Rhythm better!</p>
+            <p>Special thanks to users who tested the media scanning functionality and provided detailed bug reports that helped us fix these issues quickly.</p>
+            <h3>🔮 What's Next:</h3>
+            <p>We're continuing to work on additional features and improvements. Stay tuned for more updates and continue to share your feedback through our GitHub repository and community channels.</p>
+            <p><strong>Happy listening with Rhythm 2.9! 🎵</strong></p>
+        `
+    },
 };
 
 // Function to check if an image exists
