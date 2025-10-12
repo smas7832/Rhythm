@@ -1,6 +1,7 @@
 package chromahub.rhythm.app.worker
 
 import android.content.Context
+import android.os.Environment
 import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -25,10 +26,20 @@ class BackupWorker(
         const val WORK_NAME = "auto_backup_work"
         private const val BACKUP_FOLDER = "RhythmBackups"
         private const val MAX_AUTO_BACKUPS = 4 // Keep last 4 weekly backups
+        private const val MAX_BACKUP_AGE_DAYS = 30 // Delete backups older than 30 days
+    }
+    
+    /**
+     * Get the public backup directory in Documents
+     */
+    private fun getBackupDirectory(): File {
+        // Use public Documents directory so users can access backups
+        val documentsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
+        return File(documentsDir, BACKUP_FOLDER)
     }
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
-        try {
+        return@withContext try {
             Log.d(TAG, "Starting automatic backup...")
             
             val appSettings = AppSettings.getInstance(applicationContext)
@@ -42,10 +53,11 @@ class BackupWorker(
             // Create backup JSON
             val backupJson = appSettings.createBackup()
             
-            // Get or create backup directory
-            val backupDir = File(applicationContext.getExternalFilesDir(null), BACKUP_FOLDER)
+            // Get or create backup directory in public Documents folder
+            val backupDir = getBackupDirectory()
             if (!backupDir.exists()) {
                 backupDir.mkdirs()
+                Log.d(TAG, "Created backup directory: ${backupDir.absolutePath}")
             }
             
             // Create backup file with timestamp
@@ -55,10 +67,14 @@ class BackupWorker(
             // Write backup to file
             backupFile.writeText(backupJson)
             Log.d(TAG, "Auto-backup saved to: ${backupFile.absolutePath}")
+            Log.d(TAG, "Backup file size: ${backupFile.length()} bytes")
             
-            // Update last backup timestamp
-            appSettings.setLastBackupTimestamp(System.currentTimeMillis())
+            // Update last backup timestamp and location
+            val currentTime = System.currentTimeMillis()
+            appSettings.setLastBackupTimestamp(currentTime)
             appSettings.setBackupLocation(backupFile.absolutePath)
+            
+            Log.d(TAG, "Updated last backup timestamp: $currentTime")
             
             // Clean up old backups (keep only the most recent ones)
             cleanupOldBackups(backupDir)
@@ -67,12 +83,13 @@ class BackupWorker(
             Result.success()
         } catch (e: Exception) {
             Log.e(TAG, "Auto-backup failed: ${e.message}", e)
+            e.printStackTrace()
             Result.retry()
         }
     }
     
     /**
-     * Remove old auto-backups, keeping only the most recent ones
+     * Remove old auto-backups based on count and age
      */
     private fun cleanupOldBackups(backupDir: File) {
         try {
@@ -80,13 +97,38 @@ class BackupWorker(
                 file.name.startsWith("auto_backup_") && file.name.endsWith(".json")
             }?.sortedByDescending { it.lastModified() } ?: return
             
-            // Delete older backups beyond the limit
-            if (backupFiles.size > MAX_AUTO_BACKUPS) {
-                backupFiles.drop(MAX_AUTO_BACKUPS).forEach { file ->
+            val currentTime = System.currentTimeMillis()
+            val maxAgeMillis = MAX_BACKUP_AGE_DAYS * 24 * 60 * 60 * 1000L
+            
+            var deletedCount = 0
+            
+            // Delete backups older than MAX_BACKUP_AGE_DAYS
+            backupFiles.forEach { file ->
+                val fileAge = currentTime - file.lastModified()
+                if (fileAge > maxAgeMillis) {
                     if (file.delete()) {
-                        Log.d(TAG, "Deleted old backup: ${file.name}")
+                        Log.d(TAG, "Deleted old backup (>$MAX_BACKUP_AGE_DAYS days): ${file.name}")
+                        deletedCount++
                     }
                 }
+            }
+            
+            // Also delete backups beyond the count limit (keep most recent ones)
+            val remainingFiles = backupDir.listFiles { file ->
+                file.name.startsWith("auto_backup_") && file.name.endsWith(".json")
+            }?.sortedByDescending { it.lastModified() } ?: return
+            
+            if (remainingFiles.size > MAX_AUTO_BACKUPS) {
+                remainingFiles.drop(MAX_AUTO_BACKUPS).forEach { file ->
+                    if (file.delete()) {
+                        Log.d(TAG, "Deleted old backup (beyond count limit): ${file.name}")
+                        deletedCount++
+                    }
+                }
+            }
+            
+            if (deletedCount > 0) {
+                Log.d(TAG, "Cleanup complete: deleted $deletedCount old backup(s)")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error cleaning up old backups: ${e.message}", e)

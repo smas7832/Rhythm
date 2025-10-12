@@ -82,12 +82,12 @@ data class ExtendedSongInfo(
 fun SongInfoBottomSheet(
     song: Song?,
     onDismiss: () -> Unit,
+    appSettings: AppSettings,
     onEditSong: ((title: String, artist: String, album: String, genre: String, year: Int, trackNumber: Int) -> Unit)? = null,
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 ) {
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
-    val appSettings = remember { AppSettings.getInstance(context) }
     var extendedInfo by remember { mutableStateOf<ExtendedSongInfo?>(null) }
     var isLoadingMetadata by remember { mutableStateOf(true) }
     var showEditSheet by remember { mutableStateOf(false) }

@@ -101,6 +101,7 @@ fun PlaylistManagementBottomSheet(
     var showErrorDialog by remember { mutableStateOf(false) }
     var showRestartDialog by remember { mutableStateOf(false) }
     var importResult by remember { mutableStateOf<Pair<Int, String>?>(null) }
+    var showCleanupConfirmDialog by remember { mutableStateOf(false) }
 
     // Animation states
     var showContent by remember { mutableStateOf(false) }
@@ -320,14 +321,15 @@ fun PlaylistManagementBottomSheet(
                                     }
                                 )
                                 
-                                if (playlists.any { !it.isDefault }) {
+                                val emptyPlaylists = playlists.filter { !it.isDefault && it.songs.isEmpty() }
+                                if (emptyPlaylists.isNotEmpty()) {
                                     ManagementOptionItem(
                                         icon = Icons.Rounded.CleaningServices,
                                         title = "Cleanup Empty Playlists",
-                                        subtitle = "Remove playlists with no songs",
+                                        subtitle = "Remove ${emptyPlaylists.size} empty playlist${if (emptyPlaylists.size > 1) "s" else ""}",
                                         onClick = {
                                             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            // TODO: Implement cleanup functionality
+                                            showCleanupConfirmDialog = true
                                         }
                                     )
                                 }
@@ -568,6 +570,118 @@ fun PlaylistManagementBottomSheet(
                 importResult = null
                 // Continue without restart
             }
+        )
+    }
+    
+    // Cleanup Empty Playlists Confirmation Dialog
+    if (showCleanupConfirmDialog) {
+        val emptyPlaylists = playlists.filter { !it.isDefault && it.songs.isEmpty() }
+        
+        AlertDialog(
+            onDismissRequest = {
+                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                showCleanupConfirmDialog = false
+            },
+            icon = {
+                Icon(
+                    imageVector = Icons.Rounded.CleaningServices,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Cleanup Empty Playlists",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        text = "Are you sure you want to delete ${emptyPlaylists.size} empty playlist${if (emptyPlaylists.size > 1) "s" else ""}?",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    
+                    if (emptyPlaylists.isNotEmpty()) {
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                emptyPlaylists.take(5).forEach { playlist ->
+                                    Text(
+                                        text = "• ${playlist.name}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                }
+                                if (emptyPlaylists.size > 5) {
+                                    Text(
+                                        text = "... and ${emptyPlaylists.size - 5} more",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    
+                    Text(
+                        text = "This action cannot be undone.",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                        // Delete all empty playlists
+                        emptyPlaylists.forEach { playlist ->
+                            onDeletePlaylist(playlist)
+                        }
+                        showCleanupConfirmDialog = false
+                        android.widget.Toast.makeText(
+                            context,
+                            "Deleted ${emptyPlaylists.size} empty playlist${if (emptyPlaylists.size > 1) "s" else ""}",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Delete,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Delete All")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                        showCleanupConfirmDialog = false
+                    }
+                ) {
+                    Text("Cancel")
+                }
+            },
+            shape = RoundedCornerShape(28.dp)
         )
     }
 }

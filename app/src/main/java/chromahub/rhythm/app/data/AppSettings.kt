@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -1346,6 +1347,9 @@ class AppSettings private constructor(context: Context) {
         // Schedule or cancel auto-backup worker
         if (enabled) {
             scheduleAutoBackup()
+            // Trigger an immediate backup when enabling auto-backup
+            triggerImmediateBackup()
+            Log.d("AppSettings", "Auto-backup enabled: triggering immediate backup")
         } else {
             cancelAutoBackup()
         }
@@ -1368,8 +1372,24 @@ class AppSettings private constructor(context: Context) {
             )
             
             Log.d("AppSettings", "Auto-backup scheduled: weekly backups enabled")
+            Log.d("AppSettings", "Next backup will occur within the next 7 days")
         } catch (e: Exception) {
             Log.e("AppSettings", "Failed to schedule auto-backup", e)
+        }
+    }
+    
+    /**
+     * Trigger an immediate one-time backup (useful for testing)
+     */
+    fun triggerImmediateBackup() {
+        try {
+            val workRequest = OneTimeWorkRequestBuilder<BackupWorker>()
+                .build()
+            
+            WorkManager.getInstance(context).enqueue(workRequest)
+            Log.d("AppSettings", "Immediate backup triggered")
+        } catch (e: Exception) {
+            Log.e("AppSettings", "Failed to trigger immediate backup", e)
         }
     }
     
@@ -1822,6 +1842,11 @@ class AppSettings private constructor(context: Context) {
         _lastBackupTimestamp.value = safeLong(KEY_LAST_BACKUP_TIMESTAMP, 0L)
         _autoBackupEnabled.value = prefs.getBoolean(KEY_AUTO_BACKUP_ENABLED, false)
         _backupLocation.value = prefs.getString(KEY_BACKUP_LOCATION, null)
+        
+        // Ensure auto-backup is scheduled if enabled
+        if (_autoBackupEnabled.value) {
+            scheduleAutoBackup()
+        }
         
         // Sleep Timer settings
         _sleepTimerActive.value = prefs.getBoolean(KEY_SLEEP_TIMER_ACTIVE, false)

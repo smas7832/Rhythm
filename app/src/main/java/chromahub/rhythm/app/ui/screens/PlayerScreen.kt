@@ -673,6 +673,7 @@ fun PlayerScreen(
         SongInfoBottomSheet(
             song = song,
             onDismiss = { showSongInfoSheet = false },
+            appSettings = appSettings,
             onEditSong = { title, artist, album, genre, year, trackNumber ->
                 try {
                     // Use the ViewModel's new metadata saving function

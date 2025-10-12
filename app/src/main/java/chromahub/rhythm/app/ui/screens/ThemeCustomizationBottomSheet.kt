@@ -572,7 +572,8 @@ fun ThemeCustomizationBottomSheet(
                         onSchemeSelected = { scheme ->
                             HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
                             appSettings.setCustomColorScheme(scheme)
-                        }
+                        },
+                        appSettings = appSettings
                     )
                     2 -> FontContent(
                         fontOptions = fontOptions,
@@ -607,8 +608,30 @@ private fun ColorSchemeContent(
     colorSchemeOptions: List<ColorSchemeOption>,
     currentScheme: String,
     selectedColorSource: ColorSource,
-    onSchemeSelected: (String) -> Unit
+    onSchemeSelected: (String) -> Unit,
+    appSettings: AppSettings
 ) {
+    val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
+    var showColorPickerDialog by remember { mutableStateOf(false) }
+    
+    // Show color picker dialog
+    if (showColorPickerDialog) {
+        CustomColorPickerDialog(
+            onDismiss = { showColorPickerDialog = false },
+            onApply = { primary, secondary, tertiary ->
+                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                val customScheme = "custom_${primary.value.toString(16).takeLast(6)}_${secondary.value.toString(16).takeLast(6)}_${tertiary.value.toString(16).takeLast(6)}"
+                appSettings.setCustomColorScheme(customScheme)
+                onSchemeSelected(customScheme)
+                Toast.makeText(context, "Custom colors applied!", Toast.LENGTH_SHORT).show()
+                showColorPickerDialog = false
+            },
+            context = context,
+            haptics = haptics
+        )
+    }
+    
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxWidth()
@@ -652,69 +675,127 @@ private fun ColorSchemeContent(
         
         // Manual color picker option
         if (selectedColorSource == ColorSource.CUSTOM) {
+            // item {
+            //     Card(
+            //         onClick = { 
+            //             HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+            //             showColorPickerDialog = true 
+            //         },
+            //         colors = CardDefaults.cardColors(
+            //             containerColor = MaterialTheme.colorScheme.tertiaryContainer
+            //         ),
+            //         shape = RoundedCornerShape(16.dp),
+            //         modifier = Modifier.fillMaxWidth()
+            //     ) {
+            //         Row(
+            //             verticalAlignment = Alignment.CenterVertically,
+            //             modifier = Modifier.padding(20.dp)
+            //         ) {
+            //             Icon(
+            //                 imageVector = Icons.Filled.ColorLens,
+            //                 contentDescription = null,
+            //                 tint = MaterialTheme.colorScheme.onTertiaryContainer,
+            //                 modifier = Modifier.size(32.dp)
+            //             )
+            //             Spacer(modifier = Modifier.width(16.dp))
+            //             Column(modifier = Modifier.weight(1f)) {
+            //                 Text(
+            //                     text = "Custom Color Picker",
+            //                     style = MaterialTheme.typography.titleMedium,
+            //                     fontWeight = FontWeight.Bold,
+            //                     color = MaterialTheme.colorScheme.onTertiaryContainer
+            //                 )
+            //                 Text(
+            //                     text = "Create your own custom color palette",
+            //                     style = MaterialTheme.typography.bodySmall,
+            //                     color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f)
+            //                 )
+            //             }
+            //             Icon(
+            //                 imageVector = Icons.Filled.ChevronRight,
+            //                 contentDescription = null,
+            //                 tint = MaterialTheme.colorScheme.onTertiaryContainer,
+            //                 modifier = Modifier.size(24.dp)
+            //             )
+            //         }
+            //     }
+            // }
+            
+            // Section Header: Featured Schemes
             item {
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.tertiaryContainer
-                    ),
-                    shape = RoundedCornerShape(20.dp),
-                    modifier = Modifier.fillMaxWidth()
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(20.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(bottom = 16.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.ColorLens,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                                modifier = Modifier.size(28.dp)
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column {
-                                Text(
-                                    text = "Manual Color Picker",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onTertiaryContainer
-                                )
-                                Text(
-                                    text = "Create your own custom color palette",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f)
-                                )
-                            }
-                        }
-                        
-                        // Placeholder for future color picker implementation
-                        Text(
-                            text = "🎨 Manual color picker coming soon! Pick any color to create your perfect theme.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onTertiaryContainer,
-                            modifier = Modifier.padding(vertical = 8.dp)
-                        )
-                        
-                        androidx.compose.material3.Divider(
-                            modifier = Modifier.padding(vertical = 12.dp),
-                            color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.2f)
-                        )
-                        
-                        Text(
-                            text = "For now, choose from the preset color schemes below or use Album Art/System Colors for dynamic theming.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
-                        )
-                    }
+                    Text(
+                        text = "FEATURED SCHEMES",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    
+                    Spacer(modifier = Modifier.width(8.dp))
+                    
+                    androidx.compose.material3.HorizontalDivider(
+                        modifier = Modifier.weight(1f),
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
                 }
             }
         }
         
-        items(colorSchemeOptions) { option ->
+        // Featured schemes (Default Purple to Monochrome)
+        val featuredSchemes = colorSchemeOptions.filter { 
+            it.name in listOf("Default", "Warm", "Cool", "Forest", "Rose", "Monochrome")
+        }
+        
+        items(featuredSchemes) { option ->
+            ColorSchemeCard(
+                option = option,
+                isSelected = currentScheme == option.name,
+                isEnabled = selectedColorSource == ColorSource.CUSTOM,
+                onSelect = { onSchemeSelected(option.name) }
+            )
+        }
+        
+        // Section Header: More Schemes
+        if (selectedColorSource == ColorSource.CUSTOM) {
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "MORE SCHEMES",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    
+                    Spacer(modifier = Modifier.width(8.dp))
+                    
+                    androidx.compose.material3.HorizontalDivider(
+                        modifier = Modifier.weight(1f),
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+                }
+            }
+        }
+        
+        // Other schemes
+        val otherSchemes = colorSchemeOptions.filter { 
+            it.name !in listOf("Default", "Warm", "Cool", "Forest", "Rose", "Monochrome")
+        }
+        
+        items(otherSchemes) { option ->
             ColorSchemeCard(
                 option = option,
                 isSelected = currentScheme == option.name,
@@ -725,7 +806,7 @@ private fun ColorSchemeContent(
         
         // Bottom padding for better scrolling experience
         item {
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
@@ -1673,5 +1754,176 @@ private fun ThemeTipItem(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onTertiaryContainer
         )
+    }
+}
+
+@Composable
+private fun CustomColorPickerDialog(
+    onDismiss: () -> Unit,
+    onApply: (Color, Color, Color) -> Unit,
+    context: Context,
+    haptics: HapticFeedback
+) {
+    var customPrimaryColor by remember { mutableStateOf(Color(0xFF6750A4)) }
+    var customSecondaryColor by remember { mutableStateOf(Color(0xFF625B71)) }
+    var customTertiaryColor by remember { mutableStateOf(Color(0xFF7D5260)) }
+    
+    AlertDialog(
+        onDismissRequest = {
+            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+            onDismiss()
+        },
+        icon = {
+            Icon(
+                imageVector = Icons.Filled.ColorLens,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(32.dp)
+            )
+        },
+        title = {
+            Text(
+                text = "Custom Color Picker",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                Text(
+                    text = "Select custom colors for your theme. Choose from the presets below or create your own palette.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                // Primary Color Picker
+                CustomColorPickerRow(
+                    label = "Primary Color",
+                    color = customPrimaryColor,
+                    onColorChange = { customPrimaryColor = it }
+                )
+                
+                // Secondary Color Picker
+                CustomColorPickerRow(
+                    label = "Secondary Color",
+                    color = customSecondaryColor,
+                    onColorChange = { customSecondaryColor = it }
+                )
+                
+                // Tertiary Color Picker
+                CustomColorPickerRow(
+                    label = "Tertiary Color",
+                    color = customTertiaryColor,
+                    onColorChange = { customTertiaryColor = it }
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                    onApply(customPrimaryColor, customSecondaryColor, customTertiaryColor)
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                )
+            ) {
+                Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Apply Colors")
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = {
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                    onDismiss()
+                }
+            ) {
+                Text("Cancel")
+            }
+        },
+        shape = RoundedCornerShape(28.dp)
+    )
+}
+
+@Composable
+private fun CustomColorPickerRow(
+    label: String,
+    color: Color,
+    onColorChange: (Color) -> Unit
+) {
+    val predefinedColors = listOf(
+        Color(0xFFE57373), Color(0xFFF06292), Color(0xFFBA68C8), Color(0xFF9575CD),
+        Color(0xFF7986CB), Color(0xFF64B5F6), Color(0xFF4FC3F7), Color(0xFF4DD0E1),
+        Color(0xFF4DB6AC), Color(0xFF81C784), Color(0xFFAED581), Color(0xFFDCE775),
+        Color(0xFFFFD54F), Color(0xFFFFB74D), Color(0xFFFF8A65), Color(0xFFA1887F),
+        Color(0xFF90A4AE), Color(0xFF6750A4), Color(0xFF625B71), Color(0xFF7D5260)
+    )
+    
+    Column {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        // Color preview and current color
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = color,
+                modifier = Modifier
+                    .size(48.dp)
+                    .border(2.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+            ) {}
+            
+            Spacer(modifier = Modifier.width(12.dp))
+            
+            Text(
+                text = "#${color.value.toString(16).uppercase().takeLast(6)}",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        // Color palette grid
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(10),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.height(80.dp)
+        ) {
+            items(predefinedColors) { presetColor ->
+                Surface(
+                    shape = CircleShape,
+                    color = presetColor,
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clickable { onColorChange(presetColor) }
+                        .then(
+                            if (presetColor == color) {
+                                Modifier.border(3.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                            } else {
+                                Modifier.border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), CircleShape)
+                            }
+                        )
+                ) {}
+            }
+        }
     }
 }

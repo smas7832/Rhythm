@@ -439,6 +439,7 @@ fun BackupRestoreBottomSheet(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
+                                appSettings.triggerImmediateBackup()
                                 appSettings.setAutoBackupEnabled(!autoBackupEnabled)
                                 HapticUtils.performHapticFeedback(context, haptics, androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
                             }
@@ -486,6 +487,68 @@ fun BackupRestoreBottomSheet(
                         }
                     }
                 }
+                
+                // Test auto-backup button (only shown when auto-backup is enabled)
+//                if (autoBackupEnabled) {
+//                    item {
+//                        Card(
+//                            shape = RoundedCornerShape(16.dp),
+//                            colors = CardDefaults.cardColors(
+//                                containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
+//                            ),
+//                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+//                            modifier = Modifier
+//                                .fillMaxWidth()
+//                                .clickable {
+//                                    HapticUtils.performHapticFeedback(context, haptics, androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+//                                    appSettings.triggerImmediateBackup()
+//                                    scope.launch {
+//                                        kotlinx.coroutines.delay(500)
+//                                        android.widget.Toast.makeText(
+//                                            context,
+//                                            "Auto-backup triggered! Check status card in a few seconds.",
+//                                            android.widget.Toast.LENGTH_LONG
+//                                        ).show()
+//                                    }
+//                                }
+//                        ) {
+//                            Row(
+//                                verticalAlignment = Alignment.CenterVertically,
+//                                modifier = Modifier.padding(16.dp)
+//                            ) {
+//                                Icon(
+//                                    imageVector = Icons.Filled.PlayArrow,
+//                                    contentDescription = null,
+//                                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
+//                                    modifier = Modifier.size(24.dp)
+//                                )
+//
+//                                Spacer(modifier = Modifier.width(16.dp))
+//
+//                                Column(modifier = Modifier.weight(1f)) {
+//                                    Text(
+//                                        text = "Test Auto-Backup Now",
+//                                        style = MaterialTheme.typography.bodyMedium,
+//                                        fontWeight = FontWeight.Medium,
+//                                        color = MaterialTheme.colorScheme.onTertiaryContainer
+//                                    )
+//                                    Text(
+//                                        text = "Trigger an immediate background backup to test",
+//                                        style = MaterialTheme.typography.bodySmall,
+//                                        color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
+//                                    )
+//                                }
+//
+//                                Icon(
+//                                    imageVector = Icons.Filled.ChevronRight,
+//                                    contentDescription = null,
+//                                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
+//                                    modifier = Modifier.size(20.dp)
+//                                )
+//                            }
+//                        }
+//                    }
+//                }
 
 
                 // Create Backup Button
@@ -686,6 +749,20 @@ fun BackupRestoreBottomSheet(
                                         type = "application/json"
                                         // Also accept all files in case JSON MIME type isn't recognized
                                         putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("application/json", "text/plain", "*/*"))
+                                        
+                                        // Try to open in the backup directory by default
+                                        try {
+                                            val documentsDir = android.os.Environment.getExternalStoragePublicDirectory(
+                                                android.os.Environment.DIRECTORY_DOCUMENTS
+                                            )
+                                            val backupDir = java.io.File(documentsDir, "RhythmBackups")
+                                            if (backupDir.exists()) {
+                                                val uri = android.net.Uri.fromFile(backupDir)
+                                                putExtra(android.provider.DocumentsContract.EXTRA_INITIAL_URI, uri)
+                                            }
+                                        } catch (e: Exception) {
+                                            android.util.Log.e("BackupRestore", "Failed to set initial directory", e)
+                                        }
                                     }
                                     filePickerLauncher.launch(intent)
                                 }

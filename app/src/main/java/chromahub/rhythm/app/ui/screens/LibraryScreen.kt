@@ -385,6 +385,7 @@ fun LibraryScreen(
         SongInfoBottomSheet(
             song = displaySong!!,
             onDismiss = { showSongInfoSheet = false },
+            appSettings = appSettings,
             onEditSong = { title, artist, album, genre, year, trackNumber ->
                 // Use the ViewModel's new metadata saving function with callbacks
                 musicViewModel.saveMetadataChanges(
