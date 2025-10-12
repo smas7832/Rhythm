@@ -3,12 +3,17 @@ package chromahub.rhythm.app.data
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import chromahub.rhythm.app.worker.BackupWorker
 import java.util.Date // Import Date for timestamp
+import java.util.concurrent.TimeUnit
 
 /**
  * Data class to represent a single crash log entry
@@ -115,6 +120,7 @@ class AppSettings private constructor(context: Context) {
         private const val KEY_SPOTIFY_API_ENABLED = "spotify_api_enabled"
         private const val KEY_SPOTIFY_CLIENT_ID = "spotify_client_id"
         private const val KEY_SPOTIFY_CLIENT_SECRET = "spotify_client_secret"
+        private const val KEY_APPLEMUSIC_API_ENABLED = "applemusic_api_enabled"
         
         // Enhanced User Preferences
         private const val KEY_FAVORITE_GENRES = "favorite_genres"
@@ -187,7 +193,15 @@ class AppSettings private constructor(context: Context) {
         }
     }
     
+    private val context: Context = context.applicationContext
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    
+    init {
+        // Schedule auto-backup if enabled
+        if (prefs.getBoolean(KEY_AUTO_BACKUP_ENABLED, false)) {
+            scheduleAutoBackup()
+        }
+    }
     
     // Playback Settings
     private val _highQualityAudio = MutableStateFlow(prefs.getBoolean(KEY_HIGH_QUALITY_AUDIO, true))
@@ -417,6 +431,9 @@ class AppSettings private constructor(context: Context) {
     
     private val _spotifyClientSecret = MutableStateFlow(prefs.getString(KEY_SPOTIFY_CLIENT_SECRET, "") ?: "")
     val spotifyClientSecret: StateFlow<String> = _spotifyClientSecret.asStateFlow()
+    
+    private val _appleMusicApiEnabled = MutableStateFlow(prefs.getBoolean(KEY_APPLEMUSIC_API_ENABLED, true))
+    val appleMusicApiEnabled: StateFlow<Boolean> = _appleMusicApiEnabled.asStateFlow()
 
     // Enhanced User Preferences
     private val _favoriteGenres = MutableStateFlow<Map<String, Int>>(
@@ -956,6 +973,11 @@ class AppSettings private constructor(context: Context) {
         _spotifyApiEnabled.value = enabled
     }
     
+    fun setAppleMusicApiEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_APPLEMUSIC_API_ENABLED, enabled).apply()
+        _appleMusicApiEnabled.value = enabled
+    }
+    
     fun setSpotifyClientId(clientId: String) {
         prefs.edit().putString(KEY_SPOTIFY_CLIENT_ID, clientId).apply()
         _spotifyClientId.value = clientId
@@ -1320,6 +1342,47 @@ class AppSettings private constructor(context: Context) {
     fun setAutoBackupEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_AUTO_BACKUP_ENABLED, enabled).apply()
         _autoBackupEnabled.value = enabled
+        
+        // Schedule or cancel auto-backup worker
+        if (enabled) {
+            scheduleAutoBackup()
+        } else {
+            cancelAutoBackup()
+        }
+    }
+    
+    /**
+     * Schedule weekly automatic backups using WorkManager
+     */
+    private fun scheduleAutoBackup() {
+        try {
+            val workRequest = PeriodicWorkRequestBuilder<BackupWorker>(
+                7, TimeUnit.DAYS, // Repeat every 7 days
+                1, TimeUnit.HOURS  // Flex interval of 1 hour
+            ).build()
+            
+            WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+                BackupWorker.WORK_NAME,
+                ExistingPeriodicWorkPolicy.KEEP, // Keep existing schedule if already running
+                workRequest
+            )
+            
+            Log.d("AppSettings", "Auto-backup scheduled: weekly backups enabled")
+        } catch (e: Exception) {
+            Log.e("AppSettings", "Failed to schedule auto-backup", e)
+        }
+    }
+    
+    /**
+     * Cancel automatic backups
+     */
+    private fun cancelAutoBackup() {
+        try {
+            WorkManager.getInstance(context).cancelUniqueWork(BackupWorker.WORK_NAME)
+            Log.d("AppSettings", "Auto-backup cancelled")
+        } catch (e: Exception) {
+            Log.e("AppSettings", "Failed to cancel auto-backup", e)
+        }
     }
     
     fun setBackupLocation(location: String?) {
@@ -1718,6 +1781,7 @@ class AppSettings private constructor(context: Context) {
         _lrclibApiEnabled.value = prefs.getBoolean(KEY_LRCLIB_API_ENABLED, true)
         _ytMusicApiEnabled.value = prefs.getBoolean(KEY_YTMUSIC_API_ENABLED, true)
         _spotifyApiEnabled.value = prefs.getBoolean(KEY_SPOTIFY_API_ENABLED, false)
+        _appleMusicApiEnabled.value = prefs.getBoolean(KEY_APPLEMUSIC_API_ENABLED, true)
         _spotifyClientId.value = prefs.getString(KEY_SPOTIFY_CLIENT_ID, "") ?: ""
         _spotifyClientSecret.value = prefs.getString(KEY_SPOTIFY_CLIENT_SECRET, "") ?: ""
         

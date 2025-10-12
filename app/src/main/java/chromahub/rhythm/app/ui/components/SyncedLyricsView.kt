@@ -12,10 +12,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import chromahub.rhythm.app.util.LyricsParser
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -34,6 +36,9 @@ fun SyncedLyricsView(
 
     val coroutineScope = rememberCoroutineScope()
     
+    // Track previous line for smooth transitions
+    val previousLineIndex = remember { mutableIntStateOf(-1) }
+    
     // Find current line index more efficiently
     val currentLineIndex by remember(currentPlaybackTime, parsedLyrics) {
         derivedStateOf {
@@ -41,16 +46,12 @@ fun SyncedLyricsView(
         }
     }
 
-    // Enhanced auto-scroll with smoother animation
+    // Enhanced auto-scroll with spring animation
     LaunchedEffect(currentLineIndex) {
-        if (currentLineIndex >= 0 && parsedLyrics.isNotEmpty()) {
-            val visibleItems = listState.layoutInfo.visibleItemsInfo
-            val firstVisibleItem = visibleItems.firstOrNull()?.index ?: 0
-            val lastVisibleItem = visibleItems.lastOrNull()?.index ?: 0
-            // Calculate the offset to place the current line at the middle
+        if (currentLineIndex >= 0 && parsedLyrics.isNotEmpty() && currentLineIndex != previousLineIndex.intValue) {
+            previousLineIndex.intValue = currentLineIndex
             val offset = listState.layoutInfo.viewportSize.height / 3
             coroutineScope.launch {
-                // Scroll to the current line with an offset
                 listState.animateScrollToItem(currentLineIndex, scrollOffset = -offset)
             }
         }
@@ -73,66 +74,128 @@ fun SyncedLyricsView(
             state = listState,
             modifier = modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
-            contentPadding = PaddingValues(vertical = 30.dp) // Increased padding for better centering
+            contentPadding = PaddingValues(vertical = 30.dp)
         ) {
             itemsIndexed(parsedLyrics) { index, line ->
-                val isCurrentLine = currentLineIndex == index
-                
-                // Calculate progress towards the next line for smoother transition
-                val progressToNextLine = if (isCurrentLine && index + 1 < parsedLyrics.size) {
-                    val nextLineTimestamp = parsedLyrics[index + 1].timestamp
-                    val timeDiff = nextLineTimestamp - line.timestamp
-                    if (timeDiff > 0) {
-                        ((currentPlaybackTime - line.timestamp).toFloat() / timeDiff).coerceIn(0f, 1f)
-                    } else 0f
-                } else 0f
-
-                // Animated alpha for smoother transitions and fading out
-                val alpha by animateFloatAsState(
-                    targetValue = when {
-                        isCurrentLine -> 1f
-                        index == currentLineIndex + 1 -> 0.7f + (0.3f * (1 - progressToNextLine)) // Fade in next line
-                        index < currentLineIndex -> 0.4f // Past lines
-                        else -> 0.6f // Future lines
-                    },
-                    animationSpec = tween(300),
-                    label = "lyricAlpha"
-                )
-                
-                // Animated scale for current line emphasis, with slight scaling for next line
-                val scale by animateFloatAsState(
-                    targetValue = when {
-                        isCurrentLine -> 1.05f
-                        index == currentLineIndex + 1 -> 1f + (0.05f * progressToNextLine) // Scale up next line
-                        else -> 1f
-                    },
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                        stiffness = Spring.StiffnessLow
-                    ),
-                    label = "lyricScale"
-                )
-
-                Text(
-                    text = line.text,
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = if (isCurrentLine) FontWeight.Bold else FontWeight.Medium,
-                        lineHeight = MaterialTheme.typography.headlineSmall.lineHeight * 1.4f
-                    ),
-                    color = if (isCurrentLine) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = alpha),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            onSeek?.invoke(line.timestamp)
-                        }
-                        .padding(vertical = 12.dp, horizontal = 16.dp)
-                        .graphicsLayer {
-                            scaleX = scale
-                            scaleY = scale
-                        }
+                SyncedLyricItem(
+                    line = line,
+                    index = index,
+                    currentLineIndex = currentLineIndex,
+                    currentPlaybackTime = currentPlaybackTime,
+                    parsedLyrics = parsedLyrics,
+                    onSeek = onSeek
                 )
             }
         }
     }
+}
+
+/**
+ * Individual synced lyric line with enhanced animations
+ */
+@Composable
+private fun SyncedLyricItem(
+    line: chromahub.rhythm.app.util.LyricLine,
+    index: Int,
+    currentLineIndex: Int,
+    currentPlaybackTime: Long,
+    parsedLyrics: List<chromahub.rhythm.app.util.LyricLine>,
+    onSeek: ((Long) -> Unit)?
+) {
+    val isCurrentLine = currentLineIndex == index
+    val isPreviousLine = currentLineIndex == index + 1
+    val isNextLine = currentLineIndex == index - 1
+    
+    // Distance-based effects
+    val distanceFromCurrent = abs(index - currentLineIndex)
+    
+    // Calculate progress through current line
+    val progressToNextLine = if (isCurrentLine && index + 1 < parsedLyrics.size) {
+        val nextLineTimestamp = parsedLyrics[index + 1].timestamp
+        val timeDiff = nextLineTimestamp - line.timestamp
+        if (timeDiff > 0) {
+            ((currentPlaybackTime - line.timestamp).toFloat() / timeDiff).coerceIn(0f, 1f)
+        } else 0f
+    } else 0f
+    
+    // Smooth scale animation with spring physics - Apple Music style
+    val scale by animateFloatAsState(
+        targetValue = when {
+            isCurrentLine -> 1.10f
+            isNextLine -> 1.03f + (0.07f * progressToNextLine)
+            else -> 1f
+        },
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "lineScale_$index"
+    )
+    
+    // Enhanced alpha with distance-based gradual fade
+    val alpha by animateFloatAsState(
+        targetValue = when {
+            isCurrentLine -> 1f
+            distanceFromCurrent == 1 -> 0.75f
+            distanceFromCurrent == 2 -> 0.55f
+            distanceFromCurrent == 3 -> 0.40f
+            distanceFromCurrent == 4 -> 0.30f
+            else -> 0.22f
+        },
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "lineAlpha_$index"
+    )
+    
+    // Vertical translation for flowing effect
+    val verticalTranslation by animateFloatAsState(
+        targetValue = if (isCurrentLine) 0f else if (isPreviousLine) -8f else 0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "lineTranslationY_$index"
+    )
+    
+    // Color transition for active line
+    val textColor = when {
+        isCurrentLine -> MaterialTheme.colorScheme.primary
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+    
+    // Dynamic font weight based on position
+    val fontWeight = when {
+        isCurrentLine -> FontWeight.ExtraBold
+        distanceFromCurrent <= 1 -> FontWeight.SemiBold
+        distanceFromCurrent <= 2 -> FontWeight.Medium
+        else -> FontWeight.Normal
+    }
+    
+    // Subtle letter spacing for emphasis
+    val letterSpacing = if (isCurrentLine) 0.05.sp else 0.sp
+
+    Text(
+        text = line.text,
+        style = MaterialTheme.typography.headlineSmall.copy(
+            fontWeight = fontWeight,
+            lineHeight = MaterialTheme.typography.headlineSmall.lineHeight * 1.5f,
+            letterSpacing = letterSpacing
+        ),
+        color = textColor,
+        textAlign = TextAlign.Center,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable {
+                onSeek?.invoke(line.timestamp)
+            }
+            .padding(vertical = 14.dp, horizontal = 20.dp)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+                translationY = verticalTranslation
+            }
+            .alpha(alpha)
+    )
 }

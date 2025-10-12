@@ -185,11 +185,27 @@ fun ApiManagementBottomSheet(
                     )
                 }
 
-                // LRCLib
+                // Apple Music (Word-by-word lyrics)
+                item {
+                    val appleMusicApiEnabled by appSettings.appleMusicApiEnabled.collectAsState()
+                    ApiServiceCard(
+                        title = "Apple Music",
+                        description = "Word-by-word synchronized lyrics (Highest Quality)",
+                        status = "Ready",
+                        isConfigured = true,
+                        isEnabled = appleMusicApiEnabled,
+                        icon = RhythmIcons.Queue,
+                        showToggle = true,
+                        onToggle = { enabled -> appSettings.setAppleMusicApiEnabled(enabled) },
+                        onClick = { /* No configuration needed */ }
+                    )
+                }
+
+                // LRCLib (Line-by-line lyrics)
                 item {
                     ApiServiceCard(
                         title = "LRCLib",
-                        description = "Free synced lyrics service - no setup needed",
+                        description = "Free line-by-line synced lyrics (Fallback)",
                         status = "Ready",
                         isConfigured = true,
                         isEnabled = lrclibApiEnabled,

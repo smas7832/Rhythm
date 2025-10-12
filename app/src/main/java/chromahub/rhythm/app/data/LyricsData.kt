@@ -6,27 +6,39 @@ import kotlinx.parcelize.Parcelize
 @Parcelize
 data class LyricsData(
     val plainLyrics: String?,
-    val syncedLyrics: String?
+    val syncedLyrics: String?,
+    val wordByWordLyrics: String? = null // JSON string of Apple Music word-by-word lyrics
 ) : Parcelable {
     
     /**
      * Check if any lyrics are available
      */
-    fun hasLyrics(): Boolean = !plainLyrics.isNullOrBlank() || !syncedLyrics.isNullOrBlank()
+    fun hasLyrics(): Boolean = !plainLyrics.isNullOrBlank() || !syncedLyrics.isNullOrBlank() || !wordByWordLyrics.isNullOrBlank()
     
     /**
-     * Check if synced lyrics are available
+     * Check if synced lyrics are available (either word-by-word or line-by-line)
      */
-    fun hasSyncedLyrics(): Boolean = !syncedLyrics.isNullOrBlank()
+    fun hasSyncedLyrics(): Boolean = !syncedLyrics.isNullOrBlank() || !wordByWordLyrics.isNullOrBlank()
     
     /**
-     * Get the best available lyrics, prioritizing synced over plain
+     * Check if word-by-word lyrics are available
+     */
+    fun hasWordByWordLyrics(): Boolean = !wordByWordLyrics.isNullOrBlank()
+    
+    /**
+     * Get the best available lyrics for display, prioritizing synced then plain
+     * Note: Word-by-word lyrics should be accessed via getWordByWordLyricsOrNull() and rendered separately
      */
     fun getBestLyrics(): String? = when {
         !syncedLyrics.isNullOrBlank() -> syncedLyrics
         !plainLyrics.isNullOrBlank() -> plainLyrics
         else -> null
     }
+    
+    /**
+     * Get word-by-word lyrics if available, otherwise null
+     */
+    fun getWordByWordLyricsOrNull(): String? = wordByWordLyrics?.takeIf { it.isNotBlank() }
     
     /**
      * Get synced lyrics if available, otherwise null

@@ -71,6 +71,7 @@ class MusicRepository(context: Context) {
     private val deezerApiService = NetworkClient.deezerApiService
     private val lrclibApiService = NetworkClient.lrclibApiService
     private val ytmusicApiService = NetworkClient.ytmusicApiService
+    private val appleMusicApiService = NetworkClient.appleMusicApiService
     private val genericHttpClient = NetworkClient.genericHttpClient
 
     // LRU caches for artist images, album artwork, and lyrics to avoid memory leaks
@@ -1023,7 +1024,7 @@ class MusicRepository(context: Context) {
     suspend fun fetchLyrics(artist: String, title: String): LyricsData? =
         withContext(Dispatchers.IO) {
             if (artist.isBlank() || title.isBlank())
-                return@withContext LyricsData("No lyrics available for this song", null)
+                return@withContext LyricsData("No lyrics available for this song", null, null)
 
             val cacheKey = "$artist:$title".lowercase()
             lyricsCache[cacheKey]?.let { return@withContext it }
@@ -1036,6 +1037,7 @@ class MusicRepository(context: Context) {
             if (!isNetworkAvailable()) {
                 return@withContext LyricsData(
                     "Lyrics not available offline.\nConnect to the internet to view lyrics.",
+                    null,
                     null
                 )
             }
@@ -1045,8 +1047,64 @@ class MusicRepository(context: Context) {
 
             var plainLyrics: String? = null
             var syncedLyrics: String? = null
+            var wordByWordLyrics: String? = null
 
-            // ---- LRCLib (Enhanced search with multiple strategies) ----
+            // ---- Apple Music (Word-by-word synchronized lyrics - highest priority) ----
+            if (NetworkClient.isAppleMusicApiEnabled()) {
+                try {
+                    Log.d(TAG, "Attempting Apple Music lyrics search for: $cleanTitle by $cleanArtist")
+                    val query = "$cleanTitle $cleanArtist"
+                    val searchResults = appleMusicApiService.searchSongs(query)
+                    
+                    if (searchResults.isNotEmpty()) {
+                        // Find best match
+                        val bestMatch = searchResults.firstOrNull { result ->
+                            val artistMatch = result.artistName?.lowercase()?.contains(cleanArtist.lowercase()) == true ||
+                                cleanArtist.lowercase().contains(result.artistName?.lowercase() ?: "")
+                            val titleMatch = result.songName?.lowercase()?.contains(cleanTitle.lowercase()) == true ||
+                                cleanTitle.lowercase().contains(result.songName?.lowercase() ?: "")
+                            artistMatch && titleMatch
+                        } ?: searchResults.firstOrNull() // Fallback to first result if no exact match
+                        
+                        bestMatch?.let { match ->
+                            Log.d(TAG, "Found Apple Music match: ${match.songName} by ${match.artistName} (ID: ${match.id})")
+                            try {
+                                val lyricsResponse = appleMusicApiService.getLyrics(match.id)
+                                
+                                // Check if we have word-by-word lyrics
+                                if (lyricsResponse.type == "Syllable" && !lyricsResponse.content.isNullOrEmpty()) {
+                                    // Convert to JSON string to store in LyricsData
+                                    wordByWordLyrics = com.google.gson.Gson().toJson(lyricsResponse.content)
+                                    
+                                    // Also extract plain text as fallback
+                                    val plainText = lyricsResponse.content.mapNotNull { line ->
+                                        line.text?.joinToString(" ") { word -> word.text }
+                                    }.joinToString("\n")
+                                    
+                                    if (plainText.isNotEmpty()) {
+                                        plainLyrics = plainText
+                                    }
+                                    
+                                    Log.d(TAG, "Apple Music word-by-word lyrics found (${lyricsResponse.content.size} lines)")
+                                    
+                                    val lyricsData = LyricsData(plainLyrics, syncedLyrics, wordByWordLyrics)
+                                    lyricsCache[cacheKey] = lyricsData
+                                    saveLocalLyrics(artist, title, lyricsData)
+                                    return@withContext lyricsData
+                                }
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Error fetching Apple Music lyrics for ID ${match.id}: ${e.message}", e)
+                            }
+                        }
+                    } else {
+                        Log.d(TAG, "No Apple Music results found for: $query")
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Apple Music lyrics search failed: ${e.message}", e)
+                }
+            }
+
+            // ---- LRCLib (Enhanced search with multiple strategies - line-by-line synced) ----
             if (NetworkClient.isLrcLibApiEnabled()) {
                 try {
                     // Strategy 1: Search by track name and artist name
@@ -1095,7 +1153,7 @@ class MusicRepository(context: Context) {
                             TAG,
                             "LRCLib lyrics found - Synced: ${syncedLyrics != null}, Plain: ${plainLyrics != null}"
                         )
-                        val lyricsData = LyricsData(plainLyrics, syncedLyrics)
+                        val lyricsData = LyricsData(plainLyrics, syncedLyrics, wordByWordLyrics)
                         lyricsCache[cacheKey] = lyricsData
                         saveLocalLyrics(artist, title, lyricsData)
                         return@withContext lyricsData
@@ -1106,7 +1164,7 @@ class MusicRepository(context: Context) {
                 }
             }
 
-            return@withContext LyricsData("No lyrics found for this song", null)
+            return@withContext LyricsData("No lyrics found for this song", null, null)
         }
 
     /**
@@ -1236,7 +1294,7 @@ class MusicRepository(context: Context) {
             
             if (plainLyrics != null || syncedLyrics != null) {
                 Log.d(TAG, "Successfully parsed .lrc file - Synced: ${syncedLyrics != null}, Plain: ${plainLyrics != null}")
-                return LyricsData(plainLyrics, syncedLyrics)
+                return LyricsData(plainLyrics, syncedLyrics, null)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error parsing .lrc file", e)

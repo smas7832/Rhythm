@@ -650,6 +650,70 @@ private fun ColorSchemeContent(
             }
         }
         
+        // Manual color picker option
+        if (selectedColorSource == ColorSource.CUSTOM) {
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                    ),
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(bottom = 16.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.ColorLens,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                modifier = Modifier.size(28.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "Manual Color Picker",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                                Text(
+                                    text = "Create your own custom color palette",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f)
+                                )
+                            }
+                        }
+                        
+                        // Placeholder for future color picker implementation
+                        Text(
+                            text = "🎨 Manual color picker coming soon! Pick any color to create your perfect theme.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+                        
+                        androidx.compose.material3.Divider(
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.2f)
+                        )
+                        
+                        Text(
+                            text = "For now, choose from the preset color schemes below or use Album Art/System Colors for dynamic theming.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+            }
+        }
+        
         items(colorSchemeOptions) { option ->
             ColorSchemeCard(
                 option = option,
@@ -1257,6 +1321,11 @@ private fun OverviewContent(
             }
         }
         
+        // Spacer between sections
+        item {
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+        
         // Font Source Selection
         item {
             Row(
@@ -1299,6 +1368,11 @@ private fun OverviewContent(
                     )
                 }
             }
+        }
+        
+        // Spacer between sections
+        item {
+            Spacer(modifier = Modifier.height(12.dp))
         }
         
         // Theme Mode Settings

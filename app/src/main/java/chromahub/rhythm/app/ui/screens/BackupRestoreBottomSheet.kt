@@ -728,6 +728,11 @@ fun BackupRestoreBottomSheet(
                     }
                 }
                 
+                // Spacer between restore buttons and tip card
+                item {
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                
                 // Tips/Information Card
                 item {
                     Card(

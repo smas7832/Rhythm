@@ -1624,46 +1624,61 @@ fun PlayerScreen(
                                                 }
 
                                                 else -> {
-                                                    // Extract appropriate lyrics text from LyricsData object
-                                                    val lyricsText = remember(lyrics) {
-                                                        lyrics?.getBestLyrics() ?: ""
+                                                    // Check for word-by-word lyrics first (highest quality)
+                                                    val wordByWordLyrics = remember(lyrics) {
+                                                        lyrics?.getWordByWordLyricsOrNull()
                                                     }
-
-                                                    val parsedLyrics = remember(lyricsText) {
-                                                        chromahub.rhythm.app.util.LyricsParser.parseLyrics(
-                                                            lyricsText
-                                                        )
-                                                    }
-
-                                                    if (parsedLyrics.isNotEmpty()) {
-                                                        // Use SyncedLyricsView for synchronized lyrics
-                                                        SyncedLyricsView(
-                                                            lyrics = lyricsText,
+                                                    
+                                                    if (wordByWordLyrics != null) {
+                                                        // Use WordByWordLyricsView for Apple Music lyrics
+                                                        chromahub.rhythm.app.ui.components.WordByWordLyricsView(
+                                                            wordByWordLyrics = wordByWordLyrics,
                                                             currentPlaybackTime = currentTimeMs,
                                                             modifier = Modifier.fillMaxSize(),
                                                             onSeek = onLyricsSeek
                                                         )
                                                     } else {
-                                                        // Fallback to plain text lyrics if not synchronized
-                                                        Column(
-                                                            modifier = Modifier
-                                                                .fillMaxSize()
-                                                                .verticalScroll(rememberScrollState()),
-                                                            horizontalAlignment = Alignment.CenterHorizontally
-                                                        ) {
-                                                            Text(
-                                                                text = lyricsText,
-                                                                style = MaterialTheme.typography.bodyLarge.copy(
-                                                                    lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.6f,
-                                                                    fontWeight = FontWeight.Medium,
-                                                                    letterSpacing = 0.5.sp
-                                                                ),
-                                                                color = MaterialTheme.colorScheme.onSurface,
-                                                                textAlign = TextAlign.Center,
-                                                                modifier = Modifier
-                                                                    .fillMaxWidth()
-                                                                    .padding(horizontal = 8.dp)
+                                                        // Fall back to line-by-line synced or plain lyrics
+                                                        val lyricsText = remember(lyrics) {
+                                                            lyrics?.getBestLyrics() ?: ""
+                                                        }
+
+                                                        val parsedLyrics = remember(lyricsText) {
+                                                            chromahub.rhythm.app.util.LyricsParser.parseLyrics(
+                                                                lyricsText
                                                             )
+                                                        }
+
+                                                        if (parsedLyrics.isNotEmpty()) {
+                                                            // Use SyncedLyricsView for line-by-line synchronized lyrics
+                                                            SyncedLyricsView(
+                                                                lyrics = lyricsText,
+                                                                currentPlaybackTime = currentTimeMs,
+                                                                modifier = Modifier.fillMaxSize(),
+                                                                onSeek = onLyricsSeek
+                                                            )
+                                                        } else {
+                                                            // Fallback to plain text lyrics if not synchronized
+                                                            Column(
+                                                                modifier = Modifier
+                                                                    .fillMaxSize()
+                                                                    .verticalScroll(rememberScrollState()),
+                                                                horizontalAlignment = Alignment.CenterHorizontally
+                                                            ) {
+                                                                Text(
+                                                                    text = lyricsText,
+                                                                    style = MaterialTheme.typography.bodyLarge.copy(
+                                                                        lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.6f,
+                                                                        fontWeight = FontWeight.Medium,
+                                                                        letterSpacing = 0.5.sp
+                                                                    ),
+                                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                                    textAlign = TextAlign.Center,
+                                                                    modifier = Modifier
+                                                                        .fillMaxWidth()
+                                                                        .padding(horizontal = 8.dp)
+                                                                )
+                                                            }
                                                         }
                                                     }
                                                 }
