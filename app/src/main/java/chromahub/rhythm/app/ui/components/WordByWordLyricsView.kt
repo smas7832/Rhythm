@@ -294,12 +294,25 @@ fun WordByWordLyricsView(
                                 .padding(vertical = 8.dp),
                             contentAlignment = Alignment.Center
                         ) {
+                            val iconScale by animateFloatAsState(
+                                targetValue = if (isCurrentGap) 1.5f else 1f,
+                                animationSpec = spring<Float>(
+                                    dampingRatio = Spring.DampingRatioLowBouncy,
+                                    stiffness = Spring.StiffnessVeryLow
+                                ),
+                                label = "iconScale"
+                            )
+                            
                             Text(
                                 text = "♪",
                                 style = MaterialTheme.typography.headlineMedium,
                                 color = MaterialTheme.colorScheme.onSurface.copy(
                                     alpha = if (isCurrentGap) 0.8f else 0.3f
-                                )
+                                ),
+                                modifier = Modifier.graphicsLayer {
+                                    scaleX = iconScale
+                                    scaleY = iconScale
+                                }
                             )
                         }
                         
