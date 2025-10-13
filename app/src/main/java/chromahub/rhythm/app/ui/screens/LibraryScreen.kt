@@ -6553,6 +6553,11 @@ fun BottomFloatingButtonGroup(
     haptics: androidx.compose.ui.hapticfeedback.HapticFeedback
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    
+    // Loading states
+    var isPlayAllLoading by remember { mutableStateOf(false) }
+    var isShuffleLoading by remember { mutableStateOf(false) }
     
     Card(
         modifier = modifier
@@ -6571,20 +6576,38 @@ fun BottomFloatingButtonGroup(
         ) {
             // Play All Button
             Button(
-                onClick = onPlayAll,
+                onClick = {
+                    if (!isPlayAllLoading && !isShuffleLoading) {
+                        isPlayAllLoading = true
+                        onPlayAll()
+                        // Reset loading state after a delay
+                        scope.launch {
+                            kotlinx.coroutines.delay(1500)
+                            isPlayAllLoading = false
+                        }
+                    }
+                },
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(26.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 ),
-                contentPadding = PaddingValues(vertical = 14.dp)
+                contentPadding = PaddingValues(vertical = 14.dp),
+                enabled = !isPlayAllLoading && !isShuffleLoading
             ) {
-                Icon(
-                    imageVector = RhythmIcons.Play,
-                    contentDescription = "Play all",
-                    modifier = Modifier.size(20.dp)
-                )
+                if (isPlayAllLoading) {
+                    chromahub.rhythm.app.ui.components.SimpleCircularLoader(
+                        size = 20.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                } else {
+                    Icon(
+                        imageVector = RhythmIcons.Play,
+                        contentDescription = "Play all",
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Play All",
@@ -6595,18 +6618,36 @@ fun BottomFloatingButtonGroup(
             
             // Shuffle Button
             FilledIconButton(
-                onClick = onShuffle,
+                onClick = {
+                    if (!isPlayAllLoading && !isShuffleLoading) {
+                        isShuffleLoading = true
+                        onShuffle()
+                        // Reset loading state after a delay
+                        scope.launch {
+                            kotlinx.coroutines.delay(1500)
+                            isShuffleLoading = false
+                        }
+                    }
+                },
                 modifier = Modifier.size(52.dp),
                 colors = IconButtonDefaults.filledIconButtonColors(
                     containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                     contentColor = MaterialTheme.colorScheme.onTertiaryContainer
-                )
+                ),
+                enabled = !isPlayAllLoading && !isShuffleLoading
             ) {
-                Icon(
-                    imageVector = RhythmIcons.Shuffle,
-                    contentDescription = "Shuffle",
-                    modifier = Modifier.size(24.dp)
-                )
+                if (isShuffleLoading) {
+                    chromahub.rhythm.app.ui.components.SimpleCircularLoader(
+                        size = 24.dp,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
+                } else {
+                    Icon(
+                        imageVector = RhythmIcons.Shuffle,
+                        contentDescription = "Shuffle",
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
         }
     }

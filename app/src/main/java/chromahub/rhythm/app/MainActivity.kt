@@ -478,10 +478,13 @@ class MainActivity : ComponentActivity() {
             uri.toString().let { uriStr ->
                 uriStr.endsWith(".mp3", ignoreCase = true) ||
                 uriStr.endsWith(".m4a", ignoreCase = true) ||
+                uriStr.endsWith(".alac", ignoreCase = true) ||
                 uriStr.endsWith(".wav", ignoreCase = true) ||
                 uriStr.endsWith(".ogg", ignoreCase = true) ||
                 uriStr.endsWith(".flac", ignoreCase = true) ||
-                uriStr.endsWith(".aac", ignoreCase = true)
+                uriStr.endsWith(".aac", ignoreCase = true) ||
+                uriStr.endsWith(".opus", ignoreCase = true) ||
+                uriStr.endsWith(".wma", ignoreCase = true)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error validating URI: $uri", e)

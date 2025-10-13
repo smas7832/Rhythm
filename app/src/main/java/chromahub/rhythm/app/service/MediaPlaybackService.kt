@@ -13,8 +13,11 @@ import androidx.core.content.ContextCompat
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.CommandButton
 import androidx.media3.session.MediaController
@@ -289,19 +292,40 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     }
     
     private fun initializePlayer() {
-        // Build the player with current settings
+        // Configure load control for optimal performance with large audio files (FLAC, ALAC, WAV)
+        val loadControl = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                50_000,  // 50 seconds minimum buffer for smooth playback
+                120_000, // 2 minutes maximum buffer for large lossless files
+                2_500,   // 2.5 seconds buffer before starting playback
+                5_000    // 5 seconds buffer before resuming after rebuffer
+            )
+            .setPrioritizeTimeOverSizeThresholds(true) // Better for audio streaming
+            .build()
+        
+        // Configure renderers for better codec support and hardware acceleration
+        val renderersFactory = DefaultRenderersFactory(this).apply {
+            // Prefer extension renderers when available for better format support
+            setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
+        }
+        
+        // Build the player with enhanced settings for maximum format support
         player = ExoPlayer.Builder(this)
+            .setRenderersFactory(renderersFactory) // Enhanced codec support
+            .setLoadControl(loadControl) // Optimized buffering for large files
             .setAudioAttributes(
                 ExoAudioAttributes.Builder()
                     .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
                     .setUsage(C.USAGE_MEDIA)
                     .build(),
-                true
+                true // Handle audio focus automatically
             )
-            .setHandleAudioBecomingNoisy(true)
+            .setHandleAudioBecomingNoisy(true) // Pause on headphone disconnect
+            .setWakeMode(C.WAKE_MODE_LOCAL) // Keep CPU awake during playback
+            .setSkipSilenceEnabled(false) // Don't skip silence (preserves artist intent)
             .build()
             
-        // Add listener to initialize audio effects when session ID is ready
+        // Add listener to initialize audio effects when session ID is ready and handle errors
         player.addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == Player.STATE_READY && player.audioSessionId != 0) {
@@ -310,6 +334,10 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
                     initializeAudioEffects()
                 }
             }
+            
+            override fun onPlayerError(error: PlaybackException) {
+                handlePlaybackError(error)
+            }
         })
         
         // Apply current settings
@@ -317,6 +345,25 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
         
         // Try to initialize audio effects (might fail if session ID not ready)
         initializeAudioEffects()
+    }
+    
+    private fun handlePlaybackError(error: PlaybackException) {
+        val message = when (error.errorCode) {
+            PlaybackException.ERROR_CODE_DECODER_INIT_FAILED ->
+                "Audio codec not supported on this device"
+            PlaybackException.ERROR_CODE_IO_UNSPECIFIED ->
+                "Cannot read audio file"
+            PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED ->
+                "Audio format not supported"
+            PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND ->
+                "Audio file not found"
+            PlaybackException.ERROR_CODE_IO_NO_PERMISSION ->
+                "Permission denied to access audio file"
+            else -> "Playback error: ${error.message}"
+        }
+        Log.e(TAG, "Playback error: $message", error)
+        // Note: Toast messages should be shown from UI layer, not service
+        // Consider using a notification or callback to inform the user
     }
 
     private fun createController() {

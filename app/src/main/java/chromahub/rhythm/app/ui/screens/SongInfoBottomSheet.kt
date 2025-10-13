@@ -74,7 +74,14 @@ data class ExtendedSongInfo(
     val mimeType: String = "",
     val channels: String = "Unknown",
     val hasLyrics: Boolean = false,
-    val genre: String = "" // Add genre field
+    val genre: String = "", // Add genre field
+    // Audio quality indicators
+    val isLossless: Boolean = false,
+    val isDolby: Boolean = false,
+    val isDTS: Boolean = false,
+    val isHiRes: Boolean = false,
+    val audioCodec: String = "Unknown",
+    val formatName: String = "Unknown"
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -638,6 +645,20 @@ private fun MetadataGridSection(
         }
         
         extendedInfo?.let { info ->
+            // Audio quality badges - show lossless, Dolby, Hi-Res
+            if (info.isLossless) {
+                add(MetadataItem("Quality", "Lossless", Icons.Rounded.HighQuality))
+            }
+            if (info.isDolby) {
+                add(MetadataItem("Audio Tech", "Dolby", Icons.Rounded.SurroundSound))
+            }
+            if (info.isDTS) {
+                add(MetadataItem("Audio Tech", "DTS", Icons.Rounded.SurroundSound))
+            }
+            if (info.isHiRes && !info.isLossless) {
+                add(MetadataItem("Quality", "Hi-Res", Icons.Rounded.HighQuality))
+            }
+            
             // Audio quality info
             if (info.bitrate != "Unknown") {
                 add(MetadataItem("Bitrate", info.bitrate, Icons.Rounded.GraphicEq))
@@ -648,7 +669,9 @@ private fun MetadataGridSection(
             if (info.channels != "Unknown") {
                 add(MetadataItem("Channels", info.channels, Icons.Rounded.SettingsInputComponent))
             }
-            if (info.format != "Unknown") {
+            if (info.formatName != "Unknown") {
+                add(MetadataItem("Format", info.formatName, Icons.Rounded.MusicNote))
+            } else if (info.format != "Unknown") {
                 add(MetadataItem("Format", info.format, Icons.Rounded.MusicNote))
             }
             

@@ -1321,6 +1321,13 @@ fun PlayerScreen(
                                                     .graphicsLayer { alpha = 0.99f }
                                                     .background(Color.Transparent) // Transparent background
                                             )
+                                            
+                                            // Audio quality badges
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            AudioQualityBadges(
+                                                song = song,
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
                                         }
                                     }
                                 }

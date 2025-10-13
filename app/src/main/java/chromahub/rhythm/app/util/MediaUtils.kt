@@ -379,11 +379,27 @@ object MediaUtils {
                 // Determine format from file extension and MIME type
                 val file = File(filePath)
                 val extension = file.extension.lowercase()
+                
+                // Try to detect advanced audio format using AudioFormatDetector
+                val audioFormatInfo = try {
+                    AudioFormatDetector.detectFormat(context, song.uri)
+                } catch (e: Exception) {
+                    Log.w(TAG, "AudioFormatDetector failed, using fallback detection", e)
+                    null
+                }
+                
+                // Use detected codec or fall back to extension-based detection
                 format = when {
+                    audioFormatInfo != null && audioFormatInfo.codec != "Unknown" -> audioFormatInfo.codec
                     mimeType.contains("mp3", ignoreCase = true) || extension == "mp3" -> "MP3"
                     mimeType.contains("flac", ignoreCase = true) || extension == "flac" -> "FLAC"
                     mimeType.contains("ogg", ignoreCase = true) || extension == "ogg" -> "OGG"
-                    mimeType.contains("aac", ignoreCase = true) || extension in listOf("m4a", "aac") -> "AAC"
+                    mimeType.contains("alac", ignoreCase = true) || extension == "alac" -> "ALAC"
+                    extension == "m4a" -> {
+                        // M4A can be AAC or ALAC - check with AudioFormatDetector
+                        if (AudioFormatDetector.isALAC(context, song.uri)) "ALAC" else "AAC"
+                    }
+                    mimeType.contains("aac", ignoreCase = true) || extension == "aac" -> "AAC"
                     mimeType.contains("wav", ignoreCase = true) || extension == "wav" -> "WAV"
                     mimeType.contains("wma", ignoreCase = true) || extension == "wma" -> "WMA"
                     extension.isNotEmpty() -> extension.uppercase()
@@ -402,6 +418,14 @@ object MediaUtils {
             }
         }
         
+        // Detect audio format information for lossless, Dolby, etc.
+        val audioFormatInfo = try {
+            AudioFormatDetector.detectFormat(context, song.uri)
+        } catch (e: Exception) {
+            Log.w(TAG, "AudioFormatDetector failed in getExtendedSongInfo", e)
+            null
+        }
+        
         return chromahub.rhythm.app.ui.screens.ExtendedSongInfo(
             fileSize = fileSize,
             bitrate = bitrate,
@@ -417,7 +441,14 @@ object MediaUtils {
             mimeType = mimeType,
             channels = channels,
             hasLyrics = hasLyrics,
-            genre = genre ?: "" // Pass the extracted genre
+            genre = genre ?: "", // Pass the extracted genre
+            // Audio quality indicators
+            isLossless = audioFormatInfo?.isLossless ?: false,
+            isDolby = audioFormatInfo?.isDolby ?: false,
+            isDTS = audioFormatInfo?.isDTS ?: false,
+            isHiRes = audioFormatInfo?.isHiRes ?: false,
+            audioCodec = audioFormatInfo?.codec ?: format,
+            formatName = audioFormatInfo?.formatName ?: format
         )
     }
     
