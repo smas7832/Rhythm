@@ -75,6 +75,62 @@ Rhythm is not just another music player - it's a complete audio experience desig
 - 🎼 **Format Support** - FLAC, ALAC, MP3, AAC, OGG, WAV, and more
 - 🔉 **Volume Control** - Independent app volume or system integration
 
+### 🎵 **Audio Format Support & Limitations**
+
+Rhythm uses **Media3 ExoPlayer 1.8.0** for professional-grade audio playback with comprehensive format support. Here's what you can expect:
+
+#### ✅ **Fully Supported Formats** (Out-of-the-Box)
+| Format | Container | Quality | Notes |
+|:---:|:---:|:---:|:---|
+| **FLAC** | `.flac` | Lossless | Full support for all bit depths and sample rates |
+| **ALAC** | `.m4a`, `.alac` | Lossless | Native Apple Lossless support |
+| **MP3** | `.mp3` | Lossy | All bitrates and VBR support |
+| **AAC** | `.m4a`, `.aac`, `.mp4` | Lossy | AAC-LC, HE-AAC, HE-AACv2 |
+| **Vorbis** | `.ogg` | Lossy | Ogg Vorbis audio |
+| **Opus** | `.opus`, `.ogg` | Lossy/Lossless | Modern, efficient codec |
+| **WAV** | `.wav` | Lossless | Uncompressed PCM audio |
+| **PCM** | Various | Lossless | Raw audio data |
+
+#### ⚠️ **Device-Dependent Formats** (Requires Hardware Support)
+| Format | Container | Notes |
+|:---:|:---:|:---|
+| **Dolby Digital (AC-3)** | `.ac3`, `.m4a` | Requires compatible device/hardware |
+| **Dolby Digital Plus (E-AC-3)** | `.eac3`, `.m4a` | Requires compatible device/hardware |
+| **DTS** | `.dts`, `.m4a` | Requires compatible device/hardware |
+| **Dolby Atmos** | Various | Requires Atmos-compatible device |
+| **WMA** | `.wma` | May require device codecs |
+
+#### ❌ **Not Supported Formats**
+| Format | Alternative |
+|:---:|:---|
+| **APE (Monkey's Audio)** | Convert to FLAC |
+| **DSD/DSF** | Convert to FLAC or PCM |
+| **MQA** | Use FLAC version |
+| **WMA Lossless** | Convert to FLAC |
+| **AIFF** | Convert to WAV |
+
+#### 📊 **Audio Quality Detection**
+Rhythm automatically detects and displays audio quality badges:
+- **Lossless**: FLAC, ALAC, WAV, PCM
+- **Dolby**: AC-3, E-AC-3, Atmos
+- **DTS**: DTS Audio
+- **Hi-Res**: ≥48kHz sample rate or lossless
+
+#### 🔧 **Technical Limitations**
+- **Container Detection**: Some formats use identical containers (e.g., AAC and ALAC both use .m4a)
+- **Hardware Dependencies**: Dolby/DTS formats require device-specific decoders
+- **Codec Extensions**: Rare formats may need additional libraries (not included by default)
+- **Bit Depth**: Limited to device capabilities (typically 16-bit or 24-bit)
+- **Sample Rate**: Limited to device hardware (typically up to 192kHz)
+
+#### 💡 **Recommendations**
+- **For Best Compatibility**: Use FLAC, MP3, or AAC formats
+- **For Lossless Audio**: FLAC is universally supported and recommended
+- **For Hi-Res Audio**: Check your device's capabilities first
+- **Format Conversion**: Use tools like FFmpeg or dBpoweramp for unsupported formats
+
+> **Note**: If a format doesn't play, it may be due to device/exoplayer limitations rather than app issues. Try converting to a supported format or check your device's audio capabilities.
+
 ### 🧠 **Intelligent Features**
 - 🎤 **Synchronized Lyrics** - Real-time lyrics with LRCLib integration
 - 🔍 **Smart Search** - Lightning-fast fuzzy search across your library
