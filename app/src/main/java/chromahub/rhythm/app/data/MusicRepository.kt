@@ -1071,12 +1071,14 @@ class MusicRepository(context: Context) {
                             try {
                                 val lyricsResponse = appleMusicApiService.getLyrics(match.id)
                                 
-                                // Check if we have word-by-word lyrics
-                                if (lyricsResponse.type == "Syllable" && !lyricsResponse.content.isNullOrEmpty()) {
-                                    // Convert to JSON string to store in LyricsData
-                                    wordByWordLyrics = com.google.gson.Gson().toJson(lyricsResponse.content)
+                                // Check if track has time-synced lyrics flag
+                                val hasTimeSyncedLyrics = lyricsResponse.track?.hasTimeSyncedLyrics == true
+                                Log.d(TAG, "Apple Music track hasTimeSyncedLyrics: $hasTimeSyncedLyrics, type: ${lyricsResponse.type}")
+                                
+                                // Check if we have word-by-word lyrics (Syllable type) or line-synced lyrics
+                                if (!lyricsResponse.content.isNullOrEmpty() && hasTimeSyncedLyrics) {
                                     
-                                    // Also extract plain text as fallback
+                                    // Extract plain text from lyrics content
                                     val plainText = lyricsResponse.content.mapNotNull { line ->
                                         line.text?.joinToString(" ") { word -> word.text }
                                     }.joinToString("\n")
@@ -1085,12 +1087,34 @@ class MusicRepository(context: Context) {
                                         plainLyrics = plainText
                                     }
                                     
-                                    Log.d(TAG, "Apple Music word-by-word lyrics found (${lyricsResponse.content.size} lines)")
+                                    // Check for word-by-word (Syllable) lyrics
+                                    if (lyricsResponse.type == "Syllable") {
+                                        // Convert to JSON string to store in LyricsData
+                                        wordByWordLyrics = com.google.gson.Gson().toJson(lyricsResponse.content)
+                                        Log.d(TAG, "Apple Music word-by-word lyrics found (${lyricsResponse.content.size} lines)")
+                                    } else {
+                                        // Fall back to line-synced lyrics format
+                                        val syncedLyricsText = lyricsResponse.content.mapNotNull { line ->
+                                            val timestamp = line.timestamp ?: return@mapNotNull null
+                                            val text = line.text?.joinToString(" ") { word -> word.text } ?: return@mapNotNull null
+                                            val minutes = timestamp / 60000
+                                            val seconds = (timestamp % 60000) / 1000
+                                            val millis = (timestamp % 1000) / 10
+                                            String.format("[%02d:%02d.%02d]%s", minutes, seconds, millis, text)
+                                        }.joinToString("\n")
+                                        
+                                        if (syncedLyricsText.isNotEmpty()) {
+                                            syncedLyrics = syncedLyricsText
+                                            Log.d(TAG, "Apple Music line-synced lyrics found (${lyricsResponse.content.size} lines)")
+                                        }
+                                    }
                                     
                                     val lyricsData = LyricsData(plainLyrics, syncedLyrics, wordByWordLyrics)
                                     lyricsCache[cacheKey] = lyricsData
                                     saveLocalLyrics(artist, title, lyricsData)
                                     return@withContext lyricsData
+                                } else {
+                                    Log.d(TAG, "Apple Music lyrics not time-synced or empty for: ${match.songName}")
                                 }
                             } catch (e: Exception) {
                                 Log.e(TAG, "Error fetching Apple Music lyrics for ID ${match.id}: ${e.message}", e)

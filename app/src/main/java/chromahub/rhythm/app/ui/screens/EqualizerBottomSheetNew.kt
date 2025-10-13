@@ -415,6 +415,95 @@ fun EqualizerBottomSheetNew(
 
                                 Spacer(modifier = Modifier.height(20.dp))
 
+                                // Frequency Response Mini Chart - Moved above bands
+                                Card(
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+                                    ),
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(16.dp)
+                                    ) {
+                                        Text(
+                                            text = "Frequency Response",
+                                            style = MaterialTheme.typography.labelLarge,
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+
+                                        Spacer(modifier = Modifier.height(12.dp))
+
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(60.dp)
+                                        ) {
+                                            val primaryColor = MaterialTheme.colorScheme.primary
+                                            val outlineColor = MaterialTheme.colorScheme.outline
+                                            
+                                            Canvas(modifier = Modifier.fillMaxSize()) {
+                                                val width = size.width
+                                                val height = size.height
+                                                val bandWidth = width / bandLevels.size
+
+                                                // Draw center line (0dB)
+                                                drawLine(
+                                                    color = outlineColor.copy(alpha = 0.5f),
+                                                    start = Offset(0f, height / 2),
+                                                    end = Offset(width, height / 2),
+                                                    strokeWidth = 1.dp.toPx(),
+                                                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(5f, 5f))
+                                                )
+
+                                                // Draw frequency response curve
+                                                val points = bandLevels.mapIndexed { index, level ->
+                                                    val x = (index + 0.5f) * bandWidth
+                                                    val normalizedLevel = (level + 15f) / 30f
+                                                    val y = height * (1f - normalizedLevel)
+                                                    Offset(x, y)
+                                                }
+
+                                                // Draw smooth curve
+                                                if (points.size > 1) {
+                                                    val path = Path().apply {
+                                                        moveTo(points[0].x, points[0].y)
+                                                        for (i in 1 until points.size) {
+                                                            val p0 = points[i - 1]
+                                                            val p1 = points[i]
+                                                            val controlX = (p0.x + p1.x) / 2
+                                                            quadraticTo(controlX, p0.y, p1.x, p1.y)
+                                                        }
+                                                    }
+
+                                                    drawPath(
+                                                        path = path,
+                                                        color = primaryColor,
+                                                        style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
+                                                    )
+                                                }
+
+                                                // Draw points
+                                                points.forEach { point ->
+                                                    drawCircle(
+                                                        color = primaryColor,
+                                                        radius = 4.dp.toPx(),
+                                                        center = point
+                                                    )
+                                                    drawCircle(
+                                                        color = Color.White,
+                                                        radius = 2.dp.toPx(),
+                                                        center = point
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(20.dp))
+
                                 // Modern Frequency Bands Grid
                                 Column(
                                     modifier = Modifier.fillMaxWidth(),
@@ -508,93 +597,6 @@ fun EqualizerBottomSheetNew(
                                 }
 
                                 Spacer(modifier = Modifier.height(16.dp))
-
-                                // Frequency Response Mini Chart
-                                Card(
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
-                                    ),
-                                    shape = RoundedCornerShape(12.dp),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Column(
-                                        modifier = Modifier.padding(16.dp)
-                                    ) {
-                                        Text(
-                                            text = "Frequency Response",
-                                            style = MaterialTheme.typography.labelLarge,
-                                            fontWeight = FontWeight.Medium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-
-                                        Spacer(modifier = Modifier.height(12.dp))
-
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .height(60.dp)
-                                        ) {
-                                            val primaryColor = MaterialTheme.colorScheme.primary
-                                            val outlineColor = MaterialTheme.colorScheme.outline
-                                            
-                                            Canvas(modifier = Modifier.fillMaxSize()) {
-                                                val width = size.width
-                                                val height = size.height
-                                                val bandWidth = width / bandLevels.size
-
-                                                // Draw center line (0dB)
-                                                drawLine(
-                                                    color = outlineColor.copy(alpha = 0.5f),
-                                                    start = Offset(0f, height / 2),
-                                                    end = Offset(width, height / 2),
-                                                    strokeWidth = 1.dp.toPx(),
-                                                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(5f, 5f))
-                                                )
-
-                                                // Draw frequency response curve
-                                                val points = bandLevels.mapIndexed { index, level ->
-                                                    val x = (index + 0.5f) * bandWidth
-                                                    val normalizedLevel = (level + 15f) / 30f
-                                                    val y = height * (1f - normalizedLevel)
-                                                    Offset(x, y)
-                                                }
-
-                                                // Draw smooth curve
-                                                if (points.size > 1) {
-                                                    val path = Path().apply {
-                                                        moveTo(points[0].x, points[0].y)
-                                                        for (i in 1 until points.size) {
-                                                            val p0 = points[i - 1]
-                                                            val p1 = points[i]
-                                                            val controlX = (p0.x + p1.x) / 2
-                                                            quadraticTo(controlX, p0.y, p1.x, p1.y)
-                                                        }
-                                                    }
-
-                                                    drawPath(
-                                                        path = path,
-                                                        color = primaryColor,
-                                                        style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
-                                                    )
-                                                }
-
-                                                // Draw points
-                                                points.forEach { point ->
-                                                    drawCircle(
-                                                        color = primaryColor,
-                                                        radius = 4.dp.toPx(),
-                                                        center = point
-                                                    )
-                                                    drawCircle(
-                                                        color = Color.White,
-                                                        radius = 2.dp.toPx(),
-                                                        center = point
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
                             }
                         }
                     }

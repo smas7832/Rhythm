@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
@@ -97,6 +98,12 @@ private val LightColorScheme = lightColorScheme(
  * Get custom color scheme based on preset name
  */
 fun getCustomColorScheme(schemeName: String, darkTheme: Boolean): androidx.compose.material3.ColorScheme {
+    // Check if it's a custom color scheme first
+    val customScheme = parseCustomColorScheme(schemeName, darkTheme)
+    if (customScheme != null) {
+        return customScheme
+    }
+    
     return when (schemeName) {
         "Warm" -> if (darkTheme) {
             darkColorScheme(
@@ -1024,6 +1031,109 @@ fun getCustomColorScheme(schemeName: String, darkTheme: Boolean): androidx.compo
             )
         }
         else -> if (darkTheme) DarkColorScheme else LightColorScheme
+    }
+}
+
+/**
+ * Parse custom color scheme from format: custom_primaryHex_secondaryHex_tertiaryHex
+ */
+fun parseCustomColorScheme(schemeName: String, darkTheme: Boolean): androidx.compose.material3.ColorScheme? {
+    if (!schemeName.startsWith("custom_")) return null
+    
+    val parts = schemeName.split("_")
+    if (parts.size != 4) return null
+    
+    try {
+        val primaryHex = parts[1].padStart(6, '0')
+        val secondaryHex = parts[2].padStart(6, '0') 
+        val tertiaryHex = parts[3].padStart(6, '0')
+        
+        val primary = Color(("FF$primaryHex").toLong(16))
+        val secondary = Color(("FF$secondaryHex").toLong(16))
+        val tertiary = Color(("FF$tertiaryHex").toLong(16))
+        
+        // Create a basic color scheme using the custom colors
+        // For simplicity, we'll use a similar structure to the default schemes
+        return if (darkTheme) {
+            darkColorScheme(
+                primary = primary,
+                onPrimary = if (primary.luminance() > 0.5f) Color.Black else Color.White,
+                primaryContainer = primary.copy(alpha = 0.3f),
+                onPrimaryContainer = if (primary.copy(alpha = 0.3f).luminance() > 0.5f) Color.Black else Color.White,
+                secondary = secondary,
+                onSecondary = if (secondary.luminance() > 0.5f) Color.Black else Color.White,
+                secondaryContainer = secondary.copy(alpha = 0.3f),
+                onSecondaryContainer = if (secondary.copy(alpha = 0.3f).luminance() > 0.5f) Color.Black else Color.White,
+                tertiary = tertiary,
+                onTertiary = if (tertiary.luminance() > 0.5f) Color.Black else Color.White,
+                tertiaryContainer = tertiary.copy(alpha = 0.3f),
+                onTertiaryContainer = if (tertiary.copy(alpha = 0.3f).luminance() > 0.5f) Color.Black else Color.White,
+                error = ErrorDark,
+                onError = OnErrorDark,
+                errorContainer = ErrorContainerDark,
+                onErrorContainer = OnErrorContainerDark,
+                background = BackgroundDark,
+                onBackground = OnBackgroundDark,
+                surface = SurfaceDark,
+                onSurface = OnSurfaceDark,
+                surfaceVariant = SurfaceVariantDark,
+                onSurfaceVariant = OnSurfaceVariantDark,
+                outline = OutlineDark,
+                outlineVariant = OutlineVariantDark,
+                scrim = Color.Black,
+                inverseSurface = InverseSurfaceDark,
+                inverseOnSurface = InverseOnSurfaceDark,
+                inversePrimary = InversePrimaryDark,
+                surfaceDim = SurfaceContainerLowestDark,
+                surfaceBright = SurfaceContainerHighestDark,
+                surfaceContainerLowest = SurfaceContainerLowestDark,
+                surfaceContainerLow = SurfaceContainerLowDark,
+                surfaceContainer = SurfaceContainerDark,
+                surfaceContainerHigh = SurfaceContainerHighDark,
+                surfaceContainerHighest = SurfaceContainerHighestDark
+            )
+        } else {
+            lightColorScheme(
+                primary = primary,
+                onPrimary = if (primary.luminance() > 0.5f) Color.Black else Color.White,
+                primaryContainer = primary.copy(alpha = 0.2f),
+                onPrimaryContainer = if (primary.copy(alpha = 0.2f).luminance() > 0.5f) Color.Black else Color.White,
+                secondary = secondary,
+                onSecondary = if (secondary.luminance() > 0.5f) Color.Black else Color.White,
+                secondaryContainer = secondary.copy(alpha = 0.2f),
+                onSecondaryContainer = if (secondary.copy(alpha = 0.2f).luminance() > 0.5f) Color.Black else Color.White,
+                tertiary = tertiary,
+                onTertiary = if (tertiary.luminance() > 0.5f) Color.Black else Color.White,
+                tertiaryContainer = tertiary.copy(alpha = 0.2f),
+                onTertiaryContainer = if (tertiary.copy(alpha = 0.2f).luminance() > 0.5f) Color.Black else Color.White,
+                error = ErrorLight,
+                onError = OnErrorLight,
+                errorContainer = ErrorContainerLight,
+                onErrorContainer = OnErrorContainerLight,
+                background = BackgroundLight,
+                onBackground = OnBackgroundLight,
+                surface = SurfaceLight,
+                onSurface = OnSurfaceLight,
+                surfaceVariant = SurfaceVariantLight,
+                onSurfaceVariant = OnSurfaceVariantLight,
+                outline = OutlineLight,
+                outlineVariant = OutlineVariantLight,
+                scrim = Color.Black,
+                inverseSurface = InverseSurfaceLight,
+                inverseOnSurface = InverseOnSurfaceLight,
+                inversePrimary = InversePrimaryLight,
+                surfaceDim = SurfaceContainerLowestLight,
+                surfaceBright = SurfaceContainerHighestLight,
+                surfaceContainerLowest = SurfaceContainerLowestLight,
+                surfaceContainerLow = SurfaceContainerLowLight,
+                surfaceContainer = SurfaceContainerLight,
+                surfaceContainerHigh = SurfaceContainerHighLight,
+                surfaceContainerHighest = SurfaceContainerHighestLight
+            )
+        }
+    } catch (e: Exception) {
+        // Invalid custom scheme format, return null
+        return null
     }
 }
 
