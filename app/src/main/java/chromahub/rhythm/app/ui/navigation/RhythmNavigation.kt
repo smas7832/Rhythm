@@ -906,7 +906,11 @@ fun RhythmNavigation(
                             viewModel.setShowLyrics(show)
                         },
                         onShowOnlineOnlyLyricsChange = { onlineOnly ->
-                            viewModel.setShowOnlineOnlyLyrics(onlineOnly)
+                            @Suppress("DEPRECATION")
+                            viewModel.appSettings.setOnlineOnlyLyrics(onlineOnly)
+                        },
+                        onLyricsSourcePreferenceChange = { preference ->
+                            viewModel.setLyricsSourcePreference(preference)
                         },
                         onOpenSystemEqualizer = {
                             viewModel.openSystemEqualizer()

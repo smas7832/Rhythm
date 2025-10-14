@@ -1017,46 +1017,322 @@ class MusicRepository(context: Context) {
 
             updatedArtists
         }
+    /**
+     * Extracts embedded lyrics from audio file metadata
+     * 
+     * This method attempts multiple strategies to extract lyrics:
+     * 1. MediaMetadataRetriever with common metadata keys
+     * 2. Direct file reading for ID3v2 USLT (Unsynchronized Lyrics) frames
+     * 
+     * Note: Android's MediaMetadataRetriever has limited lyrics support.
+     * ID3v2.3/v2.4 tags with USLT frames are the most reliable format.
+     */
+    private fun getEmbeddedLyrics(songUri: Uri): LyricsData? {
+        // Try MediaMetadataRetriever first (fastest)
+        val retrieverLyrics = extractLyricsViaRetriever(songUri)
+        if (retrieverLyrics != null) return retrieverLyrics
+        
+        // Try direct file reading for ID3 tags
+        val id3Lyrics = extractLyricsFromID3(songUri)
+        if (id3Lyrics != null) return id3Lyrics
+        
+        return null
+    }
+    
+    /**
+     * Attempts to extract lyrics using MediaMetadataRetriever
+     */
+    private fun extractLyricsViaRetriever(songUri: Uri): LyricsData? {
+        var retriever: android.media.MediaMetadataRetriever? = null
+        try {
+            retriever = android.media.MediaMetadataRetriever()
+            retriever.setDataSource(context, songUri)
+            
+            // Try common metadata keys that might contain lyrics
+            // Note: Standard key codes documented in MediaMetadataRetriever
+            val potentialLyricsKeys = listOf(
+                // Some devices/implementations may use these keys for lyrics
+                android.media.MediaMetadataRetriever.METADATA_KEY_WRITER, 
+                android.media.MediaMetadataRetriever.METADATA_KEY_COMPOSER,
+                // Try some numeric codes (vendor-specific, may work on some devices)
+                1000, 1001, 1002, 1003
+            )
+            
+            for (key in potentialLyricsKeys) {
+                try {
+                    val metadata = retriever.extractMetadata(key)
+                    if (!metadata.isNullOrBlank() && looksLikeLyrics(metadata)) {
+                        Log.d(TAG, "Found embedded lyrics via retriever key: $key")
+                        return parseLyricsData(metadata)
+                    }
+                } catch (e: Exception) {
+                    // Key not supported, continue
+                    continue
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "MediaMetadataRetriever extraction failed: ${e.message}")
+        } finally {
+            try {
+                retriever?.release()
+            } catch (e: Exception) {
+                Log.w(TAG, "Error releasing MediaMetadataRetriever: ${e.message}")
+            }
+        }
+        return null
+    }
+    
+    /**
+     * Attempts to extract lyrics by reading ID3v2 tags directly from file
+     * Specifically looks for USLT (Unsynchronized Lyrics) frames
+     */
+    private fun extractLyricsFromID3(songUri: Uri): LyricsData? {
+        try {
+            // Get file path from URI
+            val filePath = getFilePathFromUri(songUri) ?: return null
+            val file = java.io.File(filePath)
+            
+            if (!file.exists() || !file.canRead()) {
+                Log.d(TAG, "Cannot read file for ID3 extraction: $filePath")
+                return null
+            }
+            
+            // Read ID3v2 tag
+            java.io.RandomAccessFile(file, "r").use { raf ->
+                // Check for ID3v2 header
+                val header = ByteArray(10)
+                raf.read(header)
+                
+                if (header[0] == 'I'.code.toByte() && 
+                    header[1] == 'D'.code.toByte() && 
+                    header[2] == '3'.code.toByte()) {
+                    
+                    // ID3v2 tag found
+                    val version = header[3].toInt()
+                    Log.d(TAG, "Found ID3v2.$version tag")
+                    
+                    // Calculate tag size (synchsafe integer)
+                    val tagSize = ((header[6].toInt() and 0x7F) shl 21) or
+                                 ((header[7].toInt() and 0x7F) shl 14) or
+                                 ((header[8].toInt() and 0x7F) shl 7) or
+                                 (header[9].toInt() and 0x7F)
+                    
+                    // Read tag data
+                    val tagData = ByteArray(tagSize)
+                    raf.read(tagData)
+                    
+                    // Search for USLT frame
+                    val lyrics = findUSLTFrame(tagData)
+                    if (lyrics != null) {
+                        Log.d(TAG, "Found USLT lyrics in ID3 tag (length: ${lyrics.length})")
+                        return parseLyricsData(lyrics)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "ID3 tag extraction failed: ${e.message}")
+        }
+        return null
+    }
+    
+    /**
+     * Searches for USLT (Unsynchronized Lyrics) frame in ID3v2 tag data
+     */
+    private fun findUSLTFrame(tagData: ByteArray): String? {
+        var pos = 0
+        while (pos < tagData.size - 10) {
+            try {
+                // Check for USLT frame header
+                if (tagData[pos] == 'U'.code.toByte() &&
+                    tagData[pos + 1] == 'S'.code.toByte() &&
+                    tagData[pos + 2] == 'L'.code.toByte() &&
+                    tagData[pos + 3] == 'T'.code.toByte()) {
+                    
+                    // Frame size (4 bytes after frame ID)
+                    val frameSize = ((tagData[pos + 4].toInt() and 0xFF) shl 24) or
+                                   ((tagData[pos + 5].toInt() and 0xFF) shl 16) or
+                                   ((tagData[pos + 6].toInt() and 0xFF) shl 8) or
+                                   (tagData[pos + 7].toInt() and 0xFF)
+                    
+                    if (frameSize > 0 && frameSize < tagData.size - pos) {
+                        // Skip frame header (10 bytes) + encoding (1 byte) + language (3 bytes) + descriptor
+                        var dataPos = pos + 14
+                        
+                        // Skip descriptor (null-terminated string)
+                        while (dataPos < pos + frameSize && tagData[dataPos] != 0.toByte()) {
+                            dataPos++
+                        }
+                        dataPos++ // Skip null terminator
+                        
+                        // Extract lyrics text
+                        val lyricsLength = (pos + 10 + frameSize) - dataPos
+                        if (lyricsLength > 0) {
+                            val lyricsBytes = tagData.copyOfRange(dataPos, dataPos + lyricsLength)
+                            val lyrics = String(lyricsBytes, Charsets.UTF_8).trim()
+                            if (lyrics.isNotBlank()) {
+                                return lyrics
+                            }
+                        }
+                    }
+                }
+                pos++
+            } catch (e: Exception) {
+                // Continue searching
+                pos++
+            }
+        }
+        return null
+    }
+    
+    /**
+     * Helper to determine if text looks like lyrics
+     */
+    private fun looksLikeLyrics(text: String): Boolean {
+        val hasMultipleLines = text.contains("\n")
+        val hasTimestamp = text.contains(Regex("\\[\\d{2}:\\d{2}"))
+        val isLongEnough = text.length > 50
+        val hasCommonLyricsWords = text.lowercase().let { 
+            it.contains("verse") || it.contains("chorus") || it.contains("bridge")
+        }
+        
+        return hasMultipleLines || hasTimestamp || (isLongEnough && !hasCommonLyricsWords)
+    }
+    
+    /**
+     * Parses lyrics text into LyricsData with proper format detection
+     */
+    private fun parseLyricsData(lyrics: String): LyricsData {
+        // Check if lyrics are synced (contain LRC-style timestamps)
+        val isSynced = lyrics.contains(Regex("\\[\\d{2}:\\d{2}\\.\\d{2}]"))
+        
+        return if (isSynced) {
+            LyricsData(null, lyrics, null)
+        } else {
+            LyricsData(lyrics, null, null)
+        }
+    }
+    
+    /**
+     * Helper to get file path from content URI
+     */
+    private fun getFilePathFromUri(uri: Uri): String? {
+        if (uri.scheme == "file") {
+            return uri.path
+        }
+        
+        if (uri.scheme == "content") {
+            try {
+                context.contentResolver.query(uri, arrayOf(android.provider.MediaStore.Audio.Media.DATA), null, null, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val columnIndex = cursor.getColumnIndex(android.provider.MediaStore.Audio.Media.DATA)
+                        if (columnIndex >= 0) {
+                            return cursor.getString(columnIndex)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to get file path from URI: ${e.message}")
+            }
+        }
+        
+        return null
+    }
 
     /**
-     * Fetches lyrics for a song using various APIs, prioritizing synced lyrics.
+     * Fetches lyrics for a song using various sources based on user preference.
+     * @param artist Song artist
+     * @param title Song title
      * @param songId Optional song ID for cache key - prevents wrong lyrics for songs with similar names
+     * @param songUri Optional song URI for embedded lyrics extraction
+     * @param sourcePreference User's preferred lyrics source order
      */
-    suspend fun fetchLyrics(artist: String, title: String, songId: String? = null): LyricsData? =
-        withContext(Dispatchers.IO) {
-            if (artist.isBlank() || title.isBlank())
-                return@withContext LyricsData("No lyrics available for this song", null, null)
+    suspend fun fetchLyrics(
+        artist: String, 
+        title: String, 
+        songId: String? = null,
+        songUri: Uri? = null,
+        sourcePreference: LyricsSourcePreference = LyricsSourcePreference.API_FIRST
+    ): LyricsData? = withContext(Dispatchers.IO) {
+        if (artist.isBlank() || title.isBlank())
+            return@withContext LyricsData("No lyrics available for this song", null, null)
 
-            // Use song ID in cache key if available to prevent wrong lyrics for songs with similar metadata
-            val cacheKey = if (songId != null) {
-                "$songId:$artist:$title".lowercase()
+        // Use song ID in cache key if available to prevent wrong lyrics for songs with similar metadata
+        val cacheKey = if (songId != null) {
+            "$songId:$artist:$title".lowercase()
+        } else {
+            "$artist:$title".lowercase()
+        }
+        
+        lyricsCache[cacheKey]?.let { 
+            Log.d(TAG, "Returning cached lyrics for: $artist - $title")
+            return@withContext it 
+        }
+
+        // Define source fetchers
+        val fetchFromLocal: suspend () -> LyricsData? = {
+            findLocalLyrics(artist, title)
+        }
+        
+        val fetchFromEmbedded: suspend () -> LyricsData? = {
+            songUri?.let { uri -> getEmbeddedLyrics(uri) }
+        }
+        
+        val fetchFromAPI: suspend () -> LyricsData? = {
+            if (isNetworkAvailable()) {
+                fetchLyricsFromAPIs(artist, title)
             } else {
-                "$artist:$title".lowercase()
+                null
             }
-            lyricsCache[cacheKey]?.let { 
-                Log.d(TAG, "Returning cached lyrics for: $artist - $title")
-                return@withContext it 
+        }
+        
+        // Try sources in order based on preference, with fallback to others
+        val sourceFetchers = when (sourcePreference) {
+            LyricsSourcePreference.API_FIRST -> listOf(fetchFromAPI, fetchFromEmbedded, fetchFromLocal)
+            LyricsSourcePreference.EMBEDDED_FIRST -> listOf(fetchFromEmbedded, fetchFromAPI, fetchFromLocal)
+            LyricsSourcePreference.LOCAL_FIRST -> listOf(fetchFromLocal, fetchFromEmbedded, fetchFromAPI)
+        }
+        
+        // Try each source in order until we find lyrics
+        for ((index, fetcher) in sourceFetchers.withIndex()) {
+            try {
+                val lyrics = fetcher()
+                if (lyrics != null && lyrics.hasLyrics()) {
+                    val sourceName = when (sourceFetchers[index]) {
+                        fetchFromAPI -> "API"
+                        fetchFromEmbedded -> "Embedded"
+                        fetchFromLocal -> "Local"
+                        else -> "Unknown"
+                    }
+                    Log.d(TAG, "Found lyrics from $sourceName for: $artist - $title")
+                    lyricsCache[cacheKey] = lyrics
+                    if (sourceName == "API") {
+                        // Only save API-fetched lyrics to local cache
+                        saveLocalLyrics(artist, title, lyrics)
+                    }
+                    return@withContext lyrics
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Error fetching from source ${index + 1}: ${e.message}")
+                // Continue to next source
             }
+        }
 
-            findLocalLyrics(artist, title)?.let {
-                lyricsCache[cacheKey] = it
-                return@withContext it
-            }
+        // No lyrics found from any source
+        Log.d(TAG, "No lyrics found from any source for: $artist - $title")
+        return@withContext LyricsData("No lyrics found for this song", null, null)
+    }
+    
+    /**
+     * Fetches lyrics from online APIs (Apple Music, LRCLib, etc.)
+     * Extracted as a separate method for cleaner code
+     */
+    private suspend fun fetchLyricsFromAPIs(artist: String, title: String): LyricsData? {
+        val cleanArtist = artist.trim().replace(Regex("\\(.*?\\)"), "").trim()
+        val cleanTitle = title.trim().replace(Regex("\\(.*?\\)"), "").trim()
 
-            if (!isNetworkAvailable()) {
-                return@withContext LyricsData(
-                    "Lyrics not available offline.\nConnect to the internet to view lyrics.",
-                    null,
-                    null
-                )
-            }
-
-            val cleanArtist = artist.trim().replace(Regex("\\(.*?\\)"), "").trim()
-            val cleanTitle = title.trim().replace(Regex("\\(.*?\\)"), "").trim()
-
-            var plainLyrics: String? = null
-            var syncedLyrics: String? = null
-            var wordByWordLyrics: String? = null
+        var plainLyrics: String? = null
+        var syncedLyrics: String? = null
+        var wordByWordLyrics: String? = null
 
             // ---- Apple Music (Word-by-word synchronized lyrics - highest priority) ----
             if (NetworkClient.isAppleMusicApiEnabled()) {
@@ -1119,9 +1395,7 @@ class MusicRepository(context: Context) {
                                     }
                                     
                                     val lyricsData = LyricsData(plainLyrics, syncedLyrics, wordByWordLyrics)
-                                    lyricsCache[cacheKey] = lyricsData
-                                    saveLocalLyrics(artist, title, lyricsData)
-                                    return@withContext lyricsData
+                                    return lyricsData
                                 } else {
                                     Log.d(TAG, "Apple Music lyrics not time-synced or empty for: ${match.songName}")
                                 }
@@ -1187,9 +1461,7 @@ class MusicRepository(context: Context) {
                             "LRCLib lyrics found - Synced: ${syncedLyrics != null}, Plain: ${plainLyrics != null}"
                         )
                         val lyricsData = LyricsData(plainLyrics, syncedLyrics, wordByWordLyrics)
-                        lyricsCache[cacheKey] = lyricsData
-                        saveLocalLyrics(artist, title, lyricsData)
-                        return@withContext lyricsData
+                        return lyricsData
                     }
                 }
                 } catch (e: Exception) {
@@ -1197,8 +1469,9 @@ class MusicRepository(context: Context) {
                 }
             }
 
-            return@withContext LyricsData("No lyrics found for this song", null, null)
-        }
+        // No lyrics found from APIs
+        return null
+    }
 
     /**
      * Finds local lyrics file in app's files directory OR next to the music file

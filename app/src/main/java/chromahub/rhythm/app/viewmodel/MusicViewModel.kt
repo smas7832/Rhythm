@@ -22,6 +22,7 @@ import androidx.media3.session.SessionToken
 import chromahub.rhythm.app.data.Album
 import chromahub.rhythm.app.data.AppSettings
 import chromahub.rhythm.app.data.Artist
+import chromahub.rhythm.app.data.LyricsSourcePreference
 import chromahub.rhythm.app.data.MusicRepository
 import chromahub.rhythm.app.data.PlaybackLocation
 import chromahub.rhythm.app.data.Playlist
@@ -2834,10 +2835,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     /**
-     * Updates the online-only lyrics setting
+     * Updates the lyrics source preference setting
      */
-    fun setShowOnlineOnlyLyrics(onlineOnly: Boolean) {
-        appSettings.setOnlineOnlyLyrics(onlineOnly)
+    fun setLyricsSourcePreference(preference: LyricsSourcePreference) {
+        appSettings.setLyricsSourcePreference(preference)
         if (showLyrics.value && currentSong.value != null) {
             fetchLyricsForCurrentSong()
         }
@@ -2864,13 +2865,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         
-        // Check if we should only fetch lyrics when online
-        if (showOnlineOnlyLyrics.value && !repository.isNetworkAvailable()) {
-            Log.d(TAG, "Online-only lyrics enabled but device is offline")
-            _currentLyrics.value = LyricsData("Online-only lyrics enabled.\nConnect to the internet to view lyrics.", null)
-            _isLoadingLyrics.value = false
-            return
-        }
+        // Get the user's lyrics source preference
+        val lyricsPreference = appSettings.lyricsSourcePreference.value
         
         // Create a new job for this lyrics fetch
         lyricsFetchJob = viewModelScope.launch {
@@ -2878,9 +2874,15 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 // Store the song ID to validate it hasn't changed
                 val fetchingSongId = song.id
-                Log.d(TAG, "Fetching lyrics for: ${song.artist} - ${song.title} (ID: $fetchingSongId)")
+                Log.d(TAG, "Fetching lyrics for: ${song.artist} - ${song.title} (ID: $fetchingSongId) using preference: $lyricsPreference")
                 
-                val lyricsData = repository.fetchLyrics(song.artist, song.title, song.id)
+                val lyricsData = repository.fetchLyrics(
+                    artist = song.artist, 
+                    title = song.title, 
+                    songId = song.id,
+                    songUri = song.uri,
+                    sourcePreference = lyricsPreference
+                )
                 
                 // Verify the song hasn't changed before updating lyrics
                 if (currentSong.value?.id == fetchingSongId && isActive) {

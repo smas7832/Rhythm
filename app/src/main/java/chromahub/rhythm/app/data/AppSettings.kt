@@ -55,7 +55,8 @@ class AppSettings private constructor(context: Context) {
         
         // Lyrics Settings
         private const val KEY_SHOW_LYRICS = "show_lyrics"
-        private const val KEY_ONLINE_ONLY_LYRICS = "online_only_lyrics"
+        private const val KEY_ONLINE_ONLY_LYRICS = "online_only_lyrics" // Deprecated, kept for migration
+        private const val KEY_LYRICS_SOURCE_PREFERENCE = "lyrics_source_preference"
         
         // Theme Settings
         private const val KEY_USE_SYSTEM_THEME = "use_system_theme"
@@ -227,7 +228,23 @@ class AppSettings private constructor(context: Context) {
     private val _showLyrics = MutableStateFlow(prefs.getBoolean(KEY_SHOW_LYRICS, true))
     val showLyrics: StateFlow<Boolean> = _showLyrics.asStateFlow()
     
-    private val _onlineOnlyLyrics = MutableStateFlow(prefs.getBoolean(KEY_ONLINE_ONLY_LYRICS, true))
+    // Migrate from old online_only_lyrics setting to new preference system
+    private val migratedLyricsPreference = run {
+        val hasOldSetting = prefs.contains(KEY_ONLINE_ONLY_LYRICS)
+        if (hasOldSetting && !prefs.contains(KEY_LYRICS_SOURCE_PREFERENCE)) {
+            // Migrate: online_only = true means API_FIRST, false means allow all sources
+            val onlineOnly = prefs.getBoolean(KEY_ONLINE_ONLY_LYRICS, true)
+            if (onlineOnly) LyricsSourcePreference.API_FIRST.ordinal else LyricsSourcePreference.EMBEDDED_FIRST.ordinal
+        } else {
+            prefs.getInt(KEY_LYRICS_SOURCE_PREFERENCE, LyricsSourcePreference.API_FIRST.ordinal)
+        }
+    }
+    
+    private val _lyricsSourcePreference = MutableStateFlow(LyricsSourcePreference.fromOrdinal(migratedLyricsPreference))
+    val lyricsSourcePreference: StateFlow<LyricsSourcePreference> = _lyricsSourcePreference.asStateFlow()
+    
+    // Keep for backward compatibility but make it read from new preference
+    private val _onlineOnlyLyrics = MutableStateFlow(_lyricsSourcePreference.value == LyricsSourcePreference.API_FIRST)
     val onlineOnlyLyrics: StateFlow<Boolean> = _onlineOnlyLyrics.asStateFlow()
     
     // Theme Settings
@@ -693,9 +710,18 @@ class AppSettings private constructor(context: Context) {
         _showLyrics.value = show
     }
     
+    fun setLyricsSourcePreference(preference: LyricsSourcePreference) {
+        prefs.edit().putInt(KEY_LYRICS_SOURCE_PREFERENCE, preference.ordinal).apply()
+        _lyricsSourcePreference.value = preference
+        // Update the backward compatibility flag
+        _onlineOnlyLyrics.value = (preference == LyricsSourcePreference.API_FIRST)
+    }
+    
+    @Deprecated("Use setLyricsSourcePreference instead")
     fun setOnlineOnlyLyrics(onlineOnly: Boolean) {
-        prefs.edit().putBoolean(KEY_ONLINE_ONLY_LYRICS, onlineOnly).apply()
-        _onlineOnlyLyrics.value = onlineOnly
+        // Convert to new preference system
+        val preference = if (onlineOnly) LyricsSourcePreference.API_FIRST else LyricsSourcePreference.EMBEDDED_FIRST
+        setLyricsSourcePreference(preference)
     }
     
     // Theme Settings Methods

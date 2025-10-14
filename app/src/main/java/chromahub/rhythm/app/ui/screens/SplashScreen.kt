@@ -202,11 +202,10 @@ fun SplashScreen(
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(0.dp)
+                verticalArrangement = Arrangement.Center
             ) {
                 // Logo and App name on the same line
                 Box(
-                    modifier = Modifier.height(200.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     // App name revealing with expand animation (like TabButton in ThemeCustomizationBottomSheet)
@@ -260,12 +259,10 @@ fun SplashScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
-
                 // Tagline with expand animation from center
                 Box(
-                    modifier = Modifier.height(32.dp),
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.padding(top = 8.dp)
                 ) {
                     if (showTagline) {
                         Row {

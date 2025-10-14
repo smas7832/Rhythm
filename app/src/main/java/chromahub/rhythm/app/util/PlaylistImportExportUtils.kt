@@ -271,26 +271,35 @@ object PlaylistImportExportUtils {
                     // Skip other comments
                 }
                 else -> {
-                    // This is a file path/URI
-                    val song = findSongByPathOrTitle(line, currentTitle, availableSongs)
-                    song?.let { 
-                        val songKey = "${it.title.trim().lowercase()}_${it.artist.trim().lowercase()}"
-                        val songUri = it.uri.toString()
-                        
-                        // Check for duplicates
-                        if (!addedSongUris.contains(songUri) && !addedSongKeys.contains(songKey)) {
-                            matchedSongs.add(it) 
-                            addedSongUris.add(songUri)
-                            addedSongKeys.add(songKey)
+                    // This is a file path/URI - process ALL non-comment lines
+                    val trimmedLine = line.trim()
+                    if (trimmedLine.isNotEmpty()) {
+                        val song = findSongByPathOrTitle(trimmedLine, currentTitle, availableSongs)
+                        if (song != null) {
+                            val songKey = "${song.title.trim().lowercase()}_${song.artist.trim().lowercase()}"
+                            val songUri = song.uri.toString()
+                            
+                            // Check for duplicates
+                            if (!addedSongUris.contains(songUri) && !addedSongKeys.contains(songKey)) {
+                                matchedSongs.add(song) 
+                                addedSongUris.add(songUri)
+                                addedSongKeys.add(songKey)
+                                Log.d(TAG, "Imported song from M3U: ${song.title} (${song.artist}) from path: $trimmedLine")
+                            } else {
+                                Log.d(TAG, "Skipping duplicate song in M3U: ${song.title} by ${song.artist}")
+                            }
                         } else {
-                            Log.d(TAG, "Skipping duplicate song in M3U: ${it.title} by ${it.artist}")
+                            Log.w(TAG, "Could not find song for M3U path: $trimmedLine" + 
+                                if (currentTitle.isNotEmpty()) " (title: $currentTitle)" else "")
                         }
                     }
+                    // Reset currentTitle after processing each path (whether match found or not)
                     currentTitle = ""
                 }
             }
         }
         
+        Log.d(TAG, "M3U import completed: ${matchedSongs.size} songs imported from ${fileName}")
         return Playlist(
             id = System.currentTimeMillis().toString(),
             name = fileName.substringBeforeLast("."),
@@ -364,23 +373,78 @@ object PlaylistImportExportUtils {
     
     private fun findSongByPathOrTitle(path: String, title: String, availableSongs: List<Song>): Song? {
         // Try exact URI match first
-        availableSongs.find { it.uri.toString() == path }?.let { return it }
-        
-        // Try file name match
-        val fileName = path.substringAfterLast("/").substringBeforeLast(".")
-        availableSongs.find { 
-            it.uri.lastPathSegment?.substringBeforeLast(".")?.equals(fileName, ignoreCase = true) == true 
-        }?.let { return it }
-        
-        // Try title match
-        if (title.isNotBlank()) {
-            val cleanTitle = title.replace(" - ", "").trim()
-            availableSongs.find { song ->
-                cleanTitle.contains(song.title, ignoreCase = true) || 
-                cleanTitle.contains("${song.artist} - ${song.title}", ignoreCase = true)
-            }?.let { return it }
+        availableSongs.find { it.uri.toString() == path }?.let { 
+            Log.d(TAG, "Found song by exact URI match: $path")
+            return it 
         }
         
+        // Try matching by file path (from MediaStore DATA column)
+        // The path in M3U might be like: /storage/emulated/0/Music/song.mp3
+        // And song.uri might be: content://media/external/audio/media/12345
+        // So we need to match using the actual file path if available
+        availableSongs.find { song ->
+            // Try to get the actual file path from the song's URI
+            val songPath = song.uri.path
+            songPath != null && (songPath == path || songPath.equals(path, ignoreCase = true))
+        }?.let { 
+            Log.d(TAG, "Found song by exact path match: $path")
+            return it 
+        }
+        
+        // Try file name match (basename without extension)
+        val fileName = path.substringAfterLast("/").substringBeforeLast(".")
+        availableSongs.find { song ->
+            val songFileName = song.uri.lastPathSegment?.substringBeforeLast(".")
+                ?: song.uri.path?.substringAfterLast("/")?.substringBeforeLast(".")
+            songFileName?.equals(fileName, ignoreCase = true) == true
+        }?.let { 
+            Log.d(TAG, "Found song by filename match: $fileName")
+            return it 
+        }
+        
+        // Try fuzzy filename match (handles URL encoding, underscores vs spaces, etc.)
+        val normalizedFileName = fileName.replace("_", " ").replace("%20", " ").lowercase()
+        availableSongs.find { song ->
+            val songFileName = (song.uri.lastPathSegment?.substringBeforeLast(".")
+                ?: song.uri.path?.substringAfterLast("/")?.substringBeforeLast(".")
+                ?: "").replace("_", " ").replace("%20", " ").lowercase()
+            songFileName == normalizedFileName
+        }?.let { 
+            Log.d(TAG, "Found song by normalized filename match: $normalizedFileName")
+            return it 
+        }
+        
+        // Try title match from EXTINF metadata
+        if (title.isNotBlank()) {
+            // Try exact title match first
+            availableSongs.find { song ->
+                song.title.equals(title, ignoreCase = true)
+            }?.let { 
+                Log.d(TAG, "Found song by exact title match: $title")
+                return it 
+            }
+            
+            // Try "Artist - Title" format match
+            val cleanTitle = title.trim()
+            availableSongs.find { song ->
+                val artistTitle = "${song.artist} - ${song.title}"
+                artistTitle.equals(cleanTitle, ignoreCase = true)
+            }?.let { 
+                Log.d(TAG, "Found song by artist-title match: $cleanTitle")
+                return it 
+            }
+            
+            // Try partial title match
+            availableSongs.find { song ->
+                cleanTitle.contains(song.title, ignoreCase = true) || 
+                song.title.contains(cleanTitle, ignoreCase = true)
+            }?.let { 
+                Log.d(TAG, "Found song by partial title match: $cleanTitle")
+                return it 
+            }
+        }
+        
+        Log.d(TAG, "No match found for path: $path" + if (title.isNotBlank()) " (title: $title)" else "")
         return null
     }
     

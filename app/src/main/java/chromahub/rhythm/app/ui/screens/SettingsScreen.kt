@@ -182,6 +182,7 @@ fun SettingsScreen(
     showOnlineOnlyLyrics: Boolean,
     onShowLyricsChange: (Boolean) -> Unit,
     onShowOnlineOnlyLyricsChange: (Boolean) -> Unit,
+    onLyricsSourcePreferenceChange: (chromahub.rhythm.app.data.LyricsSourcePreference) -> Unit,
     onOpenSystemEqualizer: () -> Unit,
     onBack: () -> Unit,
     onCheckForUpdates: () -> Unit,
@@ -199,6 +200,9 @@ fun SettingsScreen(
     val darkMode by appSettings.darkMode.collectAsState()
     val useDynamicColors by appSettings.useDynamicColors.collectAsState()
 
+    // Lyrics Settings
+    val lyricsSourcePreference by appSettings.lyricsSourcePreference.collectAsState()
+    
     // Playback Settings
     val highQualityAudio by appSettings.highQualityAudio.collectAsState()
     val gaplessPlayback by appSettings.gaplessPlayback.collectAsState()
@@ -1182,13 +1186,27 @@ fun SettingsScreen(
                         enter = fadeIn() + expandVertically(),
                         exit = fadeOut() + shrinkVertically()
                     ) {
-                        SettingsToggleItem(
-                            title = "Online Lyrics Only",
-                            description = "Only show lyrics when connected to the internet",
-                            icon = Icons.Filled.Cloud,
-                            checked = showOnlineOnlyLyrics,
-                            onCheckedChange = {
-                                onShowOnlineOnlyLyricsChange(it)
+                        SettingsDropdownItem(
+                            title = "Lyrics Source Priority",
+                            description = "Choose which lyrics source to try first (with automatic fallback to others)",
+                            selectedOption = lyricsSourcePreference.displayName,
+                            icon = when (lyricsSourcePreference) {
+                                chromahub.rhythm.app.data.LyricsSourcePreference.API_FIRST -> Icons.Filled.Cloud
+                                chromahub.rhythm.app.data.LyricsSourcePreference.EMBEDDED_FIRST -> Icons.Filled.MusicNote
+                                chromahub.rhythm.app.data.LyricsSourcePreference.LOCAL_FIRST -> Icons.Filled.Folder
+                            },
+                            iconTint = when (lyricsSourcePreference) {
+                                chromahub.rhythm.app.data.LyricsSourcePreference.API_FIRST -> MaterialTheme.colorScheme.primary
+                                chromahub.rhythm.app.data.LyricsSourcePreference.EMBEDDED_FIRST -> MaterialTheme.colorScheme.secondary
+                                chromahub.rhythm.app.data.LyricsSourcePreference.LOCAL_FIRST -> MaterialTheme.colorScheme.tertiary
+                            },
+                            options = chromahub.rhythm.app.data.LyricsSourcePreference.values().map { it.displayName },
+                            onOptionSelected = { displayName ->
+                                val preference = chromahub.rhythm.app.data.LyricsSourcePreference.values()
+                                    .find { it.displayName == displayName }
+                                if (preference != null) {
+                                    onLyricsSourcePreferenceChange(preference)
+                                }
                             }
                         )
                     }
@@ -2102,14 +2120,18 @@ fun SettingsScreen(
                                 },
                                 leadingIcon = {
                                     Icon(
-                                        imageVector = when (option) {
-                                            "Track Number" -> Icons.Filled.FormatListNumbered
-                                            "Title A-Z", "Title Z-A" -> Icons.Filled.SortByAlpha
-                                            "Duration ↑", "Duration ↓" -> Icons.Filled.AccessTime
-                                            "Stable" -> Icons.Filled.Public
-                                            "Beta" -> Icons.Filled.BugReport
-                                            "List" -> RhythmIcons.Actions.List
-                                            "Grid" -> Icons.Filled.GridView
+                                        imageVector = when {
+                                            selectedOption == option -> Icons.Filled.Check
+                                            option == "API" -> Icons.Filled.Cloud
+                                            option == "Embedded" -> Icons.Filled.MusicNote
+                                            option == "Local" -> Icons.Filled.Folder
+                                            option == "Track Number" -> Icons.Filled.FormatListNumbered
+                                            option == "Title A-Z" || option == "Title Z-A" -> Icons.Filled.SortByAlpha
+                                            option == "Duration ↑" || option == "Duration ↓" -> Icons.Filled.AccessTime
+                                            option == "Stable" -> Icons.Filled.Public
+                                            option == "Beta" -> Icons.Filled.BugReport
+                                            option == "List" -> RhythmIcons.Actions.List
+                                            option == "Grid" -> Icons.Filled.GridView
                                             else -> Icons.Filled.Check // Fallback
                                         },
                                         contentDescription = null,

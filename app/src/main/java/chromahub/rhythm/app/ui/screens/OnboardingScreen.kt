@@ -1545,7 +1545,7 @@ fun EnhancedAudioPlaybackContent(
     val hapticFeedbackEnabled by appSettings.hapticFeedbackEnabled.collectAsState()
     val useSystemVolume by appSettings.useSystemVolume.collectAsState()
     val showLyrics by appSettings.showLyrics.collectAsState()
-    val onlineOnlyLyrics by appSettings.onlineOnlyLyrics.collectAsState()
+    val lyricsSourcePreference by appSettings.lyricsSourcePreference.collectAsState()
     val scrollState = rememberScrollState()
 
     Column(
@@ -1625,50 +1625,51 @@ fun EnhancedAudioPlaybackContent(
                 onToggle = { appSettings.setShowLyrics(it) }
             )
             
-            // Online Lyrics Only toggle (shown when lyrics are enabled)
+            // Lyrics Source Priority dropdown (shown when lyrics are enabled)
             AnimatedVisibility(
                 visible = showLyrics,
                 enter = expandVertically() + fadeIn(),
                 exit = shrinkVertically() + fadeOut()
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    EnhancedThemeOption(
+                    SettingsDropdownItem(
+                        title = "Lyrics Source Priority",
+                        description = "Choose which lyrics source to try first (with automatic fallback to others)",
+                        selectedOption = lyricsSourcePreference.displayName,
                         icon = Icons.Filled.Cloud,
-                        title = "Online Lyrics Only",
-                        description = "Only fetch and display lyrics when connected to the internet to save data.",
-                        isEnabled = onlineOnlyLyrics,
-                        onToggle = { appSettings.setOnlineOnlyLyrics(it) }
+                        options = chromahub.rhythm.app.data.LyricsSourcePreference.values().map { it.displayName },
+                        onOptionSelected = { displayName ->
+                            val preference = chromahub.rhythm.app.data.LyricsSourcePreference.values()
+                                .find { it.displayName == displayName }
+                            if (preference != null) {
+                                appSettings.setLyricsSourcePreference(preference)
+                            }
+                        }
                     )
                     
-                    // Offline lyrics support info
-                    AnimatedVisibility(
-                        visible = !onlineOnlyLyrics,
-                        enter = expandVertically() + fadeIn(),
-                        exit = shrinkVertically() + fadeOut()
+                    // Lyrics sources info
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
+                        ),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Card(
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
-                            ),
-                            modifier = Modifier.fillMaxWidth()
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
-                                modifier = Modifier.padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Lightbulb,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Text(
-                                    text = "Offline lyrics will be loaded from local .lrc files when available",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onTertiaryContainer
-                                )
-                            }
+                            Icon(
+                                imageVector = Icons.Filled.Lightbulb,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "API: Online lyrics • Embedded: Metadata lyrics • Local: .lrc files",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
                         }
                     }
                 }
@@ -2316,6 +2317,156 @@ fun EnhancedThemeOption(
 }
 
 @Composable
+fun OnboardingDropdownOption(
+    icon: ImageVector,
+    title: String,
+    description: String,
+    selectedOption: String,
+    options: List<String>,
+    onOptionSelected: (String) -> Unit
+) {
+    val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+    var showDropdown by remember { mutableStateOf(false) }
+    
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .clickable { 
+                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
+                showDropdown = true 
+            },
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        )
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 16.sp
+                )
+            }
+            
+            Spacer(modifier = Modifier.width(8.dp))
+            
+            // Current selection badge
+            Surface(
+                color = MaterialTheme.colorScheme.primaryContainer,
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = selectedOption,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        imageVector = Icons.Filled.KeyboardArrowDown,
+                        contentDescription = "Show options",
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+        
+        // Dropdown Menu
+        Box {
+            DropdownMenu(
+                expanded = showDropdown,
+                onDismissRequest = { showDropdown = false },
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                options.forEach { option ->
+                    DropdownMenuItem(
+                        text = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(
+                                    imageVector = when (option) {
+                                        "API" -> Icons.Filled.Cloud
+                                        "Embedded" -> Icons.Filled.MusicNote
+                                        "Local" -> Icons.Filled.Folder
+                                        else -> Icons.Filled.MusicNote
+                                    },
+                                    contentDescription = null,
+                                    tint = if (selectedOption == option)
+                                        MaterialTheme.colorScheme.primary
+                                    else
+                                        MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = option,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = if (selectedOption == option) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (selectedOption == option)
+                                        MaterialTheme.colorScheme.primary
+                                    else
+                                        MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.weight(1f))
+                                if (selectedOption == option) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Check,
+                                        contentDescription = "Selected",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                        },
+                        onClick = {
+                            HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
+                            onOptionSelected(option)
+                            showDropdown = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun EnhancedUpdaterContent(
     onNextStep: () -> Unit,
     appSettings: AppSettings,
@@ -2899,6 +3050,9 @@ fun SettingsDropdownItem(
                                     option.contains("Hour") -> Icons.Filled.AccessTime
                                     option.contains("Stable") -> Icons.Filled.Public
                                     option.contains("Beta") -> Icons.Filled.BugReport
+                                    option == "API" -> Icons.Filled.Cloud
+                                    option == "Embedded" -> Icons.Filled.LibraryMusic
+                                    option == "Local" -> Icons.Filled.Folder
                                     else -> Icons.Filled.Check // Fallback
                                 },
                                 contentDescription = null,

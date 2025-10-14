@@ -25,8 +25,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import chromahub.rhythm.app.data.AppSettings
 import chromahub.rhythm.app.data.Song
@@ -210,7 +212,74 @@ fun MediaScanBottomSheet(
                 }
             }
             
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Library Status Card
+            if (allSongs.isEmpty()) {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
+                    ),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Error,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "No Music Files Found",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                        
+                        Text(
+                            text = "Your music library appears to be empty. This could happen if:",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        
+                        MediaScanTipItem(
+                            icon = Icons.Filled.FolderOff,
+                            text = "No audio files on your device",
+                            tint = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        MediaScanTipItem(
+                            icon = Icons.Filled.Lock,
+                            text = "Storage permissions not fully granted",
+                            tint = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        MediaScanTipItem(
+                            icon = Icons.Filled.Refresh,
+                            text = "MediaStore needs time to index files (try reopening the app)",
+                            tint = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Text(
+                            text = "💡 Try: Close and reopen the app, or check your device's file manager to verify audio files exist.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
             
             // Mode-specific How It Works Card
             Card(
@@ -414,7 +483,11 @@ private fun SongsFilterTab(
     haptic: androidx.compose.ui.hapticfeedback.HapticFeedback,
     context: android.content.Context
 ) {
-    // Track if data is still being calculated to show loading state
+    // Track if data is still being loaded or calculated
+    val isLoading = remember(allSongs) {
+        allSongs.isEmpty()
+    }
+    
     val isCalculating = remember(allSongs, filteredAvailableSongs, mode) {
         allSongs.isNotEmpty() && filteredAvailableSongs.isEmpty()
     }
@@ -492,12 +565,28 @@ private fun SongsFilterTab(
                 Column(
                     modifier = Modifier.padding(16.dp)
                 ) {
-                    Text(
-                        text = "$totalSongsCount",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onTertiaryContainer
-                    )
+                    if (isLoading) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            SimpleCircularLoader(
+                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                size = 28.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "...",
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                        }
+                    } else {
+                        Text(
+                            text = "$totalSongsCount",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                        )
+                    }
                     Text(
                         text = "Total",
                         style = MaterialTheme.typography.bodySmall,
@@ -556,7 +645,7 @@ private fun SongsFilterTab(
         }
     }
 
-    // Empty state
+    // Empty/Loading state
     AnimatedVisibility(
         visible = filteredSongDetails.isEmpty(),
         enter = fadeIn(),
@@ -568,23 +657,45 @@ private fun SongsFilterTab(
                 .padding(vertical = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Icon(
-                imageVector = if (mode == MediaScanMode.BLACKLIST) Icons.Filled.Check else Icons.Filled.PlaylistAdd,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(48.dp)
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = if (mode == MediaScanMode.BLACKLIST) "No blacklisted songs" else "No whitelisted songs",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = if (mode == MediaScanMode.BLACKLIST) "All your songs are available for playback" else "Add songs to whitelist for exclusive playback",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            if (isLoading) {
+                // Show loading indicator when songs haven't been loaded yet
+                // SimpleCircularLoader(
+                //     color = MaterialTheme.colorScheme.primary,
+                //     size = 48.dp
+                // )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Loading your music library...",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = "Please wait while we scan your device for audio files",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            } else {
+                // Show empty state when no filtered songs
+                Icon(
+                    imageVector = if (mode == MediaScanMode.BLACKLIST) Icons.Filled.Check else Icons.Filled.PlaylistAdd,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(48.dp)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = if (mode == MediaScanMode.BLACKLIST) "No blacklisted songs" else "No whitelisted songs",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = if (mode == MediaScanMode.BLACKLIST) "All your songs are available for playback" else "Add songs to whitelist for exclusive playback",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
         }
     }
 }
@@ -893,7 +1004,8 @@ private fun FilteredFolderItem(
 @Composable
 private fun MediaScanTipItem(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
-    text: String
+    text: String,
+    tint: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onTertiaryContainer
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -902,14 +1014,15 @@ private fun MediaScanTipItem(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f),
+            tint = tint.copy(alpha = 0.7f),
             modifier = Modifier.size(18.dp)
         )
         Spacer(modifier = Modifier.width(12.dp))
         Text(
             text = text,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onTertiaryContainer
+            color = tint,
+            fontSize = 13.sp
         )
     }
 }
