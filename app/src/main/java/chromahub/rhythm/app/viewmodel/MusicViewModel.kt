@@ -106,6 +106,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _serviceConnected = MutableStateFlow(false)
     val serviceConnected: StateFlow<Boolean> = _serviceConnected.asStateFlow()
 
+    // Lyrics fetch job tracking to prevent race conditions
+    private var lyricsFetchJob: Job? = null
+
     // Main music data
     private val _songs = MutableStateFlow<List<Song>>(emptyList())
     val songs: StateFlow<List<Song>> = _songs.asStateFlow()
@@ -2257,6 +2260,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         // Cancel all coroutine jobs
         progressUpdateJob?.cancel()
         deviceMonitoringJob?.cancel()
+        lyricsFetchJob?.cancel()
         
         // Release media controller
         mediaController?.release()
@@ -2841,11 +2845,16 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     
     /**
      * Fetches lyrics for the current song if settings allow, with automatic retry logic
+     * Now properly handles race conditions and song changes
      */
     private fun fetchLyricsForCurrentSong(retryCount: Int = 0) {
         val song = currentSong.value ?: return
         
+        // Cancel any previous lyrics fetch to prevent race conditions
+        lyricsFetchJob?.cancel()
+        
         // Clear current lyrics first only on initial attempt
+        // This prevents showing stale lyrics from previous song
         if (retryCount == 0) {
             _currentLyrics.value = null
         }
@@ -2859,17 +2868,41 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         if (showOnlineOnlyLyrics.value && !repository.isNetworkAvailable()) {
             Log.d(TAG, "Online-only lyrics enabled but device is offline")
             _currentLyrics.value = LyricsData("Online-only lyrics enabled.\nConnect to the internet to view lyrics.", null)
+            _isLoadingLyrics.value = false
             return
         }
         
-        viewModelScope.launch {
+        // Create a new job for this lyrics fetch
+        lyricsFetchJob = viewModelScope.launch {
             _isLoadingLyrics.value = true
             try {
-                val lyricsData = repository.fetchLyrics(song.artist, song.title)
-                _currentLyrics.value = lyricsData
-                Log.d(TAG, "Successfully fetched lyrics for: ${song.artist} - ${song.title}")
+                // Store the song ID to validate it hasn't changed
+                val fetchingSongId = song.id
+                Log.d(TAG, "Fetching lyrics for: ${song.artist} - ${song.title} (ID: $fetchingSongId)")
+                
+                val lyricsData = repository.fetchLyrics(song.artist, song.title, song.id)
+                
+                // Verify the song hasn't changed before updating lyrics
+                if (currentSong.value?.id == fetchingSongId && isActive) {
+                    _currentLyrics.value = lyricsData
+                    Log.d(TAG, "Successfully fetched lyrics for: ${song.artist} - ${song.title}")
+                } else {
+                    Log.d(TAG, "Song changed during lyrics fetch, discarding results for: ${song.title}")
+                }
             } catch (e: Exception) {
+                // If the job was cancelled, don't log as error
+                if (e is kotlinx.coroutines.CancellationException) {
+                    Log.d(TAG, "Lyrics fetch cancelled for: ${song.title}")
+                    throw e // Re-throw to properly handle cancellation
+                }
+                
                 Log.e(TAG, "Error fetching lyrics (attempt ${retryCount + 1})", e)
+                
+                // Only retry if the song is still the same
+                if (currentSong.value?.id != song.id) {
+                    Log.d(TAG, "Song changed, not retrying lyrics fetch")
+                    return@launch
+                }
                 
                 // Retry logic - try up to 2 more times with exponential backoff
                 if (retryCount < 2) {
@@ -2878,19 +2911,23 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                     delay(delayMs)
                     
                     // Check if the song is still the same before retrying
-                    if (currentSong.value?.id == song.id) {
+                    if (currentSong.value?.id == song.id && isActive) {
                         fetchLyricsForCurrentSong(retryCount + 1)
                         return@launch
                     } else {
                         Log.d(TAG, "Song changed during retry, cancelling lyrics fetch")
                     }
                 } else {
-                    // All retries failed
-                    Log.w(TAG, "Failed to fetch lyrics after ${retryCount + 1} attempts")
-                    _currentLyrics.value = LyricsData("Unable to load lyrics. Tap to retry.", null)
+                    // All retries failed - only show error if song hasn't changed
+                    if (currentSong.value?.id == song.id && isActive) {
+                        Log.w(TAG, "Failed to fetch lyrics after ${retryCount + 1} attempts")
+                        _currentLyrics.value = LyricsData("Unable to load lyrics. Tap to retry.", null)
+                    }
                 }
             } finally {
-                _isLoadingLyrics.value = false
+                if (isActive) {
+                    _isLoadingLyrics.value = false
+                }
             }
         }
     }

@@ -1020,14 +1020,23 @@ class MusicRepository(context: Context) {
 
     /**
      * Fetches lyrics for a song using various APIs, prioritizing synced lyrics.
+     * @param songId Optional song ID for cache key - prevents wrong lyrics for songs with similar names
      */
-    suspend fun fetchLyrics(artist: String, title: String): LyricsData? =
+    suspend fun fetchLyrics(artist: String, title: String, songId: String? = null): LyricsData? =
         withContext(Dispatchers.IO) {
             if (artist.isBlank() || title.isBlank())
                 return@withContext LyricsData("No lyrics available for this song", null, null)
 
-            val cacheKey = "$artist:$title".lowercase()
-            lyricsCache[cacheKey]?.let { return@withContext it }
+            // Use song ID in cache key if available to prevent wrong lyrics for songs with similar metadata
+            val cacheKey = if (songId != null) {
+                "$songId:$artist:$title".lowercase()
+            } else {
+                "$artist:$title".lowercase()
+            }
+            lyricsCache[cacheKey]?.let { 
+                Log.d(TAG, "Returning cached lyrics for: $artist - $title")
+                return@withContext it 
+            }
 
             findLocalLyrics(artist, title)?.let {
                 lyricsCache[cacheKey] = it
