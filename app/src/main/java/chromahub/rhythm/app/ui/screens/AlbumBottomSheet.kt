@@ -9,9 +9,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -64,7 +66,12 @@ fun AlbumBottomSheet(
     onAddSongToPlaylist: (Song) -> Unit,
     onPlayerClick: () -> Unit,
     sheetState: SheetState,
-    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback // Add haptics parameter
+    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback, // Add haptics parameter
+    onPlayNext: (Song) -> Unit = {},
+    onToggleFavorite: (Song) -> Unit = {},
+    favoriteSongs: Set<String> = emptySet(),
+    onShowSongInfo: (Song) -> Unit = {},
+    onAddToBlacklist: (Song) -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -273,18 +280,18 @@ fun AlbumBottomSheet(
                         Row(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Surface(
-                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Text(
-                                    text = "${album.songs.size} songs",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    fontWeight = FontWeight.Medium,
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
-                                )
-                            }
+//                            Surface(
+//                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f),
+//                                shape = RoundedCornerShape(12.dp)
+//                            ) {
+//                                Text(
+//                                    text = "${album.songs.size} songs",
+//                                    style = MaterialTheme.typography.bodyLarge,
+//                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+//                                    fontWeight = FontWeight.Medium,
+//                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+//                                )
+//                            }
                             
                             if (album.year > 0) {
                                 Spacer(modifier = Modifier.width(8.dp))
@@ -562,6 +569,11 @@ fun AlbumBottomSheet(
                                     },
                                     onAddToQueue = { onAddToQueue(song) },
                                     onAddToPlaylist = { onAddSongToPlaylist(song) },
+                                    onPlayNext = { onPlayNext(song) },
+                                    onToggleFavorite = { onToggleFavorite(song) },
+                                    isFavorite = favoriteSongs.contains(song.id),
+                                    onShowSongInfo = { onShowSongInfo(song) },
+                                    onAddToBlacklist = { onAddToBlacklist(song) },
                                     modifier = Modifier
                                         .animateItem(), // Keep item placement animation
                                     haptics = haptics
@@ -617,9 +629,15 @@ fun EnhancedAlbumSongItem(
     onAddToQueue: () -> Unit,
     onAddToPlaylist: () -> Unit,
     modifier: Modifier = Modifier,
-    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback
+    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback,
+    onPlayNext: () -> Unit = {},
+    onToggleFavorite: () -> Unit = {},
+    isFavorite: Boolean = false,
+    onShowSongInfo: () -> Unit = {},
+    onAddToBlacklist: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    var showDropdown by remember { mutableStateOf(false) }
     
     Surface(
         onClick = {
@@ -698,44 +716,283 @@ fun EnhancedAlbumSongItem(
                 }
             },
             trailingContent = {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp) // Reduced spacing
+                FilledIconButton(
+                    onClick = {
+                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                        showDropdown = true
+                    },
+                    modifier = Modifier
+                        .size(width = 40.dp, height = 36.dp),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
                 ) {
-                    FilledIconButton(
-                        onClick = {
-                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
-                            onAddToQueue()
-                        },
-                        modifier = Modifier.size(36.dp), // Reduced size
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
+                    Icon(
+                        imageVector = RhythmIcons.More,
+                        contentDescription = "More options",
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                DropdownMenu(
+                    expanded = showDropdown,
+                    onDismissRequest = {
+                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                        showDropdown = false
+                    },
+                    modifier = Modifier
+                        .widthIn(min = 220.dp)
+                        .background(MaterialTheme.colorScheme.surface)
+                        .padding(5.dp),
+                    shape = RoundedCornerShape(18.dp)
+                ) {
+                    // Play next
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceContainer,
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
                     ) {
-                        Icon(
-                            imageVector = RhythmIcons.Player.Queue,
-                            contentDescription = "Add to queue",
-                            modifier = Modifier.size(20.dp)
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    "Play next",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            leadingIcon = {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                                    shape = CircleShape,
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.SkipNext,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(6.dp)
+                                    )
+                                }
+                            },
+                            onClick = {
+                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                                showDropdown = false
+                                onPlayNext()
+                            }
                         )
                     }
 
-                    FilledIconButton(
-                        onClick = {
-                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
-                            onAddToPlaylist()
-                        },
-                        modifier = Modifier.size(36.dp), // Reduced size
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
+                    // Add to queue
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceContainer,
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
-                            contentDescription = "Add to playlist",
-                            modifier = Modifier.size(20.dp)
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    "Add to queue",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            leadingIcon = {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                                    shape = CircleShape,
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = RhythmIcons.Queue,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(6.dp)
+                                    )
+                                }
+                            },
+                            onClick = {
+                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                                showDropdown = false
+                                onAddToQueue()
+                            }
                         )
                     }
+
+                    // Toggle favorite
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceContainer,
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    if (isFavorite) "Remove from favorites" else "Add to favorites",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            leadingIcon = {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f),
+                                    shape = CircleShape,
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Rounded.FavoriteBorder,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(6.dp)
+                                    )
+                                }
+                            },
+                            onClick = {
+                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                                showDropdown = false
+                                onToggleFavorite()
+                            }
+                        )
+                    }
+
+                    // Add to playlist
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceContainer,
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    "Add to playlist",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            leadingIcon = {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                                    shape = CircleShape,
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(6.dp)
+                                    )
+                                }
+                            },
+                            onClick = {
+                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                                showDropdown = false
+                                onAddToPlaylist()
+                            }
+                        )
+                    }
+
+                    // Song info
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceContainer,
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    "Song info",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            leadingIcon = {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
+                                    shape = CircleShape,
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Info,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(6.dp)
+                                    )
+                                }
+                            },
+                            onClick = {
+                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                                showDropdown = false
+                                onShowSongInfo()
+                            }
+                        )
+                    }
+
+                    // Add to blacklist
+                    // Surface(
+                    //     color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f),
+                    //     shape = RoundedCornerShape(16.dp),
+                    //     modifier = Modifier
+                    //         .fillMaxWidth()
+                    //         .padding(horizontal = 8.dp, vertical = 2.dp)
+                    // ) {
+                    //     DropdownMenuItem(
+                    //         text = {
+                    //             Text(
+                    //                 "Hide song",
+                    //                 style = MaterialTheme.typography.bodyMedium,
+                    //                 fontWeight = FontWeight.Medium,
+                    //                 color = MaterialTheme.colorScheme.onErrorContainer
+                    //             )
+                    //         },
+                    //         leadingIcon = {
+                    //             Surface(
+                    //                 color = MaterialTheme.colorScheme.error.copy(alpha = 0.2f),
+                    //                 shape = CircleShape,
+                    //                 modifier = Modifier.size(32.dp)
+                    //             ) {
+                    //                 Icon(
+                    //                     imageVector = Icons.Rounded.Block,
+                    //                     contentDescription = null,
+                    //                     tint = MaterialTheme.colorScheme.error,
+                    //                     modifier = Modifier
+                    //                         .fillMaxSize()
+                    //                         .padding(6.dp)
+                    //                 )
+                    //             }
+                    //         },
+                    //         onClick = {
+                    //             HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                    //             showDropdown = false
+                    //             onAddToBlacklist()
+                    //         }
+                    //     )
+                    // }
                 }
             },
             colors = ListItemDefaults.colors(

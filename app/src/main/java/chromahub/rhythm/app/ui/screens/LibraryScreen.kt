@@ -181,6 +181,7 @@ import coil.request.ImageRequest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.isActive
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -478,7 +479,17 @@ fun LibraryScreen(
             },
             onPlayerClick = onPlayerClick,
             sheetState = albumBottomSheetState,
-            haptics = haptics
+            haptics = haptics,
+            onPlayNext = { song -> musicViewModel.playNext(song) },
+            onToggleFavorite = { song -> musicViewModel.toggleFavorite(song) },
+            favoriteSongs = musicViewModel.favoriteSongs.collectAsState().value,
+            onShowSongInfo = { song ->
+                selectedSong = song
+                showSongInfoSheet = true
+            },
+            onAddToBlacklist = { song ->
+                appSettings.addToBlacklist(song.id)
+            }
         )
     }
     
@@ -513,7 +524,17 @@ fun LibraryScreen(
             },
             onPlayerClick = onPlayerClick,
             sheetState = artistBottomSheetState,
-            haptics = haptics
+            haptics = haptics,
+            onPlayNext = { song -> musicViewModel.playNext(song) },
+            onToggleFavorite = { song -> musicViewModel.toggleFavorite(song) },
+            favoriteSongs = musicViewModel.favoriteSongs.collectAsState().value,
+            onShowSongInfo = { song ->
+                selectedSong = song
+                showSongInfoSheet = true
+            },
+            onAddToBlacklist = { song ->
+                appSettings.addToBlacklist(song.id)
+            }
         )
     }
 
@@ -4663,9 +4684,9 @@ fun SingleCardExplorerContent(
             isLoadingDirectory = false
         } else {
             // Check cache first to avoid unnecessary reloads
-            // Only use cache if it has items - never use cached empty results
+            // Use cache if it exists (even if empty, as it might be a legitimately empty folder)
             val cached = directoryCache[cacheKey]
-            if (cached != null && cached.isNotEmpty()) {
+            if (cached != null) {
                 // Use cached results immediately
                 isLoadingDirectory = false
                 currentItems = cached
@@ -4673,11 +4694,8 @@ fun SingleCardExplorerContent(
                 // Set loading state FIRST before clearing items to ensure loading indicator shows
                 isLoadingDirectory = true
                 
-                // Clear current items after setting loading state
-                currentItems = emptyList()
-                
-                // Remove any cached empty result for this path
-                directoryCache.remove(cacheKey)
+                // DON'T clear current items immediately - keep showing previous content during load
+                // This prevents the empty state flash when navigation is interrupted
                 
                 // Load without debounce to make navigation feel more responsive
                 debounceJob = launch {
@@ -4686,11 +4704,12 @@ fun SingleCardExplorerContent(
                             getDirectoryContentsOptimized(currentPath!!, audioExtensions, songs, context)
                         }
                         val sortedItems = items.sortedBy { it.name.lowercase() }
-                        // Always update currentItems, even if empty (to show empty state)
-                        currentItems = sortedItems
-                        // Only cache non-empty results to force reload on next visit if directory was empty
-                        if (sortedItems.isNotEmpty()) {
-                            // Update cache with new results
+                        
+                        // Only update if this job wasn't cancelled (i.e., user didn't navigate away)
+                        if (isActive) {
+                            currentItems = sortedItems
+                            
+                            // Cache the results (including empty results for legitimately empty folders)
                             if (directoryCache.size >= 20) {
                                 // Remove oldest entry if cache is full
                                 directoryCache.remove(directoryCache.keys.first())
@@ -4698,11 +4717,23 @@ fun SingleCardExplorerContent(
                             directoryCache[cacheKey] = sortedItems
                         }
                     } catch (e: Exception) {
-                        // Handle errors gracefully - show empty state
-                        currentItems = emptyList()
-                        // Don't cache errors/empty results so we retry on next navigation
+                        // Only update if this job wasn't cancelled
+                        if (isActive) {
+                            android.util.Log.e("LibraryScreen", "Error loading directory $currentPath", e)
+                            // Check if we have cached data from a previous successful load
+                            val previousCache = directoryCache[cacheKey]
+                            if (previousCache != null) {
+                                // Use previous cache on error
+                                currentItems = previousCache
+                            } else {
+                                // Show empty state only if no cache exists
+                                currentItems = emptyList()
+                            }
+                        }
                     } finally {
-                        isLoadingDirectory = false
+                        if (isActive) {
+                            isLoadingDirectory = false
+                        }
                     }
                 }
             }
@@ -5440,24 +5471,42 @@ fun getDirectoryContentsOptimized(directoryPath: String, audioExtensions: Set<St
         val files = try {
             directory.listFiles()
         } catch (e: SecurityException) {
+            android.util.Log.d("LibraryScreen", "Cannot list files directly for $directoryPath, using MediaStore fallback")
             // If we can't list files directly (e.g., SD card root), fall back to MediaStore approach
             // Filter songs that belong to this directory or its subdirectories
-            val dirPath = directoryPath.replace("//", "/")
+            val dirPath = directoryPath.replace("//", "/").trimEnd('/')
             val songsInDir = songs.filter { song ->
                 try {
                     val songPath = getFilePathFromUri(song.uri, context)
-                    songPath != null && songPath.startsWith(dirPath)
+                    if (songPath != null) {
+                        val normalizedSongPath = songPath.replace("//", "/")
+                        // Check if song is in this directory or subdirectories
+                        normalizedSongPath.startsWith("$dirPath/") || normalizedSongPath == dirPath
+                    } else {
+                        false
+                    }
                 } catch (e: Exception) {
                     false
                 }
             }
+            
+            android.util.Log.d("LibraryScreen", "Found ${songsInDir.size} songs in $dirPath using MediaStore")
             
             // Build directory structure from MediaStore songs
             val subdirs = mutableSetOf<String>()
             songsInDir.forEach { song ->
                 try {
                     val songPath = getFilePathFromUri(song.uri, context) ?: return@forEach
-                    val relativePath = songPath.removePrefix(dirPath).removePrefix("/")
+                    val normalizedSongPath = songPath.replace("//", "/")
+                    val normalizedDirPath = dirPath.trimEnd('/')
+                    
+                    // Get the path relative to current directory
+                    val relativePath = if (normalizedSongPath.startsWith("$normalizedDirPath/")) {
+                        normalizedSongPath.removePrefix("$normalizedDirPath/")
+                    } else {
+                        normalizedSongPath.removePrefix(normalizedDirPath).removePrefix("/")
+                    }
+                    
                     val firstSlash = relativePath.indexOf('/')
                     if (firstSlash > 0) {
                         // This song is in a subdirectory
@@ -5477,7 +5526,7 @@ fun getDirectoryContentsOptimized(directoryPath: String, audioExtensions: Set<St
                         }
                     }
                 } catch (e: Exception) {
-                    // Skip problematic songs
+                    android.util.Log.e("LibraryScreen", "Error processing song ${song.title}", e)
                 }
             }
             
@@ -5487,7 +5536,7 @@ fun getDirectoryContentsOptimized(directoryPath: String, audioExtensions: Set<St
                 val audioCount = songsInDir.count { song ->
                     try {
                         val songPath = getFilePathFromUri(song.uri, context)
-                        songPath != null && songPath.startsWith(subdirPath)
+                        songPath != null && songPath.replace("//", "/").startsWith("$subdirPath/")
                     } catch (e: Exception) {
                         false
                     }
@@ -5504,6 +5553,7 @@ fun getDirectoryContentsOptimized(directoryPath: String, audioExtensions: Set<St
                 }
             }
             
+            android.util.Log.d("LibraryScreen", "MediaStore fallback returned ${items.size} items (${items.count { !it.isDirectory }} files, ${items.count { it.isDirectory }} folders)")
             return items
         }
         
@@ -5526,8 +5576,29 @@ fun getDirectoryContentsOptimized(directoryPath: String, audioExtensions: Set<St
             } else if (file.isFile) {
                 val extension = file.extension.lowercase()
                 if (extension in audioExtensions) {
-                    // Only show files that exist in MediaStore
-                    val song = songsByPath[file.absolutePath]
+                    // Try to find song by absolute path first
+                    var song = songsByPath[file.absolutePath]
+                    
+                    // If not found, try with normalized paths (handle // and path variations)
+                    if (song == null) {
+                        val normalizedPath = file.absolutePath.replace("//", "/")
+                        song = songsByPath[normalizedPath]
+                    }
+                    
+                    // If still not found, try fuzzy matching by checking all songs
+                    if (song == null) {
+                        song = songs.find { candidateSong ->
+                            try {
+                                val candidatePath = getFilePathFromUri(candidateSong.uri, context)
+                                candidatePath != null && 
+                                (candidatePath == file.absolutePath || 
+                                 candidatePath.replace("//", "/") == file.absolutePath.replace("//", "/"))
+                            } catch (e: Exception) {
+                                false
+                            }
+                        }
+                    }
+                    
                     if (song != null) {
                         items.add(ExplorerItem(
                             name = song.title, // Use actual metadata title instead of filename
