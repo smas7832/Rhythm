@@ -4728,10 +4728,22 @@ fun SingleCardExplorerContent(
                         val items = withContext(Dispatchers.IO) {
                             getDirectoryContentsOptimized(currentPath!!, audioExtensions, songs, context)
                         }
-                        // Filter: keep files and folders that have audio content (checks recursively)
-                        val filteredItems = items.filter { 
-                            it.type != ExplorerItemType.FOLDER || it.itemCount > 0 || hasAudioContentRecursive(it.path, songs, context)
+                        
+                        // OPTIMIZED: Check for nested audio in parallel using coroutines
+                        val filteredItems = withContext(Dispatchers.IO) {
+                            items.filter { item ->
+                                when {
+                                    // Always keep files
+                                    item.type != ExplorerItemType.FOLDER -> true
+                                    // Keep folders with direct audio count > 0
+                                    item.itemCount > 0 -> true
+                                    // For folders with 0 direct count, check if they have nested audio
+                                    // Use the optimized check that queries songs list instead of filesystem
+                                    else -> hasAudioContentRecursive(item.path, songs, context, maxDepth = 3)
+                                }
+                            }
                         }
+                        
                         val sortedItems = filteredItems.sortedWith(
                             compareBy<ExplorerItem> { it.type != ExplorerItemType.FOLDER }
                                 .thenBy { it.name.lowercase() }
@@ -4747,7 +4759,6 @@ fun SingleCardExplorerContent(
                                 directoryCache.remove(directoryCache.keys.first())
                             }
                             directoryCache[cacheKey] = sortedItems
-                            isInitialLoading = false
                         }
                     } catch (e: Exception) {
                         // Only update if this job wasn't cancelled
@@ -4886,42 +4897,14 @@ fun SingleCardExplorerContent(
             }
         }
 
-                // Loading indicator for directory content
-                if (isLoadingDirectory) {
+                // Single unified loading indicator
+                // Show "Initializing" only at root on first load, otherwise show "Loading directory"
+                if (isLoadingDirectory || isInitialLoading) {
                     item {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 32.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                // Loading indicator
-                                M3FourColorCircularLoader(
-                                    modifier = Modifier.size(48.dp)
-                                )
-
-                                // Loading text
-                                Text(
-                                    text = "Loading directory...",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Initial loading indicator
-                if (isInitialLoading) {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 60.dp),
+                                .padding(vertical = 48.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Column(
@@ -4933,7 +4916,11 @@ fun SingleCardExplorerContent(
                                 )
 
                                 Text(
-                                    text = "Initializing Explorer...",
+                                    text = if (isInitialLoading && currentPath == null) {
+                                        "Initializing Explorer..."
+                                    } else {
+                                        "Loading directory..."
+                                    },
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -5867,16 +5854,16 @@ fun getDirectoryContentsOptimized(directoryPath: String, audioExtensions: Set<St
                 // Use shallow count only (much faster) for better performance
                 // Count only files that are in MediaStore
                 val audioCount = countMediaStoreAudioFilesInDirectoryShallow(file, songsByPath)
-                if (audioCount > 0 || file.list()?.isNotEmpty() == true) {
-                    items.add(ExplorerItem(
-                        name = file.name,
-                        path = file.absolutePath,
-                        isDirectory = true,
-                        itemCount = audioCount,
-                        type = ExplorerItemType.FOLDER,
-                        song = null
-                    ))
-                }
+                // Always add folders - let the filter decide if they should be shown
+                // This prevents hiding folders that have nested audio
+                items.add(ExplorerItem(
+                    name = file.name,
+                    path = file.absolutePath,
+                    isDirectory = true,
+                    itemCount = audioCount,
+                    type = ExplorerItemType.FOLDER,
+                    song = null
+                ))
             } else if (file.isFile) {
                 val extension = file.extension.lowercase()
                 if (extension in audioExtensions) {

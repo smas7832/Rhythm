@@ -1616,6 +1616,36 @@ fun EnhancedAudioPlaybackContent(
                 onToggle = { appSettings.setUseSystemVolume(it) }
             )
             
+            
+            
+            // Auto Add to Queue toggle
+            EnhancedThemeOption(
+                icon = Icons.Filled.Queue,
+                title = "Auto Add to Queue",
+                description = "Automatically create a contextual queue from the album/artist when playing a song.",
+                isEnabled = appSettings.autoAddToQueue.collectAsState().value,
+                onToggle = { appSettings.setAutoAddToQueue(it) }
+            )
+            
+            // Clear Queue on New Song toggle
+            EnhancedThemeOption(
+                icon = Icons.Filled.Delete,
+                title = "Clear Queue on New Song",
+                description = "Replace the entire queue when playing a new song instead of adding to it.",
+                isEnabled = appSettings.clearQueueOnNewSong.collectAsState().value,
+                onToggle = { appSettings.setClearQueueOnNewSong(it) }
+            )
+            
+            // Repeat Mode Persistence toggle
+            EnhancedThemeOption(
+                icon = Icons.Filled.Repeat,
+                title = "Remember Repeat Mode",
+                description = "Keep your repeat mode setting across app restarts.",
+                isEnabled = appSettings.repeatModePersistence.collectAsState().value,
+                onToggle = { appSettings.setRepeatModePersistence(it) }
+            )
+
+            
             // Show Lyrics toggle
             EnhancedThemeOption(
                 icon = Icons.Filled.Lyrics,
@@ -1674,6 +1704,7 @@ fun EnhancedAudioPlaybackContent(
                     }
                 }
             }
+            
         } // End vertically centered content
         
         Spacer(modifier = Modifier.height(16.dp))
