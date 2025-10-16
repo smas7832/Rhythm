@@ -190,6 +190,9 @@ class AppSettings private constructor(context: Context) {
         private const val KEY_AUTO_ADD_TO_QUEUE = "auto_add_to_queue"
         private const val KEY_CLEAR_QUEUE_ON_NEW_SONG = "clear_queue_on_new_song"
         private const val KEY_REPEAT_MODE_PERSISTENCE = "repeat_mode_persistence"
+        private const val KEY_SHUFFLE_MODE_PERSISTENCE = "shuffle_mode_persistence"
+        private const val KEY_SAVED_SHUFFLE_STATE = "saved_shuffle_state"
+        private const val KEY_SAVED_REPEAT_MODE = "saved_repeat_mode"
         
         @Volatile
         private var INSTANCE: AppSettings? = null
@@ -372,6 +375,15 @@ class AppSettings private constructor(context: Context) {
     
     private val _repeatModePersistence = MutableStateFlow(prefs.getBoolean(KEY_REPEAT_MODE_PERSISTENCE, true))
     val repeatModePersistence: StateFlow<Boolean> = _repeatModePersistence.asStateFlow()
+    
+    private val _shuffleModePersistence = MutableStateFlow(prefs.getBoolean(KEY_SHUFFLE_MODE_PERSISTENCE, true))
+    val shuffleModePersistence: StateFlow<Boolean> = _shuffleModePersistence.asStateFlow()
+    
+    private val _savedShuffleState = MutableStateFlow(prefs.getBoolean(KEY_SAVED_SHUFFLE_STATE, false))
+    val savedShuffleState: StateFlow<Boolean> = _savedShuffleState.asStateFlow()
+    
+    private val _savedRepeatMode = MutableStateFlow(prefs.getInt(KEY_SAVED_REPEAT_MODE, 0)) // 0 = OFF, 1 = ALL, 2 = ONE
+    val savedRepeatMode: StateFlow<Int> = _savedRepeatMode.asStateFlow()
     
     // Cache Settings
     private val _maxCacheSize = MutableStateFlow(safeLong(KEY_MAX_CACHE_SIZE, 1024L * 1024L * 512L)) // 512MB default
@@ -927,6 +939,21 @@ class AppSettings private constructor(context: Context) {
     fun setRepeatModePersistence(persist: Boolean) {
         prefs.edit().putBoolean(KEY_REPEAT_MODE_PERSISTENCE, persist).apply()
         _repeatModePersistence.value = persist
+    }
+    
+    fun setShuffleModePersistence(persist: Boolean) {
+        prefs.edit().putBoolean(KEY_SHUFFLE_MODE_PERSISTENCE, persist).apply()
+        _shuffleModePersistence.value = persist
+    }
+    
+    fun setSavedShuffleState(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_SAVED_SHUFFLE_STATE, enabled).apply()
+        _savedShuffleState.value = enabled
+    }
+    
+    fun setSavedRepeatMode(mode: Int) {
+        prefs.edit().putInt(KEY_SAVED_REPEAT_MODE, mode).apply()
+        _savedRepeatMode.value = mode
     }
     
     // Cache Settings Methods

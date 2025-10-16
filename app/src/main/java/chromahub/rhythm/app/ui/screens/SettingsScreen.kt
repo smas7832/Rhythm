@@ -1244,10 +1244,19 @@ fun SettingsScreen(
                     val repeatModePersistence by appSettings.repeatModePersistence.collectAsState()
                     SettingsToggleItem(
                         title = "Remember Repeat Mode",
-                        description = "Keep repeat mode setting between app sessions",
+                        description = "Save repeat mode (Off/All/One) between app restarts",
                         icon = RhythmIcons.Repeat,
                         checked = repeatModePersistence,
                         onCheckedChange = { appSettings.setRepeatModePersistence(it) }
+                    )
+                    
+                    val shuffleModePersistence by appSettings.shuffleModePersistence.collectAsState()
+                    SettingsToggleItem(
+                        title = "Remember Shuffle Mode",
+                        description = "Save shuffle on/off state between app restarts",
+                        icon = RhythmIcons.Shuffle,
+                        checked = shuffleModePersistence,
+                        onCheckedChange = { appSettings.setShuffleModePersistence(it) }
                     )
 
 //                SettingsClickableItem(

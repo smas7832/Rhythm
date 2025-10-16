@@ -604,13 +604,15 @@ private fun ModernScrollableContent(
         Triple(focusSongs, betterEnergeticSongs, betterRelaxingSongs)
     }
     
-    // Time-based greeting
+    // Time-based greeting with proper time ranges
     val greeting = remember {
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
         when {
-            hour < 12 -> "Good morning"
-            hour < 18 -> "Good afternoon"
-            else -> "Good evening"
+            hour in 0..4 -> "Good night"      // Late night: 12 AM - 4:59 AM
+            hour in 5..11 -> "Good morning"   // Morning: 5 AM - 11:59 AM
+            hour in 12..16 -> "Good afternoon" // Afternoon: 12 PM - 4:59 PM
+            hour in 17..20 -> "Good evening"   // Evening: 5 PM - 8:59 PM
+            else -> "Good night"              // Night: 9 PM - 11:59 PM
         }
     }
     
@@ -932,27 +934,39 @@ private fun ModernWelcomeSection(
     val recentlyPlayed by viewModel.recentlyPlayed.collectAsState()
     val haptic = LocalHapticFeedback.current
     
-    // Enhanced time-based quotes
+    // Enhanced time-based quotes with proper time ranges
     val timeBasedQuote = remember {
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
         when {
+            hour in 0..4 -> listOf(
+                "Late night vibes for the dreamers 🌙",
+                "Perfect time for your late night playlist 🎧",
+                "Music sounds better at midnight ✨",
+                "Let the night music play on 🌟"
+            )
             hour in 5..11 -> listOf(
                 "Start your day with the perfect soundtrack ✨",
                 "Let music energize your morning routine 🎵",
                 "Every morning is a new symphony waiting to begin 🌅",
                 "Coffee and music - the perfect morning blend ☕"
             )
-            hour in 12..17 -> listOf(
+            hour in 12..16 -> listOf(
                 "Power through with your favorite beats 🚀",
                 "Music makes everything better 💪",
                 "Let the rhythm guide your day 🎯",
                 "Turn up the focus with great tunes 🔥"
             )
-            else -> listOf(
+            hour in 17..20 -> listOf(
                 "Time to unwind with soothing melodies 🌅",
                 "Let the evening soundtrack begin 🎶",
                 "Perfect time for your chill playlist 😌",
-                "Night time is music time 🌙"
+                "Wind down with your favorite tunes 🌇"
+            )
+            else -> listOf(
+                "Night time is music time 🌙",
+                "Let the night serenade you 🎵",
+                "Perfect vibes for a peaceful night 🌟",
+                "Embrace the calm of the night 😴"
             )
         }.random()
     }
@@ -973,9 +987,11 @@ private fun ModernWelcomeSection(
     val timeBasedTheme = remember {
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
         when {
-            hour in 5..11 -> Triple("☀️", "morning", "🌻")
-            hour in 12..17 -> Triple("🌤️", "afternoon", "⚡")
-            else -> Triple("🌙", "evening", "✨")
+            hour in 0..4 -> Triple("🌙", "late_night", "⭐")  // Late night
+            hour in 5..11 -> Triple("☀️", "morning", "🌻")      // Morning
+            hour in 12..16 -> Triple("🌤️", "afternoon", "⚡") // Afternoon
+            hour in 17..20 -> Triple("🌅", "evening", "✨")    // Evening
+            else -> Triple("🌙", "night", "🌟")                // Night
         }
     }
 

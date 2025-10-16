@@ -4671,9 +4671,9 @@ fun SingleCardExplorerContent(
                     val items = withContext(Dispatchers.IO) {
                         getDirectoryContentsOptimized(currentPath!!, audioExtensions, songs, context)
                     }
-                    // Filter: keep files and folders that have audio content (checks recursively)
+                    // Filter: keep files and folders that have audio content (only show folders with tracks)
                     val filteredItems = items.filter { 
-                        it.type != ExplorerItemType.FOLDER || it.itemCount > 0 || hasAudioContentRecursive(it.path, songs, context)
+                        it.type != ExplorerItemType.FOLDER || it.itemCount > 0
                     }
                     val sortedItems = filteredItems.sortedWith(
                         compareBy<ExplorerItem> { it.type != ExplorerItemType.FOLDER }
@@ -5385,11 +5385,9 @@ fun SingleCardExplorerContent(
                 modifier = Modifier
                     .padding(bottom = 16.dp), // Simple fixed spacing
                 onPlayAll = {
-                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                     onPlayQueue(currentFolderSongs)
                 },
                 onShuffle = {
-                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                     onShuffleQueue(currentFolderSongs)
                 },
                 haptics = haptics
@@ -5744,9 +5742,95 @@ fun getAudioFileCountSongsInDirectory(
     }
 }
 
-// Optimized version for better performance - avoids excessive filesystem operations
-// Now filters by MediaStore to show only indexed files with proper metadata
+// Fast MediaStore-only implementation - no filesystem operations
 fun getDirectoryContentsOptimized(directoryPath: String, audioExtensions: Set<String>, songs: List<Song>, context: android.content.Context): List<ExplorerItem> {
+    val startTime = System.currentTimeMillis()
+    android.util.Log.d("LibraryScreen", "Loading directory: $directoryPath")
+    
+    val items = mutableListOf<ExplorerItem>()
+    val normalizedDirPath = directoryPath.replace("//", "/").trimEnd('/')
+    
+    // Build maps for fast lookups - group songs by their immediate parent directory
+    val songsByDirectory = mutableMapOf<String, MutableList<Song>>()
+    val subdirectories = mutableSetOf<String>()
+    
+    // Process all songs and extract directory structure
+    songs.forEach { song ->
+        try {
+            val songPath = getFilePathFromUri(song.uri, context)
+            if (songPath != null) {
+                val normalizedSongPath = songPath.replace("//", "/")
+                val parentDir = File(normalizedSongPath).parent?.replace("//", "/") ?: return@forEach
+                
+                // Check if this song is in the current directory or a subdirectory
+                if (parentDir == normalizedDirPath) {
+                    // Song is directly in this directory
+                    songsByDirectory.getOrPut(normalizedDirPath) { mutableListOf() }.add(song)
+                } else if (parentDir.startsWith("$normalizedDirPath/")) {
+                    // Song is in a subdirectory - extract immediate child directory
+                    val relativePath = parentDir.removePrefix("$normalizedDirPath/")
+                    val firstSlash = relativePath.indexOf('/')
+                    val immediateChild = if (firstSlash > 0) {
+                        relativePath.substring(0, firstSlash)
+                    } else {
+                        relativePath
+                    }
+                    
+                    val childPath = "$normalizedDirPath/$immediateChild"
+                    subdirectories.add(childPath)
+                    
+                    // Count this song for the subdirectory
+                    songsByDirectory.getOrPut(childPath) { mutableListOf() }
+                }
+            }
+        } catch (e: Exception) {
+            // Skip problematic songs
+        }
+    }
+    
+    // Add subdirectories
+    subdirectories.sorted().forEach { subdirPath ->
+        val subdirName = File(subdirPath).name
+        // Count all songs in this directory and its subdirectories
+        val songCount = songs.count { song ->
+            try {
+                val songPath = getFilePathFromUri(song.uri, context)
+                songPath != null && songPath.replace("//", "/").startsWith("$subdirPath/")
+            } catch (e: Exception) {
+                false
+            }
+        }
+        
+        items.add(ExplorerItem(
+            name = subdirName,
+            path = subdirPath,
+            isDirectory = true,
+            itemCount = songCount,
+            type = ExplorerItemType.FOLDER,
+            song = null
+        ))
+    }
+    
+    // Add songs in current directory
+    songsByDirectory[normalizedDirPath]?.sortedBy { it.title.lowercase() }?.forEach { song ->
+        items.add(ExplorerItem(
+            name = song.title,
+            path = getFilePathFromUri(song.uri, context) ?: "",
+            isDirectory = false,
+            itemCount = 1,
+            type = ExplorerItemType.FILE,
+            song = song
+        ))
+    }
+    
+    val elapsed = System.currentTimeMillis() - startTime
+    android.util.Log.d("LibraryScreen", "Loaded ${items.size} items in ${elapsed}ms")
+    
+    return items
+}
+
+// Legacy implementation kept for reference - DO NOT USE
+fun getDirectoryContentsOptimized_OLD(directoryPath: String, audioExtensions: Set<String>, songs: List<Song>, context: android.content.Context): List<ExplorerItem> {
     val items = mutableListOf<ExplorerItem>()
 
     try {
@@ -5755,8 +5839,37 @@ fun getDirectoryContentsOptimized(directoryPath: String, audioExtensions: Set<St
             return items
         }
 
-        // Build a map of file paths to songs for quick lookup
-        val songsByPath = buildSongPathMap(songs, context)
+        // Build a map of file paths to songs for quick lookup - use concurrent collection for better performance
+        val songsByPath = java.util.concurrent.ConcurrentHashMap<String, Song>()
+        
+        // Filter songs to only those that could be in this directory or subdirectories first
+        val dirPath = directoryPath.replace("//", "/").trimEnd('/')
+        
+        // Quick pre-filter: only check songs that start with the directory path
+        val relevantSongs = songs.asSequence()
+            .filter { song ->
+                try {
+                    // Quick check using URI path first (faster than full resolution)
+                    val uriPath = song.uri.path
+                    uriPath != null && uriPath.contains(dirPath, ignoreCase = true)
+                } catch (e: Exception) {
+                    false
+                }
+            }
+            .toList()
+        
+        // Only build map for relevant songs to save memory and time
+        relevantSongs.forEach { song ->
+            try {
+                val filePath = getFilePathFromUri(song.uri, context)
+                if (filePath != null) {
+                    val normalizedPath = filePath.replace("//", "/")
+                    songsByPath[normalizedPath] = song
+                }
+            } catch (e: Exception) {
+                // Skip if path cannot be resolved
+            }
+        }
 
         // Try to list files - may fail on SD card root due to permissions
         val files = try {
@@ -5764,22 +5877,7 @@ fun getDirectoryContentsOptimized(directoryPath: String, audioExtensions: Set<St
         } catch (e: SecurityException) {
             android.util.Log.d("LibraryScreen", "Cannot list files directly for $directoryPath, using MediaStore fallback")
             // If we can't list files directly (e.g., SD card root), fall back to MediaStore approach
-            // Filter songs that belong to this directory or its subdirectories
-            val dirPath = directoryPath.replace("//", "/").trimEnd('/')
-            val songsInDir = songs.filter { song ->
-                try {
-                    val songPath = getFilePathFromUri(song.uri, context)
-                    if (songPath != null) {
-                        val normalizedSongPath = songPath.replace("//", "/")
-                        // Check if song is in this directory or subdirectories
-                        normalizedSongPath.startsWith("$dirPath/") || normalizedSongPath == dirPath
-                    } else {
-                        false
-                    }
-                } catch (e: Exception) {
-                    false
-                }
-            }
+            val songsInDir = relevantSongs
             
             android.util.Log.d("LibraryScreen", "Found ${songsInDir.size} songs in $dirPath using MediaStore")
             
@@ -5848,59 +5946,67 @@ fun getDirectoryContentsOptimized(directoryPath: String, audioExtensions: Set<St
             return items
         }
         
-        // Normal file listing succeeded
-        files?.forEach { file ->
-            if (file.isDirectory) {
-                // Use shallow count only (much faster) for better performance
-                // Count only files that are in MediaStore
-                val audioCount = countMediaStoreAudioFilesInDirectoryShallow(file, songsByPath)
-                // Always add folders - let the filter decide if they should be shown
-                // This prevents hiding folders that have nested audio
-                items.add(ExplorerItem(
-                    name = file.name,
-                    path = file.absolutePath,
-                    isDirectory = true,
-                    itemCount = audioCount,
-                    type = ExplorerItemType.FOLDER,
-                    song = null
-                ))
-            } else if (file.isFile) {
-                val extension = file.extension.lowercase()
-                if (extension in audioExtensions) {
-                    // Try to find song by absolute path first
-                    var song = songsByPath[file.absolutePath]
-                    
-                    // If not found, try with normalized paths (handle // and path variations)
-                    if (song == null) {
-                        val normalizedPath = file.absolutePath.replace("//", "/")
-                        song = songsByPath[normalizedPath]
-                    }
-                    
-                    // If still not found, try fuzzy matching by checking all songs
-                    if (song == null) {
-                        song = songs.find { candidateSong ->
-                            try {
-                                val candidatePath = getFilePathFromUri(candidateSong.uri, context)
-                                candidatePath != null && 
-                                (candidatePath == file.absolutePath || 
-                                 candidatePath.replace("//", "/") == file.absolutePath.replace("//", "/"))
-                            } catch (e: Exception) {
-                                false
-                            }
-                        }
-                    }
-                    
-                    if (song != null) {
+        // Normal file listing succeeded - optimize by limiting number of files processed
+        val maxFiles = 200 // Reduced limit for better performance
+        val filesToProcess = files?.let { fileArray ->
+            if (fileArray.size > maxFiles) {
+                android.util.Log.d("LibraryScreen", "Large directory with ${fileArray.size} files, limiting to first $maxFiles for performance")
+                // Take first maxFiles, sorted to show audio files first
+                fileArray.sortedWith(compareBy(
+                    { !it.isDirectory }, // Directories first
+                    { !audioExtensions.contains(it.extension.lowercase()) } // Audio files first
+                )).take(maxFiles)
+            } else {
+                fileArray.toList()
+            }
+        } ?: emptyList()
+        
+        filesToProcess.forEach { file ->
+            try {
+                if (file.isDirectory) {
+                    // Skip hidden directories for performance
+                    if (!file.name.startsWith(".")) {
+                        // Use shallow count only (much faster) for better performance
+                        // Count only files that are in MediaStore
+                        val audioCount = countMediaStoreAudioFilesInDirectoryShallow(file, songsByPath)
+                        // Always add folders - let the filter decide if they should be shown
+                        // This prevents hiding folders that have nested audio
                         items.add(ExplorerItem(
-                            name = song.title, // Use actual metadata title instead of filename
+                            name = file.name,
                             path = file.absolutePath,
-                            isDirectory = false,
-                            itemCount = 1,
-                            type = ExplorerItemType.FILE,
-                            song = song
+                            isDirectory = true,
+                            itemCount = audioCount,
+                            type = ExplorerItemType.FOLDER,
+                            song = null
                         ))
                     }
+                } else if (file.isFile) {
+                    val extension = file.extension.lowercase()
+                    if (extension in audioExtensions) {
+                        // Try to find song by absolute path first
+                        val normalizedPath = file.absolutePath.replace("//", "/")
+                        var song = songsByPath[normalizedPath]
+                        
+                        // If not found with normalized path, try original
+                        if (song == null) {
+                            song = songsByPath[file.absolutePath]
+                        }
+                        
+                        if (song != null) {
+                            items.add(ExplorerItem(
+                                name = song.title, // Use actual metadata title instead of filename
+                                path = file.absolutePath,
+                                isDirectory = false,
+                                itemCount = 1,
+                                type = ExplorerItemType.FILE,
+                                song = song
+                            ))
+                        }
+                    }
                 }
+            } catch (e: Exception) {
+                // Skip problematic files
+                android.util.Log.d("LibraryScreen", "Skipping file ${file.name}: ${e.message}")
             }
         }
     } catch (e: Exception) {
@@ -6153,7 +6259,7 @@ fun FolderItem(
 }
 
 @Composable
-private fun PlaylistFabMenuContent(
+fun PlaylistFabMenuContent(
     onCreatePlaylist: () -> Unit,
     onImportPlaylist: (() -> Unit)?,
     onExportPlaylists: (() -> Unit)?,
@@ -6233,7 +6339,7 @@ private fun PlaylistFabMenuContent(
 }
 
 @Composable
-private fun PlaylistFabMenu(
+fun PlaylistFabMenu(
     expanded: Boolean,
     onCreatePlaylist: () -> Unit,
     onImportPlaylist: (() -> Unit)?,
@@ -6994,7 +7100,7 @@ fun ExplorerItemCard(
 }
 
 @Composable
-private fun FabMenuItem(
+fun FabMenuItem(
     label: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     contentDescription: String,
@@ -7127,11 +7233,15 @@ fun BottomFloatingButtonGroup(
                 onClick = {
                     if (!isPlayAllLoading && !isShuffleLoading) {
                         isPlayAllLoading = true
-                        onPlayAll()
-                        // Reset loading state after a delay
+                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                        // Must call on Main thread for MediaController
                         scope.launch {
-                            kotlinx.coroutines.delay(1500)
-                            isPlayAllLoading = false
+                            try {
+                                onPlayAll()
+                            } finally {
+                                kotlinx.coroutines.delay(500)
+                                isPlayAllLoading = false
+                            }
                         }
                     }
                 },
@@ -7169,11 +7279,15 @@ fun BottomFloatingButtonGroup(
                 onClick = {
                     if (!isPlayAllLoading && !isShuffleLoading) {
                         isShuffleLoading = true
-                        onShuffle()
-                        // Reset loading state after a delay
+                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                        // Must call on Main thread for MediaController
                         scope.launch {
-                            kotlinx.coroutines.delay(1500)
-                            isShuffleLoading = false
+                            try {
+                                onShuffle()
+                            } finally {
+                                kotlinx.coroutines.delay(500)
+                                isShuffleLoading = false
+                            }
                         }
                     }
                 },
