@@ -317,7 +317,8 @@ fun ArtistBottomSheet(
                             onClick = {
                                 HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                                 if (artistSongs.isNotEmpty()) {
-                                    onShufflePlay(artistSongs.shuffled())
+                                    // Pass songs to be shuffled by viewModel (respects shuffle settings)
+                                    onShufflePlay(artistSongs)
                                     scope.launch {
                                         sheetState.hide()
                                     }.invokeOnCompletion {

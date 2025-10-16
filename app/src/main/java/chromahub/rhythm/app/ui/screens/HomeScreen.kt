@@ -264,12 +264,12 @@ fun HomeScreen(
             },
             onPlayAll = { songs ->
                 if (songs.isNotEmpty()) {
-                    onSongClick(songs.first())
+                    musicViewModel.playQueue(songs)
                 }
             },
             onShufflePlay = { songs ->
                 if (songs.isNotEmpty()) {
-                    onSongClick(songs.shuffled().first())
+                    musicViewModel.playShuffled(songs)
                 }
             },
             onAddToQueue = { song ->
@@ -299,7 +299,7 @@ fun HomeScreen(
             onSongClick = onSongClick,
             onPlayAll = { songsToPlay ->
                 if (songsToPlay.isNotEmpty()) {
-                    onSongClick(songsToPlay.first())
+                    musicViewModel.playQueue(songsToPlay)
                 }
                 scope.launch {
                     albumSheetState.hide()
@@ -311,7 +311,7 @@ fun HomeScreen(
             },
             onShufflePlay = { songsToPlay ->
                 if (songsToPlay.isNotEmpty()) {
-                    onSongClick(songsToPlay.first())
+                    musicViewModel.playShuffled(songsToPlay)
                 }
                 scope.launch {
                     albumSheetState.hide()

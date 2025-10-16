@@ -1085,9 +1085,8 @@ fun RhythmNavigation(
                             viewModel.playQueue(songs)
                         },
                         onShuffleQueue = { songs ->
-                            // Shuffle and play queue with proper replacement
-                            val shuffled = songs.shuffled()
-                            viewModel.playQueue(shuffled)
+                            // Shuffle using playShuffled to respect settings
+                            viewModel.playShuffled(songs)
                         },
                         onAlbumBottomSheetClick = { album ->
                             // This will open the album bottom sheet within LibraryScreen

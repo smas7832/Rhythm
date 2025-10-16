@@ -1210,6 +1210,45 @@ fun SettingsScreen(
                             }
                         )
                     }
+                    
+                    // Queue & Shuffle Behavior Settings
+//                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    val shuffleUsesExoplayer by appSettings.shuffleUsesExoplayer.collectAsState()
+                    SettingsToggleItem(
+                        title = "Use ExoPlayer Shuffle",
+                        description = "Let the media player handle shuffle (recommended: OFF for manual shuffle)",
+                        icon = RhythmIcons.Shuffle,
+                        checked = shuffleUsesExoplayer,
+                        onCheckedChange = { appSettings.setShuffleUsesExoplayer(it) }
+                    )
+                    
+                    val autoAddToQueue by appSettings.autoAddToQueue.collectAsState()
+                    SettingsToggleItem(
+                        title = "Auto-add to Queue",
+                        description = "Automatically add related songs to queue when playing",
+                        icon = RhythmIcons.Queue,
+                        checked = autoAddToQueue,
+                        onCheckedChange = { appSettings.setAutoAddToQueue(it) }
+                    )
+                    
+                    val clearQueueOnNewSong by appSettings.clearQueueOnNewSong.collectAsState()
+                    SettingsToggleItem(
+                        title = "Clear Queue on New Song",
+                        description = "Clear the current queue when playing a new song directly",
+                        icon = RhythmIcons.Delete,
+                        checked = clearQueueOnNewSong,
+                        onCheckedChange = { appSettings.setClearQueueOnNewSong(it) }
+                    )
+                    
+                    val repeatModePersistence by appSettings.repeatModePersistence.collectAsState()
+                    SettingsToggleItem(
+                        title = "Remember Repeat Mode",
+                        description = "Keep repeat mode setting between app sessions",
+                        icon = RhythmIcons.Repeat,
+                        checked = repeatModePersistence,
+                        onCheckedChange = { appSettings.setRepeatModePersistence(it) }
+                    )
 
 //                SettingsClickableItem(
 //                    title = "Sleep timer",

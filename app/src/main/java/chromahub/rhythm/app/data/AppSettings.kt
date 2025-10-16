@@ -185,6 +185,12 @@ class AppSettings private constructor(context: Context) {
         // Library Sort Order
         private const val KEY_SONGS_SORT_ORDER = "songs_sort_order"
         
+        // Queue & Playback Behavior
+        private const val KEY_SHUFFLE_USES_EXOPLAYER = "shuffle_uses_exoplayer"
+        private const val KEY_AUTO_ADD_TO_QUEUE = "auto_add_to_queue"
+        private const val KEY_CLEAR_QUEUE_ON_NEW_SONG = "clear_queue_on_new_song"
+        private const val KEY_REPEAT_MODE_PERSISTENCE = "repeat_mode_persistence"
+        
         @Volatile
         private var INSTANCE: AppSettings? = null
         
@@ -353,6 +359,19 @@ class AppSettings private constructor(context: Context) {
     
     private val _sleepTimerAction = MutableStateFlow(prefs.getString(KEY_SLEEP_TIMER_ACTION, "FADE_OUT") ?: "FADE_OUT")
     val sleepTimerAction: StateFlow<String> = _sleepTimerAction.asStateFlow()
+    
+    // Queue & Playback Behavior Settings
+    private val _shuffleUsesExoplayer = MutableStateFlow(prefs.getBoolean(KEY_SHUFFLE_USES_EXOPLAYER, false))
+    val shuffleUsesExoplayer: StateFlow<Boolean> = _shuffleUsesExoplayer.asStateFlow()
+    
+    private val _autoAddToQueue = MutableStateFlow(prefs.getBoolean(KEY_AUTO_ADD_TO_QUEUE, true))
+    val autoAddToQueue: StateFlow<Boolean> = _autoAddToQueue.asStateFlow()
+    
+    private val _clearQueueOnNewSong = MutableStateFlow(prefs.getBoolean(KEY_CLEAR_QUEUE_ON_NEW_SONG, false))
+    val clearQueueOnNewSong: StateFlow<Boolean> = _clearQueueOnNewSong.asStateFlow()
+    
+    private val _repeatModePersistence = MutableStateFlow(prefs.getBoolean(KEY_REPEAT_MODE_PERSISTENCE, true))
+    val repeatModePersistence: StateFlow<Boolean> = _repeatModePersistence.asStateFlow()
     
     // Cache Settings
     private val _maxCacheSize = MutableStateFlow(safeLong(KEY_MAX_CACHE_SIZE, 1024L * 1024L * 512L)) // 512MB default
@@ -887,6 +906,27 @@ class AppSettings private constructor(context: Context) {
     fun setSleepTimerAction(action: String) {
         prefs.edit().putString(KEY_SLEEP_TIMER_ACTION, action).apply()
         _sleepTimerAction.value = action
+    }
+    
+    // Queue & Playback Behavior Methods
+    fun setShuffleUsesExoplayer(useExoplayer: Boolean) {
+        prefs.edit().putBoolean(KEY_SHUFFLE_USES_EXOPLAYER, useExoplayer).apply()
+        _shuffleUsesExoplayer.value = useExoplayer
+    }
+    
+    fun setAutoAddToQueue(autoAdd: Boolean) {
+        prefs.edit().putBoolean(KEY_AUTO_ADD_TO_QUEUE, autoAdd).apply()
+        _autoAddToQueue.value = autoAdd
+    }
+    
+    fun setClearQueueOnNewSong(clearQueue: Boolean) {
+        prefs.edit().putBoolean(KEY_CLEAR_QUEUE_ON_NEW_SONG, clearQueue).apply()
+        _clearQueueOnNewSong.value = clearQueue
+    }
+    
+    fun setRepeatModePersistence(persist: Boolean) {
+        prefs.edit().putBoolean(KEY_REPEAT_MODE_PERSISTENCE, persist).apply()
+        _repeatModePersistence.value = persist
     }
     
     // Cache Settings Methods

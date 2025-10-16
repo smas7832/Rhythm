@@ -89,6 +89,7 @@ import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import android.net.Uri
+import android.util.Log
 import chromahub.rhythm.app.util.PlaylistImportExportUtils
 import chromahub.rhythm.app.util.AppRestarter
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -1087,7 +1088,9 @@ fun LibraryScreen(
                             onShuffleQueue = onShuffleQueue,
                             haptics = haptics,
                             appSettings = appSettings,
-                            reloadTrigger = explorerReloadTrigger
+                            reloadTrigger = explorerReloadTrigger,
+                            onCreatePlaylist = onCreatePlaylist,
+                            musicViewModel = musicViewModel
                         )
                     }
                 }
@@ -4422,10 +4425,19 @@ fun SingleCardExplorerContent(
     onShuffleQueue: (List<Song>) -> Unit,
     haptics: androidx.compose.ui.hapticfeedback.HapticFeedback,
     appSettings: AppSettings,
-    reloadTrigger: Int = 0
+    reloadTrigger: Int = 0,
+    onCreatePlaylist: (String) -> Unit = { _ -> },
+    musicViewModel: MusicViewModel
 ) {
     val context = LocalContext.current
     val activity = context as Activity
+    
+    // State for creating playlist from folder
+    var showCreatePlaylistDialog by remember { mutableStateOf(false) }
+    var folderSongsForPlaylist by remember { mutableStateOf<List<Song>>(emptyList()) }
+    var playlistNamePrefix by remember { mutableStateOf("") }
+    
+    val playlists by musicViewModel.playlists.collectAsState()
 
     // Handle back gesture to go level up - currentPath is defined inside SingleCardExplorerContent, this code may be in wrong scope
     // Removing duplicated back handler that references undefined currentPath
@@ -4610,6 +4622,9 @@ fun SingleCardExplorerContent(
 
     // Directory items state - loaded asynchronously to prevent ANR
     var currentItems by remember { mutableStateOf<List<ExplorerItem>>(emptyList()) }
+    
+    // Initial loading state for first tab open
+    var isInitialLoading by remember { mutableStateOf(true) }
 
     // Pinned folders state
     val pinnedFolders by appSettings.pinnedFolders.collectAsState()
@@ -4656,7 +4671,14 @@ fun SingleCardExplorerContent(
                     val items = withContext(Dispatchers.IO) {
                         getDirectoryContentsOptimized(currentPath!!, audioExtensions, songs, context)
                     }
-                    val sortedItems = items.sortedBy { it.name.lowercase() }
+                    // Filter: keep files and folders that have audio content (checks recursively)
+                    val filteredItems = items.filter { 
+                        it.type != ExplorerItemType.FOLDER || it.itemCount > 0 || hasAudioContentRecursive(it.path, songs, context)
+                    }
+                    val sortedItems = filteredItems.sortedWith(
+                        compareBy<ExplorerItem> { it.type != ExplorerItemType.FOLDER }
+                            .thenBy { it.name.lowercase() }
+                    )
                     currentItems = sortedItems
                     directoryCache[cacheKey] = sortedItems
                 } catch (e: Exception) {
@@ -4676,12 +4698,15 @@ fun SingleCardExplorerContent(
         val cacheKey = currentPath
         
         if (currentPath == null) {
-            // Show device storage roots (fast operation, no need for background)
+            // Show device storage roots - run in IO to prevent blocking
             isLoadingDirectory = true
-            val storageItems = getStorageRoots(context)
+            val storageItems = withContext(Dispatchers.IO) {
+                getStorageRoots(context)
+            }
             currentItems = storageItems
             directoryCache[cacheKey] = storageItems
             isLoadingDirectory = false
+            isInitialLoading = false
         } else {
             // Check cache first to avoid unnecessary reloads
             // Use cache if it exists (even if empty, as it might be a legitimately empty folder)
@@ -4703,7 +4728,14 @@ fun SingleCardExplorerContent(
                         val items = withContext(Dispatchers.IO) {
                             getDirectoryContentsOptimized(currentPath!!, audioExtensions, songs, context)
                         }
-                        val sortedItems = items.sortedBy { it.name.lowercase() }
+                        // Filter: keep files and folders that have audio content (checks recursively)
+                        val filteredItems = items.filter { 
+                            it.type != ExplorerItemType.FOLDER || it.itemCount > 0 || hasAudioContentRecursive(it.path, songs, context)
+                        }
+                        val sortedItems = filteredItems.sortedWith(
+                            compareBy<ExplorerItem> { it.type != ExplorerItemType.FOLDER }
+                                .thenBy { it.name.lowercase() }
+                        )
                         
                         // Only update if this job wasn't cancelled (i.e., user didn't navigate away)
                         if (isActive) {
@@ -4715,11 +4747,13 @@ fun SingleCardExplorerContent(
                                 directoryCache.remove(directoryCache.keys.first())
                             }
                             directoryCache[cacheKey] = sortedItems
+                            isInitialLoading = false
                         }
                     } catch (e: Exception) {
                         // Only update if this job wasn't cancelled
                         if (isActive) {
                             android.util.Log.e("LibraryScreen", "Error loading directory $currentPath", e)
+                            isInitialLoading = false
                             // Check if we have cached data from a previous successful load
                             val previousCache = directoryCache[cacheKey]
                             if (previousCache != null) {
@@ -4881,8 +4915,35 @@ fun SingleCardExplorerContent(
                     }
                 }
 
+                // Initial loading indicator
+                if (isInitialLoading) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 60.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                M3FourColorCircularLoader(
+                                    modifier = Modifier.size(48.dp)
+                                )
+
+                                Text(
+                                    text = "Initializing Explorer...",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+
                 // Storage Locations - Show at root level
-                if (currentPath == null && currentItems.any { it.type == ExplorerItemType.STORAGE }) {
+                if (!isInitialLoading && currentPath == null && currentItems.any { it.type == ExplorerItemType.STORAGE }) {
                     // Filter only storage items
                     val storageItems = currentItems.filter { it.type == ExplorerItemType.STORAGE }
 
@@ -4929,14 +4990,16 @@ fun SingleCardExplorerContent(
                                 onShowSongInfo = onShowSongInfo,
                                 haptics = haptics,
                                 isPinned = false, // Storages can't be pinned
-                                onPinToggle = null // No pin toggle for storages
+                                onPinToggle = null, // No pin toggle for storages
+                                onPlayFolder = null, // Storages don't have play option
+                                onAddFolderToQueue = null // Storages don't have queue option
                             )
                         }
                     }
                 }
 
                 // Pinned Folders - only show when at root and have pinned folders
-                if (currentPath == null && pinnedFolders.isNotEmpty()) {
+                if (!isInitialLoading && currentPath == null && pinnedFolders.isNotEmpty()) {
                     // Filter pinned folders that exist
                     val existingPinnedFolders = pinnedFolders.filter { pinnedPath ->
                         try {
@@ -5007,6 +5070,40 @@ fun SingleCardExplorerContent(
                                     isPinned = true,
                                     onPinToggle = {
                                         appSettings.removeFolderFromPinned(item.path)
+                                    },
+                                    onPlayFolder = { folderItem ->
+                                        // Get songs in this folder and create playlist
+                                        val folderSongs = songs.filter { song ->
+                                            try {
+                                                val songPath = getFilePathFromUri(song.uri, context) ?: ""
+                                                val normalizedSongPath = songPath.replace("//", "/")
+                                                val normalizedFolderPath = folderItem.path.replace("//", "/").trimEnd('/')
+                                                normalizedSongPath.startsWith("$normalizedFolderPath/")
+                                            } catch (e: Exception) {
+                                                false
+                                            }
+                                        }
+                                        if (folderSongs.isNotEmpty()) {
+                                            folderSongsForPlaylist = folderSongs
+                                            playlistNamePrefix = folderItem.name
+                                            showCreatePlaylistDialog = true
+                                        }
+                                    },
+                                    onAddFolderToQueue = { folderItem ->
+                                        // Get songs in this folder and add to queue
+                                        val folderSongs = songs.filter { song ->
+                                            try {
+                                                val songPath = getFilePathFromUri(song.uri, context) ?: ""
+                                                val normalizedSongPath = songPath.replace("//", "/")
+                                                val normalizedFolderPath = folderItem.path.replace("//", "/").trimEnd('/')
+                                                normalizedSongPath.startsWith("$normalizedFolderPath/")
+                                            } catch (e: Exception) {
+                                                false
+                                            }
+                                        }
+                                        if (folderSongs.isNotEmpty()) {
+                                            folderSongs.forEach { song -> onAddToQueue(song) }
+                                        }
                                     }
                                 )
                             }
@@ -5032,8 +5129,15 @@ fun SingleCardExplorerContent(
                                             currentPath = item.path
                                         }
                                         ExplorerItemType.FILE -> {
-                                            // Play the song directly
-                                            item.song?.let { song -> onSongClick(song) }
+                                            // Play the song and add ALL folder songs to queue
+                                            item.song?.let { song -> 
+                                                // Add all songs in folder to queue first
+                                                currentFolderSongs.forEach { folderSong -> 
+                                                    onAddToQueue(folderSong) 
+                                                }
+                                                // Then play the selected song (which is already in queue)
+                                                onSongClick(song)
+                                            }
                                         }
                                     }
                                 },
@@ -5051,6 +5155,44 @@ fun SingleCardExplorerContent(
                                             appSettings.addFolderToPinned(item.path)
                                         }
                                     }
+                                } else null,
+                                onPlayFolder = if (item.type == ExplorerItemType.FOLDER) {
+                                    { folderItem ->
+                                        // Get all songs in this folder and create playlist
+                                        val folderSongs = songs.filter { song ->
+                                            try {
+                                                val songPath = getFilePathFromUri(song.uri, context) ?: ""
+                                                val normalizedSongPath = songPath.replace("//", "/")
+                                                val normalizedFolderPath = folderItem.path.replace("//", "/").trimEnd('/')
+                                                normalizedSongPath.startsWith("$normalizedFolderPath/")
+                                            } catch (e: Exception) {
+                                                false
+                                            }
+                                        }
+                                        if (folderSongs.isNotEmpty()) {
+                                            folderSongsForPlaylist = folderSongs
+                                            playlistNamePrefix = folderItem.name
+                                            showCreatePlaylistDialog = true
+                                        }
+                                    }
+                                } else null,
+                                onAddFolderToQueue = if (item.type == ExplorerItemType.FOLDER) {
+                                    { folderItem ->
+                                        // Get all songs in this folder and add to queue
+                                        val folderSongs = songs.filter { song ->
+                                            try {
+                                                val songPath = getFilePathFromUri(song.uri, context) ?: ""
+                                                val normalizedSongPath = songPath.replace("//", "/")
+                                                val normalizedFolderPath = folderItem.path.replace("//", "/").trimEnd('/')
+                                                normalizedSongPath.startsWith("$normalizedFolderPath/")
+                                            } catch (e: Exception) {
+                                                false
+                                            }
+                                        }
+                                        if (folderSongs.isNotEmpty()) {
+                                            folderSongs.forEach { song -> onAddToQueue(song) }
+                                        }
+                                    }
                                 } else null
                             )
                         }
@@ -5058,7 +5200,7 @@ fun SingleCardExplorerContent(
                 }
 
                 // Empty state - show when no items and not loading, with single retry option
-                if (currentItems.isEmpty() && !isLoadingDirectory) {
+                if (!isInitialLoading && currentItems.isEmpty() && !isLoadingDirectory) {
                     item {
                         Box(
                             modifier = Modifier
@@ -5266,6 +5408,168 @@ fun SingleCardExplorerContent(
                 haptics = haptics
             )
         }
+    }
+    
+    // Create playlist dialog for folder
+    if (showCreatePlaylistDialog) {
+        val scope = rememberCoroutineScope()
+        var playlistName by remember { mutableStateOf(playlistNamePrefix) }
+        var isCreating by remember { mutableStateOf(false) }
+        var isError by remember { mutableStateOf(false) }
+        
+        AlertDialog(
+            onDismissRequest = {
+                if (!isCreating) {
+                    showCreatePlaylistDialog = false
+                    folderSongsForPlaylist = emptyList()
+                    playlistNamePrefix = ""
+                }
+            },
+            icon = {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(28.dp)
+                )
+            },
+            title = {
+                Text(
+                    "Create Playlist from Folder",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(modifier = Modifier.padding(top = 8.dp)) {
+                    if (isCreating) {
+                        // Show loading state
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp)
+                        ) {
+                            M3FourColorCircularLoader(
+                                modifier = Modifier.size(48.dp)
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = "Creating playlist and adding ${folderSongsForPlaylist.size} songs...",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    } else {
+                        Text(
+                            "Add ${folderSongsForPlaylist.size} ${if (folderSongsForPlaylist.size == 1) "song" else "songs"} to a new playlist",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        OutlinedTextField(
+                            value = playlistName,
+                            onValueChange = { 
+                                playlistName = it
+                                isError = it.isBlank()
+                            },
+                            label = { Text("Playlist name") },
+                            isError = isError,
+                            supportingText = {
+                                if (isError) {
+                                    Text(
+                                        text = "Playlist name cannot be empty",
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            },
+                            singleLine = true,
+                            shape = MaterialTheme.shapes.medium,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                if (!isCreating) {
+                    Button(
+                        onClick = {
+                            if (playlistName.isBlank()) {
+                                isError = true
+                            } else {
+                                isCreating = true
+                                // Create the playlist using coroutine scope
+                                scope.launch {
+                                    try {
+                                        // Create the playlist
+                                        onCreatePlaylist(playlistName)
+                                        
+                                        // Wait for playlist to be created and available in the list
+                                        var attempts = 0
+                                        var newPlaylist: chromahub.rhythm.app.data.Playlist? = null
+                                        while (attempts < 20 && newPlaylist == null) {
+                                            kotlinx.coroutines.delay(100)
+                                            newPlaylist = playlists.firstOrNull { it.name == playlistName }
+                                            attempts++
+                                        }
+                                        
+                                        if (newPlaylist != null) {
+                                            // Add all songs to the playlist with proper error handling
+                                            folderSongsForPlaylist.forEach { song ->
+                                                musicViewModel.addSongToPlaylist(song, newPlaylist.id) { _ -> }
+                                                kotlinx.coroutines.delay(10) // Small delay between adds to avoid race conditions
+                                            }
+                                            Log.d("LibraryScreen", "Successfully added ${folderSongsForPlaylist.size} songs to playlist: $playlistName")
+                                        } else {
+                                            Log.e("LibraryScreen", "Failed to find newly created playlist: $playlistName")
+                                        }
+                                        
+                                        // Close dialog
+                                        showCreatePlaylistDialog = false
+                                        folderSongsForPlaylist = emptyList()
+                                        playlistNamePrefix = ""
+                                        isCreating = false
+                                    } catch (e: Exception) {
+                                        Log.e("LibraryScreen", "Error creating playlist", e)
+                                        isCreating = false
+                                    }
+                                }
+                            }
+                        },
+                        enabled = playlistName.isNotBlank(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Create")
+                    }
+                }
+            },
+            dismissButton = {
+                if (!isCreating) {
+                    OutlinedButton(
+                        onClick = {
+                            showCreatePlaylistDialog = false
+                            folderSongsForPlaylist = emptyList()
+                            playlistNamePrefix = ""
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Cancel")
+                    }
+                }
+            },
+            shape = RoundedCornerShape(24.dp)
+        )
     }
 }
 
@@ -5731,6 +6035,32 @@ fun countMediaStoreAudioFilesInDirectoryShallow(directory: File, songsByPath: Ma
     return count
 }
 
+// Helper function to check if a folder has audio content (recursively checks nested folders)
+fun hasAudioContentRecursive(path: String, songs: List<Song>, context: android.content.Context, maxDepth: Int = 3): Boolean {
+    if (maxDepth <= 0) return false
+    
+    return try {
+        val directory = File(path)
+        if (!directory.exists() || !directory.isDirectory) {
+            return false
+        }
+        
+        // Check if any songs in the songs list are inside this directory or its subdirectories
+        val normalizedDirPath = path.replace("//", "/").trimEnd('/')
+        songs.any { song ->
+            try {
+                val songPath = getFilePathFromUri(song.uri, context) ?: return@any false
+                val normalizedSongPath = songPath.replace("//", "/")
+                normalizedSongPath.startsWith("$normalizedDirPath/")
+            } catch (e: Exception) {
+                false
+            }
+        }
+    } catch (e: Exception) {
+        false
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FolderItem(
@@ -6102,12 +6432,41 @@ fun ExplorerBreadcrumb(
 ) {
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
-    val pathSegments = path.split("/").filter { it.isNotEmpty() }
+    val rawSegments = path.split("/").filter { it.isNotEmpty() }
+
+    // Collapse Android internal storage path (/storage/emulated/0) into a single 'Internal Storage' breadcrumb
+    val displaySegments: List<Pair<String, String>> = run {
+        if (rawSegments.size >= 3 && rawSegments[0].equals("storage", true)
+            && rawSegments[1].equals("emulated", true) && rawSegments[2] == "0"
+        ) {
+            val basePath = "/storage/emulated/0"
+            val rest = if (rawSegments.size > 3) rawSegments.subList(3, rawSegments.size) else emptyList()
+            val segments = mutableListOf<Pair<String, String>>()
+            // Add the collapsed internal storage segment
+            segments.add("Internal Storage" to basePath)
+            // Add remaining segments with full paths
+            var current = basePath
+            for (s in rest) {
+                current = "$current/$s"
+                segments.add(s to current)
+            }
+            segments
+        } else {
+            // Normal path -> each segment maps to its accumulated path
+            val segments = mutableListOf<Pair<String, String>>()
+            var current = ""
+            for (s in rawSegments) {
+                current = "$current/$s"
+                segments.add(s to current)
+            }
+            segments
+        }
+    }
 
     // Auto-scroll to the active breadcrumb (last segment)
-    LaunchedEffect(pathSegments) {
-        if (pathSegments.isNotEmpty()) {
-            val lastIndex = (pathSegments.size * 2) + 1 // Account for chevrons and segments
+    LaunchedEffect(displaySegments) {
+        if (displaySegments.isNotEmpty()) {
+            val lastIndex = (displaySegments.size * 2) + 1 // Account for chevrons and segments
             scrollState.animateScrollToItem(lastIndex.coerceAtLeast(0))
         }
     }
@@ -6163,7 +6522,9 @@ fun ExplorerBreadcrumb(
         }
 
         // Path segments with enhanced styling
-        pathSegments.forEachIndexed { index, segment ->
+        displaySegments.forEachIndexed { index, pair ->
+            val (segmentDisplay, segmentPath) = pair
+
             item {
                 Icon(
                     imageVector = Icons.Default.ChevronRight,
@@ -6173,8 +6534,8 @@ fun ExplorerBreadcrumb(
                 )
             }
 
-            val currentPath = "/" + pathSegments.take(index + 1).joinToString("/")
-            val isLastSegment = index == pathSegments.lastIndex
+            val currentPath = segmentPath
+            val isLastSegment = index == displaySegments.lastIndex
 
             item {
                 val chipScale by animateFloatAsState(
@@ -6211,10 +6572,10 @@ fun ExplorerBreadcrumb(
                         }
                 ) {
                     // Handle long segment names with truncation
-                    val displayText = if (segment.length > 15) {
-                        segment.take(12) + "..."
+                    val displayText = if (segmentDisplay.length > 15) {
+                        segmentDisplay.take(12) + "..."
                     } else {
-                        segment
+                        segmentDisplay
                     }
 
                     Row(
@@ -6273,7 +6634,9 @@ fun ExplorerItemCard(
     haptics: androidx.compose.ui.hapticfeedback.HapticFeedback,
     modifier: Modifier = Modifier,
     isPinned: Boolean = false,
-    onPinToggle: (() -> Unit)? = null
+    onPinToggle: (() -> Unit)? = null,
+    onPlayFolder: ((ExplorerItem) -> Unit)? = null,
+    onAddFolderToQueue: ((ExplorerItem) -> Unit)? = null
 ) {
     val context = LocalContext.current
 
@@ -6363,6 +6726,8 @@ fun ExplorerItemCard(
         }
 
         ExplorerItemType.FOLDER -> {
+            var showDropdown by remember { mutableStateOf(false) }
+            
             Card(
                 onClick = {
                     HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
@@ -6479,21 +6844,146 @@ fun ExplorerItemCard(
                         Spacer(modifier = Modifier.width(6.dp))
                     }
 
-                    // Forward arrow - slightly smaller
-                    Surface(
-                        modifier = Modifier.size(38.dp),
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
-                                contentDescription = "Open folder",
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.size(18.dp)
-                            )
+                    // Options menu button for folders with songs
+                    if (item.itemCount > 0 && (onPlayFolder != null || onAddFolderToQueue != null)) {
+                        Box {
+                            FilledIconButton(
+                                onClick = {
+                                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                                    showDropdown = true
+                                },
+                                modifier = Modifier.size(width = 40.dp, height = 36.dp),
+                                shape = RoundedCornerShape(18.dp), // Pill shape like songs tab
+                                colors = IconButtonDefaults.filledIconButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = RhythmIcons.More,
+                                    contentDescription = "Folder options",
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            
+                            DropdownMenu(
+                                expanded = showDropdown,
+                                onDismissRequest = {
+                                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                                    showDropdown = false
+                                },
+                                modifier = Modifier
+                                    .widthIn(min = 220.dp)
+                                    .background(MaterialTheme.colorScheme.surface)
+                                    .padding(5.dp),
+                                shape = RoundedCornerShape(18.dp)
+                            ) {
+                                // Create playlist from folder
+                                onPlayFolder?.let {
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.surfaceContainer,
+                                        shape = RoundedCornerShape(16.dp),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                                    ) {
+                                        DropdownMenuItem(
+                                            text = {
+                                                Text(
+                                                    "Create playlist",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    fontWeight = FontWeight.Medium,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                            },
+                                            leadingIcon = {
+                                                Surface(
+                                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                                                    shape = CircleShape,
+                                                    modifier = Modifier.size(32.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
+                                                        contentDescription = null,
+                                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                        modifier = Modifier
+                                                            .fillMaxSize()
+                                                            .padding(6.dp)
+                                                    )
+                                                }
+                                            },
+                                            onClick = {
+                                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                                                showDropdown = false
+                                                it(item)
+                                            }
+                                        )
+                                    }
+                                }
+                                
+                                // Add all to queue
+                                onAddFolderToQueue?.let {
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.surfaceContainer,
+                                        shape = RoundedCornerShape(16.dp),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                                    ) {
+                                        DropdownMenuItem(
+                                            text = {
+                                                Text(
+                                                    "Add all to queue",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    fontWeight = FontWeight.Medium,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                            },
+                                            leadingIcon = {
+                                                Surface(
+                                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                                                    shape = CircleShape,
+                                                    modifier = Modifier.size(32.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = RhythmIcons.Queue,
+                                                        contentDescription = null,
+                                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                        modifier = Modifier
+                                                            .fillMaxSize()
+                                                            .padding(6.dp)
+                                                    )
+                                                }
+                                            },
+                                            onClick = {
+                                                HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                                                showDropdown = false
+                                                it(item)
+                                            }
+                                        )
+                                    }
+                                }
+                            }
                         }
+                        
+                        // Spacer(modifier = Modifier.width(6.dp))
                     }
+
+                    // Forward arrow - commented out for now
+                    // Surface(
+                    //     modifier = Modifier.size(38.dp),
+                    //     shape = CircleShape,
+                    //     color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                    // ) {
+                    //     Box(contentAlignment = Alignment.Center) {
+                    //         Icon(
+                    //             imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                    //             contentDescription = "Open folder",
+                    //             tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    //             modifier = Modifier.size(18.dp)
+                    //         )
+                    //     }
+                    // }
                 }
             }
         }

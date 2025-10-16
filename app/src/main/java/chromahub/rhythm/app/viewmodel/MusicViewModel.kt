@@ -83,6 +83,12 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     val enableAudioNormalization = appSettings.audioNormalization
     val enableReplayGain = appSettings.replayGain
     
+    // Queue & Shuffle behavior settings
+    val shuffleUsesExoplayer = appSettings.shuffleUsesExoplayer
+    val autoAddToQueue = appSettings.autoAddToQueue
+    val clearQueueOnNewSong = appSettings.clearQueueOnNewSong
+    val repeatModePersistence = appSettings.repeatModePersistence
+    
     // Equalizer settings
     val equalizerEnabled = appSettings.equalizerEnabled
     val equalizerPreset = appSettings.equalizerPreset
@@ -1423,36 +1429,48 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         updateRecentlyPlayed(song)
         trackSongPlay(song)
 
+        val shouldClearQueue = clearQueueOnNewSong.value
+        val shouldAutoAddToQueue = autoAddToQueue.value
         val currentQueueSongs = _currentQueue.value.songs.toMutableList()
         val songIndexInQueue = currentQueueSongs.indexOfFirst { it.id == song.id }
 
         mediaController?.let { controller ->
+            if (shouldClearQueue) {
+                // Clear queue setting enabled - start fresh
+                Log.d(TAG, "Clearing queue and playing single song (clearQueueOnNewSong=true)")
+                playQueue(listOf(song))
+                return
+            }
+            
             if (songIndexInQueue != -1) {
                 // Song is already in the queue, just play it
                 controller.seekToDefaultPosition(songIndexInQueue)
                 _currentQueue.value = _currentQueue.value.copy(currentIndex = songIndexInQueue)
                 Log.d(TAG, "Playing existing song in queue at position $songIndexInQueue")
             } else {
-                // Song is not in the queue, create a contextual queue
-                val contextualQueue = createContextualQueue(song)
-                if (contextualQueue.size > 1) {
-                    // If we have a contextual queue, play that instead
-                    Log.d(TAG, "Creating contextual queue with ${contextualQueue.size} songs")
-                    playQueue(contextualQueue)
-                    return
-                } else {
-                    // Fallback: add single song to current queue
-                    val currentIndex = _currentQueue.value.currentIndex
-                    val insertIndex = if (currentQueueSongs.isEmpty() || currentIndex == -1) 0 else (currentIndex + 1).coerceAtMost(currentQueueSongs.size)
-                    currentQueueSongs.add(insertIndex, song)
-
-                    val mediaItem = song.toMediaItem()
-                    controller.addMediaItem(insertIndex, mediaItem)
-
-                    _currentQueue.value = Queue(currentQueueSongs, insertIndex)
-                    controller.seekToDefaultPosition(insertIndex)
-                    Log.d(TAG, "Added single song to queue at position $insertIndex")
+                // Song is not in the queue
+                if (shouldAutoAddToQueue) {
+                    // Create a contextual queue
+                    val contextualQueue = createContextualQueue(song)
+                    if (contextualQueue.size > 1) {
+                        // If we have a contextual queue, play that instead
+                        Log.d(TAG, "Creating contextual queue with ${contextualQueue.size} songs (autoAddToQueue=true)")
+                        playQueue(contextualQueue)
+                        return
+                    }
                 }
+                
+                // Fallback: add single song to current queue
+                val currentIndex = _currentQueue.value.currentIndex
+                val insertIndex = if (currentQueueSongs.isEmpty() || currentIndex == -1) 0 else (currentIndex + 1).coerceAtMost(currentQueueSongs.size)
+                currentQueueSongs.add(insertIndex, song)
+
+                val mediaItem = song.toMediaItem()
+                controller.addMediaItem(insertIndex, mediaItem)
+
+                _currentQueue.value = Queue(currentQueueSongs, insertIndex)
+                controller.seekToDefaultPosition(insertIndex)
+                Log.d(TAG, "Added single song to queue at position $insertIndex (autoAddToQueue=$shouldAutoAddToQueue)")
             }
 
             controller.prepare()
@@ -3595,18 +3613,33 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     /**
      * Shuffles a list of songs and plays them as a queue.
+     * Respects the shuffleUsesExoplayer setting.
      */
     fun playShuffled(songs: List<Song>) {
         Log.d(TAG, "Playing shuffled list of songs: ${songs.size} songs")
         if (songs.isNotEmpty()) {
-            val shuffledSongs = songs.shuffled()
-            playQueue(shuffledSongs)
+            val useExoPlayerShuffle = shuffleUsesExoplayer.value
+            
+            if (useExoPlayerShuffle) {
+                // Let ExoPlayer handle shuffle
+                Log.d(TAG, "Using ExoPlayer shuffle mode")
+                playQueue(songs)
+                mediaController?.shuffleModeEnabled = true
+                _isShuffleEnabled.value = true
+            } else {
+                // Manual shuffle (recommended to prevent ANR)
+                Log.d(TAG, "Using manual pre-shuffle mode")
+                mediaController?.shuffleModeEnabled = false
+                _isShuffleEnabled.value = false
+                
+                // Manually shuffle the songs list
+                val shuffledSongs = songs.shuffled()
+                
+                // Play the pre-shuffled queue
+                playQueue(shuffledSongs)
+            }
 
-            // Enable shuffle mode after starting playback
-            mediaController?.shuffleModeEnabled = true
-            _isShuffleEnabled.value = true
-
-            Log.d(TAG, "Started shuffled playback of ${songs.size} songs")
+            Log.d(TAG, "Started shuffled playback of ${songs.size} songs (ExoPlayer shuffle: $useExoPlayerShuffle)")
         } else {
             Log.e(TAG, "No songs provided to play shuffled")
         }
@@ -3616,25 +3649,36 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         val allSongs = _songs.value
         if (allSongs.isEmpty()) return
         
-        // Shuffle the songs
-        val shuffledSongs = allSongs.shuffled()
+        val useExoPlayerShuffle = shuffleUsesExoplayer.value
         
-        // Start with the first song
-        val firstSong = shuffledSongs.first()
-        Log.d(TAG, "Playing shuffled songs starting with: ${firstSong.title}")
-        
-        // Set shuffle mode to enabled
-        mediaController?.shuffleModeEnabled = true
-        _isShuffleEnabled.value = true
-        
-        // Create a new queue with the shuffled songs
-        _currentQueue.value = Queue(shuffledSongs, 0)
-        
-        // Play the first song
-        playSong(firstSong)
-        
-        // Add to recently played
-        updateRecentlyPlayed(firstSong)
+        if (useExoPlayerShuffle) {
+            // Let ExoPlayer handle shuffle
+            Log.d(TAG, "Playing all songs with ExoPlayer shuffle")
+            playQueue(allSongs)
+            mediaController?.shuffleModeEnabled = true
+            _isShuffleEnabled.value = true
+        } else {
+            // Manual shuffle (recommended)
+            Log.d(TAG, "Playing all songs with manual shuffle")
+            mediaController?.shuffleModeEnabled = false
+            _isShuffleEnabled.value = false
+            
+            // Manually shuffle the songs
+            val shuffledSongs = allSongs.shuffled()
+            
+            // Start with the first song
+            val firstSong = shuffledSongs.first()
+            Log.d(TAG, "Playing shuffled songs starting with: ${firstSong.title} (pre-shuffled)")
+            
+            // Create a new queue with the shuffled songs
+            _currentQueue.value = Queue(shuffledSongs, 0)
+            
+            // Play the first song
+            playSong(firstSong)
+            
+            // Add to recently played
+            updateRecentlyPlayed(firstSong)
+        }
     }
 
     // Search history methods
@@ -3954,15 +3998,24 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             val songs = repository.getSongsForAlbum(album.id)
             Log.d(TAG, "Found ${songs.size} songs for album")
             if (songs.isNotEmpty()) {
-                // Shuffle the songs and play them as a queue
-                val shuffledSongs = songs.shuffled()
-                playQueue(shuffledSongs)
+                // Check shuffle setting
+                val useExoPlayerShuffle = shuffleUsesExoplayer.value
+                Log.d(TAG, "Shuffle setting - useExoPlayerShuffle: $useExoPlayerShuffle")
                 
-                // Enable shuffle mode after starting playback
-                mediaController?.shuffleModeEnabled = true
-                _isShuffleEnabled.value = true
-                
-                Log.d(TAG, "Started shuffled playback of album: ${album.title}")
+                if (useExoPlayerShuffle) {
+                    // Use ExoPlayer's shuffle mode
+                    playQueue(songs)
+                    mediaController?.shuffleModeEnabled = true
+                    _isShuffleEnabled.value = true
+                    Log.d(TAG, "Started playback with ExoPlayer shuffle for album: ${album.title}")
+                } else {
+                    // Manually shuffle and disable ExoPlayer shuffle (default behavior)
+                    val shuffledSongs = songs.shuffled()
+                    playQueue(shuffledSongs)
+                    mediaController?.shuffleModeEnabled = false
+                    _isShuffleEnabled.value = false
+                    Log.d(TAG, "Started playback with manual shuffle for album: ${album.title}")
+                }
             } else {
                 Log.e(TAG, "No songs found for album: ${album.title} (ID: ${album.id})")
                 debugQueueState()
@@ -3973,15 +4026,24 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     fun playPlaylistShuffled(playlist: Playlist) {
         Log.d(TAG, "Playing shuffled playlist: ${playlist.name}")
         if (playlist.songs.isNotEmpty()) {
-            // Shuffle the songs and play them as a queue
-            val shuffledSongs = playlist.songs.shuffled()
-            playQueue(shuffledSongs)
+            // Check shuffle setting
+            val useExoPlayerShuffle = shuffleUsesExoplayer.value
+            Log.d(TAG, "Shuffle setting - useExoPlayerShuffle: $useExoPlayerShuffle")
             
-            // Enable shuffle mode after starting playback
-            mediaController?.shuffleModeEnabled = true
-            _isShuffleEnabled.value = true
-            
-            Log.d(TAG, "Started shuffled playback of playlist: ${playlist.name}")
+            if (useExoPlayerShuffle) {
+                // Use ExoPlayer's shuffle mode
+                playQueue(playlist.songs)
+                mediaController?.shuffleModeEnabled = true
+                _isShuffleEnabled.value = true
+                Log.d(TAG, "Started playback with ExoPlayer shuffle for playlist: ${playlist.name}")
+            } else {
+                // Manually shuffle and disable ExoPlayer shuffle (default behavior)
+                val shuffledSongs = playlist.songs.shuffled()
+                playQueue(shuffledSongs)
+                mediaController?.shuffleModeEnabled = false
+                _isShuffleEnabled.value = false
+                Log.d(TAG, "Started playback with manual shuffle for playlist: ${playlist.name}")
+            }
         } else {
             Log.e(TAG, "No songs found in playlist: ${playlist.name}")
         }

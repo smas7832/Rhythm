@@ -363,15 +363,11 @@ fun AlbumBottomSheet(
                             FilledIconButton(
                                 onClick = {
                                     HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
-                                    // Shuffle the sorted songs and play
+                                    // Pass songs to be shuffled by viewModel (respects shuffle settings)
                                     if (sortedSongs.isNotEmpty()) {
-                                        // Pass the sorted and shuffled songs to the callback
-                                        val shuffledSongs = sortedSongs.shuffled()
-                                        onShufflePlay(shuffledSongs)
-                                        onSongClick(shuffledSongs.first()) // Start with first shuffled song
+                                        onShufflePlay(sortedSongs)
                                     } else {
-                                        val shuffledSongs = album.songs.shuffled()
-                                        onShufflePlay(shuffledSongs)
+                                        onShufflePlay(album.songs)
                                     }
                                     scope.launch {
                                         sheetState.hide()

@@ -747,16 +747,15 @@ fun SearchScreen(
             onPlayAll = { songs -> 
                 // Play all songs from the album with proper sorting
                 if (songs.isNotEmpty()) {
-                    onSongClick(songs.first())
+                    viewModel.playQueue(songs)
                 } else {
                     onAlbumClick(selectedAlbum!!)
                 }
             },
             onShufflePlay = { songs -> 
-                // Play shuffled songs from the album
+                // Play shuffled songs from the album (respects shuffle settings)
                 if (songs.isNotEmpty()) {
-                    val shuffled = songs.shuffled()
-                    onSongClick(shuffled.first())
+                    viewModel.playShuffled(songs)
                 } else {
                     onAlbumClick(selectedAlbum!!)
                 }
@@ -789,12 +788,12 @@ fun SearchScreen(
             onAlbumClick = onAlbumClick,
             onPlayAll = { artistSongs -> 
                 if (artistSongs.isNotEmpty()) {
-                    onSongClick(artistSongs.first()) // Play first song from artist
+                    viewModel.playQueue(artistSongs)
                 }
             },
             onShufflePlay = { artistSongs -> 
                 if (artistSongs.isNotEmpty()) {
-                    onSongClick(artistSongs.shuffled().first()) // Play shuffled first song
+                    viewModel.playShuffled(artistSongs)
                 }
             },
             onAddToQueue = { song -> onSongClick(song) }, // For now, just play the song

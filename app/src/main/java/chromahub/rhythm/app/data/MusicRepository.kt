@@ -1338,18 +1338,51 @@ class MusicRepository(context: Context) {
             if (NetworkClient.isAppleMusicApiEnabled()) {
                 try {
                     Log.d(TAG, "Attempting Apple Music lyrics search for: $cleanTitle by $cleanArtist")
-                    val query = "$cleanTitle $cleanArtist"
-                    val searchResults = appleMusicApiService.searchSongs(query)
+                    
+                    // Try multiple search strategies
+                    var searchResults = appleMusicApiService.searchSongs("$cleanTitle $cleanArtist")
+                    
+                    // If no results, try with simplified names (remove featuring artists)
+                    if (searchResults.isEmpty()) {
+                        val simplifiedArtist = cleanArtist.split(" feat.", " ft.", " featuring", " &", " x ", " X ").first().trim()
+                        val simplifiedTitle = cleanTitle.split(" feat.", " ft.", " featuring", " \\(", " \\[").first().trim()
+                        searchResults = appleMusicApiService.searchSongs("$simplifiedTitle $simplifiedArtist")
+                        Log.d(TAG, "Trying simplified search: $simplifiedTitle by $simplifiedArtist")
+                    }
+                    
+                    // If still no results, try title only
+                    if (searchResults.isEmpty()) {
+                        searchResults = appleMusicApiService.searchSongs(cleanTitle)
+                        Log.d(TAG, "Trying title-only search: $cleanTitle")
+                    }
                     
                     if (searchResults.isNotEmpty()) {
-                        // Find best match
-                        val bestMatch = searchResults.firstOrNull { result ->
-                            val artistMatch = result.artistName?.lowercase()?.contains(cleanArtist.lowercase()) == true ||
-                                cleanArtist.lowercase().contains(result.artistName?.lowercase() ?: "")
-                            val titleMatch = result.songName?.lowercase()?.contains(cleanTitle.lowercase()) == true ||
-                                cleanTitle.lowercase().contains(result.songName?.lowercase() ?: "")
-                            artistMatch && titleMatch
-                        } ?: searchResults.firstOrNull() // Fallback to first result if no exact match
+                        // Find best match using improved similarity scoring
+                        fun calculateSimilarity(str1: String, str2: String): Double {
+                            val s1 = str1.lowercase().trim()
+                            val s2 = str2.lowercase().trim()
+                            
+                            // Exact match
+                            if (s1 == s2) return 1.0
+                            
+                            // Contains match
+                            if (s1.contains(s2) || s2.contains(s1)) return 0.8
+                            
+                            // Word overlap
+                            val words1 = s1.split(" ", "-", "_").filter { it.length > 2 }
+                            val words2 = s2.split(" ", "-", "_").filter { it.length > 2 }
+                            val commonWords = words1.intersect(words2.toSet()).size
+                            val totalWords = maxOf(words1.size, words2.size)
+                            
+                            return if (totalWords > 0) commonWords.toDouble() / totalWords else 0.0
+                        }
+                        
+                        val bestMatch = searchResults.maxByOrNull { result ->
+                            val artistSim = calculateSimilarity(result.artistName ?: "", cleanArtist)
+                            val titleSim = calculateSimilarity(result.songName ?: "", cleanTitle)
+                            // Weight title similarity more heavily
+                            (titleSim * 0.6) + (artistSim * 0.4)
+                        }
                         
                         bestMatch?.let { match ->
                             Log.d(TAG, "Found Apple Music match: ${match.songName} by ${match.artistName} (ID: ${match.id})")
@@ -1404,7 +1437,7 @@ class MusicRepository(context: Context) {
                             }
                         }
                     } else {
-                        Log.d(TAG, "No Apple Music results found for: $query")
+                        Log.d(TAG, "No Apple Music results found for: $cleanTitle by $cleanArtist")
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Apple Music lyrics search failed: ${e.message}", e)
