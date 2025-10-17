@@ -8,7 +8,11 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -44,6 +48,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -203,8 +208,17 @@ fun ThemeCustomizationBottomSheet(
     val colorSource by appSettings.colorSource.collectAsState()
     val extractedAlbumColors by appSettings.extractedAlbumColors.collectAsState()
     
-    // Tab state - now 3 tabs: Overview, Colors, Fonts
+    // Tab state - now 4 tabs: Overview, Colors, Fonts, Festive
     var selectedTab by remember { mutableStateOf(0) }
+    
+    // Festive theme states
+    val festiveThemeEnabled by appSettings.festiveThemeEnabled.collectAsState()
+    val festiveThemeSelected by appSettings.festiveThemeSelected.collectAsState()
+    val festiveThemeAutoDetect by appSettings.festiveThemeAutoDetect.collectAsState()
+    val festiveThemeShowParticles by appSettings.festiveThemeShowParticles.collectAsState()
+    val festiveThemeParticleIntensity by appSettings.festiveThemeParticleIntensity.collectAsState()
+    val festiveThemeApplyToSplash by appSettings.festiveThemeApplyToSplash.collectAsState()
+    val festiveThemeApplyToMainUI by appSettings.festiveThemeApplyToMainUI.collectAsState()
     
     // Color source state - initialize based on saved setting
     var selectedColorSource by remember(colorSource) { 
@@ -580,6 +594,16 @@ fun ThemeCustomizationBottomSheet(
                                 text = "Fonts",
                                 modifier = Modifier.weight(1f)
                             )
+                            TabButton(
+                                selected = selectedTab == 3,
+                                onClick = {
+                                    selectedTab = 3
+                                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                                },
+                                icon = Icons.Filled.Celebration,
+                                text = "Festive",
+                                modifier = Modifier.weight(1f)
+                            )
                         }
                     }
 
@@ -652,6 +676,24 @@ fun ThemeCustomizationBottomSheet(
                             // Launch font file picker for TTF/OTF files
                             fontPickerLauncher.launch("font/*")
                         },
+                        context = context,
+                        haptics = haptics
+                    )
+                    3 -> FestiveContent(
+                        festiveThemeEnabled = festiveThemeEnabled,
+                        festiveThemeSelected = festiveThemeSelected,
+                        festiveThemeAutoDetect = festiveThemeAutoDetect,
+                        festiveThemeShowParticles = festiveThemeShowParticles,
+                        festiveThemeParticleIntensity = festiveThemeParticleIntensity,
+                        festiveThemeApplyToSplash = festiveThemeApplyToSplash,
+                        festiveThemeApplyToMainUI = festiveThemeApplyToMainUI,
+                        onFestiveThemeEnabledChange = { appSettings.setFestiveThemeEnabled(it) },
+                        onFestiveThemeSelected = { appSettings.setFestiveThemeSelected(it) },
+                        onFestiveThemeAutoDetectChange = { appSettings.setFestiveThemeAutoDetect(it) },
+                        onFestiveThemeShowParticlesChange = { appSettings.setFestiveThemeShowParticles(it) },
+                        onFestiveThemeParticleIntensityChange = { appSettings.setFestiveThemeParticleIntensity(it) },
+                        onFestiveThemeApplyToSplashChange = { appSettings.setFestiveThemeApplyToSplash(it) },
+                        onFestiveThemeApplyToMainUIChange = { appSettings.setFestiveThemeApplyToMainUI(it) },
                         context = context,
                         haptics = haptics
                     )
@@ -1312,7 +1354,8 @@ private fun TabButton(
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessMedium
-        )
+        ),
+        label = "tabBackground"
     )
     
     val contentColor by animateColorAsState(
@@ -1323,7 +1366,8 @@ private fun TabButton(
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessMedium
-        )
+        ),
+        label = "tabContent"
     )
     
     Surface(
@@ -1335,26 +1379,42 @@ private fun TabButton(
         Row(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 12.dp)
+            modifier = Modifier.padding(horizontal = if (selected) 12.dp else 8.dp)
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
                 tint = contentColor,
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(20.dp)
             )
+            // Only show text for selected tab to save space
             AnimatedVisibility(
                 visible = selected,
-                enter = expandHorizontally() + fadeIn(),
-                exit = shrinkHorizontally() + fadeOut()
+                enter = expandHorizontally(
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessMedium
+                    )
+                ) + fadeIn(
+                    animationSpec = tween(300)
+                ),
+                exit = shrinkHorizontally(
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessMedium
+                    )
+                ) + fadeOut(
+                    animationSpec = tween(200)
+                )
             ) {
                 Row {
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = text,
-                        style = MaterialTheme.typography.labelLarge,
+                        style = MaterialTheme.typography.labelMedium,
                         color = contentColor,
-                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1
                     )
                 }
             }
@@ -2669,4 +2729,491 @@ private fun ColorSlider(
 
 private enum class ColorType {
     PRIMARY, SECONDARY, TERTIARY
+}
+
+@Composable
+private fun FestiveContent(
+    festiveThemeEnabled: Boolean,
+    festiveThemeSelected: String,
+    festiveThemeAutoDetect: Boolean,
+    festiveThemeShowParticles: Boolean,
+    festiveThemeParticleIntensity: Float,
+    festiveThemeApplyToSplash: Boolean,
+    festiveThemeApplyToMainUI: Boolean,
+    onFestiveThemeEnabledChange: (Boolean) -> Unit,
+    onFestiveThemeSelected: (String) -> Unit,
+    onFestiveThemeAutoDetectChange: (Boolean) -> Unit,
+    onFestiveThemeShowParticlesChange: (Boolean) -> Unit,
+    onFestiveThemeParticleIntensityChange: (Float) -> Unit,
+    onFestiveThemeApplyToSplashChange: (Boolean) -> Unit,
+    onFestiveThemeApplyToMainUIChange: (Boolean) -> Unit,
+    context: Context,
+    haptics: HapticFeedback
+) {
+    LazyColumn(
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        // Active festival indicator (if enabled)
+        if (festiveThemeEnabled) {
+            item {
+                val activeFestive = remember(festiveThemeEnabled, festiveThemeAutoDetect, festiveThemeSelected) {
+                    if (festiveThemeAutoDetect) {
+                        chromahub.rhythm.app.ui.theme.FestiveTheme.detectCurrentFestival()
+                    } else {
+                        try {
+                            chromahub.rhythm.app.ui.theme.FestiveTheme.valueOf(festiveThemeSelected)
+                        } catch (e: Exception) {
+                            chromahub.rhythm.app.ui.theme.FestiveTheme.NONE
+                        }
+                    }
+                }
+                
+                if (activeFestive != chromahub.rhythm.app.ui.theme.FestiveTheme.NONE) {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                        ),
+                        shape = RoundedCornerShape(20.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = activeFestive.emoji,
+                                style = MaterialTheme.typography.displaySmall,
+                                modifier = Modifier.padding(end = 12.dp)
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "Active Festival",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = MaterialTheme.colorScheme.tertiary,
+                                        modifier = Modifier.size(8.dp)
+                                    ) {
+                                        // Pulsing indicator
+                                        val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+                                        val scale by infiniteTransition.animateFloat(
+                                            initialValue = 0.8f,
+                                            targetValue = 1.2f,
+                                            animationSpec = infiniteRepeatable(
+                                                animation = tween(1000),
+                                                repeatMode = RepeatMode.Reverse
+                                            ),
+                                            label = "pulse"
+                                        )
+                                        Box(modifier = Modifier.fillMaxSize().scale(scale))
+                                    }
+                                }
+                                Text(
+                                    text = activeFestive.displayName,
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+            }
+        }
+        
+        // Enable Festive Themes Card
+        item {
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = if (festiveThemeEnabled) 
+                        MaterialTheme.colorScheme.primaryContainer 
+                    else 
+                        MaterialTheme.colorScheme.surfaceContainerHigh
+                ),
+                shape = RoundedCornerShape(20.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = if (festiveThemeEnabled)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            MaterialTheme.colorScheme.surfaceContainerHighest,
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Celebration,
+                                contentDescription = null,
+                                tint = if (festiveThemeEnabled)
+                                    MaterialTheme.colorScheme.onPrimary
+                                else
+                                    MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.width(16.dp))
+                    
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Festive Themes",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (festiveThemeEnabled)
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            else
+                                MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Celebrate special occasions with themed decorations",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (festiveThemeEnabled)
+                                MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                            else
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    
+                    Switch(
+                        checked = festiveThemeEnabled,
+                        onCheckedChange = {
+                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                            onFestiveThemeEnabledChange(it)
+                        }
+                    )
+                }
+            }
+        }
+        
+        // Show content only if enabled
+        if (festiveThemeEnabled) {
+            // Auto-detect toggle
+            item {
+                ThemeSettingCard(
+                    icon = Icons.Filled.AutoAwesome,
+                    title = "Auto-detect Festival",
+                    description = "Automatically apply themes based on current date",
+                    checked = festiveThemeAutoDetect,
+                    onCheckedChange = {
+                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                        onFestiveThemeAutoDetectChange(it)
+                    }
+                )
+            }
+            
+            // Festive Theme Selection
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 0.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "SELECT FESTIVAL",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    HorizontalDivider(
+                        modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+                }
+            }
+            
+            // Festival theme cards
+            items(chromahub.rhythm.app.ui.theme.FestiveTheme.entries.filter { it != chromahub.rhythm.app.ui.theme.FestiveTheme.NONE }) { theme ->
+                FestiveThemeCard(
+                    theme = theme,
+                    isSelected = festiveThemeSelected == theme.name,
+                    isEnabled = !festiveThemeAutoDetect,
+                    onSelect = {
+                        if (!festiveThemeAutoDetect) {
+                            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.TextHandleMove)
+                            onFestiveThemeSelected(theme.name)
+                        }
+                    }
+                )
+            }
+            
+            // Decoration Settings Header
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 0.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "DECORATION SETTINGS",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    HorizontalDivider(
+                        modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+                }
+            }
+            
+            // Show Particles Toggle
+            item {
+                ThemeSettingCard(
+                    icon = Icons.Filled.Stars,
+                    title = "Show Particles",
+                    description = "Display animated decorative particles",
+                    checked = festiveThemeShowParticles,
+                    onCheckedChange = {
+                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                        onFestiveThemeShowParticlesChange(it)
+                    }
+                )
+            }
+            
+            // Particle Intensity Slider
+            if (festiveThemeShowParticles) {
+                item {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                        ),
+                        shape = RoundedCornerShape(20.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(20.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Tune,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Particle Intensity",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "${(festiveThemeParticleIntensity * 100).toInt()}%",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.height(16.dp))
+                            
+                            Slider(
+                                value = festiveThemeParticleIntensity,
+                                onValueChange = {
+                                    onFestiveThemeParticleIntensityChange(it)
+                                },
+                                valueRange = 0.1f..1.0f,
+                                colors = SliderDefaults.colors(
+                                    thumbColor = MaterialTheme.colorScheme.primary,
+                                    activeTrackColor = MaterialTheme.colorScheme.primary,
+                                    inactiveTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+            
+            // Apply to Splash Screen
+            item {
+                ThemeSettingCard(
+                    icon = Icons.Filled.FlashOn,
+                    title = "Apply to Splash Screen",
+                    description = "Show festive decorations on app launch",
+                    checked = festiveThemeApplyToSplash,
+                    onCheckedChange = {
+                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                        onFestiveThemeApplyToSplashChange(it)
+                    }
+                )
+            }
+            
+            // Apply to Main UI
+            item {
+                ThemeSettingCard(
+                    icon = Icons.Filled.Dashboard,
+                    title = "Apply to Main UI",
+                    description = "Show festive decorations throughout the app",
+                    checked = festiveThemeApplyToMainUI,
+                    onCheckedChange = {
+                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                        onFestiveThemeApplyToMainUIChange(it)
+                    }
+                )
+            }
+        }
+        
+        // Bottom padding
+        item {
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun FestiveThemeCard(
+    theme: chromahub.rhythm.app.ui.theme.FestiveTheme,
+    isSelected: Boolean,
+    isEnabled: Boolean,
+    onSelect: () -> Unit
+) {
+    val containerColor by animateColorAsState(
+        targetValue = if (isSelected) 
+            MaterialTheme.colorScheme.primaryContainer 
+        else 
+            MaterialTheme.colorScheme.surfaceContainerHigh,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "container_color"
+    )
+    
+    val borderColor by animateColorAsState(
+        targetValue = if (isSelected) 
+            MaterialTheme.colorScheme.primary 
+        else 
+            Color.Transparent,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "border_color"
+    )
+
+    Card(
+        onClick = { if (isEnabled) onSelect() },
+        enabled = isEnabled,
+        colors = CardDefaults.cardColors(
+            containerColor = containerColor
+        ),
+        shape = RoundedCornerShape(20.dp),
+        border = androidx.compose.foundation.BorderStroke(2.dp, borderColor),
+        modifier = Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                alpha = if (isEnabled) 1f else 0.5f
+            }
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Emoji and color preview
+            Row(
+                horizontalArrangement = Arrangement.spacedBy((-8).dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(end = 16.dp)
+            ) {
+                // Large emoji
+                Text(
+                    text = theme.emoji,
+                    style = MaterialTheme.typography.displaySmall,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+                
+                // Color circles
+                Surface(
+                    shape = CircleShape,
+                    color = theme.primaryColor,
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                ) {}
+                Surface(
+                    shape = CircleShape,
+                    color = theme.secondaryColor,
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                ) {}
+                Surface(
+                    shape = CircleShape,
+                    color = theme.tertiaryColor,
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                ) {}
+            }
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = theme.displayName,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (isSelected && isEnabled) 
+                        MaterialTheme.colorScheme.onPrimaryContainer 
+                    else if (isEnabled)
+                        MaterialTheme.colorScheme.onSurface
+                    else
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = theme.description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (isSelected && isEnabled) 
+                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                    else if (isEnabled)
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    else
+                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                )
+            }
+            
+            if (isSelected && isEnabled) {
+                Icon(
+                    imageVector = Icons.Filled.CheckCircle,
+                    contentDescription = "Selected",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        }
+    }
 }

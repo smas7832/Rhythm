@@ -70,6 +70,15 @@ class AppSettings private constructor(context: Context) {
         private const val KEY_CUSTOM_FONT_PATH = "custom_font_path" // Path to imported font file
         private const val KEY_CUSTOM_FONT_FAMILY = "custom_font_family" // Display name of custom font
         
+        // Festive Theme Settings
+        private const val KEY_FESTIVE_THEME_ENABLED = "festive_theme_enabled"
+        private const val KEY_FESTIVE_THEME_SELECTED = "festive_theme_selected"
+        private const val KEY_FESTIVE_THEME_AUTO_DETECT = "festive_theme_auto_detect"
+        private const val KEY_FESTIVE_THEME_SHOW_PARTICLES = "festive_theme_show_particles"
+        private const val KEY_FESTIVE_THEME_PARTICLE_INTENSITY = "festive_theme_particle_intensity"
+        private const val KEY_FESTIVE_THEME_APPLY_TO_SPLASH = "festive_theme_apply_to_splash"
+        private const val KEY_FESTIVE_THEME_APPLY_TO_MAIN_UI = "festive_theme_apply_to_main_ui"
+        
         // Library Settings
         private const val KEY_ALBUM_VIEW_TYPE = "album_view_type"
         private const val KEY_ARTIST_VIEW_TYPE = "artist_view_type"
@@ -288,6 +297,28 @@ class AppSettings private constructor(context: Context) {
     
     private val _customFontFamily = MutableStateFlow(prefs.getString(KEY_CUSTOM_FONT_FAMILY, "System") ?: "System")
     val customFontFamily: StateFlow<String> = _customFontFamily.asStateFlow()
+    
+    // Festive Theme Settings
+    private val _festiveThemeEnabled = MutableStateFlow(prefs.getBoolean(KEY_FESTIVE_THEME_ENABLED, true))
+    val festiveThemeEnabled: StateFlow<Boolean> = _festiveThemeEnabled.asStateFlow()
+    
+    private val _festiveThemeSelected = MutableStateFlow(prefs.getString(KEY_FESTIVE_THEME_SELECTED, "DIWALI") ?: "DIWALI")
+    val festiveThemeSelected: StateFlow<String> = _festiveThemeSelected.asStateFlow()
+    
+    private val _festiveThemeAutoDetect = MutableStateFlow(prefs.getBoolean(KEY_FESTIVE_THEME_AUTO_DETECT, false))
+    val festiveThemeAutoDetect: StateFlow<Boolean> = _festiveThemeAutoDetect.asStateFlow()
+    
+    private val _festiveThemeShowParticles = MutableStateFlow(prefs.getBoolean(KEY_FESTIVE_THEME_SHOW_PARTICLES, true))
+    val festiveThemeShowParticles: StateFlow<Boolean> = _festiveThemeShowParticles.asStateFlow()
+    
+    private val _festiveThemeParticleIntensity = MutableStateFlow(prefs.getFloat(KEY_FESTIVE_THEME_PARTICLE_INTENSITY, 0.7f))
+    val festiveThemeParticleIntensity: StateFlow<Float> = _festiveThemeParticleIntensity.asStateFlow()
+    
+    private val _festiveThemeApplyToSplash = MutableStateFlow(prefs.getBoolean(KEY_FESTIVE_THEME_APPLY_TO_SPLASH, true))
+    val festiveThemeApplyToSplash: StateFlow<Boolean> = _festiveThemeApplyToSplash.asStateFlow()
+    
+    private val _festiveThemeApplyToMainUI = MutableStateFlow(prefs.getBoolean(KEY_FESTIVE_THEME_APPLY_TO_MAIN_UI, true))
+    val festiveThemeApplyToMainUI: StateFlow<Boolean> = _festiveThemeApplyToMainUI.asStateFlow()
     
     // Library Settings
     private val _albumViewType = MutableStateFlow(
@@ -820,6 +851,42 @@ class AppSettings private constructor(context: Context) {
     fun setCustomFontFamily(family: String) {
         prefs.edit().putString(KEY_CUSTOM_FONT_FAMILY, family).apply()
         _customFontFamily.value = family
+    }
+    
+    // Festive Theme Methods
+    fun setFestiveThemeEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_FESTIVE_THEME_ENABLED, enabled).apply()
+        _festiveThemeEnabled.value = enabled
+    }
+    
+    fun setFestiveThemeSelected(theme: String) {
+        prefs.edit().putString(KEY_FESTIVE_THEME_SELECTED, theme).apply()
+        _festiveThemeSelected.value = theme
+    }
+    
+    fun setFestiveThemeAutoDetect(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_FESTIVE_THEME_AUTO_DETECT, enabled).apply()
+        _festiveThemeAutoDetect.value = enabled
+    }
+    
+    fun setFestiveThemeShowParticles(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_FESTIVE_THEME_SHOW_PARTICLES, enabled).apply()
+        _festiveThemeShowParticles.value = enabled
+    }
+    
+    fun setFestiveThemeParticleIntensity(intensity: Float) {
+        prefs.edit().putFloat(KEY_FESTIVE_THEME_PARTICLE_INTENSITY, intensity).apply()
+        _festiveThemeParticleIntensity.value = intensity
+    }
+    
+    fun setFestiveThemeApplyToSplash(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_FESTIVE_THEME_APPLY_TO_SPLASH, enabled).apply()
+        _festiveThemeApplyToSplash.value = enabled
+    }
+    
+    fun setFestiveThemeApplyToMainUI(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_FESTIVE_THEME_APPLY_TO_MAIN_UI, enabled).apply()
+        _festiveThemeApplyToMainUI.value = enabled
     }
     
     // Library Settings Methods

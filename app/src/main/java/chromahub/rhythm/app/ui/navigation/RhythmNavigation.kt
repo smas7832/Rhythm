@@ -651,815 +651,274 @@ fun RhythmNavigation(
                 }
             }
         ) { paddingValues ->
-            NavHost(
-                navController = navController,
-                startDestination = Screen.Home.route,
-                modifier = Modifier
-                    .padding(LocalMiniPlayerPadding.current)
-            ) {
-                composable(
-                    route = Screen.Home.route,
-                    enterTransition = {
-                        when {
-                            initialState.destination.route?.startsWith("library") == true -> {
-                                // Horizontal slide animation when coming from Library
-                                fadeIn(animationSpec = tween(300)) +
-                                        slideInHorizontally(
-                                            initialOffsetX = { -it },
-                                            animationSpec = tween(350, easing = EaseInOutQuart)
-                                        )
-                            }
+            // Festive decorations states
+            val festiveThemeEnabled by appSettings.festiveThemeEnabled.collectAsState()
+            val festiveThemeSelected by appSettings.festiveThemeSelected.collectAsState()
+            val festiveThemeAutoDetect by appSettings.festiveThemeAutoDetect.collectAsState()
+            val festiveThemeShowParticles by appSettings.festiveThemeShowParticles.collectAsState()
+            val festiveThemeParticleIntensity by appSettings.festiveThemeParticleIntensity.collectAsState()
+            val festiveThemeApplyToMainUI by appSettings.festiveThemeApplyToMainUI.collectAsState()
 
-                            else -> {
-                                // Default animation for other sources
-                                fadeIn(animationSpec = tween(300))
-                            }
+            // Determine active festive theme
+            val activeFestiveTheme =
+                remember(festiveThemeEnabled, festiveThemeAutoDetect, festiveThemeSelected) {
+                    if (!festiveThemeEnabled) {
+                        chromahub.rhythm.app.ui.theme.FestiveTheme.NONE
+                    } else if (festiveThemeAutoDetect) {
+                        chromahub.rhythm.app.ui.theme.FestiveTheme.detectCurrentFestival()
+                    } else {
+                        try {
+                            chromahub.rhythm.app.ui.theme.FestiveTheme.valueOf(festiveThemeSelected)
+                        } catch (e: Exception) {
+                            chromahub.rhythm.app.ui.theme.FestiveTheme.NONE
                         }
-                    },
-                    exitTransition = {
-                        when {
-                            targetState.destination.route?.startsWith("library") == true -> {
-                                // Horizontal slide animation when going to Library
-                                fadeOut(animationSpec = tween(300)) +
-                                        slideOutHorizontally(
-                                            targetOffsetX = { -it },
-                                            animationSpec = tween(350, easing = EaseInOutQuart)
-                                        )
-                            }
-
-                            else -> {
-                                // Default animation for other destinations
-                                fadeOut(animationSpec = tween(300))
-                            }
-                        }
-                    },
-                    popEnterTransition = {
-                        when {
-                            initialState.destination.route?.startsWith("library") == true -> {
-                                // Restore horizontal slide animation when popping back from Library
-                                fadeIn(animationSpec = tween(300)) +
-                                        slideInHorizontally(
-                                            initialOffsetX = { -it },
-                                            animationSpec = tween(350, easing = EaseInOutQuart)
-                                        )
-                            }
-
-                            else -> {
-                                // Simple faster fade animation when popping back from other screens
-                                fadeIn(animationSpec = tween(200))
-                            }
-                        }
-                    },
-                    popExitTransition = {
-                        // Simple faster fade animation when being popped from
-                        fadeOut(animationSpec = tween(200))
                     }
-                ) {
-                    HomeScreen(
-                        songs = songs,
-                        albums = albums,
-                        artists = artists,
-                        recentlyPlayed = recentlyPlayed,
-                        currentSong = currentSong,
-                        isPlaying = isPlaying,
-                        progress = progress,
-                        onSongClick = onPlaySong,
-                        onAlbumClick = onPlayAlbum,
-                        onArtistClick = onPlayArtist,
-                        onPlayPause = onPlayPause,
-                        onPlayerClick = {
-                            navController.navigate(Screen.Player.route)
-                        },
-                        onViewAllSongs = {
-                            // Navigate to songs screen
-                            navController.navigate(Screen.Library.createRoute(LibraryTab.SONGS)) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
-                                }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        onViewAllAlbums = {
-                            navController.navigate(Screen.Library.createRoute(LibraryTab.PLAYLISTS)) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
-                                }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        onViewAllArtists = {
-                            navController.navigate("${Screen.Library.route}?tab=artists")
-                        },
-                        onSkipNext = onSkipNext,
-                        onSearchClick = {
-                            navController.navigate(Screen.Search.route)
-                        },
-                        onSettingsClick = {
-                            // Navigate to the settings screen
-                            navController.navigate(Screen.Settings.route)
-                        },
-                        onAppUpdateClick = { autoDownload ->
-                            // Navigate to app updater with autoDownload parameter
-                            navController.navigate(Screen.AppUpdater.createRoute(autoDownload))
-                        },
-                        onNavigateToLibrary = {
-                            // Navigate to library with playlists tab selected
-                            navController.navigate(Screen.Library.createRoute(LibraryTab.PLAYLISTS)) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
-                                }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        onNavigateToPlaylist = { playlistId ->
-                            // Navigate to the specified playlist
-                            // For "favorites", we'll use the ID "1" which is the favorites playlist
-                            val id = if (playlistId == "favorites") "1" else playlistId
-                            navController.navigate(Screen.PlaylistDetail.createRoute(id))
-                        },
-                        onAddToQueue = { song ->
-                            viewModel.addSongToQueue(song)
-                        },
-                        onAddSongToPlaylist = { song, playlistId ->
-                            viewModel.addSongToPlaylist(song, playlistId) { message ->
-                                coroutineScope.launch {
-                                    snackbarHostState.showSnackbar(message)
-                                }
-                            }
-                        }
-                    )
                 }
 
-                composable(
-                    Screen.Search.route,
-                    enterTransition = {
-                        fadeIn(animationSpec = tween(350)) +
-                                scaleIn(
-                                    initialScale = 0.85f,
-                                    animationSpec = tween(400, easing = EaseOutQuint)
-                                )
-                    },
-                    exitTransition = {
-                        fadeOut(animationSpec = tween(350)) +
-                                scaleOut(
-                                    targetScale = 0.85f,
-                                    animationSpec = tween(300, easing = EaseInOutQuart)
-                                )
-                    },
-                    popEnterTransition = {
-                        fadeIn(animationSpec = tween(350)) +
-                                scaleIn(
-                                    initialScale = 0.85f,
-                                    animationSpec = tween(400, easing = EaseOutQuint)
-                                )
-                    },
-                    popExitTransition = {
-                        fadeOut(animationSpec = tween(350)) +
-                                scaleOut(
-                                    targetScale = 0.85f,
-                                    animationSpec = tween(300, easing = EaseInOutQuart)
-                                )
-                    }
+            Box(modifier = Modifier.fillMaxSize()) {
+                // Main content
+                NavHost(
+                    navController = navController,
+                    startDestination = Screen.Home.route,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(LocalMiniPlayerPadding.current)
                 ) {
-                    SearchScreen(
-                        songs = songs,
-                        albums = albums,
-                        artists = artists,
-                        playlists = playlists,
-                        currentSong = currentSong,
-                        isPlaying = isPlaying,
-                        progress = progress,
-                        onSongClick = onPlaySong,
-                        onAlbumClick = onPlayAlbum,
-                        onArtistClick = onPlayArtist,
-                        onPlaylistClick = { playlist ->
-                            // Navigate to playlist detail screen
-                            navController.navigate(Screen.PlaylistDetail.createRoute(playlist.id))
-                        },
-                        onPlayPause = onPlayPause,
-                        onPlayerClick = {
-                            navController.navigate(Screen.Player.route)
-                        },
-                        onSkipNext = onSkipNext,
-                        onAddSongToPlaylist = { song, playlistId ->
-                            viewModel.addSongToPlaylist(song, playlistId) { message ->
-                                coroutineScope.launch {
-                                    snackbarHostState.showSnackbar(message)
+                    composable(
+                        route = Screen.Home.route,
+                        enterTransition = {
+                            when {
+                                initialState.destination.route?.startsWith("library") == true -> {
+                                    // Horizontal slide animation when coming from Library
+                                    fadeIn(animationSpec = tween(300)) +
+                                            slideInHorizontally(
+                                                initialOffsetX = { -it },
+                                                animationSpec = tween(350, easing = EaseInOutQuart)
+                                            )
+                                }
+
+                                else -> {
+                                    // Default animation for other sources
+                                    fadeIn(animationSpec = tween(300))
                                 }
                             }
                         },
-                        onCreatePlaylist = { name ->
-                            viewModel.createPlaylist(name)
-                        },
-                        onBack = {
-                            navController.popBackStack()
-                        }
-                    )
-                }
+                        exitTransition = {
+                            when {
+                                targetState.destination.route?.startsWith("library") == true -> {
+                                    // Horizontal slide animation when going to Library
+                                    fadeOut(animationSpec = tween(300)) +
+                                            slideOutHorizontally(
+                                                targetOffsetX = { -it },
+                                                animationSpec = tween(350, easing = EaseInOutQuart)
+                                            )
+                                }
 
-                composable(
-                    Screen.Settings.route,
-                    enterTransition = {
-                        fadeIn(animationSpec = tween(350)) +
-                                scaleIn(
-                                    initialScale = 0.85f,
-                                    animationSpec = tween(400, easing = EaseOutQuint)
-                                )
-                    },
-                    exitTransition = {
-                        fadeOut(animationSpec = tween(350)) +
-                                scaleOut(
-                                    targetScale = 0.85f,
-                                    animationSpec = tween(300, easing = EaseInOutQuart)
-                                )
-                    },
-                    popEnterTransition = {
-                        fadeIn(animationSpec = tween(350)) +
-                                scaleIn(
-                                    initialScale = 0.85f,
-                                    animationSpec = tween(400, easing = EaseOutQuint)
-                                )
-                    },
-                    popExitTransition = {
-                        fadeOut(animationSpec = tween(350)) +
-                                scaleOut(
-                                    targetScale = 0.85f,
-                                    animationSpec = tween(300, easing = EaseInOutQuart)
-                                )
-                    }
-                ) {
-                    SettingsScreen(
-                        currentSong = currentSong,
-                        isPlaying = isPlaying,
-                        progress = progress,
-                        onPlayPause = onPlayPause,
-                        onPlayerClick = {
-                            navController.navigate(Screen.Player.route)
-                        },
-                        onSkipNext = onSkipNext,
-                        showLyrics = showLyrics,
-                        showOnlineOnlyLyrics = showOnlineOnlyLyrics,
-                        onShowLyricsChange = { show ->
-                            viewModel.setShowLyrics(show)
-                        },
-                        onShowOnlineOnlyLyricsChange = { onlineOnly ->
-                            @Suppress("DEPRECATION")
-                            viewModel.appSettings.setOnlineOnlyLyrics(onlineOnly)
-                        },
-                        onLyricsSourcePreferenceChange = { preference ->
-                            viewModel.setLyricsSourcePreference(preference)
-                        },
-                        onOpenSystemEqualizer = {
-                            viewModel.openSystemEqualizer()
-                        },
-                        onBack = {
-                            navController.popBackStack()
-                        },
-                        onCheckForUpdates = {
-                            // Navigate to the app updater screen
-                            navController.navigate(Screen.AppUpdater.createRoute(true))
-                        },
-                        onNavigateToAbout = {
-                            navController.navigate(Screen.About.route)
-                        }
-                    )
-                }
-
-                composable(
-                    route = Screen.About.route,
-                    enterTransition = {
-                        fadeIn(animationSpec = tween(350)) +
-                                scaleIn(
-                                    initialScale = 0.85f,
-                                    animationSpec = tween(400, easing = EaseOutQuint)
-                                )
-                    },
-                    exitTransition = {
-                        fadeOut(animationSpec = tween(350)) +
-                                scaleOut(
-                                    targetScale = 0.85f,
-                                    animationSpec = tween(300, easing = EaseInOutQuart)
-                                )
-                    },
-                    popEnterTransition = {
-                        fadeIn(animationSpec = tween(350)) +
-                                scaleIn(
-                                    initialScale = 0.85f,
-                                    animationSpec = tween(400, easing = EaseOutQuint)
-                                )
-                    },
-                    popExitTransition = {
-                        fadeOut(animationSpec = tween(350)) +
-                                scaleOut(
-                                    targetScale = 0.85f,
-                                    animationSpec = tween(300, easing = EaseInOutQuart)
-                                )
-                    }
-                ) {
-                    AboutScreen(
-                        onBack = {
-                            navController.popBackStack()
-                        },
-                        onCheckForUpdates = {
-                            navController.navigate(Screen.AppUpdater.createRoute(true))
-                        }
-                    )
-                }
-
-                composable(
-                    route = Screen.Library.route,
-                    arguments = listOf(
-                        navArgument("tab") {
-                            type = NavType.StringType
-                            defaultValue = "songs"
-                        }
-                    ),
-                    enterTransition = {
-                        when (initialState.destination.route) {
-                            Screen.Home.route -> {
-                                // Horizontal slide animation when coming from Home
-                                fadeIn(animationSpec = tween(300)) +
-                                        slideInHorizontally(
-                                            initialOffsetX = { it },
-                                            animationSpec = tween(350, easing = EaseInOutQuart)
-                                        )
-                            }
-
-                            else -> {
-                                // Default animation for other sources
-                                fadeIn(animationSpec = tween(300))
-                            }
-                        }
-                    },
-                    exitTransition = {
-                        when (targetState.destination.route) {
-                            Screen.Home.route -> {
-                                // Horizontal slide animation when going to Home
-                                fadeOut(animationSpec = tween(300)) +
-                                        slideOutHorizontally(
-                                            targetOffsetX = { it },
-                                            animationSpec = tween(350, easing = EaseInOutQuart)
-                                        )
-                            }
-
-                            else -> {
-                                // Default animation for other destinations
-                                fadeOut(animationSpec = tween(300))
-                            }
-                        }
-                    },
-                    popEnterTransition = {
-                        when (initialState.destination.route) {
-                            Screen.Home.route -> {
-                                // Restore horizontal slide animation when popping back from Home
-                                fadeIn(animationSpec = tween(300)) +
-                                        slideInHorizontally(
-                                            initialOffsetX = { it },
-                                            animationSpec = tween(350, easing = EaseInOutQuart)
-                                        )
-                            }
-
-                            else -> {
-                                // Simple faster fade animation when popping back from other screens
-                                fadeIn(animationSpec = tween(200))
-                            }
-                        }
-                    },
-                    popExitTransition = {
-                        when (targetState.destination.route) {
-                            Screen.Home.route -> {
-                                // Restore horizontal slide animation when popping back to Home
-                                fadeOut(animationSpec = tween(300)) +
-                                        slideOutHorizontally(
-                                            targetOffsetX = { it },
-                                            animationSpec = tween(350, easing = EaseInOutQuart)
-                                        )
-                            }
-
-                            else -> {
-                                // Simple faster fade animation when being popped from for other destinations
-                                fadeOut(animationSpec = tween(200))
-                            }
-                        }
-                    }
-                ) {
-                    val tabArg = it.arguments?.getString("tab") ?: "songs"
-                    val initialTab = when (tabArg) {
-                        "playlists" -> LibraryTab.PLAYLISTS
-                        "albums" -> LibraryTab.ALBUMS
-                        "artists" -> LibraryTab.ARTISTS
-                        else -> LibraryTab.SONGS
-                    }
-
-                    LibraryScreen(
-                        songs = songs,
-                        albums = albums,
-                        playlists = playlists,
-                        artists = artists,
-                        currentSong = currentSong,
-                        isPlaying = isPlaying,
-                        progress = progress,
-                        onSongClick = onPlaySong,
-                        onPlayPause = onPlayPause,
-                        onPlayerClick = {
-                            navController.navigate(Screen.Player.route)
-                        },
-                        onPlaylistClick = { playlist ->
-                            // Navigate to playlist detail screen
-                            navController.navigate(Screen.PlaylistDetail.createRoute(playlist.id))
-                        },
-                        onAddPlaylist = {
-                            // This is now handled internally with the dialog
-                        },
-                        onAlbumClick = onPlayAlbum,
-                        onArtistClick = { artist ->
-                            // Handle artist click - could navigate to artist detail or show bottom sheet
-                            // For now, we'll handle it within LibraryScreen
-                        },
-                        onAlbumShufflePlay = onPlayAlbumShuffled,
-                        onPlayQueue = { songs ->
-                            // Play queue with proper replacement
-                            viewModel.playQueue(songs)
-                        },
-                        onShuffleQueue = { songs ->
-                            // Shuffle using playShuffled to respect settings
-                            viewModel.playShuffled(songs)
-                        },
-                        onAlbumBottomSheetClick = { album ->
-                            // This will open the album bottom sheet within LibraryScreen
-                            // The LibraryScreen handles this internally now
-                        },
-                        onSort = {
-                            // Implement sort functionality
-                            viewModel.sortLibrary()
-                        },
-                        onAddSongToPlaylist = { song, playlistId ->
-                            // Add song to playlist
-                            viewModel.addSongToPlaylist(song, playlistId) { message ->
-                                coroutineScope.launch {
-                                    snackbarHostState.showSnackbar(message)
+                                else -> {
+                                    // Default animation for other destinations
+                                    fadeOut(animationSpec = tween(300))
                                 }
                             }
                         },
-                        onCreatePlaylist = { name ->
-                            viewModel.createPlaylist(name)
+                        popEnterTransition = {
+                            when {
+                                initialState.destination.route?.startsWith("library") == true -> {
+                                    // Restore horizontal slide animation when popping back from Library
+                                    fadeIn(animationSpec = tween(300)) +
+                                            slideInHorizontally(
+                                                initialOffsetX = { -it },
+                                                animationSpec = tween(350, easing = EaseInOutQuart)
+                                            )
+                                }
+
+                                else -> {
+                                    // Simple faster fade animation when popping back from other screens
+                                    fadeIn(animationSpec = tween(200))
+                                }
+                            }
                         },
-                        onRefreshClick = {
-                            viewModel.refreshLibrary()
-                        }, // Added onRefreshClick
-                        sortOrder = sortOrder,
-                        onSkipNext = onSkipNext,
-                        onAddToQueue = { song ->
-                            // Add song to queue
-                            viewModel.addSongToQueue(song)
-                        },
-                        initialTab = initialTab,
-                        musicViewModel = viewModel, // Pass musicViewModel
-                        onExportAllPlaylists = { format, includeDefault, userDirectoryUri, resultCallback ->
-                            // Export all playlists with optional user-selected directory
-                            viewModel.exportAllPlaylists(format, includeDefault, userDirectoryUri) { result ->
-                                result.fold(
-                                    onSuccess = { message ->
-                                        coroutineScope.launch {
-                                            snackbarHostState.showSnackbar(message)
-                                        }
-                                    },
-                                    onFailure = { error ->
-                                        coroutineScope.launch {
-                                            snackbarHostState.showSnackbar("Export failed: ${error.message}")
-                                        }
+                        popExitTransition = {
+                            // Simple faster fade animation when being popped from
+                            fadeOut(animationSpec = tween(200))
+                        }
+                    ) {
+                        HomeScreen(
+                            songs = songs,
+                            albums = albums,
+                            artists = artists,
+                            recentlyPlayed = recentlyPlayed,
+                            currentSong = currentSong,
+                            isPlaying = isPlaying,
+                            progress = progress,
+                            onSongClick = onPlaySong,
+                            onAlbumClick = onPlayAlbum,
+                            onArtistClick = onPlayArtist,
+                            onPlayPause = onPlayPause,
+                            onPlayerClick = {
+                                navController.navigate(Screen.Player.route)
+                            },
+                            onViewAllSongs = {
+                                // Navigate to songs screen
+                                navController.navigate(Screen.Library.createRoute(LibraryTab.SONGS)) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
                                     }
-                                )
-                                resultCallback(result)
-                            }
-                        },
-                        onImportPlaylist = { uri, resultCallback, onRestartRequired ->
-                            // Import playlist from URI with restart functionality
-                            viewModel.importPlaylist(uri, { result ->
-                                result.fold(
-                                    onSuccess = { message ->
-                                        coroutineScope.launch {
-                                            snackbarHostState.showSnackbar(message)
-                                        }
-                                    },
-                                    onFailure = { error ->
-                                        coroutineScope.launch {
-                                            snackbarHostState.showSnackbar("Import failed: ${error.message}")
-                                        }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            },
+                            onViewAllAlbums = {
+                                navController.navigate(Screen.Library.createRoute(LibraryTab.PLAYLISTS)) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
                                     }
-                                )
-                                resultCallback(result)
-                            }, onRestartRequired = {
-                                // Trigger restart dialog or function
-                                onRestartRequired?.invoke()
-                            })
-                        },
-                        onRestartApp = {
-                            viewModel.restartApp()
-                        }
-                    )
-                }
-
-                composable(
-                    route = Screen.Player.route,
-                    enterTransition = {
-                        slideInVertically(
-                            initialOffsetY = { it / 3 },  // slide in from 1/3 of the way down for smoother effect
-                            animationSpec = tween(
-                                durationMillis = 350, // slightly longer for more floaty effect
-                                easing = EaseOutQuint // smooth acceleration for floaty feel
-                            )
-                        ) + fadeIn(
-                            animationSpec = tween(
-                                durationMillis = 300,
-                                easing = EaseOutQuint
-                            )
-                        )
-                    },
-                    exitTransition = {
-                        slideOutVertically(
-                            targetOffsetY = { it / 2 },
-                            animationSpec = tween(
-                                durationMillis = 250,
-                                easing = EaseInOutQuart // smoother exit animation
-                            )
-                        ) + fadeOut(
-                            animationSpec = tween(
-                                durationMillis = 200
-                            )
-                        )
-                    },
-                    popExitTransition = {
-                        slideOutVertically(
-                            targetOffsetY = { it / 2 },
-                            animationSpec = tween(
-                                durationMillis = 250,
-                                easing = EaseInOutQuart
-                            )
-                        ) + fadeOut(
-                            animationSpec = tween(
-                                durationMillis = 200
-                            )
-                        )
-                    },
-                    popEnterTransition = {
-                        slideInVertically(
-                            initialOffsetY = { it / 3 },
-                            animationSpec = tween(
-                                durationMillis = 350,
-                                easing = EaseOutQuint
-                            )
-                        ) + fadeIn(
-                            animationSpec = tween(
-                                durationMillis = 300,
-                                easing = EaseOutQuint
-                            )
-                        )
-                    }
-                ) {
-                    val showAddToPlaylistSheet = remember { mutableStateOf(false) }
-                    val showCreatePlaylistDialog = remember { mutableStateOf(false) }
-
-                    // If we're returning from AddToPlaylist route with a song to add, show the bottom sheet
-                    LaunchedEffect(viewModel.selectedSongForPlaylist.collectAsState().value) {
-                        if (viewModel.selectedSongForPlaylist.value != null) {
-                            showAddToPlaylistSheet.value = true
-                        }
-                    }
-
-                    // Show create playlist dialog if needed
-                    if (showCreatePlaylistDialog.value) {
-                        // Get the non-delegated value of currentSong
-                        val songForDialog = currentSong
-                        if (songForDialog != null) {
-                            CreatePlaylistDialog(
-                                onDismiss = {
-                                    showCreatePlaylistDialog.value = false
-                                },
-                                onConfirm = { name ->
-                                    viewModel.createPlaylist(name)
-                                    showCreatePlaylistDialog.value = false
-                                },
-                                song = songForDialog,
-                                onConfirmWithSong = { name ->
-                                    viewModel.createPlaylist(name)
-                                    // The new playlist will be at the end of the list
-                                    val newPlaylist = viewModel.playlists.value.last()
-                                    viewModel.addSongToPlaylist(songForDialog, newPlaylist.id) { message ->
-                                        coroutineScope.launch {
-                                            snackbarHostState.showSnackbar(message)
-                                        }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            },
+                            onViewAllArtists = {
+                                navController.navigate("${Screen.Library.route}?tab=artists")
+                            },
+                            onSkipNext = onSkipNext,
+                            onSearchClick = {
+                                navController.navigate(Screen.Search.route)
+                            },
+                            onSettingsClick = {
+                                // Navigate to the settings screen
+                                navController.navigate(Screen.Settings.route)
+                            },
+                            onAppUpdateClick = { autoDownload ->
+                                // Navigate to app updater with autoDownload parameter
+                                navController.navigate(Screen.AppUpdater.createRoute(autoDownload))
+                            },
+                            onNavigateToLibrary = {
+                                // Navigate to library with playlists tab selected
+                                navController.navigate(Screen.Library.createRoute(LibraryTab.PLAYLISTS)) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
                                     }
-                                    showCreatePlaylistDialog.value = false
+                                    launchSingleTop = true
+                                    restoreState = true
                                 }
-                            )
-                        }
+                            },
+                            onNavigateToPlaylist = { playlistId ->
+                                // Navigate to the specified playlist
+                                // For "favorites", we'll use the ID "1" which is the favorites playlist
+                                val id = if (playlistId == "favorites") "1" else playlistId
+                                navController.navigate(Screen.PlaylistDetail.createRoute(id))
+                            },
+                            onAddToQueue = { song ->
+                                viewModel.addSongToQueue(song)
+                            },
+                            onAddSongToPlaylist = { song, playlistId ->
+                                viewModel.addSongToPlaylist(song, playlistId) { message ->
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar(message)
+                                    }
+                                }
+                            }
+                        )
                     }
 
-                    PlayerScreen(
-                        song = currentSong,
-                        isPlaying = isPlaying,
-                        progress = progress,
-                        location = currentDevice,
-                        queuePosition = viewModel.currentQueue.collectAsState().value.currentIndex + 1,
-                        queueTotal = viewModel.currentQueue.collectAsState().value.songs.size,
-                        onPlayPause = onPlayPause,
-                        onSkipNext = onSkipNext,
-                        onSkipPrevious = onSkipPrevious,
-                        onSeek = { position ->
-                            // Use the progress-based seekTo method directly
-                            Log.d("LyricsSeek", "Navigation onSeek - Position: $position, Duration: ${currentSong?.duration}s")
-                            viewModel.seekTo(position)
+                    composable(
+                        Screen.Search.route,
+                        enterTransition = {
+                            fadeIn(animationSpec = tween(350)) +
+                                    scaleIn(
+                                        initialScale = 0.85f,
+                                        animationSpec = tween(400, easing = EaseOutQuint)
+                                    )
                         },
-                        onLyricsSeek = onLyricsSeek,
-                        onBack = {
-                            navController.popBackStack()
+                        exitTransition = {
+                            fadeOut(animationSpec = tween(350)) +
+                                    scaleOut(
+                                        targetScale = 0.85f,
+                                        animationSpec = tween(300, easing = EaseInOutQuart)
+                                    )
                         },
-                        onLocationClick = {
-                            // Show the system output switcher dialog directly
-                            viewModel.showOutputSwitcherDialog()
+                        popEnterTransition = {
+                            fadeIn(animationSpec = tween(350)) +
+                                    scaleIn(
+                                        initialScale = 0.85f,
+                                        animationSpec = tween(400, easing = EaseOutQuint)
+                                    )
                         },
-                        onQueueClick = {
-                            // Show queue bottom sheet directly in PlayerScreen
-                            // No need to navigate to a separate screen
-                        },
-                        onToggleShuffle = {
-                            viewModel.toggleShuffle()
-                        },
-                        onToggleRepeat = {
-                            viewModel.toggleRepeatMode()
-                        },
-                        onToggleFavorite = {
-                            viewModel.toggleFavorite()
-                        },
-                        onAddToPlaylist = {
-                            currentSong?.let { song ->
-                                viewModel.setSelectedSongForPlaylist(song)
-                                showAddToPlaylistSheet.value = true
-                            }
-                        },
-                        isShuffleEnabled = isShuffleEnabled,
-                        repeatMode = repeatMode,
-                        isFavorite = isFavorite,
-                        showLyrics = showLyrics,
-                        onlineOnlyLyrics = showOnlineOnlyLyrics,
-                        lyrics = lyrics,
-                        isLoadingLyrics = isLoadingLyrics,
-                        onRetryLyrics = {
-                            viewModel.retryFetchLyrics()
-                        },
-                        volume = viewModel.volume.collectAsState().value,
-                        isMuted = viewModel.isMuted.collectAsState().value,
-                        onVolumeChange = { volume ->
-                            viewModel.setVolume(volume)
-                        },
-                        onToggleMute = {
-                            viewModel.toggleMute()
-                        },
-                        onRefreshDevices = {
-                            viewModel.startDeviceMonitoringOnDemand()
-                        },
-                        onStopDeviceMonitoring = {
-                            viewModel.stopDeviceMonitoringOnDemand()
-                        },
-                        locations = viewModel.locations.collectAsState().value,
-                        onLocationSelect = { location ->
-                            viewModel.setCurrentDevice(location)
-                        },
-                        onMaxVolume = {
-                            viewModel.maxVolume()
-                        },
-                        playlists = playlists,
-                        queue = viewModel.currentQueue.collectAsState().value.songs,
-                        onSongClick = { song ->
-                            // Play the selected song from the queue
-                            viewModel.playSong(song)
-                        },
-                        onRemoveFromQueue = { song ->
-                            viewModel.removeFromQueue(song)
-                        },
-                        onMoveQueueItem = { fromIndex, toIndex ->
-                            viewModel.moveQueueItem(fromIndex, toIndex)
-                        },
-                        onAddSongsToQueue = {
-                            // This parameter is now unused in PlayerScreen, as navigation is handled directly
-                            // within the QueueBottomSheet's onAddSongsClick.
-                            // However, keeping it here for API compatibility if needed elsewhere.
-                            viewModel.addSongsToQueue()
-                        },
-                        onNavigateToLibrary = { tab ->
-                            // Navigate to the LibraryScreen with the specified tab
-                            navController.navigate(Screen.Library.createRoute(tab)) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
-                                }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        showAddToPlaylistSheet = showAddToPlaylistSheet.value,
-                        onAddToPlaylistSheetDismiss = {
-                            showAddToPlaylistSheet.value = false
-                            viewModel.clearSelectedSongForPlaylist()
-                        },
-                        onAddSongToPlaylist = { song, playlistId ->
-                            viewModel.addSongToPlaylist(song, playlistId) { message ->
-                                coroutineScope.launch {
-                                    snackbarHostState.showSnackbar(message)
-                                }
-                            }
-                        },
-                        onCreatePlaylist = { name ->
-                            viewModel.createPlaylist(name)
-                        },
-                        onShowCreatePlaylistDialog = {
-                            showCreatePlaylistDialog.value = true
-                        },
-                        onClearQueue = {
-                            // TODO: Implement clearQueue method in viewModel
-                            // For now, we'll remove all songs except the current one
-                            val currentQueue = viewModel.currentQueue.value
-                            if (currentQueue.songs.size > 1) {
-                                // Remove all songs except the currently playing one
-                                val currentIndex = currentQueue.currentIndex
-                                val songsToRemove = currentQueue.songs.filterIndexed { index, _ -> 
-                                    index != currentIndex 
-                                }
-                                songsToRemove.forEach { song ->
-                                    viewModel.removeFromQueue(song)
-                                }
-                            }
-                        },
-                        // New parameters for loader control and bottom sheets
-                        isMediaLoading = viewModel.isBuffering.collectAsState().value,
-                        isSeeking = viewModel.isSeeking.collectAsState().value,
-                        onShowAlbumBottomSheet = {
-                            // This is now handled internally by the PlayerScreen
-                        },
-                        onShowArtistBottomSheet = {
-                            // This is now handled internally by the PlayerScreen
-                        },
-                        // Pass album and artist data for bottom sheets
-                        songs = viewModel.songs.collectAsState().value,
-                        albums = viewModel.albums.collectAsState().value,
-                        artists = viewModel.artists.collectAsState().value,
-                        onPlayAlbumSongs = { songs -> viewModel.playSongs(songs) },
-                        onShuffleAlbumSongs = { songs -> viewModel.playShuffled(songs) },
-                        onPlayArtistSongs = { songs -> viewModel.playSongs(songs) },
-                        onShuffleArtistSongs = { songs -> viewModel.playShuffled(songs) },
-                        appSettings = appSettings,
-                        musicViewModel = viewModel
-                    )
-                }
-
-                // Add playlist detail screen
-                @OptIn(ExperimentalMaterial3Api::class)
-                composable(
-                    route = Screen.PlaylistDetail.route,
-                    arguments = listOf(
-                        navArgument("playlistId") {
-                            type = NavType.StringType
+                        popExitTransition = {
+                            fadeOut(animationSpec = tween(350)) +
+                                    scaleOut(
+                                        targetScale = 0.85f,
+                                        animationSpec = tween(300, easing = EaseInOutQuart)
+                                    )
                         }
-                    ),
-                    // Enhanced transitions to match AboutScreen pattern
-                    enterTransition = {
-                        fadeIn(animationSpec = tween(350)) +
-                                scaleIn(
-                                    initialScale = 0.85f,
-                                    animationSpec = tween(400, easing = EaseOutQuint)
-                                )
-                    },
-                    exitTransition = {
-                        fadeOut(animationSpec = tween(350)) +
-                                scaleOut(
-                                    targetScale = 0.85f,
-                                    animationSpec = tween(300, easing = EaseInOutQuart)
-                                )
-                    },
-                    popEnterTransition = {
-                        fadeIn(animationSpec = tween(350)) +
-                                scaleIn(
-                                    initialScale = 0.85f,
-                                    animationSpec = tween(400, easing = EaseOutQuint)
-                                )
-                    },
-                    popExitTransition = {
-                        fadeOut(animationSpec = tween(350)) +
-                                scaleOut(
-                                    targetScale = 0.85f,
-                                    animationSpec = tween(300, easing = EaseInOutQuart)
-                                )
+                    ) {
+                        SearchScreen(
+                            songs = songs,
+                            albums = albums,
+                            artists = artists,
+                            playlists = playlists,
+                            currentSong = currentSong,
+                            isPlaying = isPlaying,
+                            progress = progress,
+                            onSongClick = onPlaySong,
+                            onAlbumClick = onPlayAlbum,
+                            onArtistClick = onPlayArtist,
+                            onPlaylistClick = { playlist ->
+                                // Navigate to playlist detail screen
+                                navController.navigate(Screen.PlaylistDetail.createRoute(playlist.id))
+                            },
+                            onPlayPause = onPlayPause,
+                            onPlayerClick = {
+                                navController.navigate(Screen.Player.route)
+                            },
+                            onSkipNext = onSkipNext,
+                            onAddSongToPlaylist = { song, playlistId ->
+                                viewModel.addSongToPlaylist(song, playlistId) { message ->
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar(message)
+                                    }
+                                }
+                            },
+                            onCreatePlaylist = { name ->
+                                viewModel.createPlaylist(name)
+                            },
+                            onBack = {
+                                navController.popBackStack()
+                            }
+                        )
                     }
-                ) { backStackEntry ->
-                    val playlistId = backStackEntry.arguments?.getString("playlistId") ?: ""
-                    val playlist = playlists.find { it.id == playlistId }
 
-                    if (playlist != null) {
-                        PlaylistDetailScreen(
-                            playlist = playlist,
+                    composable(
+                        Screen.Settings.route,
+                        enterTransition = {
+                            fadeIn(animationSpec = tween(350)) +
+                                    scaleIn(
+                                        initialScale = 0.85f,
+                                        animationSpec = tween(400, easing = EaseOutQuint)
+                                    )
+                        },
+                        exitTransition = {
+                            fadeOut(animationSpec = tween(350)) +
+                                    scaleOut(
+                                        targetScale = 0.85f,
+                                        animationSpec = tween(300, easing = EaseInOutQuart)
+                                    )
+                        },
+                        popEnterTransition = {
+                            fadeIn(animationSpec = tween(350)) +
+                                    scaleIn(
+                                        initialScale = 0.85f,
+                                        animationSpec = tween(400, easing = EaseOutQuint)
+                                    )
+                        },
+                        popExitTransition = {
+                            fadeOut(animationSpec = tween(350)) +
+                                    scaleOut(
+                                        targetScale = 0.85f,
+                                        animationSpec = tween(300, easing = EaseInOutQuart)
+                                    )
+                        }
+                    ) {
+                        SettingsScreen(
                             currentSong = currentSong,
                             isPlaying = isPlaying,
                             progress = progress,
@@ -1467,361 +926,994 @@ fun RhythmNavigation(
                             onPlayerClick = {
                                 navController.navigate(Screen.Player.route)
                             },
-                            onPlayAll = {
-                                onPlayPlaylist(playlist)
+                            onSkipNext = onSkipNext,
+                            showLyrics = showLyrics,
+                            showOnlineOnlyLyrics = showOnlineOnlyLyrics,
+                            onShowLyricsChange = { show ->
+                                viewModel.setShowLyrics(show)
                             },
-                            onShufflePlay = {
-                                // Play shuffled playlist songs using the proper shuffled playlist playback
-                                onPlayPlaylistShuffled(playlist)
+                            onShowOnlineOnlyLyricsChange = { onlineOnly ->
+                                @Suppress("DEPRECATION")
+                                viewModel.appSettings.setOnlineOnlyLyrics(onlineOnly)
                             },
-                            onSongClick = onPlaySong,
+                            onLyricsSourcePreferenceChange = { preference ->
+                                viewModel.setLyricsSourcePreference(preference)
+                            },
+                            onOpenSystemEqualizer = {
+                                viewModel.openSystemEqualizer()
+                            },
                             onBack = {
                                 navController.popBackStack()
                             },
-                            onRemoveSong = { song, message ->
-                                viewModel.removeSongFromPlaylist(song, playlistId) { snackbarMessage ->
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar(snackbarMessage)
-                                    }
-                                }
+                            onCheckForUpdates = {
+                                // Navigate to the app updater screen
+                                navController.navigate(Screen.AppUpdater.createRoute(true))
                             },
-                            onRenamePlaylist = { newName ->
-                                viewModel.renamePlaylist(playlistId, newName)
-                            },
-                            onDeletePlaylist = {
-                                viewModel.deletePlaylist(playlistId)
-                                navController.popBackStack()
-                            },
-                            onAddSongsToPlaylist = {
-                                // Set the target playlist ID and navigate to search screen
-                                viewModel.setTargetPlaylistForAddingSongs(playlistId)
-                                navController.navigate(Screen.AddToPlaylist.route)
-                            },
-                            onSkipNext = onSkipNext
+                            onNavigateToAbout = {
+                                navController.navigate(Screen.About.route)
+                            }
                         )
                     }
-                }
 
-                // Add to playlist screen
-                @OptIn(ExperimentalMaterial3Api::class)
-                composable(Screen.AddToPlaylist.route) {
-                    val songToAdd = viewModel.selectedSongForPlaylist.collectAsState().value
-                    val targetPlaylistId = viewModel.targetPlaylistId.collectAsState().value
+                    composable(
+                        route = Screen.About.route,
+                        enterTransition = {
+                            fadeIn(animationSpec = tween(350)) +
+                                    scaleIn(
+                                        initialScale = 0.85f,
+                                        animationSpec = tween(400, easing = EaseOutQuint)
+                                    )
+                        },
+                        exitTransition = {
+                            fadeOut(animationSpec = tween(350)) +
+                                    scaleOut(
+                                        targetScale = 0.85f,
+                                        animationSpec = tween(300, easing = EaseInOutQuart)
+                                    )
+                        },
+                        popEnterTransition = {
+                            fadeIn(animationSpec = tween(350)) +
+                                    scaleIn(
+                                        initialScale = 0.85f,
+                                        animationSpec = tween(400, easing = EaseOutQuint)
+                                    )
+                        },
+                        popExitTransition = {
+                            fadeOut(animationSpec = tween(350)) +
+                                    scaleOut(
+                                        targetScale = 0.85f,
+                                        animationSpec = tween(300, easing = EaseInOutQuart)
+                                    )
+                        }
+                    ) {
+                        AboutScreen(
+                            onBack = {
+                                navController.popBackStack()
+                            },
+                            onCheckForUpdates = {
+                                navController.navigate(Screen.AppUpdater.createRoute(true))
+                            }
+                        )
+                    }
 
-                    var searchQuery by remember { mutableStateOf("") }
-                    var showSearchBar by remember { mutableStateOf(true) }
+                    composable(
+                        route = Screen.Library.route,
+                        arguments = listOf(
+                            navArgument("tab") {
+                                type = NavType.StringType
+                                defaultValue = "songs"
+                            }
+                        ),
+                        enterTransition = {
+                            when (initialState.destination.route) {
+                                Screen.Home.route -> {
+                                    // Horizontal slide animation when coming from Home
+                                    fadeIn(animationSpec = tween(300)) +
+                                            slideInHorizontally(
+                                                initialOffsetX = { it },
+                                                animationSpec = tween(350, easing = EaseInOutQuart)
+                                            )
+                                }
 
-                    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
-
-                    // If we have a target playlist ID, we're adding songs to that playlist
-                    if (targetPlaylistId != null) {
-                        val targetPlaylist = playlists.find { it.id == targetPlaylistId }
-
-                        if (targetPlaylist != null) {
-                            // Show song selection screen
-                            val availableSongs = remember(allSongs, targetPlaylist.songs, searchQuery) {
-                                allSongs.filter { song ->
-                                    // Filter out songs that are already in the playlist
-                                    !targetPlaylist.songs.any { it.id == song.id }
-                                }.filter { song ->
-                                    // Apply search query filter
-                                    if (searchQuery.isBlank()) {
-                                        true
-                                    } else {
-                                        song.title.contains(searchQuery, ignoreCase = true) ||
-                                                song.artist.contains(searchQuery, ignoreCase = true) ||
-                                                song.album.contains(searchQuery, ignoreCase = true)
-                                    }
+                                else -> {
+                                    // Default animation for other sources
+                                    fadeIn(animationSpec = tween(300))
                                 }
                             }
-
-                            if (availableSongs.isEmpty() && searchQuery.isBlank()) {
-                                // No songs to add and no search query
-                                AlertDialog(
-                                    onDismissRequest = {
-                                        viewModel.clearTargetPlaylistForAddingSongs()
-                                        navController.popBackStack()
-                                    },
-                                    icon = {
-                                        Icon(
-                                            imageVector = Icons.Filled.Info,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary
-                                        )
-                                    },
-                                    title = { Text("No Songs Available") },
-                                    text = { Text("All songs are already in this playlist.") },
-                                    confirmButton = {
-                                        Button(onClick = {
-                                            viewModel.clearTargetPlaylistForAddingSongs()
-                                            navController.popBackStack()
-                                        }) {
-                                            Icon(
-                                                imageVector = Icons.Filled.CheckCircle,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(18.dp)
+                        },
+                        exitTransition = {
+                            when (targetState.destination.route) {
+                                Screen.Home.route -> {
+                                    // Horizontal slide animation when going to Home
+                                    fadeOut(animationSpec = tween(300)) +
+                                            slideOutHorizontally(
+                                                targetOffsetX = { it },
+                                                animationSpec = tween(350, easing = EaseInOutQuart)
                                             )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text("OK")
-                                        }
-                                    },
-                                    shape = RoundedCornerShape(24.dp)
-                                )
-                            } else {
-                                val listState = rememberLazyListState()
-
-                                LaunchedEffect(showSearchBar) {
-                                    if (showSearchBar) {
-                                        // Scroll to the top to show the search bar
-                                        listState.animateScrollToItem(0)
-                                    }
                                 }
 
-                                Scaffold(
-                                    modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-                                    topBar = {
-                                        LargeTopAppBar(
-                                            title = {
-                                                val expandedTextStyle = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold)
-                                                val collapsedTextStyle = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
+                                else -> {
+                                    // Default animation for other destinations
+                                    fadeOut(animationSpec = tween(300))
+                                }
+                            }
+                        },
+                        popEnterTransition = {
+                            when (initialState.destination.route) {
+                                Screen.Home.route -> {
+                                    // Restore horizontal slide animation when popping back from Home
+                                    fadeIn(animationSpec = tween(300)) +
+                                            slideInHorizontally(
+                                                initialOffsetX = { it },
+                                                animationSpec = tween(350, easing = EaseInOutQuart)
+                                            )
+                                }
 
-                                                val fraction = scrollBehavior.state.collapsedFraction
-                                                val currentFontSize = lerp(expandedTextStyle.fontSize, collapsedTextStyle.fontSize, fraction)
-                                                val currentFontWeight = if (fraction < 0.5f) FontWeight.Bold else FontWeight.Bold
+                                else -> {
+                                    // Simple faster fade animation when popping back from other screens
+                                    fadeIn(animationSpec = tween(200))
+                                }
+                            }
+                        },
+                        popExitTransition = {
+                            when (targetState.destination.route) {
+                                Screen.Home.route -> {
+                                    // Restore horizontal slide animation when popping back to Home
+                                    fadeOut(animationSpec = tween(300)) +
+                                            slideOutHorizontally(
+                                                targetOffsetX = { it },
+                                                animationSpec = tween(350, easing = EaseInOutQuart)
+                                            )
+                                }
 
-                                                Text(
-                                                    text = "Add to ${targetPlaylist.name}",
-                                                    style = MaterialTheme.typography.headlineSmall.copy(
-                                                        fontSize = currentFontSize,
-                                                        fontWeight = currentFontWeight
-                                                    ),
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis,
-                                                    modifier = Modifier.padding(start = 8.dp) // Added padding
+                                else -> {
+                                    // Simple faster fade animation when being popped from for other destinations
+                                    fadeOut(animationSpec = tween(200))
+                                }
+                            }
+                        }
+                    ) {
+                        val tabArg = it.arguments?.getString("tab") ?: "songs"
+                        val initialTab = when (tabArg) {
+                            "playlists" -> LibraryTab.PLAYLISTS
+                            "albums" -> LibraryTab.ALBUMS
+                            "artists" -> LibraryTab.ARTISTS
+                            else -> LibraryTab.SONGS
+                        }
+
+                        LibraryScreen(
+                            songs = songs,
+                            albums = albums,
+                            playlists = playlists,
+                            artists = artists,
+                            currentSong = currentSong,
+                            isPlaying = isPlaying,
+                            progress = progress,
+                            onSongClick = onPlaySong,
+                            onPlayPause = onPlayPause,
+                            onPlayerClick = {
+                                navController.navigate(Screen.Player.route)
+                            },
+                            onPlaylistClick = { playlist ->
+                                // Navigate to playlist detail screen
+                                navController.navigate(Screen.PlaylistDetail.createRoute(playlist.id))
+                            },
+                            onAddPlaylist = {
+                                // This is now handled internally with the dialog
+                            },
+                            onAlbumClick = onPlayAlbum,
+                            onArtistClick = { artist ->
+                                // Handle artist click - could navigate to artist detail or show bottom sheet
+                                // For now, we'll handle it within LibraryScreen
+                            },
+                            onAlbumShufflePlay = onPlayAlbumShuffled,
+                            onPlayQueue = { songs ->
+                                // Play queue with proper replacement
+                                viewModel.playQueue(songs)
+                            },
+                            onShuffleQueue = { songs ->
+                                // Shuffle using playShuffled to respect settings
+                                viewModel.playShuffled(songs)
+                            },
+                            onAlbumBottomSheetClick = { album ->
+                                // This will open the album bottom sheet within LibraryScreen
+                                // The LibraryScreen handles this internally now
+                            },
+                            onSort = {
+                                // Implement sort functionality
+                                viewModel.sortLibrary()
+                            },
+                            onAddSongToPlaylist = { song, playlistId ->
+                                // Add song to playlist
+                                viewModel.addSongToPlaylist(song, playlistId) { message ->
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar(message)
+                                    }
+                                }
+                            },
+                            onCreatePlaylist = { name ->
+                                viewModel.createPlaylist(name)
+                            },
+                            onRefreshClick = {
+                                viewModel.refreshLibrary()
+                            }, // Added onRefreshClick
+                            sortOrder = sortOrder,
+                            onSkipNext = onSkipNext,
+                            onAddToQueue = { song ->
+                                // Add song to queue
+                                viewModel.addSongToQueue(song)
+                            },
+                            initialTab = initialTab,
+                            musicViewModel = viewModel, // Pass musicViewModel
+                            onExportAllPlaylists = { format, includeDefault, userDirectoryUri, resultCallback ->
+                                // Export all playlists with optional user-selected directory
+                                viewModel.exportAllPlaylists(
+                                    format,
+                                    includeDefault,
+                                    userDirectoryUri
+                                ) { result ->
+                                    result.fold(
+                                        onSuccess = { message ->
+                                            coroutineScope.launch {
+                                                snackbarHostState.showSnackbar(message)
+                                            }
+                                        },
+                                        onFailure = { error ->
+                                            coroutineScope.launch {
+                                                snackbarHostState.showSnackbar("Export failed: ${error.message}")
+                                            }
+                                        }
+                                    )
+                                    resultCallback(result)
+                                }
+                            },
+                            onImportPlaylist = { uri, resultCallback, onRestartRequired ->
+                                // Import playlist from URI with restart functionality
+                                viewModel.importPlaylist(uri, { result ->
+                                    result.fold(
+                                        onSuccess = { message ->
+                                            coroutineScope.launch {
+                                                snackbarHostState.showSnackbar(message)
+                                            }
+                                        },
+                                        onFailure = { error ->
+                                            coroutineScope.launch {
+                                                snackbarHostState.showSnackbar("Import failed: ${error.message}")
+                                            }
+                                        }
+                                    )
+                                    resultCallback(result)
+                                }, onRestartRequired = {
+                                    // Trigger restart dialog or function
+                                    onRestartRequired?.invoke()
+                                })
+                            },
+                            onRestartApp = {
+                                viewModel.restartApp()
+                            }
+                        )
+                    }
+
+                    composable(
+                        route = Screen.Player.route,
+                        enterTransition = {
+                            slideInVertically(
+                                initialOffsetY = { it / 3 },  // slide in from 1/3 of the way down for smoother effect
+                                animationSpec = tween(
+                                    durationMillis = 350, // slightly longer for more floaty effect
+                                    easing = EaseOutQuint // smooth acceleration for floaty feel
+                                )
+                            ) + fadeIn(
+                                animationSpec = tween(
+                                    durationMillis = 300,
+                                    easing = EaseOutQuint
+                                )
+                            )
+                        },
+                        exitTransition = {
+                            slideOutVertically(
+                                targetOffsetY = { it / 2 },
+                                animationSpec = tween(
+                                    durationMillis = 250,
+                                    easing = EaseInOutQuart // smoother exit animation
+                                )
+                            ) + fadeOut(
+                                animationSpec = tween(
+                                    durationMillis = 200
+                                )
+                            )
+                        },
+                        popExitTransition = {
+                            slideOutVertically(
+                                targetOffsetY = { it / 2 },
+                                animationSpec = tween(
+                                    durationMillis = 250,
+                                    easing = EaseInOutQuart
+                                )
+                            ) + fadeOut(
+                                animationSpec = tween(
+                                    durationMillis = 200
+                                )
+                            )
+                        },
+                        popEnterTransition = {
+                            slideInVertically(
+                                initialOffsetY = { it / 3 },
+                                animationSpec = tween(
+                                    durationMillis = 350,
+                                    easing = EaseOutQuint
+                                )
+                            ) + fadeIn(
+                                animationSpec = tween(
+                                    durationMillis = 300,
+                                    easing = EaseOutQuint
+                                )
+                            )
+                        }
+                    ) {
+                        val showAddToPlaylistSheet = remember { mutableStateOf(false) }
+                        val showCreatePlaylistDialog = remember { mutableStateOf(false) }
+
+                        // If we're returning from AddToPlaylist route with a song to add, show the bottom sheet
+                        LaunchedEffect(viewModel.selectedSongForPlaylist.collectAsState().value) {
+                            if (viewModel.selectedSongForPlaylist.value != null) {
+                                showAddToPlaylistSheet.value = true
+                            }
+                        }
+
+                        // Show create playlist dialog if needed
+                        if (showCreatePlaylistDialog.value) {
+                            // Get the non-delegated value of currentSong
+                            val songForDialog = currentSong
+                            if (songForDialog != null) {
+                                CreatePlaylistDialog(
+                                    onDismiss = {
+                                        showCreatePlaylistDialog.value = false
+                                    },
+                                    onConfirm = { name ->
+                                        viewModel.createPlaylist(name)
+                                        showCreatePlaylistDialog.value = false
+                                    },
+                                    song = songForDialog,
+                                    onConfirmWithSong = { name ->
+                                        viewModel.createPlaylist(name)
+                                        // The new playlist will be at the end of the list
+                                        val newPlaylist = viewModel.playlists.value.last()
+                                        viewModel.addSongToPlaylist(
+                                            songForDialog,
+                                            newPlaylist.id
+                                        ) { message ->
+                                            coroutineScope.launch {
+                                                snackbarHostState.showSnackbar(message)
+                                            }
+                                        }
+                                        showCreatePlaylistDialog.value = false
+                                    }
+                                )
+                            }
+                        }
+
+                        PlayerScreen(
+                            song = currentSong,
+                            isPlaying = isPlaying,
+                            progress = progress,
+                            location = currentDevice,
+                            queuePosition = viewModel.currentQueue.collectAsState().value.currentIndex + 1,
+                            queueTotal = viewModel.currentQueue.collectAsState().value.songs.size,
+                            onPlayPause = onPlayPause,
+                            onSkipNext = onSkipNext,
+                            onSkipPrevious = onSkipPrevious,
+                            onSeek = { position ->
+                                // Use the progress-based seekTo method directly
+                                Log.d(
+                                    "LyricsSeek",
+                                    "Navigation onSeek - Position: $position, Duration: ${currentSong?.duration}s"
+                                )
+                                viewModel.seekTo(position)
+                            },
+                            onLyricsSeek = onLyricsSeek,
+                            onBack = {
+                                navController.popBackStack()
+                            },
+                            onLocationClick = {
+                                // Show the system output switcher dialog directly
+                                viewModel.showOutputSwitcherDialog()
+                            },
+                            onQueueClick = {
+                                // Show queue bottom sheet directly in PlayerScreen
+                                // No need to navigate to a separate screen
+                            },
+                            onToggleShuffle = {
+                                viewModel.toggleShuffle()
+                            },
+                            onToggleRepeat = {
+                                viewModel.toggleRepeatMode()
+                            },
+                            onToggleFavorite = {
+                                viewModel.toggleFavorite()
+                            },
+                            onAddToPlaylist = {
+                                currentSong?.let { song ->
+                                    viewModel.setSelectedSongForPlaylist(song)
+                                    showAddToPlaylistSheet.value = true
+                                }
+                            },
+                            isShuffleEnabled = isShuffleEnabled,
+                            repeatMode = repeatMode,
+                            isFavorite = isFavorite,
+                            showLyrics = showLyrics,
+                            onlineOnlyLyrics = showOnlineOnlyLyrics,
+                            lyrics = lyrics,
+                            isLoadingLyrics = isLoadingLyrics,
+                            onRetryLyrics = {
+                                viewModel.retryFetchLyrics()
+                            },
+                            volume = viewModel.volume.collectAsState().value,
+                            isMuted = viewModel.isMuted.collectAsState().value,
+                            onVolumeChange = { volume ->
+                                viewModel.setVolume(volume)
+                            },
+                            onToggleMute = {
+                                viewModel.toggleMute()
+                            },
+                            onRefreshDevices = {
+                                viewModel.startDeviceMonitoringOnDemand()
+                            },
+                            onStopDeviceMonitoring = {
+                                viewModel.stopDeviceMonitoringOnDemand()
+                            },
+                            locations = viewModel.locations.collectAsState().value,
+                            onLocationSelect = { location ->
+                                viewModel.setCurrentDevice(location)
+                            },
+                            onMaxVolume = {
+                                viewModel.maxVolume()
+                            },
+                            playlists = playlists,
+                            queue = viewModel.currentQueue.collectAsState().value.songs,
+                            onSongClick = { song ->
+                                // Play the selected song from the queue
+                                viewModel.playSong(song)
+                            },
+                            onRemoveFromQueue = { song ->
+                                viewModel.removeFromQueue(song)
+                            },
+                            onMoveQueueItem = { fromIndex, toIndex ->
+                                viewModel.moveQueueItem(fromIndex, toIndex)
+                            },
+                            onAddSongsToQueue = {
+                                // This parameter is now unused in PlayerScreen, as navigation is handled directly
+                                // within the QueueBottomSheet's onAddSongsClick.
+                                // However, keeping it here for API compatibility if needed elsewhere.
+                                viewModel.addSongsToQueue()
+                            },
+                            onNavigateToLibrary = { tab ->
+                                // Navigate to the LibraryScreen with the specified tab
+                                navController.navigate(Screen.Library.createRoute(tab)) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            },
+                            showAddToPlaylistSheet = showAddToPlaylistSheet.value,
+                            onAddToPlaylistSheetDismiss = {
+                                showAddToPlaylistSheet.value = false
+                                viewModel.clearSelectedSongForPlaylist()
+                            },
+                            onAddSongToPlaylist = { song, playlistId ->
+                                viewModel.addSongToPlaylist(song, playlistId) { message ->
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar(message)
+                                    }
+                                }
+                            },
+                            onCreatePlaylist = { name ->
+                                viewModel.createPlaylist(name)
+                            },
+                            onShowCreatePlaylistDialog = {
+                                showCreatePlaylistDialog.value = true
+                            },
+                            onClearQueue = {
+                                // TODO: Implement clearQueue method in viewModel
+                                // For now, we'll remove all songs except the current one
+                                val currentQueue = viewModel.currentQueue.value
+                                if (currentQueue.songs.size > 1) {
+                                    // Remove all songs except the currently playing one
+                                    val currentIndex = currentQueue.currentIndex
+                                    val songsToRemove =
+                                        currentQueue.songs.filterIndexed { index, _ ->
+                                            index != currentIndex
+                                        }
+                                    songsToRemove.forEach { song ->
+                                        viewModel.removeFromQueue(song)
+                                    }
+                                }
+                            },
+                            // New parameters for loader control and bottom sheets
+                            isMediaLoading = viewModel.isBuffering.collectAsState().value,
+                            isSeeking = viewModel.isSeeking.collectAsState().value,
+                            onShowAlbumBottomSheet = {
+                                // This is now handled internally by the PlayerScreen
+                            },
+                            onShowArtistBottomSheet = {
+                                // This is now handled internally by the PlayerScreen
+                            },
+                            // Pass album and artist data for bottom sheets
+                            songs = viewModel.songs.collectAsState().value,
+                            albums = viewModel.albums.collectAsState().value,
+                            artists = viewModel.artists.collectAsState().value,
+                            onPlayAlbumSongs = { songs -> viewModel.playSongs(songs) },
+                            onShuffleAlbumSongs = { songs -> viewModel.playShuffled(songs) },
+                            onPlayArtistSongs = { songs -> viewModel.playSongs(songs) },
+                            onShuffleArtistSongs = { songs -> viewModel.playShuffled(songs) },
+                            appSettings = appSettings,
+                            musicViewModel = viewModel
+                        )
+                    }
+
+                    // Add playlist detail screen
+                    @OptIn(ExperimentalMaterial3Api::class)
+                    composable(
+                        route = Screen.PlaylistDetail.route,
+                        arguments = listOf(
+                            navArgument("playlistId") {
+                                type = NavType.StringType
+                            }
+                        ),
+                        // Enhanced transitions to match AboutScreen pattern
+                        enterTransition = {
+                            fadeIn(animationSpec = tween(350)) +
+                                    scaleIn(
+                                        initialScale = 0.85f,
+                                        animationSpec = tween(400, easing = EaseOutQuint)
+                                    )
+                        },
+                        exitTransition = {
+                            fadeOut(animationSpec = tween(350)) +
+                                    scaleOut(
+                                        targetScale = 0.85f,
+                                        animationSpec = tween(300, easing = EaseInOutQuart)
+                                    )
+                        },
+                        popEnterTransition = {
+                            fadeIn(animationSpec = tween(350)) +
+                                    scaleIn(
+                                        initialScale = 0.85f,
+                                        animationSpec = tween(400, easing = EaseOutQuint)
+                                    )
+                        },
+                        popExitTransition = {
+                            fadeOut(animationSpec = tween(350)) +
+                                    scaleOut(
+                                        targetScale = 0.85f,
+                                        animationSpec = tween(300, easing = EaseInOutQuart)
+                                    )
+                        }
+                    ) { backStackEntry ->
+                        val playlistId = backStackEntry.arguments?.getString("playlistId") ?: ""
+                        val playlist = playlists.find { it.id == playlistId }
+
+                        if (playlist != null) {
+                            PlaylistDetailScreen(
+                                playlist = playlist,
+                                currentSong = currentSong,
+                                isPlaying = isPlaying,
+                                progress = progress,
+                                onPlayPause = onPlayPause,
+                                onPlayerClick = {
+                                    navController.navigate(Screen.Player.route)
+                                },
+                                onPlayAll = {
+                                    onPlayPlaylist(playlist)
+                                },
+                                onShufflePlay = {
+                                    // Play shuffled playlist songs using the proper shuffled playlist playback
+                                    onPlayPlaylistShuffled(playlist)
+                                },
+                                onSongClick = onPlaySong,
+                                onBack = {
+                                    navController.popBackStack()
+                                },
+                                onRemoveSong = { song, message ->
+                                    viewModel.removeSongFromPlaylist(
+                                        song,
+                                        playlistId
+                                    ) { snackbarMessage ->
+                                        coroutineScope.launch {
+                                            snackbarHostState.showSnackbar(snackbarMessage)
+                                        }
+                                    }
+                                },
+                                onRenamePlaylist = { newName ->
+                                    viewModel.renamePlaylist(playlistId, newName)
+                                },
+                                onDeletePlaylist = {
+                                    viewModel.deletePlaylist(playlistId)
+                                    navController.popBackStack()
+                                },
+                                onAddSongsToPlaylist = {
+                                    // Set the target playlist ID and navigate to search screen
+                                    viewModel.setTargetPlaylistForAddingSongs(playlistId)
+                                    navController.navigate(Screen.AddToPlaylist.route)
+                                },
+                                onSkipNext = onSkipNext
+                            )
+                        }
+                    }
+
+                    // Add to playlist screen
+                    @OptIn(ExperimentalMaterial3Api::class)
+                    composable(Screen.AddToPlaylist.route) {
+                        val songToAdd = viewModel.selectedSongForPlaylist.collectAsState().value
+                        val targetPlaylistId = viewModel.targetPlaylistId.collectAsState().value
+
+                        var searchQuery by remember { mutableStateOf("") }
+                        var showSearchBar by remember { mutableStateOf(true) }
+
+                        val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(
+                            rememberTopAppBarState()
+                        )
+
+                        // If we have a target playlist ID, we're adding songs to that playlist
+                        if (targetPlaylistId != null) {
+                            val targetPlaylist = playlists.find { it.id == targetPlaylistId }
+
+                            if (targetPlaylist != null) {
+                                // Show song selection screen
+                                val availableSongs =
+                                    remember(allSongs, targetPlaylist.songs, searchQuery) {
+                                        allSongs.filter { song ->
+                                            // Filter out songs that are already in the playlist
+                                            !targetPlaylist.songs.any { it.id == song.id }
+                                        }.filter { song ->
+                                            // Apply search query filter
+                                            if (searchQuery.isBlank()) {
+                                                true
+                                            } else {
+                                                song.title.contains(
+                                                    searchQuery,
+                                                    ignoreCase = true
+                                                ) ||
+                                                        song.artist.contains(
+                                                            searchQuery,
+                                                            ignoreCase = true
+                                                        ) ||
+                                                        song.album.contains(
+                                                            searchQuery,
+                                                            ignoreCase = true
+                                                        )
+                                            }
+                                        }
+                                    }
+
+                                if (availableSongs.isEmpty() && searchQuery.isBlank()) {
+                                    // No songs to add and no search query
+                                    AlertDialog(
+                                        onDismissRequest = {
+                                            viewModel.clearTargetPlaylistForAddingSongs()
+                                            navController.popBackStack()
+                                        },
+                                        icon = {
+                                            Icon(
+                                                imageVector = Icons.Filled.Info,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                        },
+                                        title = { Text("No Songs Available") },
+                                        text = { Text("All songs are already in this playlist.") },
+                                        confirmButton = {
+                                            Button(onClick = {
+                                                viewModel.clearTargetPlaylistForAddingSongs()
+                                                navController.popBackStack()
+                                            }) {
+                                                Icon(
+                                                    imageVector = Icons.Filled.CheckCircle,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(18.dp)
                                                 )
-                                            },
-                                            navigationIcon = {
-                                                FilledIconButton(
-                                                    onClick = {
-                                                        HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
-                                                        if (showSearchBar) {
-                                                            showSearchBar = false
-                                                            searchQuery = ""
-                                                        } else {
-                                                            viewModel.clearTargetPlaylistForAddingSongs()
-                                                            navController.popBackStack()
-                                                        }
-                                                    },
-                                                    colors = IconButtonDefaults.filledIconButtonColors(
-                                                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text("OK")
+                                            }
+                                        },
+                                        shape = RoundedCornerShape(24.dp)
+                                    )
+                                } else {
+                                    val listState = rememberLazyListState()
+
+                                    LaunchedEffect(showSearchBar) {
+                                        if (showSearchBar) {
+                                            // Scroll to the top to show the search bar
+                                            listState.animateScrollToItem(0)
+                                        }
+                                    }
+
+                                    Scaffold(
+                                        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+                                        topBar = {
+                                            LargeTopAppBar(
+                                                title = {
+                                                    val expandedTextStyle =
+                                                        MaterialTheme.typography.headlineLarge.copy(
+                                                            fontWeight = FontWeight.Bold
+                                                        )
+                                                    val collapsedTextStyle =
+                                                        MaterialTheme.typography.headlineSmall.copy(
+                                                            fontWeight = FontWeight.Bold
+                                                        )
+
+                                                    val fraction =
+                                                        scrollBehavior.state.collapsedFraction
+                                                    val currentFontSize = lerp(
+                                                        expandedTextStyle.fontSize,
+                                                        collapsedTextStyle.fontSize,
+                                                        fraction
                                                     )
-                                                ) {
-                                                    Icon(
-                                                        imageVector = if (showSearchBar) RhythmIcons.Close else RhythmIcons.Back,
-                                                        contentDescription = if (showSearchBar) "Close search" else "Back"
+                                                    val currentFontWeight =
+                                                        if (fraction < 0.5f) FontWeight.Bold else FontWeight.Bold
+
+                                                    Text(
+                                                        text = "Add to ${targetPlaylist.name}",
+                                                        style = MaterialTheme.typography.headlineSmall.copy(
+                                                            fontSize = currentFontSize,
+                                                            fontWeight = currentFontWeight
+                                                        ),
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                        modifier = Modifier.padding(start = 8.dp) // Added padding
                                                     )
-                                                }
-                                            },
-                                            actions = {
-                                                if (!showSearchBar) {
+                                                },
+                                                navigationIcon = {
                                                     FilledIconButton(
                                                         onClick = {
-                                                            HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.LongPress)
-                                                            showSearchBar = true
+                                                            HapticUtils.performHapticFeedback(
+                                                                context,
+                                                                haptic,
+                                                                HapticFeedbackType.LongPress
+                                                            )
+                                                            if (showSearchBar) {
+                                                                showSearchBar = false
+                                                                searchQuery = ""
+                                                            } else {
+                                                                viewModel.clearTargetPlaylistForAddingSongs()
+                                                                navController.popBackStack()
+                                                            }
                                                         },
                                                         colors = IconButtonDefaults.filledIconButtonColors(
-                                                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                                                         )
                                                     ) {
                                                         Icon(
-                                                            imageVector = RhythmIcons.Search,
-                                                            contentDescription = "Search songs",
-                                                            modifier = Modifier.size(20.dp)
+                                                            imageVector = if (showSearchBar) RhythmIcons.Close else RhythmIcons.Back,
+                                                            contentDescription = if (showSearchBar) "Close search" else "Back"
                                                         )
                                                     }
-                                                }
-                                            },
-                                            colors = TopAppBarDefaults.largeTopAppBarColors(
-                                                containerColor = Color.Transparent,
-                                                scrolledContainerColor = Color.Transparent
-                                            ),
-                                            scrollBehavior = scrollBehavior, // Apply scroll behavior
-                                            modifier = Modifier.padding(horizontal = 8.dp) // Added padding
-                                        )
-                                    }
-                                ) { innerPadding ->
-                                    LazyColumn(
-                                        state = listState,
-                                        modifier = Modifier
-                                            .padding(innerPadding)
-                                            .padding(horizontal = 16.dp), // Added horizontal padding
-                                        contentPadding = PaddingValues(vertical = 8.dp)
-                                    ) {
-                                        if (showSearchBar) {
-                                            item {
-                                                OutlinedTextField(
-                                                    value = searchQuery,
-                                                    onValueChange = { searchQuery = it },
-                                                    label = { Text("Search songs") },
-                                                    singleLine = true,
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .padding(vertical = 8.dp),
-                                                    shape = RoundedCornerShape(24.dp), // Added rounded corners
-                                                    trailingIcon = {
-                                                        if (searchQuery.isNotEmpty()) {
-                                                            IconButton(onClick = {
-                                                                HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
-                                                                searchQuery = ""
-                                                            }) {
-                                                                Icon(
-                                                                    imageVector = RhythmIcons.Close,
-                                                                    contentDescription = "Clear search"
+                                                },
+                                                actions = {
+                                                    if (!showSearchBar) {
+                                                        FilledIconButton(
+                                                            onClick = {
+                                                                HapticUtils.performHapticFeedback(
+                                                                    context,
+                                                                    haptic,
+                                                                    HapticFeedbackType.LongPress
                                                                 )
-                                                            }
-                                                        }
-                                                    }
-                                                )
-                                            }
-                                        }
-
-                                        if (availableSongs.isEmpty() && searchQuery.isNotEmpty()) {
-                                            item {
-                                                Column(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .padding(32.dp),
-                                                    horizontalAlignment = Alignment.CenterHorizontally
-                                                ) {
-                                                    Surface(
-                                                        modifier = Modifier.size(80.dp),
-                                                        shape = CircleShape,
-                                                        color = MaterialTheme.colorScheme.surfaceVariant,
-                                                        tonalElevation = 4.dp
-                                                    ) {
-                                                        Box(
-                                                            contentAlignment = Alignment.Center
+                                                                showSearchBar = true
+                                                            },
+                                                            colors = IconButtonDefaults.filledIconButtonColors(
+                                                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                                            )
                                                         ) {
                                                             Icon(
-                                                                imageVector = RhythmIcons.MusicNote,
-                                                                contentDescription = null,
-                                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                                modifier = Modifier.size(40.dp)
+                                                                imageVector = RhythmIcons.Search,
+                                                                contentDescription = "Search songs",
+                                                                modifier = Modifier.size(20.dp)
                                                             )
                                                         }
                                                     }
-
-                                                    Spacer(modifier = Modifier.height(24.dp))
-
-                                                    Text(
-                                                        text = "No matching songs found",
-                                                        style = MaterialTheme.typography.headlineSmall,
-                                                        fontWeight = FontWeight.Bold,
-                                                        color = MaterialTheme.colorScheme.onBackground
-                                                    )
-
-                                                    Spacer(modifier = Modifier.height(8.dp))
-
-                                                    Text(
-                                                        text = "Try a different search query",
-                                                        style = MaterialTheme.typography.bodyLarge,
-                                                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-                                                        textAlign = TextAlign.Center
+                                                },
+                                                colors = TopAppBarDefaults.largeTopAppBarColors(
+                                                    containerColor = Color.Transparent,
+                                                    scrolledContainerColor = Color.Transparent
+                                                ),
+                                                scrollBehavior = scrollBehavior, // Apply scroll behavior
+                                                modifier = Modifier.padding(horizontal = 8.dp) // Added padding
+                                            )
+                                        }
+                                    ) { innerPadding ->
+                                        LazyColumn(
+                                            state = listState,
+                                            modifier = Modifier
+                                                .padding(innerPadding)
+                                                .padding(horizontal = 16.dp), // Added horizontal padding
+                                            contentPadding = PaddingValues(vertical = 8.dp)
+                                        ) {
+                                            if (showSearchBar) {
+                                                item {
+                                                    OutlinedTextField(
+                                                        value = searchQuery,
+                                                        onValueChange = { searchQuery = it },
+                                                        label = { Text("Search songs") },
+                                                        singleLine = true,
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .padding(vertical = 8.dp),
+                                                        shape = RoundedCornerShape(24.dp), // Added rounded corners
+                                                        trailingIcon = {
+                                                            if (searchQuery.isNotEmpty()) {
+                                                                IconButton(onClick = {
+                                                                    HapticUtils.performHapticFeedback(
+                                                                        context,
+                                                                        haptic,
+                                                                        HapticFeedbackType.TextHandleMove
+                                                                    )
+                                                                    searchQuery = ""
+                                                                }) {
+                                                                    Icon(
+                                                                        imageVector = RhythmIcons.Close,
+                                                                        contentDescription = "Clear search"
+                                                                    )
+                                                                }
+                                                            }
+                                                        }
                                                     )
                                                 }
                                             }
-                                        } else {
-                                            items(availableSongs) { song ->
-                                                Surface(
-                                                    onClick = {
-                                                        HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
-                                                        viewModel.addSongToPlaylist(
-                                                            song,
-                                                            targetPlaylistId
-                                                        ) { message ->
-                                                            coroutineScope.launch {
-                                                                snackbarHostState.showSnackbar(message)
-                                                            }
-                                                        }
-                                                        // Show a snackbar or some feedback
-                                                    },
-                                                    color = MaterialTheme.colorScheme.surfaceContainer,
-                                                    shape = RoundedCornerShape(12.dp),
-                                                    tonalElevation = 1.dp,
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .padding(vertical = 4.dp) // Removed horizontal padding here as it's now on LazyColumn
-                                                ) {
-                                                    AnimateIn {
-                                                        Row(
-                                                            modifier = Modifier
-                                                                .fillMaxWidth()
-                                                                .padding(12.dp),
-                                                            verticalAlignment = Alignment.CenterVertically
+
+                                            if (availableSongs.isEmpty() && searchQuery.isNotEmpty()) {
+                                                item {
+                                                    Column(
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .padding(32.dp),
+                                                        horizontalAlignment = Alignment.CenterHorizontally
+                                                    ) {
+                                                        Surface(
+                                                            modifier = Modifier.size(80.dp),
+                                                            shape = CircleShape,
+                                                            color = MaterialTheme.colorScheme.surfaceVariant,
+                                                            tonalElevation = 4.dp
                                                         ) {
-                                                            // Album art
                                                             Box(
-                                                                modifier = Modifier
-                                                                    .size(48.dp)
-                                                                    .clip(RoundedCornerShape(8.dp))
-                                                            ) {
-                                                                AsyncImage(
-                                                                    model = song.artworkUri,
-                                                                    contentDescription = null,
-                                                                    modifier = Modifier.fillMaxSize(),
-                                                                    contentScale = ContentScale.Crop
-                                                                )
-                                                            }
-
-                                                            // Song info
-                                                            Column(
-                                                                modifier = Modifier
-                                                                    .weight(1f)
-                                                                    .padding(horizontal = 12.dp)
-                                                            ) {
-                                                                Text(
-                                                                    text = song.title,
-                                                                    style = MaterialTheme.typography.bodyLarge,
-                                                                    maxLines = 1,
-                                                                    overflow = TextOverflow.Ellipsis
-                                                                )
-
-                                                                Text(
-                                                                    text = "${song.artist} • ${song.album}",
-                                                                    style = MaterialTheme.typography.bodySmall,
-                                                                    color = MaterialTheme.colorScheme.onSurface.copy(
-                                                                        alpha = 0.7f
-                                                                    ),
-                                                                    maxLines = 1,
-                                                                    overflow = TextOverflow.Ellipsis
-                                                                )
-                                                            }
-
-                                                            // Add button
-                                                            FilledIconButton(
-                                                                onClick = {
-                                                                    HapticUtils.performHapticFeedback(context, haptic, HapticFeedbackType.TextHandleMove)
-                                                                    viewModel.addSongToPlaylist(
-                                                                        song,
-                                                                        targetPlaylistId
-                                                                    ) { message ->
-                                                                        coroutineScope.launch {
-                                                                            snackbarHostState.showSnackbar(message)
-                                                                        }
-                                                                    }
-                                                                    // Show a snackbar or some feedback
-                                                                },
-                                                                colors = IconButtonDefaults.filledIconButtonColors(
-                                                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                                                )
+                                                                contentAlignment = Alignment.Center
                                                             ) {
                                                                 Icon(
-                                                                    imageVector = RhythmIcons.Add,
-                                                                    contentDescription = "Add to playlist"
+                                                                    imageVector = RhythmIcons.MusicNote,
+                                                                    contentDescription = null,
+                                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                                    modifier = Modifier.size(40.dp)
                                                                 )
+                                                            }
+                                                        }
+
+                                                        Spacer(modifier = Modifier.height(24.dp))
+
+                                                        Text(
+                                                            text = "No matching songs found",
+                                                            style = MaterialTheme.typography.headlineSmall,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = MaterialTheme.colorScheme.onBackground
+                                                        )
+
+                                                        Spacer(modifier = Modifier.height(8.dp))
+
+                                                        Text(
+                                                            text = "Try a different search query",
+                                                            style = MaterialTheme.typography.bodyLarge,
+                                                            color = MaterialTheme.colorScheme.onBackground.copy(
+                                                                alpha = 0.7f
+                                                            ),
+                                                            textAlign = TextAlign.Center
+                                                        )
+                                                    }
+                                                }
+                                            } else {
+                                                items(availableSongs) { song ->
+                                                    Surface(
+                                                        onClick = {
+                                                            HapticUtils.performHapticFeedback(
+                                                                context,
+                                                                haptic,
+                                                                HapticFeedbackType.TextHandleMove
+                                                            )
+                                                            viewModel.addSongToPlaylist(
+                                                                song,
+                                                                targetPlaylistId
+                                                            ) { message ->
+                                                                coroutineScope.launch {
+                                                                    snackbarHostState.showSnackbar(
+                                                                        message
+                                                                    )
+                                                                }
+                                                            }
+                                                            // Show a snackbar or some feedback
+                                                        },
+                                                        color = MaterialTheme.colorScheme.surfaceContainer,
+                                                        shape = RoundedCornerShape(12.dp),
+                                                        tonalElevation = 1.dp,
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .padding(vertical = 4.dp) // Removed horizontal padding here as it's now on LazyColumn
+                                                    ) {
+                                                        AnimateIn {
+                                                            Row(
+                                                                modifier = Modifier
+                                                                    .fillMaxWidth()
+                                                                    .padding(12.dp),
+                                                                verticalAlignment = Alignment.CenterVertically
+                                                            ) {
+                                                                // Album art
+                                                                Box(
+                                                                    modifier = Modifier
+                                                                        .size(48.dp)
+                                                                        .clip(RoundedCornerShape(8.dp))
+                                                                ) {
+                                                                    AsyncImage(
+                                                                        model = song.artworkUri,
+                                                                        contentDescription = null,
+                                                                        modifier = Modifier.fillMaxSize(),
+                                                                        contentScale = ContentScale.Crop
+                                                                    )
+                                                                }
+
+                                                                // Song info
+                                                                Column(
+                                                                    modifier = Modifier
+                                                                        .weight(1f)
+                                                                        .padding(horizontal = 12.dp)
+                                                                ) {
+                                                                    Text(
+                                                                        text = song.title,
+                                                                        style = MaterialTheme.typography.bodyLarge,
+                                                                        maxLines = 1,
+                                                                        overflow = TextOverflow.Ellipsis
+                                                                    )
+
+                                                                    Text(
+                                                                        text = "${song.artist} • ${song.album}",
+                                                                        style = MaterialTheme.typography.bodySmall,
+                                                                        color = MaterialTheme.colorScheme.onSurface.copy(
+                                                                            alpha = 0.7f
+                                                                        ),
+                                                                        maxLines = 1,
+                                                                        overflow = TextOverflow.Ellipsis
+                                                                    )
+                                                                }
+
+                                                                // Add button
+                                                                FilledIconButton(
+                                                                    onClick = {
+                                                                        HapticUtils.performHapticFeedback(
+                                                                            context,
+                                                                            haptic,
+                                                                            HapticFeedbackType.TextHandleMove
+                                                                        )
+                                                                        viewModel.addSongToPlaylist(
+                                                                            song,
+                                                                            targetPlaylistId
+                                                                        ) { message ->
+                                                                            coroutineScope.launch {
+                                                                                snackbarHostState.showSnackbar(
+                                                                                    message
+                                                                                )
+                                                                            }
+                                                                        }
+                                                                        // Show a snackbar or some feedback
+                                                                    },
+                                                                    colors = IconButtonDefaults.filledIconButtonColors(
+                                                                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                                                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                                                    )
+                                                                ) {
+                                                                    Icon(
+                                                                        imageVector = RhythmIcons.Add,
+                                                                        contentDescription = "Add to playlist"
+                                                                    )
+                                                                }
                                                             }
                                                         }
                                                     }
@@ -1830,121 +1922,139 @@ fun RhythmNavigation(
                                         }
                                     }
                                 }
+                            } else {
+                                // Playlist not found, go back
+                                LaunchedEffect(Unit) {
+                                    viewModel.clearTargetPlaylistForAddingSongs()
+                                    navController.popBackStack()
+                                }
+                            }
+                        }
+                        // If we have a song to add (from Player or Search), we're adding it to a playlist
+                        else if (songToAdd != null) {
+                            // Use a simpler approach without the bottom sheet state
+                            var showCreatePlaylistDialog by remember { mutableStateOf(false) }
+
+                            if (showCreatePlaylistDialog) {
+                                CreatePlaylistDialog(
+                                    onDismiss = {
+                                        showCreatePlaylistDialog = false
+                                    },
+                                    onConfirm = { name ->
+                                        viewModel.createPlaylist(name)
+                                        showCreatePlaylistDialog = false
+                                    },
+                                    song = songToAdd,
+                                    onConfirmWithSong = { name ->
+                                        viewModel.createPlaylist(name)
+                                        // The new playlist will be at the end of the list
+                                        val newPlaylist = viewModel.playlists.value.last()
+                                        viewModel.addSongToPlaylist(
+                                            songToAdd,
+                                            newPlaylist.id
+                                        ) { message ->
+                                            coroutineScope.launch {
+                                                snackbarHostState.showSnackbar(message)
+                                            }
+                                        }
+                                        viewModel.clearSelectedSongForPlaylist()
+                                        navController.popBackStack()
+                                    }
+                                )
+                            } else {
+                                // Navigate back to the player screen and show the bottom sheet there
+                                LaunchedEffect(Unit) {
+                                    navController.popBackStack()
+                                }
                             }
                         } else {
-                            // Playlist not found, go back
+                            // No song selected and no target playlist, go back
                             LaunchedEffect(Unit) {
+                                viewModel.clearSelectedSongForPlaylist()
                                 viewModel.clearTargetPlaylistForAddingSongs()
                                 navController.popBackStack()
                             }
                         }
                     }
-                    // If we have a song to add (from Player or Search), we're adding it to a playlist
-                    else if (songToAdd != null) {
-                        // Use a simpler approach without the bottom sheet state
-                        var showCreatePlaylistDialog by remember { mutableStateOf(false) }
 
-                        if (showCreatePlaylistDialog) {
-                            CreatePlaylistDialog(
-                                onDismiss = {
-                                    showCreatePlaylistDialog = false
-                                },
-                                onConfirm = { name ->
-                                    viewModel.createPlaylist(name)
-                                    showCreatePlaylistDialog = false
-                                },
-                                song = songToAdd,
-                                onConfirmWithSong = { name ->
-                                    viewModel.createPlaylist(name)
-                                    // The new playlist will be at the end of the list
-                                    val newPlaylist = viewModel.playlists.value.last()
-                                    viewModel.addSongToPlaylist(songToAdd, newPlaylist.id) { message ->
-                                        coroutineScope.launch {
-                                            snackbarHostState.showSnackbar(message)
-                                        }
-                                    }
-                                    viewModel.clearSelectedSongForPlaylist()
-                                    navController.popBackStack()
-                                }
-                            )
-                        } else {
-                            // Navigate back to the player screen and show the bottom sheet there
-                            LaunchedEffect(Unit) {
-                                navController.popBackStack()
+                    // Add App Updater screen
+                    composable(
+                        Screen.AppUpdater.route,
+                        arguments = listOf(
+                            navArgument("autoDownload") {
+                                type = NavType.BoolType
+                                defaultValue = false
                             }
+                        ),
+                        enterTransition = {
+                            fadeIn(animationSpec = tween(350)) +
+                                    scaleIn(
+                                        initialScale = 0.85f,
+                                        animationSpec = tween(400, easing = EaseOutQuint)
+                                    )
+                        },
+                        exitTransition = {
+                            fadeOut(animationSpec = tween(350)) +
+                                    scaleOut(
+                                        targetScale = 0.85f,
+                                        animationSpec = tween(300, easing = EaseInOutQuart)
+                                    )
+                        },
+                        popEnterTransition = {
+                            fadeIn(animationSpec = tween(350)) +
+                                    scaleIn(
+                                        initialScale = 0.85f,
+                                        animationSpec = tween(400, easing = EaseOutQuint)
+                                    )
+                        },
+                        popExitTransition = {
+                            fadeOut(animationSpec = tween(350)) +
+                                    scaleOut(
+                                        targetScale = 0.85f,
+                                        animationSpec = tween(300, easing = EaseInOutQuart)
+                                    )
                         }
-                    } else {
-                        // No song selected and no target playlist, go back
-                        LaunchedEffect(Unit) {
-                            viewModel.clearSelectedSongForPlaylist()
-                            viewModel.clearTargetPlaylistForAddingSongs()
-                            navController.popBackStack()
-                        }
+                    ) {
+                        val autoDownload = it.arguments?.getBoolean("autoDownload") ?: false
+
+                        AppUpdaterScreen(
+                            currentSong = currentSong,
+                            isPlaying = isPlaying,
+                            progress = progress,
+                            onPlayPause = onPlayPause,
+                            onPlayerClick = {
+                                navController.navigate(Screen.Player.route)
+                            },
+                            onSkipNext = onSkipNext,
+                            onBack = {
+                                navController.popBackStack()
+                            },
+                            onSettingsClick = {
+                                navController.navigate(Screen.Settings.route)
+                            },
+                            autoDownload = autoDownload,
+                            appSettings = appSettings
+                        )
                     }
                 }
 
-                // Add App Updater screen
-                composable(
-                    Screen.AppUpdater.route,
-                    arguments = listOf(
-                        navArgument("autoDownload") {
-                            type = NavType.BoolType
-                            defaultValue = false
-                        }
-                    ),
-                    enterTransition = {
-                        fadeIn(animationSpec = tween(350)) +
-                                scaleIn(
-                                    initialScale = 0.85f,
-                                    animationSpec = tween(400, easing = EaseOutQuint)
-                                )
-                    },
-                    exitTransition = {
-                        fadeOut(animationSpec = tween(350)) +
-                                scaleOut(
-                                    targetScale = 0.85f,
-                                    animationSpec = tween(300, easing = EaseInOutQuart)
-                                )
-                    },
-                    popEnterTransition = {
-                        fadeIn(animationSpec = tween(350)) +
-                                scaleIn(
-                                    initialScale = 0.85f,
-                                    animationSpec = tween(400, easing = EaseOutQuint)
-                                )
-                    },
-                    popExitTransition = {
-                        fadeOut(animationSpec = tween(350)) +
-                                scaleOut(
-                                    targetScale = 0.85f,
-                                    animationSpec = tween(300, easing = EaseInOutQuart)
-                                )
-                    }
-                ) {
-                    val autoDownload = it.arguments?.getBoolean("autoDownload") ?: false
-
-                    AppUpdaterScreen(
-                        currentSong = currentSong,
-                        isPlaying = isPlaying,
-                        progress = progress,
-                        onPlayPause = onPlayPause,
-                        onPlayerClick = {
-                            navController.navigate(Screen.Player.route)
-                        },
-                        onSkipNext = onSkipNext,
-                        onBack = {
-                            navController.popBackStack()
-                        },
-                        onSettingsClick = {
-                            navController.navigate(Screen.Settings.route)
-                        },
-                        autoDownload = autoDownload,
-                        appSettings = appSettings
+                // Festive decorations overlay on top of content
+                if (festiveThemeEnabled && festiveThemeApplyToMainUI && activeFestiveTheme != chromahub.rhythm.app.ui.theme.FestiveTheme.NONE) {
+                    chromahub.rhythm.app.ui.components.FestiveDecorations(
+                        config = chromahub.rhythm.app.ui.theme.FestiveThemeConfig(
+                            enabled = festiveThemeEnabled,
+                            selectedTheme = activeFestiveTheme,
+                            autoDetect = festiveThemeAutoDetect,
+                            showParticles = festiveThemeShowParticles,
+                            particleIntensity = festiveThemeParticleIntensity,
+                            applyToSplash = false,
+                            applyToMainUI = festiveThemeApplyToMainUI
+                        ),
+                        modifier = Modifier.fillMaxSize()
                     )
                 }
             }
         }
-        
         // Media scan loader overlay for refresh operations
         AnimatedVisibility(
             visible = isMediaScanning,

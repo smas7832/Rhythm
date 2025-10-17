@@ -56,6 +56,32 @@ fun SplashScreen(
     musicViewModel: MusicViewModel,
     onMediaScanComplete: () -> Unit = {}
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val appSettings = remember { chromahub.rhythm.app.data.AppSettings.getInstance(context) }
+    
+    // Festive theme states
+    val festiveThemeEnabled by appSettings.festiveThemeEnabled.collectAsState()
+    val festiveThemeSelected by appSettings.festiveThemeSelected.collectAsState()
+    val festiveThemeAutoDetect by appSettings.festiveThemeAutoDetect.collectAsState()
+    val festiveThemeShowParticles by appSettings.festiveThemeShowParticles.collectAsState()
+    val festiveThemeParticleIntensity by appSettings.festiveThemeParticleIntensity.collectAsState()
+    val festiveThemeApplyToSplash by appSettings.festiveThemeApplyToSplash.collectAsState()
+    
+    // Determine active festive theme
+    val activeFestiveTheme = remember(festiveThemeEnabled, festiveThemeAutoDetect, festiveThemeSelected) {
+        if (!festiveThemeEnabled) {
+            chromahub.rhythm.app.ui.theme.FestiveTheme.NONE
+        } else if (festiveThemeAutoDetect) {
+            chromahub.rhythm.app.ui.theme.FestiveTheme.detectCurrentFestival()
+        } else {
+            try {
+                chromahub.rhythm.app.ui.theme.FestiveTheme.valueOf(festiveThemeSelected)
+            } catch (e: Exception) {
+                chromahub.rhythm.app.ui.theme.FestiveTheme.NONE
+            }
+        }
+    }
+    
     val infiniteTransition = rememberInfiniteTransition(label = "splashAnimations")
     
     // Subtle breathing animation for logo
@@ -177,6 +203,22 @@ fun SplashScreen(
             },
         contentAlignment = Alignment.Center
     ) {
+        // Festive decorations overlay
+        if (festiveThemeEnabled && festiveThemeApplyToSplash && activeFestiveTheme != chromahub.rhythm.app.ui.theme.FestiveTheme.NONE) {
+            chromahub.rhythm.app.ui.components.FestiveDecorations(
+                config = chromahub.rhythm.app.ui.theme.FestiveThemeConfig(
+                    enabled = festiveThemeEnabled,
+                    selectedTheme = activeFestiveTheme,
+                    autoDetect = festiveThemeAutoDetect,
+                    showParticles = festiveThemeShowParticles,
+                    particleIntensity = festiveThemeParticleIntensity,
+                    applyToSplash = festiveThemeApplyToSplash,
+                    applyToMainUI = false
+                ),
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+        
         // Background particles using the drawable
 //        AnimatedVisibility(
 //            visible = showContent,
