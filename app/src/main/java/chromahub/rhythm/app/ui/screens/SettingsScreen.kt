@@ -422,60 +422,92 @@ fun SettingsScreen(
 
             // Audio & Playback
             SearchableSettingItem(
-                "Audio focus",
-                "Pause when other apps play audio",
+                "System Volume Control",
+                "Use device volume controls for music playback",
                 "Audio & Playback",
-                listOf("audio", "focus", "pause", "duck")
+                listOf("system", "volume", "control", "device")
             ),
             SearchableSettingItem(
-                "Skip silence",
-                "Automatically skip silent parts in audio",
+                "Show Lyrics",
+                "Display lyrics when available",
                 "Audio & Playback",
-                listOf("skip", "silence", "trim", "quiet")
+                listOf("lyrics", "show", "display", "text")
+            ),
+            SearchableSettingItem(
+                "Lyrics Source Priority",
+                "Choose which lyrics source to try first",
+                "Audio & Playback",
+                listOf("lyrics", "source", "priority", "api", "embedded", "local")
+            ),
+            SearchableSettingItem(
+                "Use ExoPlayer Shuffle",
+                "Let the media player handle shuffle",
+                "Audio & Playback",
+                listOf("exoplayer", "shuffle", "random", "media")
+            ),
+            SearchableSettingItem(
+                "Auto-add to Queue",
+                "Automatically add related songs to queue when playing",
+                "Audio & Playback",
+                listOf("auto", "queue", "add", "automatic", "related")
+            ),
+            SearchableSettingItem(
+                "Clear Queue on New Song",
+                "Clear the current queue when playing a new song directly",
+                "Audio & Playback",
+                listOf("clear", "queue", "new", "song")
+            ),
+            SearchableSettingItem(
+                "Remember Repeat Mode",
+                "Save repeat mode between app restarts",
+                "Audio & Playback",
+                listOf("repeat", "remember", "save", "persist")
+            ),
+            SearchableSettingItem(
+                "Remember Shuffle Mode",
+                "Save shuffle on/off state between app restarts",
+                "Audio & Playback",
+                listOf("shuffle", "remember", "save", "persist")
             ),
             SearchableSettingItem(
                 "Equalizer",
-                "Adjust audio frequencies",
+                "Adjust audio frequencies and sound effects",
                 "Audio & Playback",
-                listOf("equalizer", "eq", "bass", "treble", "audio")
-            ),
-            SearchableSettingItem(
-                "Audio format",
-                "Select audio quality",
-                "Audio & Playback",
-                listOf("audio", "format", "quality", "bitrate")
+                listOf("equalizer", "eq", "bass", "treble", "audio", "sound")
             ),
 
-            // Library
+            // Library & Content Display
             SearchableSettingItem(
-                "Scan Folder",
-                "Add music folders to library",
+                "Group by Album Artist",
+                "Group artists by album artist instead of track artist",
                 "Library & Content Display",
-                listOf("scan", "folder", "music", "library", "add")
+                listOf("group", "album", "artist", "collaboration")
             ),
             SearchableSettingItem(
-                "Sort Order",
-                "Change library sorting",
+                "Manage Playlists",
+                "Create, import, export and organize playlists",
                 "Library & Content Display",
-                listOf("sort", "order", "alphabetical", "date")
+                listOf("playlist", "manage", "organize", "import", "export")
             ),
             SearchableSettingItem(
                 "Tab Order",
-                "Customize library tabs",
+                "Customize library tabs order",
                 "Library & Content Display",
                 listOf("tab", "order", "library", "customize", "reorder")
             ),
             SearchableSettingItem(
-                "Show Files",
-                "Display all audio files",
+                "Media Blacklist",
+                "Block songs and folders from library",
                 "Library & Content Display",
-                listOf("files", "show", "display", "explorer")
+                listOf("blacklist", "block", "filter", "exclude", "hide")
             ),
+
+            // Storage & Cache
             SearchableSettingItem(
-                "Playlist Management",
-                "Manage playlists",
-                "Library & Content Display",
-                listOf("playlist", "manage", "organize")
+                "Manage Cache",
+                "Control cache size and automatic clearing",
+                "Storage & Cache",
+                listOf("cache", "size", "storage", "limit", "clear")
             ),
 
             // App Updates
@@ -485,53 +517,13 @@ fun SettingsScreen(
                 "App Updates",
                 listOf("update", "check", "version", "new")
             ),
-            
-            // API
-            SearchableSettingItem(
-                "API Settings",
-                "Configure API endpoints",
-                "API",
-                listOf("api", "endpoint", "server", "configure")
-            ),
 
-            // Storage & Cache
+            // About
             SearchableSettingItem(
-                "Cache Size",
-                "Set maximum cache size",
-                "Storage & Cache",
-                listOf("cache", "size", "storage", "limit")
-            ),
-            SearchableSettingItem(
-                "Clear Cache",
-                "Delete cached data",
-                "Storage & Cache",
-                listOf("clear", "cache", "delete", "clean")
-            ),
-            SearchableSettingItem(
-                "Backup & Restore",
-                "Backup app data",
-                "Storage & Cache",
-                listOf("backup", "restore", "export", "import", "data")
-            ),
-
-            // Advanced
-            SearchableSettingItem(
-                "Crash Logs",
-                "View crash history",
-                "Advanced",
-                listOf("crash", "log", "error", "debug")
-            ),
-            SearchableSettingItem(
-                "Reset Settings",
-                "Restore default settings",
-                "Advanced",
-                listOf("reset", "default", "restore", "clear")
-            ),
-            SearchableSettingItem(
+                "About Rhythm",
+                "App version and information",
                 "About",
-                "App version and info",
-                "Advanced",
-                listOf("about", "version", "info", "credits")
+                listOf("about", "version", "info", "credits", "app")
             )
         )
     }
@@ -545,10 +537,8 @@ fun SettingsScreen(
             "Audio & Playback" to 3,
             "Library & Content Display" to 4,
             "Storage & Cache" to 5,
-            "API" to 6,
-            "App Updates" to 7,
-            "Advanced" to 8,
-            "About" to 9
+            "App Updates" to 6,
+            "About" to 7
         )
     }
 

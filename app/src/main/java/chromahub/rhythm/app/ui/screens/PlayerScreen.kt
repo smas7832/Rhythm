@@ -70,6 +70,8 @@ import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Lyrics
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.BottomSheetDefaults
@@ -111,6 +113,8 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.Button
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -308,17 +312,25 @@ fun PlayerScreen(
     var showEqualizerBottomSheet by remember { mutableStateOf(false) }
     var showSleepTimerBottomSheet by remember { mutableStateOf(false) }
     var showLyricsEditorDialog by remember { mutableStateOf(false) }
+    var showPlaybackSpeedDialog by remember { mutableStateOf(false) }
+    var showChipOrderBottomSheet by remember { mutableStateOf(false) }
     val isCompactWidth = configuration.screenWidthDp < 400
     
     // Sleep timer state from ViewModel
     val sleepTimerActive by musicViewModel.sleepTimerActive.collectAsState()
     val sleepTimerRemainingSeconds by musicViewModel.sleepTimerRemainingSeconds.collectAsState()
     
+    // Playback speed state from ViewModel
+    val playbackSpeed by musicViewModel.playbackSpeed.collectAsState()
+    
     // Equalizer state from ViewModel
     val equalizerEnabled by musicViewModel.equalizerEnabled.collectAsState()
     
     // Chip visibility state
     var showChips by remember { mutableStateOf(false) }
+    
+    // Collect chip order from settings
+    val chipOrder by appSettings.playerChipOrder.collectAsState()
     
     // File picker launcher for loading lyrics directly
     val loadLyricsLauncher = rememberLauncherForActivityResult(
@@ -864,7 +876,7 @@ fun PlayerScreen(
                         }
                     }
                 },
-                actions = {
+                actions = { 
                     // Song info button
                     Box(modifier = Modifier.padding(end = 16.dp)) {
                         FilledTonalIconButton(
@@ -2368,7 +2380,7 @@ fun PlayerScreen(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                                     contentPadding = PaddingValues(horizontal = 8.dp)
                                 ) {
-                                    // Add to Playlist chip
+                                    // Add to Playlist chip (always first, not reorderable)
                                     item {
                                         var isPressed by remember { mutableStateOf(false) }
                                         val scale by animateFloatAsState(
@@ -2429,163 +2441,517 @@ fun PlayerScreen(
                                         )
                                     }
 
-                                    // Favorite chip
-                                    item {
-                                        val containerColor by animateColorAsState(
-                                            targetValue = if (isFavorite) Color.Red.copy(alpha = 0.9f) else MaterialTheme.colorScheme.surfaceVariant,
-                                            animationSpec = spring(
-                                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                                stiffness = Spring.StiffnessLow
-                                            ),
-                                            label = "favoriteChipContainerColor"
-                                        )
-                                        val labelColor by animateColorAsState(
-                                            targetValue = if (isFavorite) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                                            animationSpec = spring(
-                                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                                stiffness = Spring.StiffnessLow
-                                            ),
-                                            label = "favoriteChipLabelColor"
-                                        )
-                                        val iconColor by animateColorAsState(
-                                            targetValue = if (isFavorite) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                                            animationSpec = spring(
-                                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                                stiffness = Spring.StiffnessLow
-                                            ),
-                                            label = "favoriteChipIconColor"
-                                        )
-                                        val scale by animateFloatAsState(
-                                            targetValue = if (isFavorite) 1.05f else 1f,
-                                            animationSpec = spring(
-                                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                                stiffness = Spring.StiffnessLow
-                                            ),
-                                            label = "favoriteChipScale"
-                                        )
-
-                                        FilterChip(
-                                            selected = isFavorite,
-                                            onClick = {
-                                                HapticUtils.performHapticFeedback(
-                                                    context,
-                                                    haptic,
-                                                    HapticFeedbackType.LongPress
-                                                )
-                                                onToggleFavorite()
-                                            },
-                                            label = {
-                                                Text(
-                                                    "Favorite",
-                                                    style = MaterialTheme.typography.labelLarge
-                                                )
-                                            },
-                                            leadingIcon = {
-                                                Icon(
-                                                    imageVector = if (isFavorite) RhythmIcons.FavoriteFilled else RhythmIcons.Favorite,
-                                                    contentDescription = "Toggle favorite",
-                                                    modifier = Modifier.size(16.dp) // Reduced icon size
-                                                )
-                                            },
-                                            modifier = Modifier
-                                                .height(32.dp) // Reduced height
-                                                .graphicsLayer {
-                                                    scaleX = scale
-                                                    scaleY = scale
-                                                },
-                                            shape = RoundedCornerShape(16.dp), // Adjusted shape for smaller size
-                                            colors = FilterChipDefaults.filterChipColors(
-                                                containerColor = containerColor,
-                                                labelColor = labelColor,
-                                                iconColor = iconColor,
-                                                selectedContainerColor = containerColor,
-                                                selectedLabelColor = labelColor,
-                                                selectedLeadingIconColor = iconColor
-                                            ),
-                                            border = null // Removed border
-                                        )
-                                    }
-
-                                    // Equalizer chip
-                                    item {
-                                        var isPressed by remember { mutableStateOf(false) }
-                                        val scale by animateFloatAsState(
-                                            targetValue = if (isPressed) 0.95f else 1f,
-                                            animationSpec = spring(
-                                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                                stiffness = Spring.StiffnessLow
-                                            ),
-                                            label = "equalizerChipScale"
-                                        )
-                                        AssistChip(
-                                            onClick = {
-                                                HapticUtils.performHapticFeedback(
-                                                    context,
-                                                    haptic,
-                                                    HapticFeedbackType.LongPress
-                                                )
-                                                showEqualizerBottomSheet = true
-                                            },
-                                            label = {
-                                                Text(
-                                                    if (equalizerEnabled) "EQ ON" else "EQ OFF",
-                                                    style = MaterialTheme.typography.labelLarge,
-                                                    fontWeight = if (equalizerEnabled) FontWeight.SemiBold else FontWeight.Normal
-                                                )
-                                            },
-                                            leadingIcon = {
-                                                Icon(
-                                                    imageVector = if (equalizerEnabled) Icons.Default.GraphicEq else Icons.Default.GraphicEq,
-                                                    contentDescription = if (equalizerEnabled) "Equalizer enabled" else "Equalizer disabled",
-                                                    modifier = Modifier.size(16.dp),
-                                                    tint = if (equalizerEnabled)
-                                                        MaterialTheme.colorScheme.primary
-                                                    else
-                                                        MaterialTheme.colorScheme.onSurface.copy(
-                                                            alpha = 0.6f
-                                                        )
-                                                )
-                                            },
-                                            colors = AssistChipDefaults.assistChipColors(
-                                                containerColor = if (equalizerEnabled)
-                                                    MaterialTheme.colorScheme.primaryContainer.copy(
-                                                        alpha = 0.8f
-                                                    )
-                                                else
-                                                    MaterialTheme.colorScheme.surfaceVariant.copy(
-                                                        alpha = 0.7f
+                                    // Dynamic reorderable chips based on chipOrder
+                                    items(
+                                        items = chipOrder,
+                                        key = { it }
+                                    ) { chipId ->
+                                        when (chipId) {
+                                            "FAVORITE" -> {
+                                                val containerColor by animateColorAsState(
+                                                    targetValue = if (isFavorite) Color.Red.copy(alpha = 0.9f) else MaterialTheme.colorScheme.surfaceVariant,
+                                                    animationSpec = spring(
+                                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                        stiffness = Spring.StiffnessLow
                                                     ),
-                                                labelColor = if (equalizerEnabled)
-                                                    MaterialTheme.colorScheme.onPrimaryContainer
-                                                else
-                                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                                                        alpha = 0.8f
-                                                    )
-                                            ),
-                                            modifier = Modifier
-                                                .height(32.dp)
-                                                .graphicsLayer {
-                                                    scaleX = scale
-                                                    scaleY = scale
+                                                    label = "favoriteChipContainerColor"
+                                                )
+                                                val labelColor by animateColorAsState(
+                                                    targetValue = if (isFavorite) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    animationSpec = spring(
+                                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                        stiffness = Spring.StiffnessLow
+                                                    ),
+                                                    label = "favoriteChipLabelColor"
+                                                )
+                                                val iconColor by animateColorAsState(
+                                                    targetValue = if (isFavorite) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    animationSpec = spring(
+                                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                        stiffness = Spring.StiffnessLow
+                                                    ),
+                                                    label = "favoriteChipIconColor"
+                                                )
+                                                val scale by animateFloatAsState(
+                                                    targetValue = if (isFavorite) 1.05f else 1f,
+                                                    animationSpec = spring(
+                                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                        stiffness = Spring.StiffnessLow
+                                                    ),
+                                                    label = "favoriteChipScale"
+                                                )
+
+                                                FilterChip(
+                                                    selected = isFavorite,
+                                                    onClick = {
+                                                        HapticUtils.performHapticFeedback(
+                                                            context,
+                                                            haptic,
+                                                            HapticFeedbackType.LongPress
+                                                        )
+                                                        onToggleFavorite()
+                                                    },
+                                                    label = {
+                                                        Text(
+                                                            "Favorite",
+                                                            style = MaterialTheme.typography.labelLarge
+                                                        )
+                                                    },
+                                                    leadingIcon = {
+                                                        Icon(
+                                                            imageVector = if (isFavorite) RhythmIcons.FavoriteFilled else RhythmIcons.Favorite,
+                                                            contentDescription = "Toggle favorite",
+                                                            modifier = Modifier.size(16.dp) // Reduced icon size
+                                                        )
+                                                    },
+                                                    modifier = Modifier
+                                                        .height(32.dp) // Reduced height
+                                                        .graphicsLayer {
+                                                            scaleX = scale
+                                                            scaleY = scale
+                                                        },
+                                                    shape = RoundedCornerShape(16.dp), // Adjusted shape for smaller size
+                                                    colors = FilterChipDefaults.filterChipColors(
+                                                        containerColor = containerColor,
+                                                        labelColor = labelColor,
+                                                        iconColor = iconColor,
+                                                        selectedContainerColor = containerColor,
+                                                        selectedLabelColor = labelColor,
+                                                        selectedLeadingIconColor = iconColor
+                                                    ),
+                                                    border = null // Removed border
+                                                )
+                                            }
+                                            "SPEED" -> {
+                                                val containerColor by animateColorAsState(
+                                                    targetValue = if (playbackSpeed != 1.0f)
+                                                        MaterialTheme.colorScheme.tertiaryContainer
+                                                    else
+                                                        MaterialTheme.colorScheme.surfaceVariant,
+                                                    animationSpec = spring(
+                                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                        stiffness = Spring.StiffnessLow
+                                                    ),
+                                                    label = "speedChipContainerColor"
+                                                )
+                                                val labelColor by animateColorAsState(
+                                                    targetValue = if (playbackSpeed != 1.0f)
+                                                        MaterialTheme.colorScheme.onTertiaryContainer
+                                                    else
+                                                        MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    animationSpec = spring(
+                                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                        stiffness = Spring.StiffnessLow
+                                                    ),
+                                                    label = "speedChipLabelColor"
+                                                )
+                                                val iconColor by animateColorAsState(
+                                                    targetValue = if (playbackSpeed != 1.0f)
+                                                        MaterialTheme.colorScheme.onTertiaryContainer
+                                                    else
+                                                        MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    animationSpec = spring(
+                                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                        stiffness = Spring.StiffnessLow
+                                                    ),
+                                                    label = "speedChipIconColor"
+                                                )
+
+                                                AssistChip(
+                                                    onClick = {
+                                                        HapticUtils.performHapticFeedback(
+                                                            context,
+                                                            haptic,
+                                                            HapticFeedbackType.LongPress
+                                                        )
+                                                        showPlaybackSpeedDialog = true
+                                                    },
+                                                    label = {
+                                                        Text(
+                                                            if (playbackSpeed != 1.0f)
+                                                                "${String.format("%.2f", playbackSpeed)}x"
+                                                            else
+                                                                "Speed",
+                                                            style = MaterialTheme.typography.labelLarge
+                                                        )
+                                                    },
+                                                    leadingIcon = {
+                                                        Icon(
+                                                            imageVector = Icons.Filled.Speed,
+                                                            contentDescription = "Playback speed",
+                                                            modifier = Modifier.size(16.dp)
+                                                        )
+                                                    },
+                                                    modifier = Modifier.height(32.dp),
+                                                    shape = RoundedCornerShape(16.dp),
+                                                    colors = AssistChipDefaults.assistChipColors(
+                                                        containerColor = containerColor,
+                                                        labelColor = labelColor,
+                                                        leadingIconContentColor = iconColor
+                                                    ),
+                                                    border = null
+                                                )
+                                            }
+                                            "EQUALIZER" -> {
+                                                var isPressed by remember { mutableStateOf(false) }
+                                                val scale by animateFloatAsState(
+                                                    targetValue = if (isPressed) 0.95f else 1f,
+                                                    animationSpec = spring(
+                                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                        stiffness = Spring.StiffnessLow
+                                                    ),
+                                                    label = "equalizerChipScale"
+                                                )
+                                                AssistChip(
+                                                    onClick = {
+                                                        HapticUtils.performHapticFeedback(
+                                                            context,
+                                                            haptic,
+                                                            HapticFeedbackType.LongPress
+                                                        )
+                                                        showEqualizerBottomSheet = true
+                                                    },
+                                                    label = {
+                                                        Text(
+                                                            if (equalizerEnabled) "EQ ON" else "EQ OFF",
+                                                            style = MaterialTheme.typography.labelLarge,
+                                                            fontWeight = if (equalizerEnabled) FontWeight.SemiBold else FontWeight.Normal
+                                                        )
+                                                    },
+                                                    leadingIcon = {
+                                                        Icon(
+                                                            imageVector = if (equalizerEnabled) Icons.Default.GraphicEq else Icons.Default.GraphicEq,
+                                                            contentDescription = if (equalizerEnabled) "Equalizer enabled" else "Equalizer disabled",
+                                                            modifier = Modifier.size(16.dp),
+                                                            tint = if (equalizerEnabled)
+                                                                MaterialTheme.colorScheme.primary
+                                                            else
+                                                                MaterialTheme.colorScheme.onSurface.copy(
+                                                                    alpha = 0.6f
+                                                                )
+                                                        )
+                                                    },
+                                                    colors = AssistChipDefaults.assistChipColors(
+                                                        containerColor = if (equalizerEnabled)
+                                                            MaterialTheme.colorScheme.primaryContainer.copy(
+                                                                alpha = 0.8f
+                                                            )
+                                                        else
+                                                            MaterialTheme.colorScheme.surfaceVariant.copy(
+                                                                alpha = 0.7f
+                                                            ),
+                                                        labelColor = if (equalizerEnabled)
+                                                            MaterialTheme.colorScheme.onPrimaryContainer
+                                                        else
+                                                            MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                                                alpha = 0.8f
+                                                            )
+                                                    ),
+                                                    modifier = Modifier
+                                                        .height(32.dp)
+                                                        .graphicsLayer {
+                                                            scaleX = scale
+                                                            scaleY = scale
+                                                        }
+                                                        .pointerInput(Unit) {
+                                                            detectTapGestures(
+                                                                onPress = {
+                                                                    isPressed = true
+                                                                    try {
+                                                                        awaitRelease()
+                                                                    } finally {
+                                                                        isPressed = false
+                                                                    }
+                                                                }
+                                                            )
+                                                        },
+                                                    shape = RoundedCornerShape(16.dp),
+                                                    border = null
+                                                )
+                                            }
+                                            "SLEEP_TIMER" -> {
+                                                var isPressed by remember { mutableStateOf(false) }
+                                                val scale by animateFloatAsState(
+                                                    targetValue = if (isPressed) 0.95f else 1f,
+                                                    animationSpec = spring(
+                                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                        stiffness = Spring.StiffnessLow
+                                                    ),
+                                                    label = "sleepTimerChipScale"
+                                                )
+
+                                                val timerText = if (sleepTimerActive) {
+                                                    val minutes = sleepTimerRemainingSeconds / 60
+                                                    val seconds = sleepTimerRemainingSeconds % 60
+                                                    "${minutes}:${seconds.toString().padStart(2, '0')}"
+                                                } else {
+                                                    "Timer"
                                                 }
-                                                .pointerInput(Unit) {
-                                                    detectTapGestures(
-                                                        onPress = {
-                                                            isPressed = true
-                                                            try {
-                                                                awaitRelease()
-                                                            } finally {
-                                                                isPressed = false
+
+                                                val chipColors = if (sleepTimerActive) {
+                                                    AssistChipDefaults.assistChipColors(
+                                                        containerColor = MaterialTheme.colorScheme.primary.copy(
+                                                            alpha = 0.12f
+                                                        ),
+                                                        labelColor = MaterialTheme.colorScheme.primary,
+                                                        leadingIconContentColor = MaterialTheme.colorScheme.primary
+                                                    )
+                                                } else {
+                                                    AssistChipDefaults.assistChipColors(
+                                                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                                        labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        leadingIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                }
+
+                                                AssistChip(
+                                                    onClick = {
+                                                        HapticUtils.performHapticFeedback(
+                                                            context,
+                                                            haptic,
+                                                            HapticFeedbackType.LongPress
+                                                        )
+                                                        showSleepTimerBottomSheet = true
+                                                    },
+                                                    label = {
+                                                        Text(
+                                                            text = timerText,
+                                                            style = MaterialTheme.typography.labelLarge
+                                                        )
+                                                    },
+                                                    leadingIcon = {
+                                                        Icon(
+                                                            imageVector = if (sleepTimerActive) Icons.Rounded.AccessTime else Icons.Default.AccessTime,
+                                                            contentDescription = if (sleepTimerActive) "Active sleep timer" else "Set sleep timer",
+                                                            modifier = Modifier.size(16.dp)
+                                                        )
+                                                    },
+                                                    modifier = Modifier
+                                                        .height(32.dp)
+                                                        .graphicsLayer {
+                                                            scaleX = scale
+                                                            scaleY = scale
+                                                        }
+                                                        .pointerInput(Unit) {
+                                                            detectTapGestures(
+                                                                onPress = {
+                                                                    isPressed = true
+                                                                    try {
+                                                                        awaitRelease()
+                                                                    } finally {
+                                                                        isPressed = false
+                                                                    }
+                                                                }
+                                                            )
+                                                        },
+                                                    shape = RoundedCornerShape(16.dp),
+                                                    colors = chipColors,
+                                                    border = null
+                                                )
+                                            }
+                                            "LYRICS" -> {
+                                                var isPressed by remember { mutableStateOf(false) }
+                                                val scale by animateFloatAsState(
+                                                    targetValue = if (isPressed) 0.95f else 1f,
+                                                    animationSpec = spring(
+                                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                        stiffness = Spring.StiffnessLow
+                                                    ),
+                                                    label = "lyricsEditChipScale"
+                                                )
+
+                                                val hasLyrics =
+                                                    lyrics?.getBestLyrics()?.isNotEmpty() == true
+                                                // Use same colors as "Add to" chip - surfaceVariant for consistency
+                                                val chipColors = AssistChipDefaults.assistChipColors(
+                                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    leadingIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+
+                                                AssistChip(
+                                                    onClick = {
+                                                        HapticUtils.performHapticFeedback(
+                                                            context,
+                                                            haptic,
+                                                            HapticFeedbackType.LongPress
+                                                        )
+                                                        showLyricsEditorDialog = true
+                                                    },
+                                                    label = {
+                                                        Text(
+                                                            text = if (hasLyrics) "Edit Lyrics" else "Add Lyrics",
+                                                            style = MaterialTheme.typography.labelLarge
+                                                        )
+                                                    },
+                                                    leadingIcon = {
+                                                        Icon(
+                                                            imageVector = if (hasLyrics) Icons.Rounded.Edit else Icons.Rounded.Lyrics,
+                                                            contentDescription = if (hasLyrics) "Edit lyrics" else "Add lyrics",
+                                                            modifier = Modifier.size(16.dp)
+                                                        )
+                                                    },
+                                                    modifier = Modifier
+                                                        .height(32.dp)
+                                                        .graphicsLayer {
+                                                            scaleX = scale
+                                                            scaleY = scale
+                                                        }
+                                                        .pointerInput(Unit) {
+                                                            detectTapGestures(
+                                                                onPress = {
+                                                                    isPressed = true
+                                                                    try {
+                                                                        awaitRelease()
+                                                                    } finally {
+                                                                        isPressed = false
+                                                                    }
+                                                                }
+                                                            )
+                                                        },
+                                                    shape = RoundedCornerShape(16.dp),
+                                                    colors = chipColors,
+                                                    border = null
+                                                )
+                                            }
+                                            "ALBUM" -> {
+                                                var isPressed by remember { mutableStateOf(false) }
+                                                val scale by animateFloatAsState(
+                                                    targetValue = if (isPressed) 0.95f else 1f,
+                                                    animationSpec = spring(
+                                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                        stiffness = Spring.StiffnessLow
+                                                    ),
+                                                    label = "albumChipScale"
+                                                )
+                                                AssistChip(
+                                                    onClick = {
+                                                        HapticUtils.performHapticFeedback(
+                                                            context,
+                                                            haptic,
+                                                            HapticFeedbackType.LongPress
+                                                        )
+                                                        // Find the album for the current song and show bottom sheet
+                                                        song?.let { currentSong ->
+                                                            val albumForSong =
+                                                                albums.find { it.title == currentSong.album }
+                                                            albumForSong?.let {
+                                                                selectedAlbum = it
+                                                                showAlbumSheet = true
                                                             }
                                                         }
-                                                    )
-                                                },
-                                            shape = RoundedCornerShape(16.dp),
-                                            border = null
-                                        )
+                                                    },
+                                                    label = {
+                                                        Text(
+                                                            "Album",
+                                                            style = MaterialTheme.typography.labelLarge
+                                                        )
+                                                    },
+                                                    leadingIcon = {
+                                                        Icon(
+                                                            imageVector = RhythmIcons.Music.Album,
+                                                            contentDescription = "Show album",
+                                                            modifier = Modifier.size(16.dp) // Reduced icon size
+                                                        )
+                                                    },
+                                                    modifier = Modifier
+                                                        .height(32.dp) // Reduced height
+                                                        .graphicsLayer {
+                                                            scaleX = scale
+                                                            scaleY = scale
+                                                        }
+                                                        .pointerInput(Unit) {
+                                                            detectTapGestures(
+                                                                onPress = {
+                                                                    isPressed = true
+                                                                    try {
+                                                                        awaitRelease()
+                                                                    } finally {
+                                                                        isPressed = false
+                                                                    }
+                                                                }
+                                                            )
+                                                        },
+                                                    shape = RoundedCornerShape(16.dp), // Adjusted shape for smaller size
+                                                    colors = AssistChipDefaults.assistChipColors(
+                                                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                                        labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        leadingIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    ),
+                                                    border = null // Removed border
+                                                )
+                                            }
+                                            "ARTIST" -> {
+                                                var isPressed by remember { mutableStateOf(false) }
+                                                val scale by animateFloatAsState(
+                                                    targetValue = if (isPressed) 0.95f else 1f,
+                                                    animationSpec = spring(
+                                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                        stiffness = Spring.StiffnessLow
+                                                    ),
+                                                    label = "artistChipScale"
+                                                )
+                                                AssistChip(
+                                                    onClick = {
+                                                        HapticUtils.performHapticFeedback(
+                                                            context,
+                                                            haptic,
+                                                            HapticFeedbackType.LongPress
+                                                        )
+                                                        // Find the artist for the current song and show bottom sheet
+                                                        song?.let { currentSong ->
+                                                            val artistForSong =
+                                                                artists.find { it.name == currentSong.artist }
+                                                            artistForSong?.let {
+                                                                selectedArtist = it
+                                                                showArtistSheet = true
+                                                            }
+                                                        }
+                                                    },
+                                                    label = {
+                                                        Text(
+                                                            "Artist",
+                                                            style = MaterialTheme.typography.labelLarge
+                                                        )
+                                                    },
+                                                    leadingIcon = {
+                                                        Icon(
+                                                            imageVector = RhythmIcons.Music.Artist,
+                                                            contentDescription = "Show artist",
+                                                            modifier = Modifier.size(16.dp) // Reduced icon size
+                                                        )
+                                                    },
+                                                    modifier = Modifier
+                                                        .height(32.dp) // Reduced height
+                                                        .graphicsLayer {
+                                                            scaleX = scale
+                                                            scaleY = scale
+                                                        }
+                                                        .pointerInput(Unit) {
+                                                            detectTapGestures(
+                                                                onPress = {
+                                                                    isPressed = true
+                                                                    try {
+                                                                        awaitRelease()
+                                                                    } finally {
+                                                                        isPressed = false
+                                                                    }
+                                                                }
+                                                            )
+                                                        },
+                                                    shape = RoundedCornerShape(16.dp), // Adjusted shape for smaller size
+                                                    colors = AssistChipDefaults.assistChipColors(
+                                                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                                        labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        leadingIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    ),
+                                                    border = null // Removed border
+                                                )
+                                            }
+                                        }
                                     }
 
-                                    // Sleep Timer chip with status
+                                    // Edit chip for reordering (always last, not reorderable)
                                     item {
                                         var isPressed by remember { mutableStateOf(false) }
                                         val scale by animateFloatAsState(
@@ -2594,33 +2960,8 @@ fun PlayerScreen(
                                                 dampingRatio = Spring.DampingRatioMediumBouncy,
                                                 stiffness = Spring.StiffnessLow
                                             ),
-                                            label = "sleepTimerChipScale"
+                                            label = "editChipScale"
                                         )
-
-                                        val timerText = if (sleepTimerActive) {
-                                            val minutes = sleepTimerRemainingSeconds / 60
-                                            val seconds = sleepTimerRemainingSeconds % 60
-                                            "${minutes}:${seconds.toString().padStart(2, '0')}"
-                                        } else {
-                                            "Timer"
-                                        }
-
-                                        val chipColors = if (sleepTimerActive) {
-                                            AssistChipDefaults.assistChipColors(
-                                                containerColor = MaterialTheme.colorScheme.primary.copy(
-                                                    alpha = 0.12f
-                                                ),
-                                                labelColor = MaterialTheme.colorScheme.primary,
-                                                leadingIconContentColor = MaterialTheme.colorScheme.primary
-                                            )
-                                        } else {
-                                            AssistChipDefaults.assistChipColors(
-                                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                                labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                leadingIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-
                                         AssistChip(
                                             onClick = {
                                                 HapticUtils.performHapticFeedback(
@@ -2628,18 +2969,18 @@ fun PlayerScreen(
                                                     haptic,
                                                     HapticFeedbackType.LongPress
                                                 )
-                                                showSleepTimerBottomSheet = true
+                                                showChipOrderBottomSheet = true
                                             },
                                             label = {
                                                 Text(
-                                                    text = timerText,
+                                                    "Edit",
                                                     style = MaterialTheme.typography.labelLarge
                                                 )
                                             },
                                             leadingIcon = {
                                                 Icon(
-                                                    imageVector = if (sleepTimerActive) Icons.Rounded.AccessTime else Icons.Default.AccessTime,
-                                                    contentDescription = if (sleepTimerActive) "Active sleep timer" else "Set sleep timer",
+                                                    imageVector = Icons.Rounded.Edit,
+                                                    contentDescription = "Reorder chips",
                                                     modifier = Modifier.size(16.dp)
                                                 )
                                             },
@@ -2662,213 +3003,12 @@ fun PlayerScreen(
                                                     )
                                                 },
                                             shape = RoundedCornerShape(16.dp),
-                                            colors = chipColors,
-                                            border = null
-                                        )
-                                    }
-
-                                    // Lyrics Edit chip
-                                    item {
-                                        var isPressed by remember { mutableStateOf(false) }
-                                        val scale by animateFloatAsState(
-                                            targetValue = if (isPressed) 0.95f else 1f,
-                                            animationSpec = spring(
-                                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                                stiffness = Spring.StiffnessLow
-                                            ),
-                                            label = "lyricsEditChipScale"
-                                        )
-
-                                        val hasLyrics =
-                                            lyrics?.getBestLyrics()?.isNotEmpty() == true
-                                        // Use same colors as "Add to" chip - surfaceVariant for consistency
-                                        val chipColors = AssistChipDefaults.assistChipColors(
-                                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                            labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            leadingIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-
-                                        AssistChip(
-                                            onClick = {
-                                                HapticUtils.performHapticFeedback(
-                                                    context,
-                                                    haptic,
-                                                    HapticFeedbackType.LongPress
-                                                )
-                                                showLyricsEditorDialog = true
-                                            },
-                                            label = {
-                                                Text(
-                                                    text = if (hasLyrics) "Edit Lyrics" else "Add Lyrics",
-                                                    style = MaterialTheme.typography.labelLarge
-                                                )
-                                            },
-                                            leadingIcon = {
-                                                Icon(
-                                                    imageVector = if (hasLyrics) Icons.Rounded.Edit else Icons.Rounded.Lyrics,
-                                                    contentDescription = if (hasLyrics) "Edit lyrics" else "Add lyrics",
-                                                    modifier = Modifier.size(16.dp)
-                                                )
-                                            },
-                                            modifier = Modifier
-                                                .height(32.dp)
-                                                .graphicsLayer {
-                                                    scaleX = scale
-                                                    scaleY = scale
-                                                }
-                                                .pointerInput(Unit) {
-                                                    detectTapGestures(
-                                                        onPress = {
-                                                            isPressed = true
-                                                            try {
-                                                                awaitRelease()
-                                                            } finally {
-                                                                isPressed = false
-                                                            }
-                                                        }
-                                                    )
-                                                },
-                                            shape = RoundedCornerShape(16.dp),
-                                            colors = chipColors,
-                                            border = null
-                                        )
-                                    }
-
-                                    // Album chip
-                                    item {
-                                        var isPressed by remember { mutableStateOf(false) }
-                                        val scale by animateFloatAsState(
-                                            targetValue = if (isPressed) 0.95f else 1f,
-                                            animationSpec = spring(
-                                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                                stiffness = Spring.StiffnessLow
-                                            ),
-                                            label = "albumChipScale"
-                                        )
-                                        AssistChip(
-                                            onClick = {
-                                                HapticUtils.performHapticFeedback(
-                                                    context,
-                                                    haptic,
-                                                    HapticFeedbackType.LongPress
-                                                )
-                                                // Find the album for the current song and show bottom sheet
-                                                song?.let { currentSong ->
-                                                    val albumForSong =
-                                                        albums.find { it.title == currentSong.album }
-                                                    albumForSong?.let {
-                                                        selectedAlbum = it
-                                                        showAlbumSheet = true
-                                                    }
-                                                }
-                                            },
-                                            label = {
-                                                Text(
-                                                    "Album",
-                                                    style = MaterialTheme.typography.labelLarge
-                                                )
-                                            },
-                                            leadingIcon = {
-                                                Icon(
-                                                    imageVector = RhythmIcons.Music.Album,
-                                                    contentDescription = "Show album",
-                                                    modifier = Modifier.size(16.dp) // Reduced icon size
-                                                )
-                                            },
-                                            modifier = Modifier
-                                                .height(32.dp) // Reduced height
-                                                .graphicsLayer {
-                                                    scaleX = scale
-                                                    scaleY = scale
-                                                }
-                                                .pointerInput(Unit) {
-                                                    detectTapGestures(
-                                                        onPress = {
-                                                            isPressed = true
-                                                            try {
-                                                                awaitRelease()
-                                                            } finally {
-                                                                isPressed = false
-                                                            }
-                                                        }
-                                                    )
-                                                },
-                                            shape = RoundedCornerShape(16.dp), // Adjusted shape for smaller size
                                             colors = AssistChipDefaults.assistChipColors(
-                                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                                labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                leadingIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                                labelColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                leadingIconContentColor = MaterialTheme.colorScheme.onSecondaryContainer
                                             ),
-                                            border = null // Removed border
-                                        )
-                                    }
-
-                                    // Artist chip
-                                    item {
-                                        var isPressed by remember { mutableStateOf(false) }
-                                        val scale by animateFloatAsState(
-                                            targetValue = if (isPressed) 0.95f else 1f,
-                                            animationSpec = spring(
-                                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                                stiffness = Spring.StiffnessLow
-                                            ),
-                                            label = "artistChipScale"
-                                        )
-                                        AssistChip(
-                                            onClick = {
-                                                HapticUtils.performHapticFeedback(
-                                                    context,
-                                                    haptic,
-                                                    HapticFeedbackType.LongPress
-                                                )
-                                                // Find the artist for the current song and show bottom sheet
-                                                song?.let { currentSong ->
-                                                    val artistForSong =
-                                                        artists.find { it.name == currentSong.artist }
-                                                    artistForSong?.let {
-                                                        selectedArtist = it
-                                                        showArtistSheet = true
-                                                    }
-                                                }
-                                            },
-                                            label = {
-                                                Text(
-                                                    "Artist",
-                                                    style = MaterialTheme.typography.labelLarge
-                                                )
-                                            },
-                                            leadingIcon = {
-                                                Icon(
-                                                    imageVector = RhythmIcons.Music.Artist,
-                                                    contentDescription = "Show artist",
-                                                    modifier = Modifier.size(16.dp) // Reduced icon size
-                                                )
-                                            },
-                                            modifier = Modifier
-                                                .height(32.dp) // Reduced height
-                                                .graphicsLayer {
-                                                    scaleX = scale
-                                                    scaleY = scale
-                                                }
-                                                .pointerInput(Unit) {
-                                                    detectTapGestures(
-                                                        onPress = {
-                                                            isPressed = true
-                                                            try {
-                                                                awaitRelease()
-                                                            } finally {
-                                                                isPressed = false
-                                                            }
-                                                        }
-                                                    )
-                                                },
-                                            shape = RoundedCornerShape(16.dp), // Adjusted shape for smaller size
-                                            colors = AssistChipDefaults.assistChipColors(
-                                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                                labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                leadingIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                            ),
-                                            border = null // Removed border
+                                            border = null
                                         )
                                     }
 
@@ -3049,6 +3189,25 @@ fun PlayerScreen(
         )
     }
     
+    if (showPlaybackSpeedDialog) {
+        PlaybackSpeedDialog(
+            currentSpeed = playbackSpeed,
+            onDismiss = { showPlaybackSpeedDialog = false },
+            onSave = { speed ->
+                musicViewModel.setPlaybackSpeed(speed)
+                showPlaybackSpeedDialog = false
+            }
+        )
+    }
+    
+    if (showChipOrderBottomSheet) {
+        PlayerChipOrderBottomSheet(
+            onDismiss = { showChipOrderBottomSheet = false },
+            appSettings = appSettings,
+            haptics = haptic
+        )
+    }
+    
     if (showSleepTimerBottomSheet) {
         SleepTimerBottomSheetNew(
             onDismiss = { showSleepTimerBottomSheet = false },
@@ -3071,4 +3230,188 @@ fun PlayerScreen(
             }
         )
     }
+}
+
+@Composable
+fun PlaybackSpeedDialog(
+    currentSpeed: Float,
+    onDismiss: () -> Unit,
+    onSave: (Float) -> Unit
+) {
+    val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
+
+    // Speed range: 0.25x to 2.0x
+    val minSpeed = 0.25f
+    val maxSpeed = 2.0f
+    
+    var selectedSpeed by remember { mutableFloatStateOf(currentSpeed.coerceIn(minSpeed, maxSpeed)) }
+
+    // Helper function to format speed display
+    fun formatSpeedDisplay(speed: Float): String {
+        return "${String.format("%.2f", speed)}x"
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Speed,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "Playback Speed",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        },
+        text = {
+            Column {
+                Text(
+                    text = "Adjust the speed of audio playback.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Current selection display
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Text(
+                            text = formatSpeedDisplay(selectedSpeed),
+                            style = MaterialTheme.typography.headlineLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+//                        Text(
+//                            text = "Playback Speed",
+//                            style = MaterialTheme.typography.bodySmall,
+//                            color = MaterialTheme.colorScheme.onPrimaryContainer
+//                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Slider
+                Column {
+                    Row(
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "0.25x",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "2.0x",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Slider(
+                        value = selectedSpeed,
+                        onValueChange = { newValue ->
+                            selectedSpeed = newValue
+                            HapticUtils.performHapticFeedback(
+                                context,
+                                haptics,
+                                HapticFeedbackType.TextHandleMove
+                            )
+                        },
+                        valueRange = minSpeed..maxSpeed,
+                        steps = 6, // 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0
+                        colors = SliderDefaults.colors(
+                            thumbColor = MaterialTheme.colorScheme.primary,
+                            activeTrackColor = MaterialTheme.colorScheme.primary,
+                            inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    )
+                    
+                    // Quick preset buttons
+                    Spacer(modifier = Modifier.height(16.dp))
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)) { presetSpeed ->
+                            AssistChip(
+                                onClick = {
+                                    selectedSpeed = presetSpeed
+                                    HapticUtils.performHapticFeedback(
+                                        context,
+                                        haptics,
+                                        HapticFeedbackType.LongPress
+                                    )
+                                },
+                                label = {
+                                    Text(
+                                        text = formatSpeedDisplay(presetSpeed),
+                                        style = MaterialTheme.typography.labelMedium
+                                    )
+                                },
+                                modifier = Modifier.height(32.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = AssistChipDefaults.assistChipColors(
+                                    containerColor = if (selectedSpeed == presetSpeed)
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    else
+                                        MaterialTheme.colorScheme.surfaceVariant,
+                                    labelColor = if (selectedSpeed == presetSpeed)
+                                        MaterialTheme.colorScheme.onPrimaryContainer
+                                    else
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                ),
+                                border = null
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                    onSave(selectedSpeed)
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
+            ) {
+                Text("Apply")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = {
+                    HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                    onDismiss()
+                }
+            ) {
+                Text("Cancel")
+            }
+        }
+    )
 }

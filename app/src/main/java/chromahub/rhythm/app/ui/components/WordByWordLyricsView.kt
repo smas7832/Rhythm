@@ -214,6 +214,9 @@ fun WordByWordLyricsView(
                             label = "lineRotation"
                         )
 
+                        // Calculate distance-based alpha for better readability
+                        val distanceFromCurrent = abs(index - currentLineIndex)
+                        
                         // Build annotated string with word-level highlighting
                         val annotatedText = buildAnnotatedString {
                             line.words.forEachIndexed { wordIndex, word ->
@@ -221,11 +224,14 @@ fun WordByWordLyricsView(
                                     currentPlaybackTime >= word.timestamp && 
                                     currentPlaybackTime <= word.endtime
                                 
+                                // Improved alpha values based on distance for better readability
                                 val wordAlpha = when {
                                     isWordActive -> 1f
-                                    isCurrentLine -> 0.8f
-                                    index == currentLineIndex + 1 -> 0.6f
-                                    else -> 0.4f
+                                    isCurrentLine -> 0.95f // Active line words that haven't been sung yet
+                                    distanceFromCurrent == 1 -> 0.75f // Next/previous line
+                                    distanceFromCurrent == 2 -> 0.60f
+                                    distanceFromCurrent == 3 -> 0.45f
+                                    else -> 0.32f // Far away lines
                                 }
                                 
                                 val wordColor = if (isWordActive) {

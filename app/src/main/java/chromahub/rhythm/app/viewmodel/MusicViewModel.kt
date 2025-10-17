@@ -88,6 +88,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     val autoAddToQueue = appSettings.autoAddToQueue
     val clearQueueOnNewSong = appSettings.clearQueueOnNewSong
     val repeatModePersistence = appSettings.repeatModePersistence
+    val playbackSpeed = appSettings.playbackSpeed
     
     // Equalizer settings
     val equalizerEnabled = appSettings.equalizerEnabled
@@ -1158,6 +1159,13 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                                     _repeatMode.value = savedRepeat
                                 }
                             }
+                        }
+                        
+                        // Restore saved playback speed
+                        val savedSpeed = appSettings.playbackSpeed.value
+                        Log.d(TAG, "Restoring saved playback speed: $savedSpeed")
+                        if (controller.playbackParameters.speed != savedSpeed) {
+                            controller.setPlaybackSpeed(savedSpeed)
                         }
                         
                         Log.d(TAG, "Initial repeat mode from controller: $controllerRepeatMode (${
@@ -3778,6 +3786,13 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     // Audio Device Settings Methods
     fun setAutoConnectDevice(enable: Boolean) {
         appSettings.setAutoConnectDevice(enable)
+    }
+    
+    // Playback Speed Control
+    fun setPlaybackSpeed(speed: Float) {
+        Log.d(TAG, "Setting playback speed to $speed")
+        appSettings.setPlaybackSpeed(speed)
+        mediaController?.setPlaybackSpeed(speed)
     }
 
     // Enhanced play tracking with user preferences

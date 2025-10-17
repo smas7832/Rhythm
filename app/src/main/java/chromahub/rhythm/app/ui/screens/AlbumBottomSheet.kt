@@ -321,11 +321,10 @@ fun AlbumBottomSheet(
                             Button(
                                 onClick = {
                                     HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
-                                    // Clear queue first, then play sorted songs in order
+                                    // Play All - don't call onSongClick as onPlayAll handles queue properly
                                     if (sortedSongs.isNotEmpty()) {
                                         // Pass the sorted songs to the callback for proper queue management
                                         onPlayAll(sortedSongs)
-                                        onSongClick(sortedSongs.first()) // Start with first sorted song
                                     } else {
                                         onPlayAll(album.songs)
                                     }

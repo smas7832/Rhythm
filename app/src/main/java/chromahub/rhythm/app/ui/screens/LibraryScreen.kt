@@ -4632,11 +4632,11 @@ fun SingleCardExplorerContent(
     // Breadcrumb scroll state
     val breadcrumbScrollState = rememberLazyListState()
 
-    // Handle back gesture to go level up
-    if (currentPath != null) {
-        BackHandler {
-            HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
-            currentPath = getParentPath(currentPath!!)
+    // Reset loading state if content is already available (defensive fix for navigation issues)
+    LaunchedEffect(currentItems, currentPath) {
+        if (currentItems.isNotEmpty()) {
+            isLoadingDirectory = false
+            isInitialLoading = false
         }
     }
 
@@ -4719,8 +4719,8 @@ fun SingleCardExplorerContent(
                 // Set loading state FIRST before clearing items to ensure loading indicator shows
                 isLoadingDirectory = true
                 
-                // DON'T clear current items immediately - keep showing previous content during load
-                // This prevents the empty state flash when navigation is interrupted
+                // Clear current items to show loading indicator (prevents showing stale content during navigation)
+                currentItems = emptyList()
                 
                 // Load without debounce to make navigation feel more responsive
                 debounceJob = launch {
@@ -4899,7 +4899,7 @@ fun SingleCardExplorerContent(
 
                 // Single unified loading indicator
                 // Show "Initializing" only at root on first load, otherwise show "Loading directory"
-                if (isLoadingDirectory || isInitialLoading) {
+                if ((isLoadingDirectory || isInitialLoading) && currentItems.isEmpty()) {
                     item {
                         Box(
                             modifier = Modifier

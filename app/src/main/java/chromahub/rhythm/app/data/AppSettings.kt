@@ -76,6 +76,7 @@ class AppSettings private constructor(context: Context) {
         private const val KEY_ALBUM_SORT_ORDER = "album_sort_order"
         private const val KEY_ARTIST_COLLABORATION_MODE = "artist_collaboration_mode"
         private const val KEY_LIBRARY_TAB_ORDER = "library_tab_order"
+        private const val KEY_PLAYER_CHIP_ORDER = "player_chip_order"
         private const val KEY_GROUP_BY_ALBUM_ARTIST = "group_by_album_artist" // New setting for album artist grouping
         
         // Audio Device Settings
@@ -193,6 +194,7 @@ class AppSettings private constructor(context: Context) {
         private const val KEY_SHUFFLE_MODE_PERSISTENCE = "shuffle_mode_persistence"
         private const val KEY_SAVED_SHUFFLE_STATE = "saved_shuffle_state"
         private const val KEY_SAVED_REPEAT_MODE = "saved_repeat_mode"
+        private const val KEY_PLAYBACK_SPEED = "playback_speed"
         
         @Volatile
         private var INSTANCE: AppSettings? = null
@@ -317,6 +319,17 @@ class AppSettings private constructor(context: Context) {
     )
     val libraryTabOrder: StateFlow<List<String>> = _libraryTabOrder.asStateFlow()
     
+    // Player Chip Order (Add to Playlist and Edit chips are not reorderable - they stay fixed)
+    private val defaultChipOrder = listOf("FAVORITE", "SPEED", "EQUALIZER", "SLEEP_TIMER", "LYRICS", "ALBUM", "ARTIST")
+    private val _playerChipOrder = MutableStateFlow(
+        prefs.getString(KEY_PLAYER_CHIP_ORDER, null)
+            ?.split(",")
+            ?.filter { it.isNotBlank() }
+            ?.takeIf { it.isNotEmpty() }
+            ?: defaultChipOrder
+    )
+    val playerChipOrder: StateFlow<List<String>> = _playerChipOrder.asStateFlow()
+    
     // Group By Album Artist
     private val _groupByAlbumArtist = MutableStateFlow(prefs.getBoolean(KEY_GROUP_BY_ALBUM_ARTIST, true)) // Default true for better organization
     val groupByAlbumArtist: StateFlow<Boolean> = _groupByAlbumArtist.asStateFlow()
@@ -384,6 +397,9 @@ class AppSettings private constructor(context: Context) {
     
     private val _savedRepeatMode = MutableStateFlow(prefs.getInt(KEY_SAVED_REPEAT_MODE, 0)) // 0 = OFF, 1 = ALL, 2 = ONE
     val savedRepeatMode: StateFlow<Int> = _savedRepeatMode.asStateFlow()
+    
+    private val _playbackSpeed = MutableStateFlow(prefs.getFloat(KEY_PLAYBACK_SPEED, 1.0f))
+    val playbackSpeed: StateFlow<Float> = _playbackSpeed.asStateFlow()
     
     // Cache Settings
     private val _maxCacheSize = MutableStateFlow(safeLong(KEY_MAX_CACHE_SIZE, 1024L * 1024L * 512L)) // 512MB default
@@ -838,6 +854,17 @@ class AppSettings private constructor(context: Context) {
         _libraryTabOrder.value = defaultTabOrder
     }
     
+    fun setPlayerChipOrder(chipOrder: List<String>) {
+        val orderString = chipOrder.joinToString(",")
+        prefs.edit().putString(KEY_PLAYER_CHIP_ORDER, orderString).apply()
+        _playerChipOrder.value = chipOrder
+    }
+    
+    fun resetPlayerChipOrder() {
+        prefs.edit().remove(KEY_PLAYER_CHIP_ORDER).apply()
+        _playerChipOrder.value = defaultChipOrder
+    }
+    
     fun setGroupByAlbumArtist(enable: Boolean) {
         prefs.edit().putBoolean(KEY_GROUP_BY_ALBUM_ARTIST, enable).apply()
         _groupByAlbumArtist.value = enable
@@ -954,6 +981,11 @@ class AppSettings private constructor(context: Context) {
     fun setSavedRepeatMode(mode: Int) {
         prefs.edit().putInt(KEY_SAVED_REPEAT_MODE, mode).apply()
         _savedRepeatMode.value = mode
+    }
+    
+    fun setPlaybackSpeed(speed: Float) {
+        prefs.edit().putFloat(KEY_PLAYBACK_SPEED, speed).apply()
+        _playbackSpeed.value = speed
     }
     
     // Cache Settings Methods
