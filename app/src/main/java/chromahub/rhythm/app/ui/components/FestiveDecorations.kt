@@ -71,10 +71,10 @@ fun FestiveDecorations(
         }
     }
     
-    // Animate particles
+    // Animate particles with optimized frame rate
     LaunchedEffect(config.selectedTheme) {
         while (true) {
-            delay(8L) // ~120 FPS for smoother animation
+            delay(16L) // 60 FPS - smoother and more performant
             particles.forEachIndexed { index, particle ->
                 updateParticle(particle, screenWidth, screenHeight, config.selectedTheme)
                 
@@ -151,7 +151,7 @@ private fun getParticleTypeForTheme(theme: FestiveTheme): ParticleType {
 }
 
 /**
- * Update particle position and properties
+ * Update particle position and properties with optimized calculations
  */
 private fun updateParticle(
     particle: FestiveParticle,
@@ -159,22 +159,25 @@ private fun updateParticle(
     screenHeight: Float,
     theme: FestiveTheme
 ) {
-    particle.x += particle.velocityX
-    particle.y += particle.velocityY
-    particle.rotation += particle.rotationSpeed
+    // Basic movement - optimized for 60 FPS (scale velocities accordingly)
+    particle.x += particle.velocityX * 1.33f  // Scale for 60 FPS vs 75 FPS
+    particle.y += particle.velocityY * 1.33f
+    particle.rotation += particle.rotationSpeed * 1.33f
     
-    // Add some wave motion for certain themes
+    // Add theme-specific effects with optimized calculations
     when (theme) {
         FestiveTheme.CHRISTMAS -> {
-            particle.x += sin(particle.y / 50f) * 0.5f
+            // Gentle horizontal wave motion
+            particle.x += sin(particle.y * 0.02f) * 0.67f
         }
         FestiveTheme.HOLI -> {
-            particle.alpha = (sin(particle.y / 30f) * 0.3f + 0.5f).coerceIn(0.2f, 0.8f)
+            // Pulsing alpha with optimized calculation
+            particle.alpha = (sin(particle.y * 0.0333f) * 0.3f + 0.5f).coerceIn(0.2f, 0.8f)
         }
         FestiveTheme.NEW_YEAR -> {
-            // Fireworks fade out as they rise
-            particle.alpha -= 0.01f
-            if (particle.alpha < 0.1f) particle.alpha = 0.8f
+            // Fireworks fade out as they rise (optimized fade rate)
+            particle.alpha = (particle.alpha - 0.013f).coerceAtLeast(0.1f)
+            if (particle.alpha <= 0.11f) particle.alpha = 0.8f
         }
         else -> {}
     }

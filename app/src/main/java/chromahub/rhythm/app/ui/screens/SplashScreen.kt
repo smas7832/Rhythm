@@ -64,6 +64,7 @@ fun SplashScreen(
     val festiveThemeSelected by appSettings.festiveThemeSelected.collectAsState()
     val festiveThemeAutoDetect by appSettings.festiveThemeAutoDetect.collectAsState()
     val festiveThemeShowParticles by appSettings.festiveThemeShowParticles.collectAsState()
+    val festiveThemeShowDecorations by appSettings.festiveThemeShowDecorations.collectAsState()
     val festiveThemeParticleIntensity by appSettings.festiveThemeParticleIntensity.collectAsState()
     val festiveThemeApplyToSplash by appSettings.festiveThemeApplyToSplash.collectAsState()
     
@@ -326,16 +327,54 @@ fun SplashScreen(
                                 ),
                                 exit = shrinkHorizontally() + fadeOut()
                             ) {
-                                Text(
-                                    text = "Your Music, Your Rhythm",
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        letterSpacing = 1.sp,
-                                        fontSize = 17.sp
-                                    ),
-                                    fontWeight = FontWeight.Medium,
-                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f),
-                                    textAlign = TextAlign.Center
-                                )
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    // Show festive greeting if enabled and decorations are on
+                                    if (festiveThemeEnabled && festiveThemeApplyToSplash && 
+                                        festiveThemeShowDecorations && 
+                                        activeFestiveTheme != chromahub.rhythm.app.ui.theme.FestiveTheme.NONE) {
+                                        
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.Center
+                                        ) {
+                                            Text(
+                                                text = activeFestiveTheme.emoji,
+                                                style = MaterialTheme.typography.titleLarge,
+                                                modifier = Modifier.padding(end = 8.dp)
+                                            )
+                                            Text(
+                                                text = getFestiveGreeting(activeFestiveTheme),
+                                                style = MaterialTheme.typography.titleMedium.copy(
+                                                    letterSpacing = 1.sp,
+                                                    fontSize = 17.sp
+                                                ),
+                                                fontWeight = FontWeight.Medium,
+                                                color = activeFestiveTheme.primaryColor,
+                                                textAlign = TextAlign.Center
+                                            )
+                                            Text(
+                                                text = activeFestiveTheme.emoji,
+                                                style = MaterialTheme.typography.titleLarge,
+                                                modifier = Modifier.padding(start = 8.dp)
+                                            )
+                                        }
+                                        
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                    }
+                                    
+                                    Text(
+                                        text = "Your Music, Your Rhythm",
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            letterSpacing = 1.sp,
+                                            fontSize = 17.sp
+                                        ),
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f),
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
                             }
                         }
                     }
@@ -397,5 +436,23 @@ fun SplashScreen(
                 }
             }
         }
+    }
+}
+
+/**
+ * Get festive greeting text for the given theme
+ */
+private fun getFestiveGreeting(theme: chromahub.rhythm.app.ui.theme.FestiveTheme): String {
+    return when (theme) {
+        chromahub.rhythm.app.ui.theme.FestiveTheme.DIWALI -> "Happy Diwali!"
+        chromahub.rhythm.app.ui.theme.FestiveTheme.CHRISTMAS -> "Merry Christmas!"
+        chromahub.rhythm.app.ui.theme.FestiveTheme.NEW_YEAR -> "Happy New Year!"
+        chromahub.rhythm.app.ui.theme.FestiveTheme.HOLI -> "Happy Holi!"
+        chromahub.rhythm.app.ui.theme.FestiveTheme.HALLOWEEN -> "Happy Halloween!"
+        chromahub.rhythm.app.ui.theme.FestiveTheme.VALENTINES -> "Happy Valentine's Day!"
+        chromahub.rhythm.app.ui.theme.FestiveTheme.EASTER -> "Happy Easter!"
+        chromahub.rhythm.app.ui.theme.FestiveTheme.INDEPENDENCE_DAY -> "Happy Independence Day!"
+        chromahub.rhythm.app.ui.theme.FestiveTheme.THANKSGIVING -> "Happy Thanksgiving!"
+        else -> ""
     }
 }

@@ -75,6 +75,7 @@ class AppSettings private constructor(context: Context) {
         private const val KEY_FESTIVE_THEME_SELECTED = "festive_theme_selected"
         private const val KEY_FESTIVE_THEME_AUTO_DETECT = "festive_theme_auto_detect"
         private const val KEY_FESTIVE_THEME_SHOW_PARTICLES = "festive_theme_show_particles"
+        private const val KEY_FESTIVE_THEME_SHOW_DECORATIONS = "festive_theme_show_decorations"
         private const val KEY_FESTIVE_THEME_PARTICLE_INTENSITY = "festive_theme_particle_intensity"
         private const val KEY_FESTIVE_THEME_APPLY_TO_SPLASH = "festive_theme_apply_to_splash"
         private const val KEY_FESTIVE_THEME_APPLY_TO_MAIN_UI = "festive_theme_apply_to_main_ui"
@@ -310,6 +311,9 @@ class AppSettings private constructor(context: Context) {
     
     private val _festiveThemeShowParticles = MutableStateFlow(prefs.getBoolean(KEY_FESTIVE_THEME_SHOW_PARTICLES, true))
     val festiveThemeShowParticles: StateFlow<Boolean> = _festiveThemeShowParticles.asStateFlow()
+    
+    private val _festiveThemeShowDecorations = MutableStateFlow(prefs.getBoolean(KEY_FESTIVE_THEME_SHOW_DECORATIONS, true))
+    val festiveThemeShowDecorations: StateFlow<Boolean> = _festiveThemeShowDecorations.asStateFlow()
     
     private val _festiveThemeParticleIntensity = MutableStateFlow(prefs.getFloat(KEY_FESTIVE_THEME_PARTICLE_INTENSITY, 0.7f))
     val festiveThemeParticleIntensity: StateFlow<Float> = _festiveThemeParticleIntensity.asStateFlow()
@@ -872,6 +876,11 @@ class AppSettings private constructor(context: Context) {
     fun setFestiveThemeShowParticles(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_FESTIVE_THEME_SHOW_PARTICLES, enabled).apply()
         _festiveThemeShowParticles.value = enabled
+    }
+    
+    fun setFestiveThemeShowDecorations(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_FESTIVE_THEME_SHOW_DECORATIONS, enabled).apply()
+        _festiveThemeShowDecorations.value = enabled
     }
     
     fun setFestiveThemeParticleIntensity(intensity: Float) {
