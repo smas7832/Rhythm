@@ -235,6 +235,26 @@ object MediaUtils {
         var isBookmark = -1L
         var genre = song.genre // Initialize with existing song genre
 
+        // Use song's built-in audio metadata if available
+        if (song.bitrate != null) {
+            bitrate = "${song.bitrate / 1000} kbps"
+        }
+        if (song.sampleRate != null) {
+            sampleRate = "${song.sampleRate / 1000} kHz"
+        }
+        if (song.channels != null) {
+            channels = when (song.channels) {
+                1 -> "Mono"
+                2 -> "Stereo"
+                6 -> "5.1 Surround"
+                8 -> "7.1 Surround"
+                else -> "${song.channels} channels"
+            }
+        }
+        if (song.codec != null) {
+            format = song.codec
+        }
+
         try {
             // Query ContentResolver for file information
             val projection = arrayOf(
@@ -325,17 +345,42 @@ object MediaUtils {
                     }
                 }
                 
-                // Get number of audio channels
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    val channelCountStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_NUM_TRACKS)
-                    if (channelCountStr != null) {
-                        val channelCount = channelCountStr.toIntOrNull()
-                        if (channelCount != null) {
-                            channels = when (channelCount) {
-                                1 -> "Mono"
-                                2 -> "Stereo"
-                                else -> "$channelCount channels"
+                // Get number of audio channels using MediaExtractor (correct method)
+                // Only extract if song doesn't already have this info
+                if (channels == "Unknown") {
+                    var extractor: android.media.MediaExtractor? = null
+                    try {
+                        extractor = android.media.MediaExtractor()
+                        extractor.setDataSource(filePath)
+                        
+                        // Find the audio track
+                        for (i in 0 until extractor.trackCount) {
+                            val format = extractor.getTrackFormat(i)
+                            val mime = format.getString(android.media.MediaFormat.KEY_MIME)
+                            
+                            if (mime?.startsWith("audio/") == true) {
+                                // Get channel count from MediaFormat
+                                if (format.containsKey(android.media.MediaFormat.KEY_CHANNEL_COUNT)) {
+                                    val channelCount = format.getInteger(android.media.MediaFormat.KEY_CHANNEL_COUNT)
+                                    channels = when (channelCount) {
+                                        1 -> "Mono"
+                                        2 -> "Stereo"
+                                        6 -> "5.1 Surround"
+                                        8 -> "7.1 Surround"
+                                        else -> "$channelCount channels"
+                                    }
+                                }
+                                break
                             }
+                        }
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Error extracting channel count with MediaExtractor: ${e.message}")
+                        channels = "Stereo" // Default fallback
+                    } finally {
+                        try {
+                            extractor?.release()
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Error releasing MediaExtractor: ${e.message}")
                         }
                     }
                 }

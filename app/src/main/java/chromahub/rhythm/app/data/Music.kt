@@ -19,7 +19,12 @@ data class Song(
     val year: Int = 0,
     val genre: String? = null,
     val dateAdded: Long = System.currentTimeMillis(), // New field for date added
-    val albumArtist: String? = null // Album artist for grouping
+    val albumArtist: String? = null, // Album artist for grouping
+    // Audio quality metadata
+    val bitrate: Int? = null, // Bitrate in bps
+    val sampleRate: Int? = null, // Sample rate in Hz
+    val channels: Int? = null, // Number of audio channels (1=mono, 2=stereo, 6=5.1, etc.)
+    val codec: String? = null // Audio codec (AAC, MP3, FLAC, etc.)
 ) : Parcelable {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -40,6 +45,10 @@ data class Song(
         if (!Objects.equals(genre, other.genre)) return false
         if (dateAdded != other.dateAdded) return false
         if (!Objects.equals(albumArtist, other.albumArtist)) return false
+        if (!Objects.equals(bitrate, other.bitrate)) return false
+        if (!Objects.equals(sampleRate, other.sampleRate)) return false
+        if (!Objects.equals(channels, other.channels)) return false
+        if (!Objects.equals(codec, other.codec)) return false
 
         return true
     }
@@ -58,7 +67,11 @@ data class Song(
             year,
             genre,
             dateAdded,
-            albumArtist
+            albumArtist,
+            bitrate,
+            sampleRate,
+            channels,
+            codec
         )
     }
 }

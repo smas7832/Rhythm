@@ -302,6 +302,9 @@ class MusicRepository(context: Context) {
                 albumId
             )
 
+            // Note: Audio metadata extraction moved to background task to avoid blocking initial scan
+            // Use extractAudioMetadata() separately when needed for detailed info
+
             Song(
                 id = id.toString(),
                 title = title,
@@ -315,11 +318,103 @@ class MusicRepository(context: Context) {
                 year = year,
                 dateAdded = dateAdded,
                 genre = null, // Genre will be detected in background
-                albumArtist = albumArtist
+                albumArtist = albumArtist,
+                bitrate = null, // Will be extracted lazily when needed
+                sampleRate = null,
+                channels = null,
+                codec = null
             )
         } catch (e: Exception) {
             Log.w(TAG, "Error creating song from cursor", e)
             null
+        }
+    }
+    
+    /**
+     * Data class to hold audio metadata
+     */
+    private data class AudioMetadata(
+        val bitrate: Int? = null,
+        val sampleRate: Int? = null,
+        val channels: Int? = null,
+        val codec: String? = null
+    )
+    
+    /**
+     * Extract audio quality metadata using MediaMetadataRetriever
+     */
+    private fun extractAudioMetadata(uri: Uri): AudioMetadata {
+        val retriever = android.media.MediaMetadataRetriever()
+        var extractor: android.media.MediaExtractor? = null
+        
+        try {
+            retriever.setDataSource(context, uri)
+            
+            val bitrate = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_BITRATE)
+                ?.toIntOrNull()
+            
+            val sampleRateStr = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_SAMPLERATE)
+            val sampleRate = sampleRateStr?.toIntOrNull()
+            
+            // Extract number of channels using MediaExtractor (correct way)
+            var channels: Int? = null
+            try {
+                extractor = android.media.MediaExtractor()
+                extractor.setDataSource(context, uri, null)
+                
+                // Find the audio track
+                for (i in 0 until extractor.trackCount) {
+                    val format = extractor.getTrackFormat(i)
+                    val mime = format.getString(android.media.MediaFormat.KEY_MIME)
+                    
+                    if (mime?.startsWith("audio/") == true) {
+                        // Get channel count from MediaFormat
+                        if (format.containsKey(android.media.MediaFormat.KEY_CHANNEL_COUNT)) {
+                            channels = format.getInteger(android.media.MediaFormat.KEY_CHANNEL_COUNT)
+                        }
+                        break
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Error extracting channel count with MediaExtractor: ${e.message}")
+            }
+            
+            // Default to stereo if channel count couldn't be determined
+            if (channels == null || channels <= 0) {
+                channels = 2
+            }
+            
+            // Get codec/mime type
+            val mimeType = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_MIMETYPE)
+            val codec = mimeType?.let { 
+                when {
+                    it.contains("mp3", ignoreCase = true) -> "MP3"
+                    it.contains("aac", ignoreCase = true) -> "AAC"
+                    it.contains("flac", ignoreCase = true) -> "FLAC"
+                    it.contains("alac", ignoreCase = true) -> "ALAC"
+                    it.contains("opus", ignoreCase = true) -> "Opus"
+                    it.contains("vorbis", ignoreCase = true) -> "Vorbis"
+                    it.contains("wav", ignoreCase = true) -> "WAV"
+                    it.contains("m4a", ignoreCase = true) -> "M4A"
+                    else -> it.substringAfter("/").uppercase()
+                }
+            }
+            
+            return AudioMetadata(bitrate, sampleRate, channels, codec)
+        } catch (e: Exception) {
+            Log.w(TAG, "Error extracting audio metadata for $uri: ${e.message}")
+            return AudioMetadata()
+        } finally {
+            try {
+                retriever.release()
+            } catch (e: Exception) {
+                Log.w(TAG, "Error releasing MediaMetadataRetriever: ${e.message}")
+            }
+            try {
+                extractor?.release()
+            } catch (e: Exception) {
+                Log.w(TAG, "Error releasing MediaExtractor: ${e.message}")
+            }
         }
     }
 
@@ -2499,6 +2594,79 @@ class MusicRepository(context: Context) {
         }
 
         Log.d(TAG, "Background genre detection complete. Updated ${updatedSongs.size} songs with genres")
+        onComplete?.invoke(finalSongs)
+    }
+    
+    /**
+     * Extracts audio metadata (bitrate, sample rate, channels, codec) for songs in background
+     * This is done lazily to avoid slowing down initial library load
+     */
+    suspend fun extractAudioMetadataInBackground(
+        songs: List<Song>,
+        onProgress: ((Int, Int) -> Unit)? = null,
+        onComplete: ((List<Song>) -> Unit)? = null
+    ) = withContext(Dispatchers.IO) {
+        val songsWithoutMetadata = songs.filter { 
+            it.bitrate == null || it.sampleRate == null || it.channels == null || it.codec == null 
+        }
+        
+        if (songsWithoutMetadata.isEmpty()) {
+            Log.d(TAG, "All songs already have audio metadata, skipping background extraction")
+            onComplete?.invoke(songs)
+            return@withContext
+        }
+
+        Log.d(TAG, "Starting background audio metadata extraction for ${songsWithoutMetadata.size} songs")
+        val updatedSongs = mutableListOf<Song>()
+        val batchSize = 20 // Smaller batches for metadata extraction (more expensive operation)
+        var processedCount = 0
+
+        songsWithoutMetadata.chunked(batchSize).forEach { batch ->
+            val batchStartTime = System.currentTimeMillis()
+
+            batch.forEach { song ->
+                try {
+                    val metadata = extractAudioMetadata(song.uri)
+                    
+                    Log.d(TAG, "Extracted metadata for ${song.title}: bitrate=${metadata.bitrate}, sampleRate=${metadata.sampleRate}, channels=${metadata.channels}, codec=${metadata.codec}")
+                    
+                    val updatedSong = song.copy(
+                        bitrate = metadata.bitrate,
+                        sampleRate = metadata.sampleRate,
+                        channels = metadata.channels,
+                        codec = metadata.codec
+                    )
+                    updatedSongs.add(updatedSong)
+                    
+                    processedCount++
+                    onProgress?.invoke(processedCount, songsWithoutMetadata.size)
+
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error extracting audio metadata for song ${song.title}", e)
+                    updatedSongs.add(song) // Keep original song on error
+                    processedCount++
+                    onProgress?.invoke(processedCount, songsWithoutMetadata.size)
+                }
+            }
+
+            val batchEndTime = System.currentTimeMillis()
+            val batchDuration = batchEndTime - batchStartTime
+            Log.d(TAG, "Processed metadata batch of ${batch.size} songs in ${batchDuration}ms")
+
+            // Yield control to allow other coroutines to run
+            yield()
+
+            // Small delay between batches to prevent overwhelming the system
+            if (batchDuration < 200) { // If batch processed quickly, add a small delay
+                delay(100)
+            }
+        }
+
+        val finalSongs = songs.map { originalSong ->
+            updatedSongs.find { it.id == originalSong.id } ?: originalSong
+        }
+
+        Log.d(TAG, "Background audio metadata extraction complete. Updated ${updatedSongs.size} songs")
         onComplete?.invoke(finalSongs)
     }
     

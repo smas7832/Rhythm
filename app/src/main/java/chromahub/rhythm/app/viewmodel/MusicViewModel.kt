@@ -629,6 +629,16 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 Log.e(TAG, "Error starting background genre detection", e)
             }
         }
+        
+        // Start background audio metadata extraction after a short delay
+        viewModelScope.launch {
+            try {
+                delay(3000) // Wait 3 seconds after app load before starting metadata extraction
+                extractAudioMetadataInBackground()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error starting background audio metadata extraction", e)
+            }
+        }
     }
 
     /**
@@ -647,6 +657,29 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 // Update the songs state with the new genre information
                 _songs.value = updatedSongs
                 Log.d(TAG, "Background genre detection completed, updated ${updatedSongs.count { it.genre != null }} songs with genres")
+            }
+        )
+    }
+    
+    /**
+     * Extracts audio metadata for songs in background and updates the UI dynamically
+     */
+    private suspend fun extractAudioMetadataInBackground() {
+        Log.d(TAG, "Starting background audio metadata extraction for ${songs.value.size} songs")
+
+        repository.extractAudioMetadataInBackground(
+            songs = songs.value,
+            onProgress = { current, total ->
+                // Optional: Could emit progress updates to UI if needed
+                Log.d(TAG, "Audio metadata extraction progress: $current/$total")
+            },
+            onComplete = { updatedSongs ->
+                // Update the songs state with the new audio metadata information
+                _songs.value = updatedSongs
+                val songsWithMetadata = updatedSongs.count { 
+                    it.bitrate != null && it.sampleRate != null && it.channels != null && it.codec != null 
+                }
+                Log.d(TAG, "Background audio metadata extraction completed, updated $songsWithMetadata songs")
             }
         )
     }
