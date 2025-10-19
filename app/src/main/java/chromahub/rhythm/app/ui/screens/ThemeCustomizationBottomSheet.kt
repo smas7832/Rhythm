@@ -216,6 +216,7 @@ fun ThemeCustomizationBottomSheet(
     val festiveThemeSelected by appSettings.festiveThemeSelected.collectAsState()
     val festiveThemeAutoDetect by appSettings.festiveThemeAutoDetect.collectAsState()
     val festiveThemeShowParticles by appSettings.festiveThemeShowParticles.collectAsState()
+    val festiveThemeShowDecorations by appSettings.festiveThemeShowDecorations.collectAsState()
     val festiveThemeParticleIntensity by appSettings.festiveThemeParticleIntensity.collectAsState()
     val festiveThemeApplyToSplash by appSettings.festiveThemeApplyToSplash.collectAsState()
     val festiveThemeApplyToMainUI by appSettings.festiveThemeApplyToMainUI.collectAsState()
@@ -684,6 +685,7 @@ fun ThemeCustomizationBottomSheet(
                         festiveThemeSelected = festiveThemeSelected,
                         festiveThemeAutoDetect = festiveThemeAutoDetect,
                         festiveThemeShowParticles = festiveThemeShowParticles,
+                        festiveThemeShowDecorations = festiveThemeShowDecorations,
                         festiveThemeParticleIntensity = festiveThemeParticleIntensity,
                         festiveThemeApplyToSplash = festiveThemeApplyToSplash,
                         festiveThemeApplyToMainUI = festiveThemeApplyToMainUI,
@@ -691,6 +693,7 @@ fun ThemeCustomizationBottomSheet(
                         onFestiveThemeSelected = { appSettings.setFestiveThemeSelected(it) },
                         onFestiveThemeAutoDetectChange = { appSettings.setFestiveThemeAutoDetect(it) },
                         onFestiveThemeShowParticlesChange = { appSettings.setFestiveThemeShowParticles(it) },
+                        onFestiveThemeShowDecorationsChange = { appSettings.setFestiveThemeShowDecorations(it) },
                         onFestiveThemeParticleIntensityChange = { appSettings.setFestiveThemeParticleIntensity(it) },
                         onFestiveThemeApplyToSplashChange = { appSettings.setFestiveThemeApplyToSplash(it) },
                         onFestiveThemeApplyToMainUIChange = { appSettings.setFestiveThemeApplyToMainUI(it) },
@@ -2737,6 +2740,7 @@ private fun FestiveContent(
     festiveThemeSelected: String,
     festiveThemeAutoDetect: Boolean,
     festiveThemeShowParticles: Boolean,
+    festiveThemeShowDecorations: Boolean,
     festiveThemeParticleIntensity: Float,
     festiveThemeApplyToSplash: Boolean,
     festiveThemeApplyToMainUI: Boolean,
@@ -2744,6 +2748,7 @@ private fun FestiveContent(
     onFestiveThemeSelected: (String) -> Unit,
     onFestiveThemeAutoDetectChange: (Boolean) -> Unit,
     onFestiveThemeShowParticlesChange: (Boolean) -> Unit,
+    onFestiveThemeShowDecorationsChange: (Boolean) -> Unit,
     onFestiveThemeParticleIntensityChange: (Float) -> Unit,
     onFestiveThemeApplyToSplashChange: (Boolean) -> Unit,
     onFestiveThemeApplyToMainUIChange: (Boolean) -> Unit,
@@ -2993,6 +2998,20 @@ private fun FestiveContent(
                     onCheckedChange = {
                         HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
                         onFestiveThemeShowParticlesChange(it)
+                    }
+                )
+            }
+            
+            // Show Decorations Toggle
+            item {
+                ThemeSettingCard(
+                    icon = Icons.Filled.Celebration,
+                    title = "Show Decorations",
+                    description = "Display festival-specific decorative elements and greetings",
+                    checked = festiveThemeShowDecorations,
+                    onCheckedChange = {
+                        HapticUtils.performHapticFeedback(context, haptics, HapticFeedbackType.LongPress)
+                        onFestiveThemeShowDecorationsChange(it)
                     }
                 )
             }

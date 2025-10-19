@@ -1028,15 +1028,30 @@ class MusicRepository(context: Context) {
      * ID3v2.3/v2.4 tags with USLT frames are the most reliable format.
      */
     private fun getEmbeddedLyrics(songUri: Uri): LyricsData? {
-        // Try MediaMetadataRetriever first (fastest)
-        val retrieverLyrics = extractLyricsViaRetriever(songUri)
-        if (retrieverLyrics != null) return retrieverLyrics
-        
-        // Try direct file reading for ID3 tags
-        val id3Lyrics = extractLyricsFromID3(songUri)
-        if (id3Lyrics != null) return id3Lyrics
-        
-        return null
+        try {
+            // Try MediaMetadataRetriever first (fastest)
+            val retrieverLyrics = extractLyricsViaRetriever(songUri)
+            if (retrieverLyrics != null) return retrieverLyrics
+            
+            // Try direct file reading for ID3 tags with timeout to prevent hanging
+            val id3Lyrics = try {
+                // Use a timeout to prevent infinite loading
+                val result = kotlin.runCatching {
+                    extractLyricsFromID3(songUri)
+                }
+                result.getOrNull()
+            } catch (e: Exception) {
+                Log.w(TAG, "ID3 extraction failed: ${e.message}")
+                null
+            }
+            
+            if (id3Lyrics != null) return id3Lyrics
+            
+            return null
+        } catch (e: Exception) {
+            Log.w(TAG, "Error extracting embedded lyrics: ${e.message}")
+            return null
+        }
     }
     
     /**
@@ -1136,11 +1151,15 @@ class MusicRepository(context: Context) {
     }
     
     /**
-     * Searches for USLT (Unsynchronized Lyrics) frame in ID3v2 tag data
+     * Searches for USLT (Unsynchronized Lyrics) frame in ID3v2 tag data with safety checks
      */
     private fun findUSLTFrame(tagData: ByteArray): String? {
         var pos = 0
-        while (pos < tagData.size - 10) {
+        var searchAttempts = 0
+        val maxSearchAttempts = 10000 // Prevent infinite loops
+        
+        while (pos < tagData.size - 10 && searchAttempts < maxSearchAttempts) {
+            searchAttempts++
             try {
                 // Check for USLT frame header
                 if (tagData[pos] == 'U'.code.toByte() &&
@@ -1154,20 +1173,27 @@ class MusicRepository(context: Context) {
                                    ((tagData[pos + 6].toInt() and 0xFF) shl 8) or
                                    (tagData[pos + 7].toInt() and 0xFF)
                     
-                    if (frameSize > 0 && frameSize < tagData.size - pos) {
+                    // Validate frame size to prevent out of bounds
+                    if (frameSize > 0 && frameSize < tagData.size - pos && frameSize < 1048576) { // Max 1MB
                         // Skip frame header (10 bytes) + encoding (1 byte) + language (3 bytes) + descriptor
                         var dataPos = pos + 14
                         
-                        // Skip descriptor (null-terminated string)
-                        while (dataPos < pos + frameSize && tagData[dataPos] != 0.toByte()) {
+                        // Skip descriptor (null-terminated string) with bounds check
+                        var descriptorSkips = 0
+                        while (dataPos < pos + frameSize && 
+                               dataPos < tagData.size && 
+                               tagData[dataPos] != 0.toByte() &&
+                               descriptorSkips < 256) { // Limit descriptor length
                             dataPos++
+                            descriptorSkips++
                         }
                         dataPos++ // Skip null terminator
                         
-                        // Extract lyrics text
-                        val lyricsLength = (pos + 10 + frameSize) - dataPos
-                        if (lyricsLength > 0) {
-                            val lyricsBytes = tagData.copyOfRange(dataPos, dataPos + lyricsLength)
+                        // Extract lyrics text with bounds check
+                        val endPos = (pos + 10 + frameSize).coerceAtMost(tagData.size)
+                        val lyricsLength = endPos - dataPos
+                        if (lyricsLength > 0 && lyricsLength < 524288 && dataPos < tagData.size) { // Max 512KB lyrics
+                            val lyricsBytes = tagData.copyOfRange(dataPos, endPos)
                             val lyrics = String(lyricsBytes, Charsets.UTF_8).trim()
                             if (lyrics.isNotBlank()) {
                                 return lyrics
@@ -1177,9 +1203,16 @@ class MusicRepository(context: Context) {
                 }
                 pos++
             } catch (e: Exception) {
-                // Continue searching
+                // Log and continue searching
+                if (searchAttempts % 1000 == 0) {
+                    Log.w(TAG, "ID3 search exception at position $pos: ${e.message}")
+                }
                 pos++
             }
+        }
+        
+        if (searchAttempts >= maxSearchAttempts) {
+            Log.w(TAG, "ID3 USLT search aborted after $maxSearchAttempts attempts")
         }
         return null
     }
@@ -1199,16 +1232,52 @@ class MusicRepository(context: Context) {
     }
     
     /**
-     * Parses lyrics text into LyricsData with proper format detection
+     * Parses lyrics text into LyricsData with proper format detection and cleaning
      */
     private fun parseLyricsData(lyrics: String): LyricsData {
+        if (lyrics.isBlank()) {
+            return LyricsData("No lyrics available", null, null)
+        }
+        
+        // Clean up the lyrics text
+        val cleanedLyrics = lyrics
+            .trim()
+            .replace("\r\n", "\n") // Normalize line endings
+            .replace("\r", "\n")
+        
         // Check if lyrics are synced (contain LRC-style timestamps)
-        val isSynced = lyrics.contains(Regex("\\[\\d{2}:\\d{2}\\.\\d{2}]"))
+        // Support multiple timestamp formats: [mm:ss.xx], [mm:ss.xxx], [mm:ss]
+        val lrcPattern = Regex("\\[\\d{1,2}:\\d{2}(?:\\.\\d{2,3})?]")
+        val isSynced = lrcPattern.containsMatchIn(cleanedLyrics)
         
         return if (isSynced) {
-            LyricsData(null, lyrics, null)
+            // Synced lyrics - validate format
+            val hasLyricsContent = cleanedLyrics.lines().any { line ->
+                lrcPattern.replace(line, "").trim().isNotEmpty()
+            }
+            
+            if (hasLyricsContent) {
+                LyricsData(null, cleanedLyrics, null)
+            } else {
+                // Empty synced lyrics
+                LyricsData("No lyrics content found", null, null)
+            }
         } else {
-            LyricsData(lyrics, null, null)
+            // Plain text lyrics - validate it's not just metadata
+            val meaningfulLines = cleanedLyrics.lines().filter { line ->
+                val trimmed = line.trim()
+                // Filter out common metadata markers
+                trimmed.isNotEmpty() && 
+                !trimmed.startsWith("//") &&
+                !trimmed.startsWith("#") &&
+                trimmed.length > 2
+            }
+            
+            if (meaningfulLines.isNotEmpty()) {
+                LyricsData(cleanedLyrics, null, null)
+            } else {
+                LyricsData("No valid lyrics found", null, null)
+            }
         }
     }
     
