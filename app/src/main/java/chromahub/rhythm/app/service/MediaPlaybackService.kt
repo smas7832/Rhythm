@@ -1045,6 +1045,29 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
         Log.d(TAG, "Media item transitioned: ${mediaItem?.mediaMetadata?.title}")
         // Update custom layout when song changes to reflect correct favorite state
         scheduleCustomLayoutUpdate(50) // Shorter delay for song transitions
+        
+        // Trigger widget update when song changes
+        updateWidgets()
+    }
+    
+    override fun onIsPlayingChanged(isPlaying: Boolean) {
+        super.onIsPlayingChanged(isPlaying)
+        Log.d(TAG, "Playback state changed: isPlaying=$isPlaying")
+        // Update widgets when playback state changes
+        updateWidgets()
+    }
+    
+    /**
+     * Triggers an immediate widget update via WorkManager
+     */
+    private fun updateWidgets() {
+        try {
+            // Import the widget update worker class
+            chromahub.rhythm.app.widget.RhythmWidgetUpdateWorker.enqueueImmediateUpdate(this)
+            Log.d(TAG, "Widget update triggered")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to trigger widget update", e)
+        }
     }
 
     // Sleep Timer functionality

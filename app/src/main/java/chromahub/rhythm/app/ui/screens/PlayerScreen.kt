@@ -339,7 +339,20 @@ fun PlayerScreen(
         uri?.let {
             try {
                 context.contentResolver.openInputStream(it)?.use { inputStream ->
-                    val loadedLyrics = inputStream.bufferedReader().readText()
+                    // Try to detect encoding and read with proper charset
+                    val bytes = inputStream.readBytes()
+                    val loadedLyrics = try {
+                        // Try UTF-8 first (most common)
+                        String(bytes, Charsets.UTF_8)
+                    } catch (e: Exception) {
+                        try {
+                            // Fallback to ISO-8859-1 (Latin-1)
+                            String(bytes, Charsets.ISO_8859_1)
+                        } catch (e2: Exception) {
+                            // Last resort: system default
+                            String(bytes)
+                        }
+                    }
                     // Save the loaded lyrics to the ViewModel
                     musicViewModel.saveEditedLyrics(loadedLyrics)
                     // Open the lyrics editor with the loaded content

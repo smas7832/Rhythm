@@ -464,12 +464,29 @@ object MediaUtils {
         }
         
         // Detect audio format information for lossless, Dolby, etc.
+        // Pass the song object to help with bit depth calculation
         val audioFormatInfo = try {
-            AudioFormatDetector.detectFormat(context, song.uri)
+            AudioFormatDetector.detectFormat(context, song.uri, song)
         } catch (e: Exception) {
             Log.w(TAG, "AudioFormatDetector failed in getExtendedSongInfo", e)
             null
         }
+        
+        // Calculate detailed audio quality using AudioQualityDetector
+        val bitrateValue = song.bitrate ?: 0
+        val sampleRateValue = audioFormatInfo?.sampleRateHz ?: song.sampleRate ?: 0
+        val bitrateKbps = bitrateValue / 1000
+        val codecValue = audioFormatInfo?.codec ?: format
+        val bitDepthValue = audioFormatInfo?.bitDepth ?: 0
+        val channelCountValue = audioFormatInfo?.channelCount ?: song.channels ?: 2
+        
+        val audioQuality = AudioQualityDetector.detectQuality(
+            codec = codecValue,
+            sampleRateHz = sampleRateValue,
+            bitrateKbps = bitrateKbps,
+            bitDepth = bitDepthValue,
+            channelCount = channelCountValue
+        )
         
         return chromahub.rhythm.app.ui.screens.ExtendedSongInfo(
             fileSize = fileSize,
@@ -487,13 +504,19 @@ object MediaUtils {
             channels = channels,
             hasLyrics = hasLyrics,
             genre = genre ?: "", // Pass the extracted genre
-            // Audio quality indicators
-            isLossless = audioFormatInfo?.isLossless ?: false,
-            isDolby = audioFormatInfo?.isDolby ?: false,
-            isDTS = audioFormatInfo?.isDTS ?: false,
-            isHiRes = audioFormatInfo?.isHiRes ?: false,
+            // Audio quality indicators (legacy)
+            isLossless = audioQuality.isLossless,
+            isDolby = audioQuality.isDolby,
+            isDTS = audioQuality.isDTS,
+            isHiRes = audioQuality.isHiRes,
             audioCodec = audioFormatInfo?.codec ?: format,
-            formatName = audioFormatInfo?.formatName ?: format
+            formatName = audioFormatInfo?.formatName ?: format,
+            // Enhanced quality information
+            qualityType = audioQuality.qualityType.name,
+            qualityLabel = audioQuality.qualityLabel,
+            qualityDescription = audioQuality.qualityDescription,
+            bitDepth = audioQuality.bitDepthEstimate,
+            qualityCategory = audioQuality.category
         )
     }
     

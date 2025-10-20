@@ -24,6 +24,7 @@ object AudioFormatDetector {
         val bitDepth: Int = 0,
         val sampleRateHz: Int = 0,
         val channelCount: Int = 0,
+        val bitrateKbps: Int = 0,
         val formatName: String = "Unknown"
     )
 
@@ -31,6 +32,14 @@ object AudioFormatDetector {
      * Detect comprehensive audio format information from a URI
      */
     fun detectFormat(context: Context, uri: Uri): AudioFormatInfo {
+        return detectFormat(context, uri, null)
+    }
+    
+    /**
+     * Detect comprehensive audio format information from a URI with optional Song metadata
+     * for better bit depth calculation
+     */
+    fun detectFormat(context: Context, uri: Uri, song: Song?): AudioFormatInfo {
         var formatInfo = AudioFormatInfo()
 
         try {
@@ -41,10 +50,49 @@ object AudioFormatDetector {
             val retrieverInfo = detectUsingMetadataRetriever(context, uri)
             formatInfo = mergeFormatInfo(formatInfo, retrieverInfo)
             
+            // If we have Song metadata and bit depth is still 0, recalculate
+            if (formatInfo.bitDepth == 0 && song != null) {
+                formatInfo = enhanceBitDepthFromSong(formatInfo, song)
+            }
+            
         } catch (e: Exception) {
             Log.e(TAG, "Error detecting audio format for $uri", e)
         }
 
+        return formatInfo
+    }
+    
+    /**
+     * Enhance bit depth calculation using Song metadata when AudioFormat doesn't provide it
+     */
+    private fun enhanceBitDepthFromSong(formatInfo: AudioFormatInfo, song: Song): AudioFormatInfo {
+        val bitrate = song.bitrate ?: 0
+        val sampleRate = song.sampleRate ?: formatInfo.sampleRateHz
+        val channels = song.channels ?: formatInfo.channelCount
+        
+        if (bitrate > 0 && sampleRate > 0 && channels > 0 && formatInfo.isLossless) {
+            val bitrateKbps = bitrate / 1000
+            val calculatedBitDepth = (bitrateKbps * 1000) / (sampleRate * channels)
+            
+            Log.d(TAG, "Enhancing bit depth from Song metadata: bitrate=${bitrateKbps}kbps, sampleRate=${sampleRate}Hz, channels=$channels, calculated=$calculatedBitDepth")
+            
+            // Use tighter thresholds based on actual bit depths
+            // CD: 44.1kHz/16-bit/stereo = 1,411 kbps → 16 bits/sample
+            // Hi-Res: 96kHz/24-bit/stereo = 4,608 kbps → 24 bits/sample
+            val bitDepth = when {
+                calculatedBitDepth >= 30 -> 32  // 32-bit (30+ bits/sample)
+                calculatedBitDepth >= 22 -> 24  // 24-bit (22-29 bits/sample)
+                calculatedBitDepth >= 14 -> 16  // 16-bit (14-21 bits/sample)
+                calculatedBitDepth >= 7 -> 8    // 8-bit (7-13 bits/sample)
+                else -> 0
+            }
+            
+            if (bitDepth > 0) {
+                Log.d(TAG, "Enhanced bit depth to: $bitDepth-bit (from calculated ${calculatedBitDepth} bits/sample)")
+                return formatInfo.copy(bitDepth = bitDepth)
+            }
+        }
+        
         return formatInfo
     }
 
@@ -84,45 +132,103 @@ object AudioFormatDetector {
         val sampleRate = format.getIntegerOrNull(MediaFormat.KEY_SAMPLE_RATE) ?: 0
         val channelCount = format.getIntegerOrNull(MediaFormat.KEY_CHANNEL_COUNT) ?: 0
         val bitrate = format.getIntegerOrNull(MediaFormat.KEY_BIT_RATE) ?: 0
+        val bitrateKbps = if (bitrate > 0) bitrate / 1000 else 0
         
-        // Detect codec from MIME type
+        // Detect codec from MIME type with better Dolby and DTS detection
         val codec = when {
             mime.contains("alac", ignoreCase = true) -> "ALAC"
             mime.contains("flac", ignoreCase = true) -> "FLAC"
             mime.contains("opus", ignoreCase = true) -> "Opus"
             mime.contains("vorbis", ignoreCase = true) -> "Vorbis"
-            mime.contains("ac3", ignoreCase = true) -> "AC-3"
-            mime.contains("eac3", ignoreCase = true) -> "E-AC-3"
+            // Enhanced Dolby detection
+            mime.contains("truehd", ignoreCase = true) -> "TrueHD"
+            mime.contains("atmos", ignoreCase = true) -> "Dolby Atmos"
+            mime.contains("mlp", ignoreCase = true) -> "TrueHD" // MLP is TrueHD
+            mime.contains("eac3", ignoreCase = true) || mime.contains("ec-3", ignoreCase = true) -> "E-AC-3"
+            mime.contains("ac3", ignoreCase = true) || mime.contains("ac-3", ignoreCase = true) -> "AC-3"
+            // Enhanced DTS detection
+            mime.contains("dts-hd", ignoreCase = true) || mime.contains("dtshd", ignoreCase = true) -> "DTS-HD MA"
             mime.contains("dts", ignoreCase = true) -> "DTS"
+            // Standard codecs
             mime.contains("mp4a", ignoreCase = true) -> "AAC"
             mime.contains("mpeg", ignoreCase = true) -> "MP3"
-            mime.contains("raw", ignoreCase = true) -> "PCM"
+            mime.contains("raw", ignoreCase = true) || mime.contains("pcm", ignoreCase = true) -> "PCM"
+            mime.contains("wav", ignoreCase = true) -> "WAV"
             else -> mime.substringAfter("/").uppercase()
         }
         
-        // Determine if lossless
-        val isLossless = codec in listOf("ALAC", "FLAC", "PCM", "WAV", "APE", "DSD")
+        // Determine if lossless (expanded list with Dolby TrueHD)
+        val isLossless = codec in listOf("ALAC", "FLAC", "PCM", "WAV", "APE", "DSD", "TrueHD", "Dolby Atmos", "DTS-HD MA")
         
-        // Determine if Dolby
-        val isDolby = codec in listOf("AC-3", "E-AC-3") || codec.contains("ATMOS", ignoreCase = true)
+        // Determine if Dolby (expanded detection)
+        val isDolby = codec in listOf("AC-3", "E-AC-3", "TrueHD", "Dolby Atmos") || 
+                      codec.contains("ATMOS", ignoreCase = true) ||
+                      codec.contains("TRUEHD", ignoreCase = true)
         
         // Determine if DTS
         val isDTS = codec.contains("DTS", ignoreCase = true)
         
-        // Determine if Hi-Res (>= 48kHz sample rate or lossless)
-        val isHiRes = sampleRate >= 48000 || isLossless
+        // Determine if Hi-Res (>= 48kHz sample rate for lossless, or >2000 kbps)
+        val isHiRes = sampleRate >= 48000 || (isLossless && bitrateKbps >= 2000)
         
-        // Try to get bit depth for lossless formats
-        val bitDepth = format.getIntegerOrNull(MediaFormat.KEY_PCM_ENCODING) ?: 0
+        // Try to detect bit depth for lossless formats
+        var bitDepth = 0
+        
+        // Check PCM encoding type for bit depth hints
+        val pkmEncoding = format.getIntegerOrNull(MediaFormat.KEY_PCM_ENCODING)
+        bitDepth = when (pkmEncoding) {
+            android.media.AudioFormat.ENCODING_PCM_16BIT -> 16
+            android.media.AudioFormat.ENCODING_PCM_24BIT_PACKED -> 24
+            android.media.AudioFormat.ENCODING_PCM_32BIT -> 32
+            android.media.AudioFormat.ENCODING_PCM_FLOAT -> 32
+            else -> 0
+        }
+        
+        // Estimate bit depth from bitrate and sample rate if not detected
+        if (bitDepth == 0 && isLossless && sampleRate > 0 && bitrateKbps > 0 && channelCount > 0) {
+            // For lossless audio: bitrate (bps) ≈ sampleRate × bitDepth × channels
+            // Calculate: bitDepth = bitrate / (sampleRate × channels)
+            val calculatedBitDepth = (bitrateKbps * 1000) / (sampleRate * channelCount)
+            
+            Log.d(TAG, "Bit depth calculation: bitrate=${bitrateKbps}kbps, sampleRate=${sampleRate}Hz, channels=$channelCount, calculated=$calculatedBitDepth")
+            
+            // Use tighter thresholds based on actual bit depths
+            // Reference: CD (44.1kHz/16-bit/stereo) = 1,411 kbps → 16 bits/sample
+            //           Hi-Res (96kHz/24-bit/stereo) = 4,608 kbps → 24 bits/sample
+            bitDepth = when {
+                calculatedBitDepth >= 30 -> 32  // 32-bit (30+ bits/sample)
+                calculatedBitDepth >= 22 -> 24  // 24-bit (22-29 bits/sample)
+                calculatedBitDepth >= 14 -> 16  // 16-bit (14-21 bits/sample)
+                calculatedBitDepth >= 7 -> 8    // 8-bit (7-13 bits/sample)
+                else -> 0
+            }
+            
+            Log.d(TAG, "Assigned bit depth: $bitDepth-bit (from calculated ${calculatedBitDepth} bits/sample)")
+        }
+        
+        // If still unknown, use sample rate heuristics for lossless
+        if (bitDepth == 0 && isLossless) {
+            if (sampleRate >= 48000) {
+                // Hi-Res audio is typically 24-bit
+                bitDepth = 24
+                Log.d(TAG, "Assumed 24-bit for Hi-Res lossless (${sampleRate}Hz)")
+            } else if (sampleRate >= 44000) {
+                // CD quality is 16-bit
+                bitDepth = 16
+                Log.d(TAG, "Assumed 16-bit for CD quality (${sampleRate}Hz)")
+            }
+        }
         
         val formatName = when {
             codec == "ALAC" -> "Apple Lossless"
             codec == "FLAC" -> "FLAC Lossless"
             codec == "E-AC-3" -> "Dolby Digital Plus"
             codec == "AC-3" -> "Dolby Digital"
-            codec.contains("ATMOS") -> "Dolby Atmos"
+            codec == "TrueHD" -> "Dolby TrueHD"
+            codec == "Dolby Atmos" -> "Dolby Atmos"
+            codec == "DTS-HD MA" -> "DTS-HD Master Audio"
             codec == "DTS" -> "DTS Audio"
-            codec == "AAC" && bitrate > 256000 -> "AAC High Quality"
+            codec == "AAC" && bitrateKbps > 256 -> "AAC High Quality"
             else -> codec
         }
         
@@ -135,6 +241,7 @@ object AudioFormatDetector {
             bitDepth = bitDepth,
             sampleRateHz = sampleRate,
             channelCount = channelCount,
+            bitrateKbps = bitrateKbps,
             formatName = formatName
         )
     }
@@ -200,6 +307,7 @@ object AudioFormatDetector {
             bitDepth = if (primary.bitDepth > 0) primary.bitDepth else fallback.bitDepth,
             sampleRateHz = if (primary.sampleRateHz > 0) primary.sampleRateHz else fallback.sampleRateHz,
             channelCount = if (primary.channelCount > 0) primary.channelCount else fallback.channelCount,
+            bitrateKbps = if (primary.bitrateKbps > 0) primary.bitrateKbps else fallback.bitrateKbps,
             formatName = if (primary.formatName != "Unknown") primary.formatName else fallback.formatName
         )
     }

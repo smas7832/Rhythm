@@ -386,7 +386,7 @@ class MusicRepository(context: Context) {
             
             // Get codec/mime type
             val mimeType = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_MIMETYPE)
-            val codec = mimeType?.let { 
+            var codec = mimeType?.let { 
                 when {
                     it.contains("mp3", ignoreCase = true) -> "MP3"
                     it.contains("aac", ignoreCase = true) -> "AAC"
@@ -398,6 +398,13 @@ class MusicRepository(context: Context) {
                     it.contains("m4a", ignoreCase = true) -> "M4A"
                     else -> it.substringAfter("/").uppercase()
                 }
+            }
+            
+            // For M4A containers, try to detect if it's ALAC (lossless) or AAC (lossy)
+            // ALAC typically has bitrate > 700 kbps, AAC is usually < 320 kbps
+            if (codec == "M4A" && bitrate != null) {
+                codec = if (bitrate >= 700000) "ALAC" else "AAC"
+                Log.d(TAG, "M4A container detected: bitrate=${bitrate/1000}kbps, classified as $codec")
             }
             
             return AudioMetadata(bitrate, sampleRate, channels, codec)
@@ -1270,6 +1277,9 @@ class MusicRepository(context: Context) {
                     
                     // Validate frame size to prevent out of bounds
                     if (frameSize > 0 && frameSize < tagData.size - pos && frameSize < 1048576) { // Max 1MB
+                        // Get encoding byte (byte after flags, position 10)
+                        val encoding = tagData[pos + 10].toInt()
+                        
                         // Skip frame header (10 bytes) + encoding (1 byte) + language (3 bytes) + descriptor
                         var dataPos = pos + 14
                         
@@ -1289,7 +1299,23 @@ class MusicRepository(context: Context) {
                         val lyricsLength = endPos - dataPos
                         if (lyricsLength > 0 && lyricsLength < 524288 && dataPos < tagData.size) { // Max 512KB lyrics
                             val lyricsBytes = tagData.copyOfRange(dataPos, endPos)
-                            val lyrics = String(lyricsBytes, Charsets.UTF_8).trim()
+                            
+                            // Decode using proper charset based on encoding byte
+                            val charset = when (encoding) {
+                                0 -> Charsets.ISO_8859_1  // ISO-8859-1 (Latin-1)
+                                1 -> Charsets.UTF_16      // UTF-16 with BOM
+                                2 -> Charsets.UTF_16BE    // UTF-16BE without BOM
+                                3 -> Charsets.UTF_8       // UTF-8
+                                else -> Charsets.UTF_8    // Default to UTF-8
+                            }
+                            
+                            val lyrics = try {
+                                String(lyricsBytes, charset).trim()
+                            } catch (e: Exception) {
+                                // Fallback to UTF-8 if decoding fails
+                                String(lyricsBytes, Charsets.UTF_8).trim()
+                            }
+                            
                             if (lyrics.isNotBlank()) {
                                 return lyrics
                             }

@@ -81,7 +81,13 @@ data class ExtendedSongInfo(
     val isDTS: Boolean = false,
     val isHiRes: Boolean = false,
     val audioCodec: String = "Unknown",
-    val formatName: String = "Unknown"
+    val formatName: String = "Unknown",
+    // Enhanced quality information
+    val qualityType: String = "Unknown",       // e.g., "Hi-Res Lossless", "CD Quality"
+    val qualityLabel: String = "Unknown",       // e.g., "Hi-Res Lossless"
+    val qualityDescription: String = "",        // e.g., "24-bit / 96 kHz Lossless"
+    val bitDepth: Int = 0,                      // Actual or estimated bit depth (16, 24, etc.)
+    val qualityCategory: String = "Unknown"     // "Lossless", "Lossy", "Surround"
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -645,21 +651,38 @@ private fun MetadataGridSection(
         }
         
         extendedInfo?.let { info ->
-            // Audio quality badges - show lossless, Dolby, Hi-Res
-            if (info.isLossless) {
-                add(MetadataItem("Quality", "Lossless", Icons.Rounded.HighQuality))
+            // Enhanced Audio Quality Badge - show detailed quality type
+            if (info.qualityLabel != "Unknown" && info.qualityLabel.isNotEmpty()) {
+                val qualityIcon = when {
+                    info.isDolby -> Icons.Rounded.SurroundSound
+                    info.isDTS -> Icons.Rounded.SurroundSound
+                    info.isLossless -> Icons.Rounded.HighQuality
+                    info.isHiRes -> Icons.Rounded.HighQuality
+                    else -> Icons.Rounded.GraphicEq
+                }
+                add(MetadataItem("Quality", info.qualityLabel, qualityIcon))
             }
-            if (info.isDolby) {
-                add(MetadataItem("Audio Tech", "Dolby", Icons.Rounded.SurroundSound))
-            }
-            if (info.isDTS) {
-                add(MetadataItem("Audio Tech", "DTS", Icons.Rounded.SurroundSound))
-            }
-            if (info.isHiRes && !info.isLossless) {
-                add(MetadataItem("Quality", "Hi-Res", Icons.Rounded.HighQuality))
+            
+            // Legacy quality badges for backward compatibility (only if not covered by qualityLabel)
+            if (info.qualityLabel == "Unknown") {
+                if (info.isLossless) {
+                    add(MetadataItem("Quality", "Lossless", Icons.Rounded.HighQuality))
+                }
+                if (info.isDolby) {
+                    add(MetadataItem("Audio Tech", "Dolby", Icons.Rounded.SurroundSound))
+                }
+                if (info.isDTS) {
+                    add(MetadataItem("Audio Tech", "DTS", Icons.Rounded.SurroundSound))
+                }
+                if (info.isHiRes && !info.isLossless) {
+                    add(MetadataItem("Quality", "Hi-Res", Icons.Rounded.HighQuality))
+                }
             }
             
             // Audio quality info
+            if (info.bitDepth > 0) {
+                add(MetadataItem("Bit Depth", "${info.bitDepth}-bit", Icons.Rounded.HighQuality))
+            }
             if (info.bitrate != "Unknown") {
                 add(MetadataItem("Bitrate", info.bitrate, Icons.Rounded.GraphicEq))
             }
