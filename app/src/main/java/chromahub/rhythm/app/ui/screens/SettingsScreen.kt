@@ -1215,7 +1215,7 @@ fun SettingsScreen(
                     
                     val autoAddToQueue by appSettings.autoAddToQueue.collectAsState()
                     SettingsToggleItem(
-                        title = "Auto-add to Queue",
+                        title = "Auto Queue",
                         description = "Automatically add related songs to queue when playing",
                         icon = RhythmIcons.Queue,
                         checked = autoAddToQueue,

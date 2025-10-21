@@ -521,14 +521,6 @@ fun AboutScreen(
                                 avatarUrl = "https://github.com/Paxsenix0.png",
                                 context = context
                             )
-                            
-                            CommunityMember(
-                                name = "DJ SMAS",
-                                role = "UI/UX Feedback & Suggestions",
-                                githubUsername = "smas7832",
-                                avatarUrl = "https://github.com/smas7832.png",
-                                context = context
-                            )
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))
