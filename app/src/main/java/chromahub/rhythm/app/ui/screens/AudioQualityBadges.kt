@@ -205,17 +205,17 @@ private fun QualityBadge(
     val (gradientColors, contentColor) = when (qualityLevel) {
         QualityLevel.EXCELLENT -> listOf(
             MaterialTheme.colorScheme.primaryContainer,
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+            MaterialTheme.colorScheme.primaryContainer,
         ) to MaterialTheme.colorScheme.onPrimaryContainer
         
         QualityLevel.GOOD -> listOf(
             MaterialTheme.colorScheme.secondaryContainer,
-            MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f)
+            MaterialTheme.colorScheme.secondaryContainer,
         ) to MaterialTheme.colorScheme.onSecondaryContainer
         
         QualityLevel.STANDARD -> listOf(
             MaterialTheme.colorScheme.tertiaryContainer,
-            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.3f)
+            MaterialTheme.colorScheme.tertiaryContainer,
         ) to MaterialTheme.colorScheme.onTertiaryContainer
     }
     
@@ -231,7 +231,7 @@ private fun QualityBadge(
             modifier = Modifier
                 .scale(scale)
                 .padding(horizontal = 4.dp),
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(12.dp),
             tonalElevation = 2.dp,
             shadowElevation = if (qualityLevel == QualityLevel.EXCELLENT) 0.dp else 0.dp
         ) {
