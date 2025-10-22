@@ -50,8 +50,11 @@ object AudioFormatDetector {
             val retrieverInfo = detectUsingMetadataRetriever(context, uri)
             formatInfo = mergeFormatInfo(formatInfo, retrieverInfo)
             
-            // If we have Song metadata and bit depth is still 0, recalculate
-            if (formatInfo.bitDepth == 0 && song != null) {
+            // Always recalculate bit depth from Song metadata if available for lossless
+            // This is more accurate than MediaExtractor/MediaMetadataRetriever
+            // MediaExtractor often returns PCM decoding format (16-bit) instead of source bit depth
+            if (song != null && formatInfo.isLossless) {
+                Log.d(TAG, "Recalculating bit depth for lossless format using Song metadata")
                 formatInfo = enhanceBitDepthFromSong(formatInfo, song)
             }
             
@@ -64,6 +67,7 @@ object AudioFormatDetector {
     
     /**
      * Enhance bit depth calculation using Song metadata when AudioFormat doesn't provide it
+     * For lossless audio, ALWAYS recalculate to ensure accuracy
      */
     private fun enhanceBitDepthFromSong(formatInfo: AudioFormatInfo, song: Song): AudioFormatInfo {
         val bitrate = song.bitrate ?: 0
@@ -74,21 +78,24 @@ object AudioFormatDetector {
             val bitrateKbps = bitrate / 1000
             val calculatedBitDepth = (bitrateKbps * 1000) / (sampleRate * channels)
             
-            Log.d(TAG, "Enhancing bit depth from Song metadata: bitrate=${bitrateKbps}kbps, sampleRate=${sampleRate}Hz, channels=$channels, calculated=$calculatedBitDepth")
+            Log.d(TAG, "Calculating bit depth from Song metadata: bitrate=${bitrateKbps}kbps, sampleRate=${sampleRate}Hz, channels=$channels, calculated=$calculatedBitDepth bits/sample (current=${formatInfo.bitDepth}-bit)")
             
-            // Use tighter thresholds based on actual bit depths
-            // CD: 44.1kHz/16-bit/stereo = 1,411 kbps → 16 bits/sample
-            // Hi-Res: 96kHz/24-bit/stereo = 4,608 kbps → 24 bits/sample
+            // Use accurate thresholds based on actual bit depths
+            // CD: 44.1kHz/16-bit/stereo = 1,411 kbps → 16.0 bits/sample
+            // Hi-Res: 96kHz/24-bit/stereo = 4,608 kbps → 24.0 bits/sample
             val bitDepth = when {
                 calculatedBitDepth >= 30 -> 32  // 32-bit (30+ bits/sample)
-                calculatedBitDepth >= 22 -> 24  // 24-bit (22-29 bits/sample)
-                calculatedBitDepth >= 14 -> 16  // 16-bit (14-21 bits/sample)
+                calculatedBitDepth >= 20 -> 24  // 24-bit (20-29 bits/sample, allows for compression)
+                calculatedBitDepth >= 14 -> 16  // 16-bit (14-19 bits/sample)
                 calculatedBitDepth >= 7 -> 8    // 8-bit (7-13 bits/sample)
-                else -> 0
+                else -> formatInfo.bitDepth  // Keep original if calculation fails
             }
             
-            if (bitDepth > 0) {
-                Log.d(TAG, "Enhanced bit depth to: $bitDepth-bit (from calculated ${calculatedBitDepth} bits/sample)")
+            if (bitDepth > 0 && bitDepth != formatInfo.bitDepth) {
+                Log.d(TAG, "Corrected bit depth from ${formatInfo.bitDepth}-bit to $bitDepth-bit based on bitrate calculation")
+                return formatInfo.copy(bitDepth = bitDepth)
+            } else if (bitDepth > 0) {
+                Log.d(TAG, "Bit depth confirmed as $bitDepth-bit from bitrate calculation")
                 return formatInfo.copy(bitDepth = bitDepth)
             }
         }
@@ -157,8 +164,9 @@ object AudioFormatDetector {
             else -> mime.substringAfter("/").uppercase()
         }
         
-        // Determine if lossless (expanded list with Dolby TrueHD)
-        val isLossless = codec in listOf("ALAC", "FLAC", "PCM", "WAV", "APE", "DSD", "TrueHD", "Dolby Atmos", "DTS-HD MA")
+        // Determine if lossless (expanded list)
+        val isLossless = codec in listOf("ALAC", "FLAC", "PCM", "WAV", "APE", "DSD", "TrueHD", "Dolby Atmos", "DTS-HD MA", "AIFF") ||
+                         codec.contains("LOSSLESS", ignoreCase = true)
         
         // Determine if Dolby (expanded detection)
         val isDolby = codec in listOf("AC-3", "E-AC-3", "TrueHD", "Dolby Atmos") || 
@@ -174,31 +182,35 @@ object AudioFormatDetector {
         // Try to detect bit depth for lossless formats
         var bitDepth = 0
         
-        // Check PCM encoding type for bit depth hints
-        val pkmEncoding = format.getIntegerOrNull(MediaFormat.KEY_PCM_ENCODING)
-        bitDepth = when (pkmEncoding) {
-            android.media.AudioFormat.ENCODING_PCM_16BIT -> 16
-            android.media.AudioFormat.ENCODING_PCM_24BIT_PACKED -> 24
-            android.media.AudioFormat.ENCODING_PCM_32BIT -> 32
-            android.media.AudioFormat.ENCODING_PCM_FLOAT -> 32
-            else -> 0
+        // For lossless formats, ALWAYS calculate bit depth from bitrate
+        // KEY_PCM_ENCODING gives decoded PCM format, NOT the original bit depth!
+        // Only use PCM encoding for uncompressed formats (PCM, WAV)
+        if (!isLossless) {
+            val pkmEncoding = format.getIntegerOrNull(MediaFormat.KEY_PCM_ENCODING)
+            bitDepth = when (pkmEncoding) {
+                android.media.AudioFormat.ENCODING_PCM_16BIT -> 16
+                android.media.AudioFormat.ENCODING_PCM_24BIT_PACKED -> 24
+                android.media.AudioFormat.ENCODING_PCM_32BIT -> 32
+                android.media.AudioFormat.ENCODING_PCM_FLOAT -> 32
+                else -> 0
+            }
         }
         
-        // Estimate bit depth from bitrate and sample rate if not detected
-        if (bitDepth == 0 && isLossless && sampleRate > 0 && bitrateKbps > 0 && channelCount > 0) {
+        // Calculate bit depth from bitrate for lossless audio (most accurate method)
+        if (isLossless && sampleRate > 0 && bitrateKbps > 0 && channelCount > 0) {
             // For lossless audio: bitrate (bps) ≈ sampleRate × bitDepth × channels
             // Calculate: bitDepth = bitrate / (sampleRate × channels)
             val calculatedBitDepth = (bitrateKbps * 1000) / (sampleRate * channelCount)
             
-            Log.d(TAG, "Bit depth calculation: bitrate=${bitrateKbps}kbps, sampleRate=${sampleRate}Hz, channels=$channelCount, calculated=$calculatedBitDepth")
+            Log.d(TAG, "Bit depth calculation: bitrate=${bitrateKbps}kbps, sampleRate=${sampleRate}Hz, channels=$channelCount, calculated=$calculatedBitDepth bits/sample")
             
-            // Use tighter thresholds based on actual bit depths
-            // Reference: CD (44.1kHz/16-bit/stereo) = 1,411 kbps → 16 bits/sample
-            //           Hi-Res (96kHz/24-bit/stereo) = 4,608 kbps → 24 bits/sample
+            // Use accurate thresholds based on actual bit depths
+            // Reference: CD (44.1kHz/16-bit/stereo) = 1,411 kbps → 16.0 bits/sample
+            //           Hi-Res (96kHz/24-bit/stereo) = 4,608 kbps → 24.0 bits/sample
             bitDepth = when {
                 calculatedBitDepth >= 30 -> 32  // 32-bit (30+ bits/sample)
-                calculatedBitDepth >= 22 -> 24  // 24-bit (22-29 bits/sample)
-                calculatedBitDepth >= 14 -> 16  // 16-bit (14-21 bits/sample)
+                calculatedBitDepth >= 20 -> 24  // 24-bit (20-29 bits/sample, allows for compression)
+                calculatedBitDepth >= 14 -> 16  // 16-bit (14-19 bits/sample)
                 calculatedBitDepth >= 7 -> 8    // 8-bit (7-13 bits/sample)
                 else -> 0
             }

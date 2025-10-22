@@ -473,12 +473,33 @@ object MediaUtils {
         }
         
         // Calculate detailed audio quality using AudioQualityDetector
-        val bitrateValue = song.bitrate ?: 0
-        val sampleRateValue = audioFormatInfo?.sampleRateHz ?: song.sampleRate ?: 0
-        val bitrateKbps = bitrateValue / 1000
-        val codecValue = audioFormatInfo?.codec ?: format
+        // Prefer Song's metadata when available as it's more reliable
+        val bitrateKbps = if (song.bitrate != null && song.bitrate!! > 0) {
+            song.bitrate!! / 1000
+        } else if (audioFormatInfo?.bitrateKbps != null && audioFormatInfo.bitrateKbps > 0) {
+            audioFormatInfo.bitrateKbps
+        } else {
+            0
+        }
+        
+        val sampleRateValue = if (song.sampleRate != null && song.sampleRate!! > 0) {
+            song.sampleRate!!
+        } else if (audioFormatInfo?.sampleRateHz != null && audioFormatInfo.sampleRateHz > 0) {
+            audioFormatInfo.sampleRateHz
+        } else {
+            0
+        }
+        
+        val channelCountValue = if (song.channels != null && song.channels!! > 0) {
+            song.channels!!
+        } else if (audioFormatInfo?.channelCount != null && audioFormatInfo.channelCount > 0) {
+            audioFormatInfo.channelCount
+        } else {
+            2
+        }
+        
+        val codecValue = audioFormatInfo?.codec ?: song.codec ?: format
         val bitDepthValue = audioFormatInfo?.bitDepth ?: 0
-        val channelCountValue = audioFormatInfo?.channelCount ?: song.channels ?: 2
         
         val audioQuality = AudioQualityDetector.detectQuality(
             codec = codecValue,

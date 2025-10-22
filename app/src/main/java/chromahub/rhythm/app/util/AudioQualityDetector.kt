@@ -1,5 +1,7 @@
 package chromahub.rhythm.app.util
 
+import android.util.Log
+
 /**
  * Audio quality categorization utility based on sample rate, bitrate, bit depth, and codec
  * 
@@ -13,6 +15,7 @@ package chromahub.rhythm.app.util
  * - DTS-HD Master Audio (Lossless): (4,000-18,000 kbps, 48-192 kHz, 24-bit)
  */
 object AudioQualityDetector {
+    private const val TAG = "AudioQualityDetector"
 
     /**
      * Represents the audio quality tier
@@ -22,6 +25,7 @@ object AudioQualityDetector {
         CD_QUALITY_LOSSLESS,   // FLAC, ALAC 16/44.1
         HI_RES_LOSSLESS,       // FLAC, ALAC 24/48+ kHz
         HI_RES_STUDIO_MASTER,  // FLAC, ALAC 24/192 kHz
+        LOSSLESS_SURROUND,     // e.g., FLAC 5.1
         DOLBY_LOSSY_SURROUND,  // AC-3, E-AC-3
         DOLBY_LOSSLESS,        // TrueHD, Atmos
         DTS_SURROUND,          // DTS variants
@@ -66,8 +70,27 @@ object AudioQualityDetector {
         // Determine if codec is inherently lossless
         val isLosslessCodec = normalizedCodec in listOf(
             "FLAC", "ALAC", "WAV", "PCM", "APE", "DSD", "AIFF", "WMA LOSSLESS",
-            "TRUEHD", "MLP", "DTS-HD", "DTS-HD MA"
-        )
+            "TRUEHD", "MLP", "DTS-HD", "DTS-HD MA", "APPLE LOSSLESS", "FLAC LOSSLESS"
+        ) || normalizedCodec.contains("LOSSLESS")
+        
+        // Additional heuristic: Low bitrate for 44.1kHz can indicate lossless compression
+        // CD quality uncompressed = 1411 kbps, but lossless can compress to 200-900 kbps
+        // However, AAC at 288kbps would typically be for high quality lossy
+        // ALAC/FLAC can be 200-1500 kbps depending on compression
+        val isLikelyLosslessFromBitrate = !isLosslessCodec && 
+                                          sampleRateHz in 44000..48000 && 
+                                          bitrateKbps in 200..1500 &&
+                                          !normalizedCodec.contains("MP3") &&
+                                          !normalizedCodec.contains("OGG") &&
+                                          !normalizedCodec.contains("OPUS") &&
+                                          !normalizedCodec.contains("VORBIS")
+        // Note: Not excluding AAC here because M4A containers can have ALAC but report as AAC
+        
+        val finalIsLossless = isLosslessCodec || isLikelyLosslessFromBitrate
+        
+        Log.d(TAG, "Codec detection: original='$codec', normalized='$normalizedCodec', " +
+                "isLosslessCodec=$isLosslessCodec, likelyLossless=$isLikelyLosslessFromBitrate, " +
+                "final=$finalIsLossless")
 
         // Detect Dolby variants
         val isDolbyCodec = normalizedCodec in listOf(
@@ -80,27 +103,46 @@ object AudioQualityDetector {
 
         // Estimate bit depth if not provided
         val estimatedBitDepth = when {
-            bitDepth > 0 -> bitDepth
-            // Use bitrate-based calculation for lossless with improved thresholds
-            isLosslessCodec && bitrateKbps > 0 && sampleRateHz > 0 && channelCount > 0 -> {
-                val calculated = (bitrateKbps * 1000) / (sampleRateHz * channelCount)
-                // Reference: CD (44.1kHz/16-bit) = 1,411 kbps → 16 bits/sample
-                //           Hi-Res (96kHz/24-bit) = 4,608 kbps → 24 bits/sample
-                when {
-                    calculated >= 30 -> 32  // 32-bit (30+ bits/sample)
-                    calculated >= 22 -> 24  // 24-bit (22-29 bits/sample)
-                    calculated >= 14 -> 16  // 16-bit (14-21 bits/sample)
-                    else -> 16
-                }
+            bitDepth > 0 -> {
+                Log.d(TAG, "Using provided bit depth: $bitDepth-bit")
+                bitDepth
             }
-            // Fallback to sample rate heuristics
-            sampleRateHz >= 96000 -> 24   // Hi-Res is typically 24-bit
-            sampleRateHz >= 48000 -> 24   // Hi-Res audio
-            isLosslessCodec -> 16         // CD quality default
-            else -> 16                    // Default assumption
+            // Use bitrate-based calculation for lossless with improved thresholds
+            finalIsLossless && bitrateKbps > 0 && sampleRateHz > 0 && channelCount > 0 -> {
+                val calculated = (bitrateKbps * 1000) / (sampleRateHz * channelCount)
+                // Reference calculations:
+                // CD Quality: 44.1kHz/16-bit/stereo = 1,411 kbps → 16 bits/sample
+                //   (1411 * 1000) / (44100 * 2) = 16.0
+                // Hi-Res: 96kHz/24-bit/stereo = 4,608 kbps → 24 bits/sample
+                //   (4608 * 1000) / (96000 * 2) = 24.0
+                val result = when {
+                    calculated >= 20 -> 24  // 24-bit (20-32 bits/sample, allowing for compression variation)
+                    calculated >= 14 -> 16  // 16-bit (14-19 bits/sample)
+                    calculated >= 10 -> 16  // 16-bit with high compression
+                    else -> 16              // Default to 16 for lower bitrates
+                }
+                Log.d(TAG, "Bit depth from bitrate: codec=$normalizedCodec, " +
+                        "bitrate=${bitrateKbps}kbps, sampleRate=${sampleRateHz}Hz, " +
+                        "channels=$channelCount, calculated=$calculated bits/sample → $result-bit")
+                result
+            }
+            // Fallback to sample rate heuristics for lossless codecs
+            finalIsLossless && sampleRateHz >= 48000 -> {
+                Log.d(TAG, "Bit depth from sample rate: ${sampleRateHz}Hz → 24-bit (Hi-Res assumed)")
+                24
+            }
+            finalIsLossless -> {
+                Log.d(TAG, "Bit depth default for lossless: 16-bit")
+                16
+            }
+            else -> 16                    // Default assumption for lossy
         }
 
         // Determine quality type and details
+        Log.d(TAG, "Quality detection: codec=$normalizedCodec, sampleRate=${sampleRateHz}Hz, " +
+                "bitrate=${bitrateKbps}kbps, bitDepth=$estimatedBitDepth-bit, " +
+                "channels=$channelCount, isLossless=$finalIsLossless")
+        
         return when {
             // Dolby TrueHD / Atmos (Lossless surround)
             normalizedCodec in listOf("TRUEHD", "DOLBY TRUEHD", "ATMOS", "DOLBY ATMOS", "MLP") -> {
@@ -120,7 +162,7 @@ object AudioQualityDetector {
             // Dolby Digital (AC-3, E-AC-3) - Lossy surround
             normalizedCodec in listOf("AC-3", "AC3", "E-AC-3", "EAC3", "DOLBY DIGITAL", "DOLBY DIGITAL PLUS") -> {
                 val label = when {
-                    normalizedCodec.contains("E-AC-3") || normalizedCodec.contains("EAC3") || 
+                    normalizedCodec.contains("E-AC-3") || normalizedCodec.contains("EAC3") ||
                     normalizedCodec.contains("PLUS") -> "Dolby Digital Plus"
                     else -> "Dolby Digital"
                 }
@@ -143,9 +185,9 @@ object AudioQualityDetector {
                 AudioQuality(
                     qualityType = QualityType.DTS_SURROUND,
                     qualityLabel = if (isLosslessDTS) "DTS-HD Master Audio" else "DTS",
-                    qualityDescription = if (isLosslessDTS) 
+                    qualityDescription = if (isLosslessDTS)
                         "${estimatedBitDepth}-bit / ${sampleRateKhz.toInt()} kHz Lossless Surround"
-                    else 
+                    else
                         "$bitrateKbps kbps Surround",
                     isLossless = isLosslessDTS,
                     isHiRes = isLosslessDTS,
@@ -156,8 +198,28 @@ object AudioQualityDetector {
                 )
             }
 
+            // Dolby Surround (5.1/7.1 FLAC, ALAC, etc.)
+            finalIsLossless && channelCount > 2 -> {
+                val channelLabel = when (channelCount) {
+                    6 -> "5.1"
+                    8 -> "7.1"
+                    else -> "${channelCount}ch"
+                }
+                AudioQuality(
+                    qualityType = QualityType.LOSSLESS_SURROUND,
+                    qualityLabel = "Dolby Surround $channelLabel",
+                    qualityDescription = "${estimatedBitDepth}-bit / ${sampleRateKhz.toInt()} kHz Surround",
+                    isLossless = true,
+                    isHiRes = estimatedBitDepth >= 24 || sampleRateHz > 48000,
+                    isDolby = true,
+                    isDTS = false,
+                    bitDepthEstimate = estimatedBitDepth,
+                    category = "Dolby Surround"
+                )
+            }
+
             // Hi-Res Studio Master (192 kHz, 24-bit lossless, >4600 kbps)
-            isLosslessCodec && sampleRateHz >= 192000 && estimatedBitDepth >= 24 -> {
+            finalIsLossless && sampleRateHz >= 192000 && estimatedBitDepth >= 24 -> {
                 AudioQuality(
                     qualityType = QualityType.HI_RES_STUDIO_MASTER,
                     qualityLabel = "Studio Master",
@@ -172,7 +234,8 @@ object AudioQualityDetector {
             }
 
             // Hi-Res Lossless (48-96 kHz, typically 24-bit, >2000 kbps)
-            isLosslessCodec && sampleRateHz >= 48000 && sampleRateHz < 192000 -> {
+            finalIsLossless && (sampleRateHz > 48000 || estimatedBitDepth >= 24) -> {
+                Log.d(TAG, "Detected: HI_RES_LOSSLESS (sampleRate=${sampleRateHz}Hz, bitDepth=$estimatedBitDepth-bit)")
                 AudioQuality(
                     qualityType = QualityType.HI_RES_LOSSLESS,
                     qualityLabel = "Hi-Res Lossless",
@@ -187,7 +250,8 @@ object AudioQualityDetector {
             }
 
             // CD Quality Lossless (44.1 kHz, 16-bit, ~1411 kbps)
-            isLosslessCodec && sampleRateHz <= 48000 -> {
+            finalIsLossless -> { // Catches any remaining lossless formats
+                Log.d(TAG, "Detected: CD_QUALITY_LOSSLESS (sampleRate=${sampleRateHz}Hz, bitDepth=$estimatedBitDepth-bit)")
                 AudioQuality(
                     qualityType = QualityType.CD_QUALITY_LOSSLESS,
                     qualityLabel = "Lossless",
@@ -201,41 +265,18 @@ object AudioQualityDetector {
                 )
             }
 
-            // Lossy compressed (MP3, AAC, OGG, etc.)
-            !isLosslessCodec -> {
-                val qualityDescription = when {
-                    bitrateKbps >= 320 -> "320 kbps High Quality"
-                    bitrateKbps >= 256 -> "256 kbps"
-                    bitrateKbps >= 192 -> "192 kbps"
-                    bitrateKbps >= 128 -> "128 kbps"
-                    else -> "$bitrateKbps kbps"
-                }
-                
+            // Lossy Compressed (MP3, AAC, etc.)
+            else -> {
                 AudioQuality(
                     qualityType = QualityType.LOSSY_COMPRESSED,
-                    qualityLabel = "Lossy / Compressed",
-                    qualityDescription = qualityDescription,
+                    qualityLabel = "Lossy",
+                    qualityDescription = "$bitrateKbps kbps / ${sampleRateKhz.toInt()} kHz",
                     isLossless = false,
                     isHiRes = false,
                     isDolby = false,
                     isDTS = false,
-                    bitDepthEstimate = 16,
+                    bitDepthEstimate = 16, // Lossy formats don't have a meaningful bit depth after encoding
                     category = "Lossy"
-                )
-            }
-
-            // Unknown/fallback
-            else -> {
-                AudioQuality(
-                    qualityType = QualityType.UNKNOWN,
-                    qualityLabel = "Unknown",
-                    qualityDescription = "Unable to determine quality",
-                    isLossless = false,
-                    isHiRes = false,
-                    isDolby = isDolbyCodec,
-                    isDTS = isDTSCodec,
-                    bitDepthEstimate = 0,
-                    category = "Unknown"
                 )
             }
         }
@@ -249,6 +290,7 @@ object AudioQualityDetector {
             QualityType.HI_RES_STUDIO_MASTER -> "Studio Master"
             QualityType.HI_RES_LOSSLESS -> "Hi-Res"
             QualityType.CD_QUALITY_LOSSLESS -> "Lossless"
+            QualityType.LOSSLESS_SURROUND -> quality.qualityLabel // "Dolby Surround 5.1" etc.
             QualityType.DOLBY_LOSSLESS -> when {
                 quality.qualityLabel.contains("Atmos") -> "Dolby Atmos"
                 else -> "Dolby TrueHD"
@@ -286,7 +328,8 @@ object AudioQualityDetector {
     fun getQualityColorIndicator(quality: AudioQuality): String {
         return when (quality.qualityType) {
             QualityType.HI_RES_STUDIO_MASTER, 
-            QualityType.DOLBY_LOSSLESS -> "excellent"
+            QualityType.DOLBY_LOSSLESS,
+            QualityType.LOSSLESS_SURROUND -> "excellent"
             
             QualityType.HI_RES_LOSSLESS, 
             QualityType.CD_QUALITY_LOSSLESS -> "good"

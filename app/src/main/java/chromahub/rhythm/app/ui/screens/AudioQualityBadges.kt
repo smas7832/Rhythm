@@ -59,20 +59,48 @@ fun AudioQualityBadges(
                 val formatInfo = AudioFormatDetector.detectFormat(context, song.uri, song)
 
                 // Use the enhanced quality detector with format info
-                // If format info doesn't have bitrate, use song's bitrate
-                val bitrateKbps = if (formatInfo.bitrateKbps > 0) {
+                // Prefer Song's metadata when available as it's more reliable
+                val bitrateKbps = if (song.bitrate != null && song.bitrate!! > 0) {
+                    song.bitrate!! / 1000
+                } else if (formatInfo.bitrateKbps > 0) {
                     formatInfo.bitrateKbps
                 } else {
-                    (song.bitrate ?: 0) / 1000
+                    0
                 }
+                
+                val sampleRateHz = if (song.sampleRate != null && song.sampleRate!! > 0) {
+                    song.sampleRate!!
+                } else if (formatInfo.sampleRateHz > 0) {
+                    formatInfo.sampleRateHz
+                } else {
+                    0
+                }
+                
+                val channelCount = if (song.channels != null && song.channels!! > 0) {
+                    song.channels!!
+                } else if (formatInfo.channelCount > 0) {
+                    formatInfo.channelCount
+                } else {
+                    2
+                }
+                
+                Log.d("AudioQualityBadges", "Song metadata: bitrate=${song.bitrate}, sampleRate=${song.sampleRate}, channels=${song.channels}, codec=${song.codec}")
+                Log.d("AudioQualityBadges", "Format info: codec=${formatInfo.codec}, " +
+                        "sampleRate=${formatInfo.sampleRateHz}Hz, bitrate=${formatInfo.bitrateKbps}kbps, " +
+                        "bitDepth=${formatInfo.bitDepth}-bit, channels=${formatInfo.channelCount}")
+                Log.d("AudioQualityBadges", "Using for detection: codec=${formatInfo.codec}, " +
+                        "sampleRate=${sampleRateHz}Hz, bitrate=${bitrateKbps}kbps, " +
+                        "bitDepth=${formatInfo.bitDepth}-bit, channels=${channelCount}")
                 
                 audioQuality = AudioQualityDetector.detectQuality(
                     codec = formatInfo.codec,
-                    sampleRateHz = formatInfo.sampleRateHz,
+                    sampleRateHz = sampleRateHz,
                     bitrateKbps = bitrateKbps,
                     bitDepth = formatInfo.bitDepth,
-                    channelCount = formatInfo.channelCount
+                    channelCount = channelCount
                 )
+                
+                Log.d("AudioQualityBadges", "Badge quality result: ${audioQuality?.qualityType} - ${audioQuality?.qualityLabel}")
             } catch (e: Exception) {
                 Log.e("AudioQualityBadges", "Failed to detect audio quality", e)
             }
@@ -134,6 +162,15 @@ fun AudioQualityBadges(
                             text = badgeText,
                             icon = Icons.Rounded.SurroundSound,
                             qualityLevel = if (quality.isLossless) QualityLevel.EXCELLENT else QualityLevel.STANDARD
+                        )
+                    }
+
+                    AudioQualityDetector.QualityType.LOSSLESS_SURROUND -> {
+                        // Show full label: "DOLBY SURROUND 5.1" or "DOLBY SURROUND 7.1"
+                        QualityBadge(
+                            text = quality.qualityLabel.uppercase(),
+                            icon = Icons.Rounded.SurroundSound,
+                            qualityLevel = QualityLevel.EXCELLENT
                         )
                     }
 

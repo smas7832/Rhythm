@@ -300,10 +300,10 @@ class AppSettings private constructor(context: Context) {
     val customFontFamily: StateFlow<String> = _customFontFamily.asStateFlow()
     
     // Festive Theme Settings
-    private val _festiveThemeEnabled = MutableStateFlow(prefs.getBoolean(KEY_FESTIVE_THEME_ENABLED, true))
+    private val _festiveThemeEnabled = MutableStateFlow(prefs.getBoolean(KEY_FESTIVE_THEME_ENABLED, false))
     val festiveThemeEnabled: StateFlow<Boolean> = _festiveThemeEnabled.asStateFlow()
     
-    private val _festiveThemeSelected = MutableStateFlow(prefs.getString(KEY_FESTIVE_THEME_SELECTED, "DIWALI") ?: "DIWALI")
+    private val _festiveThemeSelected = MutableStateFlow(prefs.getString(KEY_FESTIVE_THEME_SELECTED, "NONE") ?: "NONE")
     val festiveThemeSelected: StateFlow<String> = _festiveThemeSelected.asStateFlow()
     
     private val _festiveThemeAutoDetect = MutableStateFlow(prefs.getBoolean(KEY_FESTIVE_THEME_AUTO_DETECT, false))
