@@ -5,6 +5,34 @@ import android.util.Log
 /**
  * Audio quality categorization utility based on sample rate, bitrate, bit depth, and codec
  * 
+ * LOSSLESS AUDIO DEFINITION:
+ * Lossless audio refers to a file format that preserves all the original audio data from the 
+ * source without any degradation, unlike lossy formats such as MP3 or AAC, which remove some 
+ * data to reduce file size. Apple Music uses the Apple Lossless Audio Codec (ALAC) for its 
+ * lossless tier, which ensures the audio is a bit-perfect copy of the original master recording.
+ * 
+ * STANDARD LOSSLESS vs HIGH-RESOLUTION LOSSLESS:
+ * - Standard Lossless (CD Quality): 16-bit depth, 44.1 kHz sample rate
+ *   * CD quality is defined as 16-bit depth and a 44.1 kHz sample rate
+ *   * A 16-bit audio file can achieve approximately 96 dB of dynamic range
+ *   * 44.1 kHz sample rate can reproduce frequencies up to 22.05 kHz (just above human hearing ~20 kHz)
+ *   * Typical bitrate: ~1,411 kbps uncompressed, 200-900 kbps compressed (ALAC/FLAC)
+ * 
+ * - High-Resolution Lossless: 24-bit depth, 96 kHz or higher sample rate
+ *   * Uses higher bit depths and sample rates than standard CD quality
+ *   * 24-bit depth provides approximately 144 dB of dynamic range (48 dB more than 16-bit)
+ *   * Sample rates of 96 kHz, 192 kHz, or higher capture more audio information
+ *   * Higher sample rates can reproduce frequencies beyond human hearing (though audibility is debated)
+ *   * Typical bitrate: 2,000-4,600 kbps at 96 kHz, 4,600-9,200+ kbps at 192 kHz
+ * 
+ * CALCULATING THE DIFFERENCE:
+ * The difference between standard lossless and high-resolution lossless is calculated by 
+ * comparing the bit depth and sample rate metadata:
+ * - Bit depth determines the dynamic range (signal-to-noise ratio)
+ * - Sample rate determines the frequency range that can be accurately reproduced
+ * - A song with 16-bit/44.1 kHz is standard lossless (CD quality)
+ * - A song with 24-bit/96 kHz or 24-bit/192 kHz is high-resolution lossless
+ * 
  * Quality Levels (Based on industry standards):
  * - Lossy Compressed: MP3, AAC, OGG (128-320 kbps, 44.1 kHz, 16-bit after decoding)
  * - CD Quality (Lossless): FLAC, ALAC, WAV (~1,411 kbps, 44.1 kHz, 16-bit)
@@ -67,30 +95,35 @@ object AudioQualityDetector {
         val normalizedCodec = codec.uppercase().trim()
         val sampleRateKhz = sampleRateHz / 1000.0
 
-        // Determine if codec is inherently lossless
-        val isLosslessCodec = normalizedCodec in listOf(
-            "FLAC", "ALAC", "WAV", "PCM", "APE", "DSD", "AIFF", "WMA LOSSLESS",
-            "TRUEHD", "MLP", "DTS-HD", "DTS-HD MA", "APPLE LOSSLESS", "FLAC LOSSLESS"
-        ) || normalizedCodec.contains("LOSSLESS")
+        // CRITICAL: First check if codec is explicitly LOSSY - these can NEVER be lossless
+        // regardless of bitrate or bit depth. Lossy codecs discard data during encoding.
+        val isLossyCodec = normalizedCodec in listOf("MP3", "AAC", "OGG", "OPUS", "VORBIS", "AC-3", "AC3", "E-AC-3", "EAC3") ||
+                          (normalizedCodec.contains("WMA") && !normalizedCodec.contains("LOSSLESS"))
         
-        // Additional heuristic: Low bitrate for 44.1kHz can indicate lossless compression
-        // CD quality uncompressed = 1411 kbps, but lossless can compress to 200-900 kbps
-        // However, AAC at 288kbps would typically be for high quality lossy
-        // ALAC/FLAC can be 200-1500 kbps depending on compression
-        val isLikelyLosslessFromBitrate = !isLosslessCodec && 
+        // Determine if codec is inherently lossless
+        // These codecs preserve all original audio data bit-perfectly
+        val isLosslessCodec = !isLossyCodec && (
+            normalizedCodec in listOf(
+                "FLAC", "ALAC", "WAV", "PCM", "APE", "DSD", "AIFF", "WMA LOSSLESS",
+                "TRUEHD", "MLP", "DTS-HD", "DTS-HD MA", "APPLE LOSSLESS", "FLAC LOSSLESS"
+            ) || normalizedCodec.contains("LOSSLESS")
+        )
+        
+        // IMPORTANT: Only use bitrate heuristics if codec is UNKNOWN/EMPTY and NOT a known lossy codec
+        // High-bitrate AAC (320kbps) is still lossy, not lossless!
+        // This heuristic should rarely trigger as most files have codec information
+        val isLikelyLosslessFromBitrate = !isLossyCodec &&
+                                          !isLosslessCodec &&
+                                          (normalizedCodec.isEmpty() || normalizedCodec == "UNKNOWN") &&
                                           sampleRateHz in 44000..48000 && 
-                                          bitrateKbps in 200..1500 &&
-                                          !normalizedCodec.contains("MP3") &&
-                                          !normalizedCodec.contains("OGG") &&
-                                          !normalizedCodec.contains("OPUS") &&
-                                          !normalizedCodec.contains("VORBIS")
-        // Note: Not excluding AAC here because M4A containers can have ALAC but report as AAC
+                                          bitrateKbps > 900  // Very high threshold to avoid false positives
         
         val finalIsLossless = isLosslessCodec || isLikelyLosslessFromBitrate
         
-        Log.d(TAG, "Codec detection: original='$codec', normalized='$normalizedCodec', " +
-                "isLosslessCodec=$isLosslessCodec, likelyLossless=$isLikelyLosslessFromBitrate, " +
-                "final=$finalIsLossless")
+//        Log.d(TAG, "Codec detection: original='$codec', normalized='$normalizedCodec', " +
+//                "isLossyCodec=$isLossyCodec, isLosslessCodec=$isLosslessCodec, " +
+//                "likelyLossless=$isLikelyLosslessFromBitrate, final=$finalIsLossless") +
+//                "final=$finalIsLossless")
 
         // Detect Dolby variants
         val isDolbyCodec = normalizedCodec in listOf(
@@ -108,18 +141,28 @@ object AudioQualityDetector {
                 bitDepth
             }
             // Use bitrate-based calculation for lossless with improved thresholds
+            // This calculation determines bit depth from the bitrate, sample rate, and channels:
+            // Formula: bits per sample = (bitrate in bps) / (sample rate * channels)
+            // Standard CD quality: 16-bit/44.1kHz/stereo = 1,411 kbps → 16 bits/sample
+            //   Calculation: (1,411,000 bps) / (44,100 Hz * 2 channels) = 16.0 bits/sample
+            // Hi-Res lossless: 24-bit/96kHz/stereo = 4,608 kbps → 24 bits/sample
+            //   Calculation: (4,608,000 bps) / (96,000 Hz * 2 channels) = 24.0 bits/sample
+            // 
+            // CRITICAL: If calculated bit depth is too low (< 12), the file is likely NOT true lossless
+            // or has incorrect metadata. We must be strict to avoid false positives.
             finalIsLossless && bitrateKbps > 0 && sampleRateHz > 0 && channelCount > 0 -> {
                 val calculated = (bitrateKbps * 1000) / (sampleRateHz * channelCount)
-                // Reference calculations:
-                // CD Quality: 44.1kHz/16-bit/stereo = 1,411 kbps → 16 bits/sample
-                //   (1411 * 1000) / (44100 * 2) = 16.0
-                // Hi-Res: 96kHz/24-bit/stereo = 4,608 kbps → 24 bits/sample
-                //   (4608 * 1000) / (96000 * 2) = 24.0
                 val result = when {
-                    calculated >= 20 -> 24  // 24-bit (20-32 bits/sample, allowing for compression variation)
-                    calculated >= 14 -> 16  // 16-bit (14-19 bits/sample)
-                    calculated >= 10 -> 16  // 16-bit with high compression
-                    else -> 16              // Default to 16 for lower bitrates
+                    calculated >= 22 -> 24  // 24-bit Hi-Res (22+ bits/sample for safety margin)
+                    calculated >= 14 -> 16  // 16-bit CD Quality (14-21 bits/sample)
+                    calculated >= 12 -> 16  // 16-bit with high compression (12-13 bits/sample)
+                    else -> {
+                        // Bit depth too low - likely incorrect metadata or not true lossless
+                        Log.w(TAG, "Calculated bit depth too low ($calculated bits/sample) for claimed lossless codec '$normalizedCodec'. " +
+                                "Bitrate: ${bitrateKbps}kbps, SampleRate: ${sampleRateHz}Hz, Channels: $channelCount. " +
+                                "This may indicate corrupted metadata or lossy file misidentified as lossless.")
+                        0  // Return 0 to indicate invalid/suspicious bit depth
+                    }
                 }
                 Log.d(TAG, "Bit depth from bitrate: codec=$normalizedCodec, " +
                         "bitrate=${bitrateKbps}kbps, sampleRate=${sampleRateHz}Hz, " +
@@ -127,12 +170,13 @@ object AudioQualityDetector {
                 result
             }
             // Fallback to sample rate heuristics for lossless codecs
+            // Hi-Res lossless typically starts at 48kHz (though CD quality is 44.1kHz)
             finalIsLossless && sampleRateHz >= 48000 -> {
                 Log.d(TAG, "Bit depth from sample rate: ${sampleRateHz}Hz → 24-bit (Hi-Res assumed)")
                 24
             }
             finalIsLossless -> {
-                Log.d(TAG, "Bit depth default for lossless: 16-bit")
+                Log.d(TAG, "Bit depth default for lossless: 16-bit (CD Quality)")
                 16
             }
             else -> 16                    // Default assumption for lossy
@@ -219,6 +263,9 @@ object AudioQualityDetector {
             }
 
             // Hi-Res Studio Master (192 kHz, 24-bit lossless, >4600 kbps)
+            // Studio Master quality represents the highest tier of lossless audio with 24-bit depth
+            // and 192 kHz sample rate, matching or exceeding professional studio master recordings.
+            // At 192 kHz, can theoretically reproduce frequencies up to 96 kHz (far beyond human hearing).
             finalIsLossless && sampleRateHz >= 192000 && estimatedBitDepth >= 24 -> {
                 AudioQuality(
                     qualityType = QualityType.HI_RES_STUDIO_MASTER,
@@ -234,7 +281,18 @@ object AudioQualityDetector {
             }
 
             // Hi-Res Lossless (48-96 kHz, typically 24-bit, >2000 kbps)
-            finalIsLossless && (sampleRateHz > 48000 || estimatedBitDepth >= 24) -> {
+            // High-resolution lossless uses higher bit depths (24-bit, ~144 dB dynamic range) and 
+            // sample rates (96 kHz+) than CD quality, capturing more audio information and providing
+            // a wider frequency range and dynamic range. Sample rates above 48 kHz can reproduce
+            // frequencies beyond the 20 kHz limit of human hearing.
+            // 
+            // CRITICAL: Hi-Res Lossless requires BOTH:
+            // - Sample rate ≥ 48 kHz (above CD's 44.1 kHz), AND
+            // - Bit depth = 24-bit (not 16-bit)
+            // A file with 48kHz/16-bit is NOT Hi-Res, it's just high sample rate CD quality
+            // 
+            // VALIDATION: Bit depth must be valid (>= 16) to qualify as Hi-Res Lossless
+            finalIsLossless && sampleRateHz >= 48000 && estimatedBitDepth >= 24 -> {
                 Log.d(TAG, "Detected: HI_RES_LOSSLESS (sampleRate=${sampleRateHz}Hz, bitDepth=$estimatedBitDepth-bit)")
                 AudioQuality(
                     qualityType = QualityType.HI_RES_LOSSLESS,
@@ -250,7 +308,12 @@ object AudioQualityDetector {
             }
 
             // CD Quality Lossless (44.1 kHz, 16-bit, ~1411 kbps)
-            finalIsLossless -> { // Catches any remaining lossless formats
+            // This is the standard for lossless audio - CD quality with bit-perfect reproduction
+            // Standard CD: 16-bit depth provides ~96 dB dynamic range, 44.1 kHz captures up to 22.05 kHz
+            // 
+            // VALIDATION: Bit depth must be valid (>= 12) to qualify as lossless
+            // Files with bit depth < 12 are likely corrupt or have incorrect metadata
+            finalIsLossless && estimatedBitDepth >= 12 -> { // Catches any remaining lossless formats with valid bit depth
                 Log.d(TAG, "Detected: CD_QUALITY_LOSSLESS (sampleRate=${sampleRateHz}Hz, bitDepth=$estimatedBitDepth-bit)")
                 AudioQuality(
                     qualityType = QualityType.CD_QUALITY_LOSSLESS,
@@ -262,6 +325,26 @@ object AudioQualityDetector {
                     isDTS = false,
                     bitDepthEstimate = estimatedBitDepth,
                     category = "Lossless"
+                )
+            }
+            
+            // Invalid/Suspicious Lossless (bit depth too low)
+            // If a file claims to be lossless but has calculated bit depth < 12,
+            // treat it as lossy to avoid misclassification
+            finalIsLossless && estimatedBitDepth < 12 -> {
+                Log.w(TAG, "File claims lossless codec but bit depth is too low ($estimatedBitDepth-bit). " +
+                        "Treating as LOSSY. Codec: $normalizedCodec, Bitrate: ${bitrateKbps}kbps, " +
+                        "SampleRate: ${sampleRateHz}Hz")
+                AudioQuality(
+                    qualityType = QualityType.LOSSY_COMPRESSED,
+                    qualityLabel = "Lossy",
+                    qualityDescription = "$bitrateKbps kbps / ${sampleRateKhz.toInt()} kHz",
+                    isLossless = false,
+                    isHiRes = false,
+                    isDolby = false,
+                    isDTS = false,
+                    bitDepthEstimate = estimatedBitDepth,
+                    category = "Lossy"
                 )
             }
 

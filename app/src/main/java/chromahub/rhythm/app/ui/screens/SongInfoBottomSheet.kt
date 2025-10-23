@@ -59,6 +59,15 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 // Data class to hold additional song metadata
+// 
+// AUDIO QUALITY NOTES:
+// - Lossless formats (ALAC, FLAC, WAV) preserve all original audio data bit-perfectly
+// - Lossy formats (MP3, AAC, OGG) discard data to reduce file size - NOT lossless!
+// - Bit depth alone does NOT determine lossless vs lossy:
+//   * Lossy MP3/AAC decode to 16-bit but are still lossy (data was discarded during encoding)
+//   * Lossless can be 16-bit (CD quality) or 24-bit (Hi-Res)
+// - Standard Lossless (CD Quality): 16-bit/44.1kHz, ~96 dB dynamic range
+// - High-Resolution Lossless: 24-bit/96kHz+, ~144 dB dynamic range
 data class ExtendedSongInfo(
     val fileSize: Long = 0,
     val bitrate: String = "Unknown",

@@ -40,6 +40,14 @@ private enum class QualityLevel {
 /**
  * Composable that displays audio quality badges (Lossless, Dolby, Hi-Res, etc.)
  * Updated to use the enhanced AudioQualityDetector for more accurate quality categorization
+ * 
+ * QUALITY BADGE LOGIC:
+ * - Badges are based on codec, sample rate, bit depth, and bitrate analysis
+ * - Lossless formats (ALAC, FLAC, WAV) preserve original audio bit-perfectly
+ * - Lossy formats (MP3, AAC, OGG) are NEVER shown as lossless regardless of bitrate
+ * - Standard Lossless (CD Quality): 16-bit/44.1kHz - shows "LOSSLESS" badge
+ * - High-Resolution Lossless: 24-bit/96kHz+ - shows "HI-RES LOSSLESS" badge
+ * - Bit depth is calculated from bitrate or explicitly provided by the codec
  */
 @Composable
 fun AudioQualityBadges(

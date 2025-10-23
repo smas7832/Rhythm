@@ -11,6 +11,19 @@ import chromahub.rhythm.app.data.Song
 /**
  * Utility class for detecting advanced audio formats and codecs
  * Detects ALAC, Dolby (AC-3, E-AC-3, Dolby Atmos), DTS, and lossless formats
+ * 
+ * LOSSLESS DETECTION LOGIC:
+ * - Lossless formats (ALAC, FLAC, WAV, PCM) preserve all original audio data bit-perfectly
+ * - Lossy formats (MP3, AAC, OGG) discard data during encoding - NEVER lossless
+ * - Detection is based on codec identification, NOT bitrate or bit depth alone
+ * - High bitrate does NOT make lossy codec lossless (e.g., 320kbps MP3 is still lossy)
+ * 
+ * BIT DEPTH CALCULATION:
+ * - For lossless formats, bit depth is calculated from: bitrate / (sample rate × channels)
+ * - Standard CD: 16-bit/44.1kHz = ~1,411 kbps → 16 bits/sample
+ * - Hi-Res: 24-bit/96kHz = ~4,608 kbps → 24 bits/sample
+ * - MediaExtractor often reports PCM decoder format (16-bit) not source bit depth
+ * - We recalculate from bitrate for accurate lossless bit depth determination
  */
 object AudioFormatDetector {
     private const val TAG = "AudioFormatDetector"
@@ -164,7 +177,9 @@ object AudioFormatDetector {
             else -> mime.substringAfter("/").uppercase()
         }
         
-        // Determine if lossless (expanded list)
+        // Determine if lossless based on codec
+        // CRITICAL: Only codecs that preserve bit-perfect audio data are lossless
+        // High bitrate does NOT make lossy codecs lossless (e.g., 320kbps MP3 is still lossy)
         val isLossless = codec in listOf("ALAC", "FLAC", "PCM", "WAV", "APE", "DSD", "TrueHD", "Dolby Atmos", "DTS-HD MA", "AIFF") ||
                          codec.contains("LOSSLESS", ignoreCase = true)
         
