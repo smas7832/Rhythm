@@ -143,7 +143,7 @@ fun AudioQualityBadges(
 
                     AudioQualityDetector.QualityType.DOLBY_LOSSY_SURROUND -> {
                         val badgeText = when {
-                            quality.qualityLabel.contains("Plus") -> "DOLBY D+"
+                            quality.qualityLabel.contains("Plus") -> "DOLBY DIGITAL+"
                             else -> "DOLBY D"
                         }
                         QualityBadge(

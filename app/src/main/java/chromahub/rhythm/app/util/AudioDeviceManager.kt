@@ -78,22 +78,18 @@ class AudioDeviceManager(private val context: Context) {
     }
     
     /**
-     * Show the system output switcher dialog
-     * This is the recommended way to switch audio output devices on Android 13+
+     * Show the native Android media output switcher
+     * On Android 11+ this shows the native MediaOutputDialog (same as Quick Settings)
+     * On older versions, falls back to Sound Settings
      */
     fun showOutputSwitcherDialog() {
         try {
-            // Try to use the OutputSwitcherHelper if we have a FragmentActivity context
-            val activity = context as? androidx.fragment.app.FragmentActivity
-            if (activity != null) {
-                val success = OutputSwitcherHelper.showOutputSwitcher(activity)
-                if (success) {
-                    return
-                }
+            // Use the new OutputSwitcherHelper which handles native dialog on Android 11+
+            val success = OutputSwitcherHelper.showOutputSwitcher(context)
+            if (!success) {
+                Log.w(TAG, "OutputSwitcherHelper failed, trying fallback intent approach")
+                showOutputSwitcherViaIntent()
             }
-            
-            // Fall back to intent-based approach if the above fails
-            showOutputSwitcherViaIntent()
         } catch (e: Exception) {
             Log.e(TAG, "Error showing output switcher dialog: ${e.message}", e)
             // Fall back to the intent approach
