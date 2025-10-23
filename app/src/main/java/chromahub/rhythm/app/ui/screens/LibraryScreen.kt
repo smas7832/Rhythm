@@ -192,6 +192,8 @@ import androidx.compose.material.icons.rounded.ArrowCircleDown
 import androidx.compose.material.icons.rounded.ArrowCircleUp
 import chromahub.rhythm.app.ui.components.RhythmIcons
 import chromahub.rhythm.app.ui.components.M3FourColorCircularLoader
+import chromahub.rhythm.app.util.AudioFormatDetector
+import chromahub.rhythm.app.util.AudioQualityDetector
 
 
 enum class LibraryTab { SONGS, PLAYLISTS, ALBUMS, ARTISTS, EXPLORER }
@@ -1298,142 +1300,179 @@ fun SingleCardSongsContent(
     val context = LocalContext.current
     var selectedCategory by remember { mutableStateOf("All") }
     
-    // Helper function to determine if a song is lossless
-    // Lossless audio preserves all original audio data without degradation (unlike lossy MP3/AAC).
-    // Common lossless formats include ALAC (Apple Lossless), FLAC, WAV, and PCM.
-    // This includes both standard CD quality (16-bit/44.1kHz) and high-resolution (24-bit/96kHz+).
-    // 
-    // IMPORTANT: Bit depth alone does NOT determine if audio is lossless!
-    // - Lossy formats (MP3, AAC, OGG) decode to 16-bit but are NOT lossless
-    // - Lossless formats preserve the original bit-perfect audio data
-    // - Must check codec first before using any bitrate heuristics
+    // Cache for audio quality detection to avoid re-computation
+    val audioQualityCache = remember { mutableMapOf<String, AudioQualityDetector.AudioQuality>() }
+    
+    // Helper function to get or compute audio quality using AudioFormatDetector and AudioQualityDetector
+    // This matches the same logic used in AudioQualityBadges for consistent quality detection
+    suspend fun getAudioQuality(song: Song): AudioQualityDetector.AudioQuality {
+        // Check cache first
+        audioQualityCache[song.id]?.let { return it }
+        
+        return withContext(Dispatchers.IO) {
+            try {
+                // Use AudioFormatDetector for accurate codec and format detection
+                val formatInfo = AudioFormatDetector.detectFormat(context, song.uri, song)
+                
+                // Prefer Song's metadata when available (more reliable)
+                val bitrateKbps = if (song.bitrate != null && song.bitrate!! > 0) {
+                    song.bitrate!! / 1000
+                } else if (formatInfo.bitrateKbps > 0) {
+                    formatInfo.bitrateKbps
+                } else {
+                    0
+                }
+                
+                val sampleRateHz = if (song.sampleRate != null && song.sampleRate!! > 0) {
+                    song.sampleRate!!
+                } else if (formatInfo.sampleRateHz > 0) {
+                    formatInfo.sampleRateHz
+                } else {
+                    0
+                }
+                
+                val channelCount = if (song.channels != null && song.channels!! > 0) {
+                    song.channels!!
+                } else if (formatInfo.channelCount > 0) {
+                    formatInfo.channelCount
+                } else {
+                    2
+                }
+                
+                val codec = formatInfo.codec.ifEmpty { song.codec ?: "Unknown" }
+                val bitDepth = formatInfo.bitDepth
+                
+                // Use AudioQualityDetector for accurate quality classification
+                val quality = AudioQualityDetector.detectQuality(
+                    codec = codec,
+                    sampleRateHz = sampleRateHz,
+                    bitrateKbps = bitrateKbps,
+                    bitDepth = bitDepth,
+                    channelCount = channelCount
+                )
+                
+                // Cache the result
+                audioQualityCache[song.id] = quality
+                quality
+            } catch (e: Exception) {
+                android.util.Log.w("SongsTab", "Error detecting audio quality for ${song.title}: ${e.message}")
+                // Return a default quality on error
+                AudioQualityDetector.AudioQuality(
+                    qualityType = AudioQualityDetector.QualityType.UNKNOWN,
+                    isLossless = false,
+                    isDolby = false,
+                    isDTS = false,
+                    isHiRes = false,
+                    qualityLabel = "Unknown",
+                    qualityDescription = "Quality could not be determined",
+                    bitDepthEstimate = 0,
+                    category = "Unknown"
+                )
+            }
+        }
+    }
+    
+    // Synchronous helper functions for filtering (use cached metadata when possible, fallback to fresh extraction)
     fun isLosslessAudio(song: Song): Boolean {
         val codec = song.codec?.uppercase() ?: ""
+
+        // If we have cached codec data, use it
+        if (codec.isNotEmpty()) {
+            // Check if it's explicitly a LOSSY codec - these are NEVER lossless
+            val isLossyCodec = codec.contains("MP3") || codec.contains("AAC") ||
+                              codec.contains("OGG") || codec.contains("OPUS") ||
+                              codec.contains("VORBIS") || (codec.contains("WMA") && !codec.contains("LOSSLESS"))
+
+            if (isLossyCodec) return false
+
+            // Check if it's explicitly a LOSSLESS codec
+            val isLosslessCodec = codec in listOf("ALAC", "FLAC", "PCM", "WAV", "APE", "DSD", "TRUEHD", "DOLBY ATMOS", "DTS-HD MA", "AIFF", "WV", "TAK", "TTA") ||
+                                 codec.contains("LOSSLESS", ignoreCase = true) ||
+                                 codec.contains("APPLE LOSSLESS", ignoreCase = true)
+
+            if (isLosslessCodec) return true
+        }
+
+        // Fallback: Check file extension for known lossless formats
         val uri = song.uri.toString()
-        
-        // FIRST: Check if it's explicitly a LOSSY codec - these are NEVER lossless
-        val isLossyCodec = codec.contains("MP3") || codec.contains("AAC") || 
-                          codec.contains("OGG") || codec.contains("OPUS") ||
-                          codec.contains("VORBIS") || codec.contains("WMA") && !codec.contains("LOSSLESS")
-        
-        if (isLossyCodec) {
-            return false  // Explicitly lossy - stop here
-        }
-        
-        // SECOND: Check if it's explicitly a LOSSLESS codec
-        val isLosslessCodec = codec in listOf("ALAC", "FLAC", "PCM", "WAV", "APE", "DSD", "TRUEHD", "DOLBY ATMOS", "DTS-HD MA", "APPLE LOSSLESS", "FLAC LOSSLESS") ||
-                              codec.contains("LOSSLESS")
-        
-        if (isLosslessCodec) {
-            return true  // Confirmed lossless
-        }
-        
-        // THIRD: Check file extension (only for known lossless extensions)
-        val isLosslessExtension = uri.contains(".flac", ignoreCase = true) ||
-                                  uri.contains(".wav", ignoreCase = true) ||
-                                  uri.contains(".alac", ignoreCase = true) ||
-                                  uri.contains(".ape", ignoreCase = true) ||
-                                  uri.contains(".dsd", ignoreCase = true) ||
-                                  uri.contains(".aiff", ignoreCase = true) ||
-                                  uri.contains(".aif", ignoreCase = true)
-        
-        if (isLosslessExtension) {
-            return true  // File extension indicates lossless
-        }
-        
-        // FOURTH: Special case for M4A - can be ALAC (lossless) or AAC (lossy)
-        // Only use bitrate heuristics if we have a high bitrate AND confirmed it's not AAC
-        if (uri.contains(".m4a", ignoreCase = true)) {
-            val bitrate = song.bitrate ?: 0
-            val sampleRate = song.sampleRate ?: 0
-            // M4A with very high bitrate (>700 kbps) at CD sample rate is likely ALAC
-            // AAC typically maxes out at 320 kbps
-            return bitrate > 700000 && sampleRate >= 44000 && codec.isEmpty()
-        }
-        
-        // FIFTH: Last resort bitrate heuristics - ONLY if codec is unknown/empty
-        // This should rarely be used as most files have codec information
-        if (codec.isEmpty() || codec == "UNKNOWN") {
-            val bitrate = song.bitrate ?: 0
-            val sampleRate = song.sampleRate ?: 0
-            val channels = song.channels ?: 2
-            
-            // Calculate expected bit depth from bitrate
-            if (bitrate > 900000 && sampleRate >= 44000 && channels > 0) {
-                val bitrateKbps = bitrate / 1000
-                val calculatedBitDepth = (bitrateKbps * 1000) / (sampleRate * channels)
-                // Only consider lossless if calculated bit depth is reasonable (>= 12)
-                // This prevents low-quality files from being misclassified
-                return calculatedBitDepth >= 12
-            }
-            return false
-        }
-        
-        // Default: If we can't confirm it's lossless, assume it's lossy
+        val isLosslessExtension = uri.endsWith(".flac", ignoreCase = true) ||
+                                  uri.endsWith(".wav", ignoreCase = true) ||
+                                  uri.endsWith(".alac", ignoreCase = true) ||
+                                  uri.endsWith(".ape", ignoreCase = true) ||
+                                  uri.endsWith(".aiff", ignoreCase = true) ||
+                                  uri.endsWith(".aif", ignoreCase = true) ||
+                                  uri.endsWith(".dsd", ignoreCase = true) ||
+                                  uri.endsWith(".wv", ignoreCase = true) ||
+                                  uri.endsWith(".tta", ignoreCase = true) ||
+                                  uri.endsWith(".tak", ignoreCase = true)
+
+        if (isLosslessExtension) return true
+
         return false
     }
 
-    // Helper function to determine if a song is Hi-Res Lossless
-    // Based on Apple Music and industry standards:
-    // - Hi-Res Lossless: Sample rate ≥ 48 kHz AND Bit depth = 24-bit
-    // - Must be truly lossless (ALAC, FLAC, WAV, etc.)
-    // Sample rates: 48 kHz, 96 kHz, 192 kHz with 24-bit depth
-    // Bitrate range: ~2,300 kbps (48kHz) to 9,200+ kbps (192kHz)
     fun isHiResLossless(song: Song): Boolean {
-        if (!isLosslessAudio(song)) return false
-        
+        if (!isLosslessAudio(song)) {
+            android.util.Log.d("SongsTab", "Song ${song.title} is not lossless")
+            return false
+        }
+
         val sampleRate = song.sampleRate ?: 0
         val bitrate = song.bitrate ?: 0
         val channels = song.channels ?: 2
-        
-        // Hi-Res Lossless requires:
-        // 1. Sample rate ≥ 48 kHz (above CD's 44.1kHz), AND
-        // 2. Bit depth = 24-bit (calculated from bitrate)
-        
-        // MUST have sample rate ≥ 48 kHz for Hi-Res
-        if (sampleRate < 48000) return false
-        
-        // Calculate bit depth from bitrate: bits per sample = bitrate / (sample rate × channels)
-        // This determines if the audio is 24-bit (Hi-Res) or 16-bit (CD quality)
+
+        // Hi-Res Lossless requires ≥48kHz sample rate
+        if (sampleRate < 48000) {
+            android.util.Log.d("SongsTab", "Song ${song.title} sample rate $sampleRate < 48000, not Hi-Res")
+            return false
+        }
+
+        // For known Hi-Res sample rates, consider them Hi-Res even without bitrate calculation
+        if (sampleRate >= 88200) {
+            android.util.Log.d("SongsTab", "Song ${song.title} has Hi-Res sample rate $sampleRate")
+            return true // 88.2kHz, 96kHz, 176.4kHz, 192kHz etc.
+        }
+
+        // Calculate bit depth using improved AudioFormatDetector logic
         if (bitrate > 0 && sampleRate > 0 && channels > 0) {
             val bitrateKbps = bitrate / 1000
             val calculatedBitDepth = (bitrateKbps * 1000) / (sampleRate * channels)
-            // Hi-Res requires 24-bit: calculatedBitDepth >= 20 indicates 24-bit
-            // Examples: 48kHz/24-bit/stereo = ~2,300 kbps → 24 bits/sample
-            //           96kHz/24-bit/stereo = ~4,600 kbps → 24 bits/sample
-            //           192kHz/24-bit/stereo = ~9,200 kbps → 24 bits/sample
-            if (calculatedBitDepth >= 20) return true
+            // Use AudioFormatDetector thresholds: >= 20 bits/sample = 24-bit
+            // But be more lenient for Hi-Res detection
+            android.util.Log.d("SongsTab", "Song ${song.title} bit depth calculation: bitrate=${bitrateKbps}kbps, sampleRate=$sampleRate, channels=$channels, calculatedBitDepth=$calculatedBitDepth")
+            if (calculatedBitDepth >= 18) {
+                android.util.Log.d("SongsTab", "Song ${song.title} qualifies as Hi-Res with bit depth $calculatedBitDepth")
+                return true // Allow some margin for calculation errors
+            }
         }
-        
-        // Fallback: If sample rate is very high (≥96 kHz), assume 24-bit Hi-Res
-        if (sampleRate >= 96000) return true
-        
+
+        // Fallback: High bitrate lossless at 48kHz or higher is likely Hi-Res
+        if (bitrate >= 2000000 && sampleRate >= 48000) {
+            android.util.Log.d("SongsTab", "Song ${song.title} qualifies as Hi-Res with high bitrate $bitrate")
+            return true // 2Mbps+ at 48kHz+
+        }
+
+        android.util.Log.d("SongsTab", "Song ${song.title} does not qualify as Hi-Res")
         return false
     }
     
-    // Helper function to determine if a song is regular Lossless (CD quality)
-    // Standard CD Quality: 44.1 kHz sample rate, 16-bit depth
-    // Bitrate: ~1,411 kbps uncompressed
     fun isRegularLossless(song: Song): Boolean {
-        val sampleRate = song.sampleRate ?: 0
+        // Regular Lossless = Lossless but NOT Hi-Res
+        // This ensures mutual exclusivity between "Lossless" and "Hi-Res Lossless" filters
         val lossless = isLosslessAudio(song)
-        // CD quality: 44.1 kHz (or up to 48 kHz if 16-bit)
-        // But NOT Hi-Res (which requires ≥48 kHz AND 24-bit)
-        return lossless && !isHiResLossless(song)
-    }
-
-    // Helper function to determine if a song is Hi-Res using AudioQualityDetector logic
-    fun isHiResAudio(song: Song): Boolean {
-        val sampleRate = song.sampleRate ?: 0
-        val bitrate = song.bitrate ?: 0
-        val bitrateKbps = bitrate / 1000
-        val lossless = isLosslessAudio(song)
+        if (!lossless) return false
         
-        // Hi-Res if >= 48kHz OR lossless with >2000 kbps
-        return sampleRate >= 48000 || (lossless && bitrateKbps >= 2000)
+        // IMPORTANT: Check if it's Hi-Res and exclude it
+        val hiRes = isHiResLossless(song)
+        if (hiRes) {
+            android.util.Log.d("SongsTab", "Song ${song.title} is Hi-Res, excluding from Regular Lossless")
+            return false
+        }
+        
+        android.util.Log.d("SongsTab", "Song ${song.title} qualifies as Regular Lossless (not Hi-Res)")
+        return true
     }
 
-    // Helper function to determine if a song is Dolby/Surround
     fun isDolbyOrSurround(song: Song): Boolean {
         val codec = song.codec?.uppercase() ?: ""
         return (song.channels ?: 2) > 2 || // Multi-channel audio
@@ -1452,12 +1491,12 @@ fun SingleCardSongsContent(
         android.util.Log.d("SongsTab", "Recomputing categories for ${songs.size} songs")
 
         // Audio Quality Filters (Mutually Exclusive) - Most specific first
-        
+
         // Hi-Res Lossless (≥48 kHz + 24-bit lossless)
         val hiResLosslessSongs = songs.filter { isHiResLossless(it) && !isDolbyOrSurround(it) }
         android.util.Log.d("SongsTab", "Found ${hiResLosslessSongs.size} Hi-Res Lossless songs")
         if (hiResLosslessSongs.isNotEmpty()) allCategories.add("Hi-Res Lossless")
-        
+
         // Regular Lossless (CD quality: 44.1kHz/16-bit or 48kHz/16-bit)
         val regularLosslessSongs = songs.filter { isRegularLossless(it) && !isDolbyOrSurround(it) }
         android.util.Log.d("SongsTab", "Found ${regularLosslessSongs.size} Lossless (CD Quality) songs")
@@ -1466,9 +1505,7 @@ fun SingleCardSongsContent(
         // Dolby (includes AC-3, E-AC-3/D+, TrueHD, Atmos, DTS in 5.1, 7.1, etc.)
         val dolbySongs = songs.filter { isDolbyOrSurround(it) }
         android.util.Log.d("SongsTab", "Found ${dolbySongs.size} Dolby/Surround songs")
-        if (dolbySongs.isNotEmpty()) allCategories.add("Dolby")
-
-        // Stereo (standard 2-channel, non-quality filtered) - HIDDEN per user request
+        if (dolbySongs.isNotEmpty()) allCategories.add("Dolby")        // Stereo (standard 2-channel, non-quality filtered) - HIDDEN per user request
         val stereoSongs = songs.filter { song ->
             (song.channels ?: 2) == 2 && !isDolbyOrSurround(song)
         }
@@ -2134,141 +2171,90 @@ fun SongsTab(
     val context = LocalContext.current
     var selectedCategory by remember { mutableStateOf("All") }
     
-    // Helper function to determine if a song is lossless
-    // Lossless audio preserves all original audio data without degradation (unlike lossy MP3/AAC).
-    // Common lossless formats include ALAC (Apple Lossless), FLAC, WAV, and PCM.
-    // This includes both standard CD quality (16-bit/44.1kHz) and high-resolution (24-bit/96kHz+).
-    // 
-    // IMPORTANT: Bit depth alone does NOT determine if audio is lossless!
-    // - Lossy formats (MP3, AAC, OGG) decode to 16-bit but are NOT lossless
-    // - Lossless formats preserve the original bit-perfect audio data
-    // - Must check codec first before using any bitrate heuristics
+    // Helper functions for quality detection (needed for this deprecated function)
     fun isLosslessAudio(song: Song): Boolean {
         val codec = song.codec?.uppercase() ?: ""
+
+        // If we have cached codec data, use it
+        if (codec.isNotEmpty()) {
+            return codec == "FLAC" ||
+                   codec == "ALAC" ||
+                   codec == "APE" ||
+                   codec == "WAV" ||
+                   codec == "AIFF" ||
+                   codec == "WV" ||  // WavPack
+                   codec == "TAK" || // TAK lossless
+                   codec == "TTA" || // True Audio
+                   codec.contains("PCM") ||
+                   codec.contains("LOSSLESS")
+        }
+
+        // Fallback: Check file extension for known lossless formats
         val uri = song.uri.toString()
-        
-        // FIRST: Check if it's explicitly a LOSSY codec - these are NEVER lossless
-        val isLossyCodec = codec.contains("MP3") || codec.contains("AAC") || 
-                          codec.contains("OGG") || codec.contains("OPUS") ||
-                          codec.contains("VORBIS") || codec.contains("WMA") && !codec.contains("LOSSLESS")
-        
-        if (isLossyCodec) {
-            return false  // Explicitly lossy - stop here
-        }
-        
-        // SECOND: Check if it's explicitly a LOSSLESS codec
-        val isLosslessCodec = codec in listOf("ALAC", "FLAC", "PCM", "WAV", "APE", "DSD", "TRUEHD", "DOLBY ATMOS", "DTS-HD MA", "APPLE LOSSLESS", "FLAC LOSSLESS") ||
-                              codec.contains("LOSSLESS")
-        
-        if (isLosslessCodec) {
-            return true  // Confirmed lossless
-        }
-        
-        // THIRD: Check file extension (only for known lossless extensions)
-        val isLosslessExtension = uri.contains(".flac", ignoreCase = true) ||
-                                  uri.contains(".wav", ignoreCase = true) ||
-                                  uri.contains(".alac", ignoreCase = true) ||
-                                  uri.contains(".ape", ignoreCase = true) ||
-                                  uri.contains(".dsd", ignoreCase = true) ||
-                                  uri.contains(".aiff", ignoreCase = true) ||
-                                  uri.contains(".aif", ignoreCase = true)
-        
-        if (isLosslessExtension) {
-            return true  // File extension indicates lossless
-        }
-        
-        // FOURTH: Special case for M4A - can be ALAC (lossless) or AAC (lossy)
-        // Only use bitrate heuristics if we have a high bitrate AND confirmed it's not AAC
-        if (uri.contains(".m4a", ignoreCase = true)) {
-            val bitrate = song.bitrate ?: 0
-            val sampleRate = song.sampleRate ?: 0
-            // M4A with very high bitrate (>700 kbps) at CD sample rate is likely ALAC
-            // AAC typically maxes out at 320 kbps
-            return bitrate > 700000 && sampleRate >= 44000 && codec.isEmpty()
-        }
-        
-        // FIFTH: Last resort bitrate heuristics - ONLY if codec is unknown/empty
-        // This should rarely be used as most files have codec information
-        if (codec.isEmpty() || codec == "UNKNOWN") {
-            val bitrate = song.bitrate ?: 0
-            val sampleRate = song.sampleRate ?: 0
-            val channels = song.channels ?: 2
-            
-            // Calculate expected bit depth from bitrate
-            if (bitrate > 900000 && sampleRate >= 44000 && channels > 0) {
-                val bitrateKbps = bitrate / 1000
-                val calculatedBitDepth = (bitrateKbps * 1000) / (sampleRate * channels)
-                // Only consider lossless if calculated bit depth is reasonable (>= 12)
-                // This prevents low-quality files from being misclassified
-                return calculatedBitDepth >= 12
-            }
-            return false
-        }
-        
-        // Default: If we can't confirm it's lossless, assume it's lossy
+        val isLosslessExtension = uri.endsWith(".flac", ignoreCase = true) ||
+                                  uri.endsWith(".alac", ignoreCase = true) ||
+                                  uri.endsWith(".ape", ignoreCase = true) ||
+                                  uri.endsWith(".wav", ignoreCase = true) ||
+                                  uri.endsWith(".aiff", ignoreCase = true) ||
+                                  uri.endsWith(".wv", ignoreCase = true) ||
+                                  uri.endsWith(".tak", ignoreCase = true) ||
+                                  uri.endsWith(".tta", ignoreCase = true) ||
+                                  (uri.endsWith(".m4a", ignoreCase = true) && (song.bitrate ?: 0) >= 700000)
+
+        if (isLosslessExtension) return true
+
         return false
     }
 
-    // Helper function to determine if a song is Hi-Res Lossless
-    // Based on Apple Music and industry standards:
-    // - Hi-Res Lossless: Sample rate ≥ 48 kHz AND Bit depth = 24-bit
-    // - Must be truly lossless (ALAC, FLAC, WAV, etc.)
-    // Sample rates: 48 kHz, 96 kHz, 192 kHz with 24-bit depth
-    // Bitrate range: ~2,300 kbps (48kHz) to 9,200+ kbps (192kHz)
     fun isHiResLossless(song: Song): Boolean {
-        if (!isLosslessAudio(song)) return false
-        
+        if (!isLosslessAudio(song)) {
+            return false
+        }
+
         val sampleRate = song.sampleRate ?: 0
         val bitrate = song.bitrate ?: 0
         val channels = song.channels ?: 2
-        
-        // Hi-Res Lossless requires:
-        // 1. Sample rate ≥ 48 kHz (above CD's 44.1kHz), AND
-        // 2. Bit depth = 24-bit (calculated from bitrate)
-        
-        // MUST have sample rate ≥ 48 kHz for Hi-Res
-        if (sampleRate < 48000) return false
-        
-        // Calculate bit depth from bitrate: bits per sample = bitrate / (sample rate × channels)
-        // This determines if the audio is 24-bit (Hi-Res) or 16-bit (CD quality)
-        if (bitrate > 0 && sampleRate > 0 && channels > 0) {
-            val bitrateKbps = bitrate / 1000
-            val calculatedBitDepth = (bitrateKbps * 1000) / (sampleRate * channels)
-            // Hi-Res requires 24-bit: calculatedBitDepth >= 20 indicates 24-bit
-            // Examples: 48kHz/24-bit/stereo = ~2,300 kbps → 24 bits/sample
-            //           96kHz/24-bit/stereo = ~4,600 kbps → 24 bits/sample
-            //           192kHz/24-bit/stereo = ~9,200 kbps → 24 bits/sample
-            if (calculatedBitDepth >= 20) return true
+
+        // Hi-Res Lossless requires ≥48kHz sample rate
+        if (sampleRate < 48000) {
+            return false
         }
-        
-        // Fallback: If sample rate is very high (≥96 kHz), assume 24-bit Hi-Res
-        if (sampleRate >= 96000) return true
-        
+
+        // For known Hi-Res sample rates, consider them Hi-Res even without bitrate calculation
+        if (sampleRate >= 88200) {
+            return true
+        }
+
+        // Calculate bit depth using improved AudioFormatDetector logic
+        if (bitrate > 0 && sampleRate > 0 && channels > 0) {
+            val bitsPerSample = bitrate.toDouble() / (sampleRate.toDouble() * channels.toDouble())
+            if (bitsPerSample >= 18) {  // Lowered threshold from 20 to 18 for calculation variance
+                return true
+            }
+        }
+
+        // Fallback: High bitrate lossless at 48kHz or higher is likely Hi-Res
+        if (bitrate >= 2000000 && sampleRate >= 48000) {
+            return true
+        }
+
         return false
     }
     
-    // Helper function to determine if a song is regular Lossless (CD quality)
-    // Standard CD Quality: 44.1 kHz sample rate, 16-bit depth
-    // Bitrate: ~1,411 kbps uncompressed
     fun isRegularLossless(song: Song): Boolean {
-        val sampleRate = song.sampleRate ?: 0
+        // Regular Lossless = Lossless but NOT Hi-Res
         val lossless = isLosslessAudio(song)
-        // CD quality: 44.1 kHz (or up to 48 kHz if 16-bit)
-        // But NOT Hi-Res (which requires ≥48 kHz AND 24-bit)
-        return lossless && !isHiResLossless(song)
-    }
-
-    // Helper function to determine if a song is Hi-Res using AudioQualityDetector logic
-    fun isHiResAudio(song: Song): Boolean {
-        val sampleRate = song.sampleRate ?: 0
-        val bitrate = song.bitrate ?: 0
-        val bitrateKbps = bitrate / 1000
-        val lossless = isLosslessAudio(song)
+        if (!lossless) return false
         
-        // Hi-Res if >= 48kHz OR lossless with >2000 kbps
-        return sampleRate >= 48000 || (lossless && bitrateKbps >= 2000)
+        // IMPORTANT: Check if it's Hi-Res and exclude it
+        val hiRes = isHiResLossless(song)
+        if (hiRes) {
+            return false
+        }
+        
+        return true
     }
-
+    
     // Helper function to determine if a song is Dolby/Surround
     fun isDolbyOrSurround(song: Song): Boolean {
         val codec = song.codec?.uppercase() ?: ""
@@ -2292,12 +2278,22 @@ fun SongsTab(
         // Hi-Res Lossless (≥48 kHz + 24-bit lossless)
         val hiResLosslessSongs = songs.filter { isHiResLossless(it) && !isDolbyOrSurround(it) }
         android.util.Log.d("SongsTab", "Found ${hiResLosslessSongs.size} Hi-Res Lossless songs")
-        if (hiResLosslessSongs.isNotEmpty()) allCategories.add("Hi-Res Lossless")
+        if (hiResLosslessSongs.isNotEmpty()) {
+            hiResLosslessSongs.take(3).forEach { song ->
+                android.util.Log.d("SongsTab", "Hi-Res Lossless: ${song.title} - codec=${song.codec}, sampleRate=${song.sampleRate}, bitrate=${song.bitrate}")
+            }
+            allCategories.add("Hi-Res Lossless")
+        }
         
         // Regular Lossless (CD quality: 44.1kHz/16-bit or 48kHz/16-bit)
         val regularLosslessSongs = songs.filter { isRegularLossless(it) && !isDolbyOrSurround(it) }
         android.util.Log.d("SongsTab", "Found ${regularLosslessSongs.size} Lossless (CD Quality) songs")
-        if (regularLosslessSongs.isNotEmpty()) allCategories.add("Lossless")
+        if (regularLosslessSongs.isNotEmpty()) {
+            regularLosslessSongs.take(3).forEach { song ->
+                android.util.Log.d("SongsTab", "Regular Lossless: ${song.title} - codec=${song.codec}, sampleRate=${song.sampleRate}, bitrate=${song.bitrate}")
+            }
+            allCategories.add("Lossless")
+        }
         
         // Dolby (includes AC-3, E-AC-3/D+, TrueHD, Atmos, DTS in 5.1, 7.1, etc.)
         val dolbySongs = songs.filter { isDolbyOrSurround(it) }

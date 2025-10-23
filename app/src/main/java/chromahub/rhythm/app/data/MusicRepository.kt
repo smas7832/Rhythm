@@ -36,6 +36,7 @@ import java.io.File
 import java.net.URL
 import chromahub.rhythm.app.data.LyricsData
 import java.lang.ref.WeakReference
+import chromahub.rhythm.app.util.AudioFormatDetector
 
 class MusicRepository(context: Context) {
     private val TAG = "MusicRepository"
@@ -2652,15 +2653,16 @@ class MusicRepository(context: Context) {
 
             batch.forEach { song ->
                 try {
-                    val metadata = extractAudioMetadata(song.uri)
+                    // Use AudioFormatDetector for more accurate metadata extraction
+                    val formatInfo = AudioFormatDetector.detectFormat(context, song.uri, song)
                     
-                    Log.d(TAG, "Extracted metadata for ${song.title}: bitrate=${metadata.bitrate}, sampleRate=${metadata.sampleRate}, channels=${metadata.channels}, codec=${metadata.codec}")
+                    Log.d(TAG, "Extracted metadata for ${song.title}: codec=${formatInfo.codec}, bitrate=${formatInfo.bitrateKbps}kbps, sampleRate=${formatInfo.sampleRateHz}Hz, channels=${formatInfo.channelCount}, bitDepth=${formatInfo.bitDepth}")
                     
                     val updatedSong = song.copy(
-                        bitrate = metadata.bitrate,
-                        sampleRate = metadata.sampleRate,
-                        channels = metadata.channels,
-                        codec = metadata.codec
+                        bitrate = if (formatInfo.bitrateKbps > 0) formatInfo.bitrateKbps * 1000 else null,
+                        sampleRate = if (formatInfo.sampleRateHz > 0) formatInfo.sampleRateHz else null,
+                        channels = if (formatInfo.channelCount > 0) formatInfo.channelCount else null,
+                        codec = if (formatInfo.codec != "Unknown") formatInfo.codec else null
                     )
                     updatedSongs.add(updatedSong)
                     
